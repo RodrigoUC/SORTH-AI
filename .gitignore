@@ -1,0 +1,21 @@
+Activar
+project_root/data/input/Cursos Biología.xlsx
+project_root/dist/Cursos_Biologia.xlsx
+project_root/dist/MANUAL_USUARIO.pdf
+project_root/dist/SORTH.exe
+project_root/dist/SORTH.zip
+
+# Local Python/build state (historical tracked outputs are not removed here)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+project_root/build/
+project_root/dist/
+project_root/data/*.db
+project_root/.venv-build/
+project_root/MANUAL_USUARIO.pdf
+
+# Generated schedules contain user data and are never source assets
+project_root/data/output/

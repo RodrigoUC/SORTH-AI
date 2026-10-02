@@ -1,0 +1,88 @@
+{
+  "courses": [
+    {
+      "code": "DEM101",
+      "name": "Pensamiento lógico (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-1"
+    },
+    {
+      "code": "DEM102",
+      "name": "Diseño de proyectos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-2"
+    },
+    {
+      "code": "DEM103",
+      "name": "Comunicación visual (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-3"
+    },
+    {
+      "code": "DEM104",
+      "name": "Modelos y patrones (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-4"
+    },
+    {
+      "code": "DEM105",
+      "name": "Exploración de datos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-5"
+    },
+    {
+      "code": "DEM106",
+      "name": "Trabajo colaborativo (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-6"
+    },
+    {
+      "code": "DEM107",
+      "name": "Sistemas y procesos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-1"
+    },
+    {
+      "code": "DEM108",
+      "name": "Presentación de ideas (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "A-DEMO-2"
+    },
+    {
+      "code": "DEM109",
+      "name": "Taller de prototipos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 1.5,
+      "suggested_classroom": "A-DEMO-3"
+    },
+    {
+      "code": "DEM110",
+      "name": "Proyecto integrador (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 6,
+      "suggested_classroom": "A-DEMO-4"
+    },
+    {
+      "code": "DEM111L",
+      "name": "Laboratorio de modelos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "L-DEMO-1"
+    },
+    {
+      "code": "DEM112L",
+      "name": "Laboratorio de prototipos (ejemplo)",
+      "number_of_groups": 3,
+      "duration": 2,
+      "suggested_classroom": "L-DEMO-2"
+    }
+  ]
+}

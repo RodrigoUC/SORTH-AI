@@ -1,0 +1,99 @@
+name: Windows review build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-build-and-smoke:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: project_root
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: '1'
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact reviewed commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install fixed Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12.10'
+          architecture: x64
+      - name: Install hash-locked build environment
+        run: |
+          python -m venv .venv-build
+          .\.venv-build\Scripts\python.exe -m pip install --require-hashes --only-binary=:all: -r requirements-windows.lock
+          if ($LASTEXITCODE -ne 0) { throw 'Locked installation failed.' }
+          .\.venv-build\Scripts\python.exe -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency validation failed.' }
+          New-Item -ItemType Directory -Force build/reports | Out-Null
+          .\.venv-build\Scripts\python.exe -m pip freeze | Out-File -Encoding utf8 build/reports/build-environment.txt
+      - name: Run all regression tests
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -q --junitxml=build/reports/tests.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+      - name: Generate current manual
+        run: |
+          .\.venv-build\Scripts\python.exe tools/build_manual.py --output build/docs/MANUAL_USUARIO.pdf
+          if ($LASTEXITCODE -ne 0) { throw 'Manual generation failed.' }
+      - name: Build unsigned onedir application
+        run: .\build_exe.ps1
+      - name: Validate packaged application in an isolated session
+        run: |
+          $smokeDir = Join-Path $PWD 'build/reports/packaged-smoke'
+          $process = Start-Process -FilePath 'dist/SORTH/SORTH.exe' -ArgumentList @('--smoke-test', '--smoke-output', "`"$smokeDir`"") -PassThru
+          if (-not $process.WaitForExit(120000)) {
+            $process.Kill()
+            throw 'Packaged application timed out.'
+          }
+          if ($process.ExitCode -ne 0) { throw "Packaged app exited with $($process.ExitCode)." }
+          $result = Get-Content (Join-Path $smokeDir 'smoke-result.json') -Raw | ConvertFrom-Json
+          if (-not $result.ok -or -not $result.frozen -or $result.assigned -ne $result.groups) {
+            throw 'Packaged smoke validation failed.'
+          }
+          Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."
+      - name: Prepare unsigned review ZIP and checksums
+        run: |
+          .\.venv-build\Scripts\python.exe tools/package_windows.py --commit $env:SOURCE_COMMIT
+          if ($LASTEXITCODE -ne 0) { throw 'Review packaging failed.' }
+      - name: Upload review package and current manual
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: SORTH-windows-review-${{ github.run_id }}
+          path: |
+            project_root/build/artifacts/
+            project_root/build/docs/MANUAL_USUARIO.pdf
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload test and smoke evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: SORTH-windows-checks-${{ github.run_id }}
+          path: |
+            project_root/build/reports/*.txt
+            project_root/build/reports/*.xml
+            project_root/build/reports/packaged-smoke/*.json
+            project_root/build/reports/packaged-smoke/*.png
+            project_root/build/reports/packaged-smoke/*.xlsx
+            project_root/build/reports/packaged-smoke/*.csv
+          if-no-files-found: ignore
+          retention-days: 7

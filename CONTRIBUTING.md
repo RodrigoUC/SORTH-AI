@@ -1,0 +1,45 @@
+# Contribuir a SORTH
+
+Gracias por ayudar a mejorar la organización de horarios académicos. Puedes reportar errores, mejorar documentación, proponer funciones o enviar cambios pequeños y comprobables. Aceptamos issues y PRs en español o inglés.
+
+## Antes de empezar
+
+- Busca un issue existente y lee [soporte](SUPPORT.md), [conducta](CODE_OF_CONDUCT.md) y [seguridad](SECURITY.md).
+- Para cambios amplios, describe primero el problema, el alcance y cómo comprobarías la solución en un issue.
+- Usa datos sintéticos. No subas bases de sesión, planillas institucionales, nombres de estudiantes, credenciales ni rutas personales.
+- Las contribuciones de código destinadas a integrarse en SORTH deben ser compatibles con [GPL-3.0-only](LICENSING.md). Declara la procedencia y licencia de código o recursos externos. Conservas la titularidad de tu aporte; no se exige una cesión ni un CLA. No incluyas material que no tengas derecho a aportar.
+
+## Entorno de desarrollo
+
+La referencia del empaquetado Windows es CPython 3.12.10 x64. Otras versiones o plataformas requieren su propia validación.
+
+```sh
+git clone https://github.com/RodrigoUC/SORTH-AI.git
+cd SORTH-AI/project_root
+python -m venv .venv
+```
+
+Activa el entorno con `.venv\Scripts\Activate.ps1` en PowerShell o `source .venv/bin/activate` en Linux/macOS. Después:
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m pip check
+python gui_app.py
+python -m pytest -q
+```
+
+En un entorno sin pantalla, ejecuta los tests con `QT_QPA_PLATFORM=offscreen` (PowerShell: `$env:QT_QPA_PLATFORM="offscreen"`; Linux/macOS: `export QT_QPA_PLATFORM=offscreen`). Esto no sustituye la revisión visual en un escritorio real.
+
+Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](project_root/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
+
+## Organización y revisión
+
+- La aplicación está en `project_root/`: dominio en `src/scheduling`, orquestación en `src/application`, archivos/persistencia en `src/infrastructure` e interfaz en `src/gui`.
+- Mantén cada PR enfocado. Evita reformatear archivos no relacionados o cambiar el lock sin necesidad.
+- Añade una prueba de regresión para cada fallo corregido. Conserva semilla, datos y restricciones al comparar resultados del planificador.
+- Para GUI, adjunta capturas sin información privada y verifica teclado, escalado, cancelación, repetición y restauración de sesión. Revisa `DESIGN.md` si está presente.
+- Para importación/exportación, comprueba archivos mínimos, vacíos e inválidos y vuelve a abrir los archivos exportados.
+- Actualiza documentación si cambian formatos, comandos, comportamiento o compatibilidad.
+- Abre el PR como borrador mientras falten pruebas; indica qué pasó, qué falló y qué no se pudo ejecutar. No declares soporte de una plataforma sólo por pasar tests sin pantalla.
+
+El mantenedor revisa alcance, corrección, pruebas, privacidad y licencias antes de integrar. Un PR puede requerir ajustes o quedar fuera de alcance. No hay un tiempo de respuesta garantizado.

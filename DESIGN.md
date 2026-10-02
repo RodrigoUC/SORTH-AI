@@ -1,0 +1,48 @@
+# SORTH desktop design
+
+## Product and audience
+Spanish-first native PyQt6 application for academic timetable planning. The primary task is reviewing courses, generating a schedule, checking pending sessions and exporting the result. Spanish and English are selectable in the masthead. Additional locales use a central language registry and independent catalogs; see `project_root/LOCALIZATION.md`.
+
+## Direction
+Professional academic workspace with a more recognizable identity than the previous all-blue/gray surface. A navy masthead anchors the application. Teal marks the principal scheduling action and overview. Violet marks active navigation and keyboard focus. Pale reading surfaces keep dense course and schedule tables comfortable.
+
+## Runtime source of truth
+`project_root/src/gui/theme.py` owns semantic `COLORS` and the shared Qt stylesheet. Roles use English identifiers independent of displayed language. `main_window.py` assigns brandHeader/headerAction roles; schedule consultation assigns mutedText/dangerAction roles. No behavior, text, schedule allocation or exported data changes.
+
+## Color roles
+- Canvas: #EFF3F9; reading surface: #FFFFFF; alternate row: #F3F6FC
+- Navy identity/table header: #183153; white text; secondary header text #D3E5FA
+- Main action: #087F83; hover #066B70; pressed #055A61; white text
+- Active tab/focus: #6545AD; soft accent #EFE9FA
+- Body text: #1D2D44; secondary text and placeholders: #52647D
+- Control boundaries: #7688A1; passive dividers: #D6DFEB
+- Disabled surface/text: #E1E7F0 / #56667D
+- Success: #246448 / #E3F3EA; caution: #88551A / #FFF0D5; danger: #A12D46 / #FCE8EC
+
+## Components and behavior
+Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a 2px contrasting boundary. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
+
+## Localization behavior
+The language selector uses native language names and the shared navy header contrast token. Switching updates only marked presentation properties on existing Qt controls, retaining editing state, focus, filters and selection. The locale applies to owned widgets, never to the operating system or persisted domain data. Exact schedule times remain HH:mm and CSV/Excel use their existing Spanish headers and day names in every interface language. Native system file pickers retain the OS language. Future RTL languages require a dedicated layout review before release.
+
+## Verification and limits
+`tests/test_gui/test_theme.py` checks text ≥4.5:1, control/focus boundaries ≥3:1, schedule label contrast and packaged sorting icons. Real Qt screenshots cover list, classroom grid, course management, narrow layout, filters, pending/conflicting sessions and keyboard focus. Palette ratios are not a complete accessibility certification. Linux Qt offscreen/Fusion captures are development previews, not evidence of native Windows rendering. Confirm the Windows review workflow and native appearance before a release.
+
+## Motion and accessibility preference
+`project_root/src/gui/motion.py` owns native Qt motion. Tab/view changes and
+replacement schedule results reveal from 90% to full opacity in 150 ms with
+OutCubic easing. There is at most one effect; no per-row/per-cell animation,
+geometry animation, stagger, startup sequence, or delayed input. Effects are
+removed after finishing and cancelled on newer navigation, hide, resize, close,
+or target deletion. Native table rendering resumes without a persistent effect.
+
+The always-visible status-bar checkbox **Reducir animaciones** persists separately
+from schedule data via QSettings `SORTH/SORTH`, `interface/reduced_motion`. Enabling
+it immediately cancels transitions and replaces the indeterminate generation bar
+with a static **En curso** label, without a fabricated percentage. Status text and
+all scheduling state remain unchanged. This explicit preference does not claim
+automatic detection of the operating system's reduced-motion setting.
+
+Motion QA uses real Qt event-loop tests, recorded Qt frames, and screenshots at
+1200×800 and 960×640; screenshots alone cannot establish animation behavior.
+Native Windows timing and screen-reader announcement behavior require platform QA.

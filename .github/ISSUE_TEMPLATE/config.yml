@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Seguridad / Security
+    url: https://github.com/RodrigoUC/SORTH-AI/security/policy
+    about: Lee la política antes de reportar una vulnerabilidad; no publiques detalles sensibles.
