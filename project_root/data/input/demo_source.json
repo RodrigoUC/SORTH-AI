@@ -1,0 +1,365 @@
+{
+  "Aulas": [
+    [
+      "# DE AULA",
+      "DESCRIPCIÓN",
+      "CAMPUS",
+      "CAPACIDAD",
+      "CAPACIDAD 80%"
+    ],
+    [
+      "A-DEMO-1",
+      "Aula de ejemplo 1",
+      "DEMO",
+      35,
+      28
+    ],
+    [
+      "A-DEMO-2",
+      "Aula de ejemplo 2",
+      "DEMO",
+      40,
+      32
+    ],
+    [
+      "A-DEMO-3",
+      "Aula de ejemplo 3",
+      "DEMO",
+      45,
+      36
+    ],
+    [
+      "A-DEMO-4",
+      "Aula de ejemplo 4",
+      "DEMO",
+      50,
+      40
+    ],
+    [
+      "A-DEMO-5",
+      "Aula de ejemplo 5",
+      "DEMO",
+      55,
+      44
+    ],
+    [
+      "A-DEMO-6",
+      "Aula de ejemplo 6",
+      "DEMO",
+      60,
+      48
+    ],
+    [
+      "L-DEMO-1",
+      "Laboratorio de ejemplo 1",
+      "DEMO",
+      24,
+      19
+    ],
+    [
+      "L-DEMO-2",
+      "Laboratorio de ejemplo 2",
+      "DEMO",
+      24,
+      19
+    ]
+  ],
+  "Cursos": [
+    [
+      "Curso",
+      "Nombre de Curso",
+      "Cantidad de Grupos",
+      "Horas",
+      "Aula",
+      "Días"
+    ],
+    [
+      "DEM101",
+      "Pensamiento lógico (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "L"
+    ],
+    [
+      "DEM101",
+      "Pensamiento lógico (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "M"
+    ],
+    [
+      "DEM101",
+      "Pensamiento lógico (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "V"
+    ],
+    [
+      "DEM102",
+      "Diseño de proyectos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "I"
+    ],
+    [
+      "DEM102",
+      "Diseño de proyectos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "J"
+    ],
+    [
+      "DEM102",
+      "Diseño de proyectos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "S"
+    ],
+    [
+      "DEM103",
+      "Comunicación visual (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-3",
+      "M"
+    ],
+    [
+      "DEM103",
+      "Comunicación visual (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-3",
+      "V"
+    ],
+    [
+      "DEM103",
+      "Comunicación visual (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-3",
+      "L"
+    ],
+    [
+      "DEM104",
+      "Modelos y patrones (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-4",
+      "J"
+    ],
+    [
+      "DEM104",
+      "Modelos y patrones (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-4",
+      "S"
+    ],
+    [
+      "DEM104",
+      "Modelos y patrones (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-4",
+      "I"
+    ],
+    [
+      "DEM105",
+      "Exploración de datos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-5",
+      "V"
+    ],
+    [
+      "DEM105",
+      "Exploración de datos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-5",
+      "L"
+    ],
+    [
+      "DEM105",
+      "Exploración de datos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-5",
+      "M"
+    ],
+    [
+      "DEM106",
+      "Trabajo colaborativo (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-6",
+      "S"
+    ],
+    [
+      "DEM106",
+      "Trabajo colaborativo (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-6",
+      "I"
+    ],
+    [
+      "DEM106",
+      "Trabajo colaborativo (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-6",
+      "J"
+    ],
+    [
+      "DEM107",
+      "Sistemas y procesos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "L"
+    ],
+    [
+      "DEM107",
+      "Sistemas y procesos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "M"
+    ],
+    [
+      "DEM107",
+      "Sistemas y procesos (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-1",
+      "V"
+    ],
+    [
+      "DEM108",
+      "Presentación de ideas (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "I"
+    ],
+    [
+      "DEM108",
+      "Presentación de ideas (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "J"
+    ],
+    [
+      "DEM108",
+      "Presentación de ideas (ejemplo)",
+      1,
+      "0800-1000",
+      "A-DEMO-2",
+      "S"
+    ],
+    [
+      "DEM109",
+      "Taller de prototipos (ejemplo)",
+      1,
+      "0800-0930",
+      "A-DEMO-3",
+      "M"
+    ],
+    [
+      "DEM109",
+      "Taller de prototipos (ejemplo)",
+      1,
+      "0800-0930",
+      "A-DEMO-3",
+      "V"
+    ],
+    [
+      "DEM109",
+      "Taller de prototipos (ejemplo)",
+      1,
+      "0800-0930",
+      "A-DEMO-3",
+      "L"
+    ],
+    [
+      "DEM110",
+      "Proyecto integrador (ejemplo)",
+      1,
+      "0800-1400",
+      "A-DEMO-4",
+      "J"
+    ],
+    [
+      "DEM110",
+      "Proyecto integrador (ejemplo)",
+      1,
+      "0800-1400",
+      "A-DEMO-4",
+      "S"
+    ],
+    [
+      "DEM110",
+      "Proyecto integrador (ejemplo)",
+      1,
+      "0800-1400",
+      "A-DEMO-4",
+      "I"
+    ],
+    [
+      "DEM111L",
+      "Laboratorio de modelos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-1",
+      "V"
+    ],
+    [
+      "DEM111L",
+      "Laboratorio de modelos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-1",
+      "L"
+    ],
+    [
+      "DEM111L",
+      "Laboratorio de modelos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-1",
+      "M"
+    ],
+    [
+      "DEM112L",
+      "Laboratorio de prototipos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-2",
+      "S"
+    ],
+    [
+      "DEM112L",
+      "Laboratorio de prototipos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-2",
+      "I"
+    ],
+    [
+      "DEM112L",
+      "Laboratorio de prototipos (ejemplo)",
+      1,
+      "0800-1000",
+      "L-DEMO-2",
+      "J"
+    ]
+  ]
+}

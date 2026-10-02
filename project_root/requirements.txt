@@ -1,0 +1,4 @@
+# Runtime versions validated by the test suite. Windows CI also locks transitive wheels.
+pandas==3.0.6
+openpyxl==3.1.5
+PyQt6==6.11.0

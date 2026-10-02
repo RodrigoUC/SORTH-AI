@@ -1,0 +1,69 @@
+"""Independent checks for generated, restored and manually edited results."""
+
+class ValidationNotice(str):
+    """Rendered default text with a stable source/parameters for GUI translation."""
+
+    def __new__(cls, source, **parameters):
+        value = super().__new__(cls, source.format(**parameters))
+        value.source = source
+        value.parameters = parameters
+        return value
+
+    def render(self, translate):
+        return translate(self.source, **self.parameters)
+
+
+def validate_schedule(assignments, groups, classrooms, time_model, lab_overrides=()):
+    errors = []
+    known = {g.group_id: g for g in groups}
+    occupied = {}
+    split = {}
+    for gid, (room, day, start, end) in assignments.items():
+        group, classroom = known.get(gid), classrooms.get(room)
+        if group is None or classroom is None:
+            errors.append(ValidationNotice("{gid}: grupo o aula desconocido", gid=gid))
+            continue
+        if end - start != group.duration_min:
+            errors.append(ValidationNotice("{gid}: duración incorrecta", gid=gid))
+        if not time_model.is_valid_interval(day, start, end) or time_model.overlaps_lunch(start, end):
+            errors.append(ValidationNotice("{gid}: horario fuera del intervalo permitido", gid=gid))
+        if classroom.capacity < group.size:
+            errors.append(ValidationNotice("{gid}: capacidad insuficiente", gid=gid))
+        if group.required_room_type == 'LAB' and classroom.room_type != 'LAB' and gid not in lab_overrides:
+            errors.append(ValidationNotice("{gid}: requiere laboratorio; falta confirmar la excepción manual", gid=gid))
+        reserved = {c.name for c in classrooms.values()
+                    if c.allowed_courses is not None and group.course_code in c.allowed_courses}
+        if not classroom.allows_course(group.course_code) or (
+                group.suggested_classroom in reserved and room not in reserved):
+            errors.append(ValidationNotice("{gid}: restricción de aula", gid=gid))
+        for other_start, other_end in occupied.setdefault((room, day), []):
+            if start < other_end and end > other_start:
+                errors.append(ValidationNotice("{gid}: conflicto de aula", gid=gid))
+        occupied[(room, day)].append((start, end))
+        if group.parent_group_id:
+            for other_day, other_start in split.setdefault(group.parent_group_id, []):
+                if day == other_day or start != other_start:
+                    errors.append(ValidationNotice("{gid}: sesiones divididas deben usar días distintos y la misma hora", gid=gid))
+            split[group.parent_group_id].append((day, start))
+    return errors
+
+
+def unassigned_reason(group, classrooms, time_model):
+    rooms = list(classrooms.values())
+    if group.required_room_type == 'LAB':
+        rooms = [c for c in rooms if c.room_type == 'LAB']
+        if not rooms:
+            return 'No hay laboratorios configurados. Puede elegir un aula regular manualmente y confirmar la excepción.'
+    rooms = [c for c in rooms if c.capacity >= group.size]
+    if not rooms:
+        return 'Ningún aula del tipo permitido tiene capacidad suficiente.'
+    reserved = {c.name for c in classrooms.values()
+                if c.allowed_courses is not None and group.course_code in c.allowed_courses}
+    rooms = [c for c in rooms if c.allows_course(group.course_code)
+             and (group.suggested_classroom not in reserved or c.name in reserved)]
+    if not rooms:
+        return 'Las restricciones de cursos excluyen todas las aulas compatibles.'
+    if not time_model.generate_start_candidates(group.duration_min):
+        return 'La duración no cabe en el horario permitido sin cruzar el almuerzo.'
+    return ('La búsqueda automática no encontró un horario compatible con las asignaciones actuales. '
+            'Esto no demuestra que sea imposible; revise horarios, restricciones o asigne manualmente.')
