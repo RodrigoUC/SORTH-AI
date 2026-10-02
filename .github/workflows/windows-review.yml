@@ -17,7 +17,7 @@ concurrency:
 jobs:
   windows-build-and-smoke:
     runs-on: windows-2025
-    timeout-minutes: 25
+    timeout-minutes: 35
     defaults:
       run:
         shell: pwsh
@@ -58,6 +58,11 @@ jobs:
         run: .\build_exe.ps1
       - name: Validate packaged application in an isolated session
         run: |
+          # Frozen execution with Python locations removed; not a clean-PC claim.
+          $oldPath = $env:PATH
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          $env:PYTHONHOME = $null
+          $env:PYTHONPATH = $null
           $smokeDir = Join-Path $PWD 'build/reports/packaged-smoke'
           $process = Start-Process -FilePath 'dist/SORTH/SORTH.exe' -ArgumentList @('--smoke-test', '--smoke-output', "`"$smokeDir`"") -PassThru
           if (-not $process.WaitForExit(120000)) {
@@ -69,11 +74,16 @@ jobs:
           if (-not $result.ok -or -not $result.frozen -or $result.assigned -ne $result.groups) {
             throw 'Packaged smoke validation failed.'
           }
+          $env:PATH = $oldPath
           Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."
       - name: Prepare unsigned review ZIP and checksums
         run: |
           .\.venv-build\Scripts\python.exe tools/package_windows.py --commit $env:SOURCE_COMMIT
           if ($LASTEXITCODE -ne 0) { throw 'Review packaging failed.' }
+      - name: Build hash-pinned unsigned per-user installer
+        run: .\tools\build_installer.ps1
+      - name: Test installed workflow and data-preserving uninstall
+        run: .\tools\test_installer.ps1
       - name: Upload review package and current manual
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -89,6 +99,9 @@ jobs:
         with:
           name: SORTH-windows-checks-${{ github.run_id }}
           path: |
+            project_root/build/reports/*.json
+            project_root/build/reports/*.log
+            project_root/build/reports/installed-smoke/
             project_root/build/reports/*.txt
             project_root/build/reports/*.xml
             project_root/build/reports/packaged-smoke/*.json

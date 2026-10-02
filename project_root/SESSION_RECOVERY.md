@@ -29,3 +29,25 @@ Para una recuperación manual, cierre SORTH y conserve primero una copia de la c
 ## Verificación
 
 Las pruebas cubren migración y prioridad de rutas, WAL, copias independientes, fallo de escritura y lectura, disco lleno simulado, directorios de sólo lectura simulados, bases dañadas, rollback, cierre con cancelar/reintentar/descartar y persistencia del aviso tras otros mensajes. La suite se ejecuta también en Windows mediante el flujo de revisión del PR. Las pruebas Qt offscreen no sustituyen una comprobación interactiva en Windows con usuario estándar.
+
+## Esquema, recuperación verificable y vuelta a una versión anterior
+
+El esquema se identifica mediante `PRAGMA user_version` (versión actual: 1). Una base antigua con versión 0 se copia a `schema-session-*.db` antes de migrar; la migración y su número de versión se confirman en una sola transacción. La matrícula y las excepciones manuales de laboratorio se conservan cuando existen; en esquemas que no tenían esos campos se inicializan a 0/sin excepción. Abrir nuevamente no repite la migración ni crea copias adicionales. Si falla la copia, no comienza la migración. Una versión de esquema más nueva se rechaza antes de modificarla.
+
+También se ofrece restaurar una sesión que sólo contiene aulas o una sesión vacía guardada intencionalmente. No se interpreta la ausencia de cursos como permiso para reemplazar datos.
+
+Para asistencia técnica con el entorno fuente instalado:
+
+1. Cierre todas las instancias de SORTH. Copie la carpeta de datos completa a una carpeta privada de resguardo; conserve los archivos `-wal` y `-shm` si existen. No use una carpeta sincronizada mientras se recupera.
+2. Seleccione una copia conocida `previous-session-*.db`, `legacy-session-*.db` o `schema-session-*.db`. Si sólo queda la base afectada, se puede verificar ésta sin reemplazarla.
+3. Cree una carpeta nueva y ejecute desde `project_root`: `python tools/recover_session.py --source "RUTA/copia.db" --output "CARPETA_NUEVA/sorth_session.db"`.
+4. La herramienta verifica la integridad SQLite, incluye los datos confirmados de WAL, valida la lectura de los campos y prepara un candidato independiente. Rechaza destinos existentes y esquemas más nuevos. No selecciona una copia automáticamente, ni reemplaza ni borra la fuente. Una copia puede estar sana pero ser antigua: compruebe su contenido y fecha.
+5. Sólo después de conservar la carpeta completa original, con SORTH cerrado, aparte la carpeta activa completa (incluidos sus archivos auxiliares), cree una carpeta activa vacía y copie el candidato allí con el nombre `sorth_session.db`. Conserve ambas carpetas. Abra SORTH y acepte restaurar; revise aulas, cursos, restricciones, semilla, asignaciones y excepciones antes de seguir editando. La validez del horario se comprueba por separado de la integridad del archivo.
+
+No hay selector gráfico de copias todavía; la herramienta requiere el entorno Python fuente y asistencia técnica. No abra una base de una versión más nueva con un ejecutable antiguo: los ejecutables anteriores a esta protección no reconocen la incompatibilidad. Para volver atrás, use el ejecutable correspondiente con una copia previa a la actualización, preparada y conservada separadamente. Los cambios posteriores a esa copia no estarán presentes. Nunca sustituya una sesión actual por una copia antigua sin decidir explícitamente qué datos recuperar.
+
+## Límites de importación y evidencia de fallo
+
+Se rechazan libros de más de 25 MiB comprimidos, 100 MiB de contenido ZIP expandido, 1.000 entradas ZIP o 10.000 filas de datos por hoja. Estos límites se comprueban antes de reemplazar la sesión; no se truncan datos. Divida libros mayores y verifique cada importación. Los límites reducen consumo accidental, pero no convierten el lector en un entorno aislado para archivos hostiles.
+
+`test_data_resilience.py` verifica disco lleno real mediante el límite de páginas SQLite, errores tardíos de escritura, terminación de un proceso con una transacción sin confirmar, borrado transaccional, copias completas, migración fallida/idempotente y rechazo de esquemas nuevos. `test_import_state_safety.py` compara datos, restricciones, horario, excepciones, estado de guardado y bytes de la base antes/después de cancelar o fallar una importación. Las pruebas existentes cubren sólo lectura, WAL, prioridad del destino y cierre con reintento/cancelación/descarte. Una caída abrupta del sistema, interrupción real de alimentación y permisos ACL de Windows requieren pruebas manuales sobre datos descartables; no están certificados por estas simulaciones.

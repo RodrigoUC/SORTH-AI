@@ -8,11 +8,19 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+try:
+    from .build_identity import identity
+except ImportError:
+    from build_identity import identity
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 LEGAL_FILES = ('LICENSE', 'LICENSING.md', 'CREDITS.md', 'SUPPORT.md', 'SECURITY.md',
-               'docs/LICENSING_REVIEW.md', 'docs/SOURCE_AVAILABILITY.md')
+               'docs/LICENSING_REVIEW.md', 'docs/SOURCE_AVAILABILITY.md',
+               'PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
+               'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
+               'project_root/SCHEDULING_VALIDATION.md', 'project_root/MANUAL_USUARIO.md',
+               'project_root/README.md', 'project_root/WINDOWS_DISTRIBUTION.md')
 
 
 FORBIDDEN_SUFFIXES = {'.db', '.sqlite', '.sqlite3', '.pyc'}
@@ -26,6 +34,12 @@ def package(app_dir: Path, manual: Path, output_dir: Path, commit: str) -> Path:
         raise ValueError('SORTH.exe is missing; build and smoke-test the onedir app first.')
     if not manual.is_file() or manual.read_bytes()[:5] != b'%PDF-':
         raise ValueError('Generate a valid current manual PDF before packaging.')
+    expected_identity = identity(commit)
+    identity_path = app_dir / '_internal' / 'build-identity.json'
+    if not identity_path.is_file():
+        raise ValueError('Frozen build identity is missing; rebuild with build_exe.ps1.')
+    if json.loads(identity_path.read_text(encoding='utf-8')) != expected_identity:
+        raise ValueError('Frozen build identity does not match requested source/version.')
     files = sorted(path for path in app_dir.rglob('*') if path.is_file())
     for path in files:
         if path.is_symlink() or path.suffix.lower() in FORBIDDEN_SUFFIXES:
@@ -38,16 +52,21 @@ def package(app_dir: Path, manual: Path, output_dir: Path, commit: str) -> Path:
         raise ValueError('Verified third-party wheel inventory is missing.')
     inventory = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True)
     info = {
-        'source_commit': commit,
+        **expected_identity,
+        'source_commit': expected_identity['source_commit'],
         'distribution': 'Windows x64 onedir review build',
         'signed': False,
         'security_validation': 'No claim of malware clearance or SmartScreen reputation',
         'python': platform.python_version(),
         'build_platform': platform.platform(),
         'dependencies': inventory.splitlines(),
+        'files': [{'path': path.relative_to(app_dir).as_posix(),
+                   'size': path.stat().st_size,
+                   'sha256': hashlib.sha256(path.read_bytes()).hexdigest()} for path in files],
+        'license_review': 'Pending exact native DLL/plugin source and notice mapping',
     }
     output_dir.mkdir(parents=True, exist_ok=True)
-    archive = output_dir / f'SORTH-windows-x64-{commit[:12]}-unsigned.zip'
+    archive = output_dir / f'SORTH-windows-x64-{info["build_id"]}-unsigned.zip'
     if archive.exists():
         raise ValueError('Output archive already exists; use a fresh output directory.')
 

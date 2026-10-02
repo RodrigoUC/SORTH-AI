@@ -15,10 +15,22 @@ class ValidationNotice(str):
 
 def validate_schedule(assignments, groups, classrooms, time_model, lab_overrides=()):
     errors = []
-    known = {g.group_id: g for g in groups}
+    known = {}
+    for group in groups:
+        if group.group_id in known:
+            errors.append(ValidationNotice("{gid}: identificador de grupo duplicado", gid=group.group_id))
+        known[group.group_id] = group
     occupied = {}
     split = {}
-    for gid, (room, day, start, end) in assignments.items():
+    for gid, placement in assignments.items():
+        # Reject corrupt/restored/plugin results as notices, before arithmetic or
+        # rendering can throw. bool is deliberately not accepted as an integer.
+        if (not isinstance(placement, (tuple, list)) or len(placement) != 4
+                or not isinstance(placement[0], str)
+                or any(type(value) is not int for value in placement[1:])):
+            errors.append(ValidationNotice("{gid}: asignación mal formada", gid=gid))
+            continue
+        room, day, start, end = placement
         group, classroom = known.get(gid), classrooms.get(room)
         if group is None or classroom is None:
             errors.append(ValidationNotice("{gid}: grupo o aula desconocido", gid=gid))

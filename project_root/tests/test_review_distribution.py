@@ -9,6 +9,7 @@ import zipfile
 
 import pytest
 from tools.package_windows import package
+from tools.build_identity import identity
 
 
 @pytest.fixture
@@ -18,6 +19,7 @@ def inputs(tmp_path, monkeypatch):
     (app / 'SORTH.exe').write_bytes(b'MZ-test-only')
     (app / '_internal').mkdir()
     (app / '_internal' / 'library.dll').write_bytes(b'test')
+    (app / '_internal' / 'build-identity.json').write_text(json.dumps(identity('a' * 40)))
     manual = tmp_path / 'manual.pdf'
     manual.write_bytes(b'%PDF-test-only')
     monkeypatch.setattr(subprocess, 'check_output', lambda *a, **k: 'pytest==9.1.1\n')
@@ -36,6 +38,10 @@ def test_archive_has_current_manual_commit_and_hash(inputs):
         assert 'SORTH/third_party/licenses/cpython-3.12.10.txt' in zf.namelist()
         assert 'SORTH/third_party/licenses/dejavu-font.txt' in zf.namelist()
         assert 'SORTH/docs/SOURCE_AVAILABILITY.md' in zf.namelist()
+        for name in ['PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
+                     'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
+                     'project_root/SCHEDULING_VALIDATION.md']:
+            assert ('SORTH/' + name) in zf.namelist()
         assert zf.read('SORTH/MANUAL_USUARIO.pdf') == manual.read_bytes()
         info = json.loads(zf.read('SORTH/build-info.json'))
         assert info['source_commit'] == 'a' * 40
@@ -67,5 +73,15 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
     assert report['ok'] and not report['frozen']
     assert report['assigned'] == report['groups'] > 0
     assert set(report['stages']) == {'bundled_excel_import', 'background_schedule',
-                                     'excel_csv_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en'}
+                                     'excel_csv_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
+                                     'course_dialog_edit_save', 'new_window_restore',
+                                     'reopened_export_content', 'invalid_input_preserves_session',
+                                     'large_workbook_schedule_export'}
     assert (output / 'schedule.png').is_file()
+
+
+def test_archive_rejects_mismatched_frozen_identity(inputs):
+    app, manual, out = inputs
+    with pytest.raises(ValueError, match="does not match"):
+        package(app, manual, out, 'b' * 40)
+    assert not out.exists()

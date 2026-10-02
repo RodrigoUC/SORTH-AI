@@ -2,3 +2,5 @@
 /project_root/assets/sorth.svg text eol=lf
 /project_root/data/input/demo_source.json text eol=lf
 /project_root/data/input/courses_config.json text eol=lf
+# Preserve exact upstream notice bytes, including their original line endings.
+/third_party/licenses/*.txt -text

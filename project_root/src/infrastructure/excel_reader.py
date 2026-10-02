@@ -3,6 +3,7 @@
 import pandas as pd
 import unicodedata
 import re
+import zipfile
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict
@@ -59,6 +60,22 @@ class ExcelImport:
 
 
 class ExcelReader:
+    # Bound work before openpyxl inflates workbook XML/shared strings. Oversized
+    # inputs are rejected, never partially imported or silently truncated.
+    MAX_FILE_BYTES = 25 * 1024 * 1024
+    MAX_EXPANDED_BYTES = 100 * 1024 * 1024
+    MAX_ARCHIVE_MEMBERS = 1000
+    MAX_DATA_ROWS = 10000
+
+    def _check_workbook_size(self):
+        if Path(self.file_path).stat().st_size > self.MAX_FILE_BYTES:
+            raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+        with zipfile.ZipFile(self.file_path) as archive:
+            entries = archive.infolist()
+            if (len(entries) > self.MAX_ARCHIVE_MEMBERS or
+                    sum(entry.file_size for entry in entries) > self.MAX_EXPANDED_BYTES):
+                raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -71,6 +88,7 @@ class ExcelReader:
             if Path(self.file_path).suffix.lower() != ".xlsx":
                 raise ExcelImportError("Use un archivo .xlsx. En Excel, elija Guardar como → Libro de Excel (.xlsx).")
             try:
+                self._check_workbook_size()
                 with pd.ExcelFile(self.file_path, engine="openpyxl") as workbook:
                     missing = [n for n in ("Aulas", "Cursos") if n not in workbook.sheet_names]
                     if missing:
@@ -78,7 +96,9 @@ class ExcelReader:
                             notice("Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}",
                                    missing=", ".join(missing), found=", ".join(workbook.sheet_names)))
                     raw = {n: pd.read_excel(workbook, sheet_name=n, header=None, dtype=object,
-                                            keep_default_na=False) for n in ("Aulas", "Cursos")}
+                                            keep_default_na=False, nrows=self.MAX_DATA_ROWS + 2) for n in ("Aulas", "Cursos")}
+                    if any(len(data) > self.MAX_DATA_ROWS + 1 for data in raw.values()):
+                        raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
             except ExcelImportError:
                 raise
             except FileNotFoundError as exc:

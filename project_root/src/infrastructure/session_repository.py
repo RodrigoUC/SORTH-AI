@@ -22,6 +22,8 @@ class SessionRepository:
     The database lives in the current user's SORTH application-data directory.
     """
 
+    SCHEMA_VERSION = 1
+
     @staticmethod
     def default_path() -> Path:
         """Stable writable user data, independent of installation/update folders."""
@@ -42,6 +44,7 @@ class SessionRepository:
 
     def __init__(self, db_path: str | None = None):
         self.migration_backup: Path | None = None
+        self.schema_backup: Path | None = None
         target = Path(db_path) if db_path is not None else self.default_path()
         self._db_path = str(target)
         if db_path is None:
@@ -92,7 +95,20 @@ class SessionRepository:
 
     def _init_db(self):
         with self._connect() as con:
+            if con.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                raise sqlite3.DatabaseError("SQLite integrity check failed")
+            version = con.execute("PRAGMA user_version").fetchone()[0]
+            if version > self.SCHEMA_VERSION:
+                raise sqlite3.DatabaseError(
+                    f"Session schema {version} is newer than supported {self.SCHEMA_VERSION}. "
+                    "Open it with the newer SORTH version; do not overwrite it."
+                )
+            if version < self.SCHEMA_VERSION and con.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
+                path = Path(self._db_path)
+                self.schema_backup = self._snapshot(path, path.parent, "schema-session-")
             con.executescript("""
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS session (
                     id          INTEGER PRIMARY KEY CHECK (id = 1),
                     excel_path  TEXT,
@@ -163,6 +179,7 @@ class SessionRepository:
                 con.execute(
                     "ALTER TABLE assignments ADD COLUMN lab_override INTEGER NOT NULL DEFAULT 0"
                 )
+            con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
     def _connect(self):
@@ -253,6 +270,8 @@ class SessionRepository:
         or None if no session exists.
         """
         with self._connect() as con:
+            # All tables belong to one consistent snapshot, including in WAL mode.
+            con.execute("BEGIN")
             row = con.execute("SELECT * FROM session WHERE id = 1").fetchone()
             if not row:
                 return None
@@ -320,12 +339,17 @@ class SessionRepository:
             }
 
     def has_session(self) -> bool:
-        """Returns True only if there is a saved session with courses."""
+        """Even a classroom-only or deliberately empty saved session is recoverable."""
         with self._connect() as con:
-            row = con.execute("SELECT id FROM session WHERE id = 1").fetchone()
-            if not row:
-                return False
-            return con.execute("SELECT COUNT(*) FROM courses").fetchone()[0] > 0
+            if con.execute("SELECT id FROM session WHERE id = 1").fetchone() is not None:
+                return True
+            # An incomplete/corrupt logical session must not be mistaken for an
+            # empty database and silently replaced on the next edit.
+            for table in ("classrooms", "courses", "course_group_suggestions",
+                          "restrictions", "assignments"):
+                if con.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+                    raise sqlite3.DatabaseError("Session data exists without session metadata. Preserve the database and recover a backup.")
+            return False
 
     def get_course_completions(self) -> list[tuple[str, str]]:
         """Return list of (code, name) for all saved courses, for autocomplete."""
@@ -335,11 +359,8 @@ class SessionRepository:
 
     def clear_session(self):
         with self._connect() as con:
-            con.executescript("""
-                DELETE FROM assignments;
-                DELETE FROM restrictions;
-                DELETE FROM course_group_suggestions;
-                DELETE FROM courses;
-                DELETE FROM classrooms;
-                DELETE FROM session;
-            """)
+            # executescript commits implicitly; individual statements retain the
+            # transaction so a late failure cannot leave a partially erased session.
+            for table in ("assignments", "restrictions", "course_group_suggestions",
+                          "courses", "classrooms", "session"):
+                con.execute(f"DELETE FROM {table}")

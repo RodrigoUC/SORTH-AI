@@ -6,6 +6,7 @@ El código propio de SORTH está bajo [GPL-3.0-only](LICENSING.md). Los recursos
 
 - [Contribuir](CONTRIBUTING.md) · [Soporte por Issues](SUPPORT.md) · [Seguridad](SECURITY.md)
 - [Guía de convivencia](CODE_OF_CONDUCT.md) · [Créditos](CREDITS.md) · [Revisión de licencias](docs/LICENSING_REVIEW.md)
+- [Inicio rápido](docs/QUICKSTART.md) · [Privacidad](PRIVACY.md)
 - [Limitaciones conocidas](docs/KNOWN_LIMITATIONS.md) · [Checklist de releases](docs/RELEASING.md)
 - [Instalar y ejecutar desde código](project_root/README.md) · [Distribución Windows](project_root/WINDOWS_DISTRIBUTION.md)
 

@@ -29,7 +29,12 @@ def test_current_manual_retains_content_links_and_numbered_pages(tmp_path):
     output = build_manual(output=tmp_path / "manual.pdf")
     reader = PdfReader(output)
     assert len(reader.pages) > 1
-    text = compact(" ".join(page.extract_text() for page in reader.pages))
+    # Paragraphs may span pages. Remove only repeated page furniture before
+    # checking source text, so a header/footer cannot split an intact sentence.
+    text = compact(" ".join(
+        re.sub(r"SORTH\s*\|\s*Manual de usuario\s*Página\s+\d+", "", page.extract_text())
+        for page in reader.pages
+    ))
     assert "Mantén activas las protecciones de Windows." in text
     assert "No se puede afirmar que sea un falso positivo" in text
     assert "exclusión" not in text.lower()

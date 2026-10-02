@@ -1,6 +1,17 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'El libro supera el límite de importación. Divídalo en archivos más pequeños.',
+    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes',
+    'Sin resultado': 'Sin resultado',
+    'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.': 'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.',
+
+    '{scope} · horario parcial, {pending} pendientes': '{scope} · horario parcial, {pending} pendientes',
+    '{gid}: identificador de grupo duplicado': '{gid}: identificador de grupo duplicado',
+    '{gid}: asignación mal formada': '{gid}: asignación mal formada',
+    'Exportar todas las asignaciones': 'Exportar todas las asignaciones',
+    'todas las asignaciones': 'todas las asignaciones',
+
     "\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.": "\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.",
     "\n⚠️  {p1} grupo(s) sin asignar.\nRevisa la Lista Detallada (marcados en rojo).": "\n⚠️  {p1} grupo(s) sin asignar.\nRevisa la Lista Detallada (marcados en rojo).",
     "  {p1}  {p3}": "  {p1}  {p3}",
@@ -136,7 +147,7 @@ MESSAGES = {
     "Excepción manual LAB": "Excepción manual LAB",
     "Excepción manual confirmada: laboratorio en aula regular.": "Excepción manual confirmada: laboratorio en aula regular.",
     "Exportar completo": "Exportar completo",
-    "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.",
+    "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Los archivos contienen sesiones asignadas. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.",
     "Exportar filtrado (0)": "Exportar filtrado (0)",
     "Exportar filtrado ({p1})": "Exportar filtrado ({p1})",
     "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.": "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.",

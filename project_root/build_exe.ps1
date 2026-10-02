@@ -38,14 +38,22 @@ if ($LASTEXITCODE -ne 0) {
 & $pythonExe -m PyInstaller --version
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo verificar PyInstaller.' }
 
+if (-not $env:SOURCE_COMMIT) {
+    $env:SOURCE_COMMIT = (& git rev-parse HEAD)
+    if ($LASTEXITCODE -ne 0) { throw 'Set SOURCE_COMMIT to the exact source SHA.' }
+}
+& $pythonExe tools/build_identity.py --commit $env:SOURCE_COMMIT
+if ($LASTEXITCODE -ne 0) { throw 'Build identity failed.' }
+
 $baseArgs = @(
     '--noconfirm',
     '--clean',
     '--noupx',
     '--specpath', 'build/spec',
-    '--version-file', (Join-Path $PSScriptRoot 'windows_version_info.txt'),
+    '--version-file', (Join-Path $PSScriptRoot 'build/identity/windows_version_info.txt'),
     '--name', 'SORTH',
     '--hidden-import', 'PyQt6',
+    '--add-data', ((Join-Path $PSScriptRoot 'build/identity/build-identity.json') + ';.'),
     '--add-data', ((Join-Path $PSScriptRoot 'data/input') + ';data/input'),
     '--add-data', ((Join-Path $PSScriptRoot 'assets') + ';assets'),
     '--add-data', ((Join-Path $PSScriptRoot 'README.md') + ';.'),

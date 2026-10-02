@@ -1,9 +1,9 @@
-UPSTREAM NOTICES: pypdf 6.10.0
-Wheel: pypdf-6.10.0-py3-none-any.whl
-SHA-256: 90005e959e1596c6e6c84c8b0ad383285b3e17011751cedd17f2ce8fcdfc86de
+UPSTREAM NOTICES: pypdf 6.19.0
+Wheel: pypdf-6.19.0-py3-none-any.whl
+SHA-256: 7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14
 The following upstream text is preserved; inclusion does not imply every component ships in SORTH.
 
-===== BEGIN pypdf-6.10.0.dist-info/licenses/LICENSE =====
+===== BEGIN pypdf-6.19.0.dist-info/licenses/LICENSE =====
 Copyright (c) 2006-2008, Mathieu Fenniak
 Some contributions copyright (c) 2007, Ashish Kulkarni <kulkarni.ashish@gmail.com>
 Some contributions copyright (c) 2014, Steve Witham <switham_github@mac-guyver.com>
@@ -34,4 +34,4 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-===== END pypdf-6.10.0.dist-info/licenses/LICENSE =====
+===== END pypdf-6.19.0.dist-info/licenses/LICENSE =====

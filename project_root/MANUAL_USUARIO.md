@@ -1,5 +1,7 @@
 # Manual de usuario de SORTH
 
+Para una primera prueba, consulta el [inicio rápido](../docs/QUICKSTART.md). El [aviso de privacidad](../PRIVACY.md) explica los datos locales y el soporte público.
+
 ## 1. ¿Qué es SORTH?
 
 SORTH genera horarios académicos automáticamente, asignando grupos de cursos a aulas y franjas horarias disponibles. El sistema intenta respetar preferencias de aula, día y hora, y permite configurar restricciones exclusivas por aula. Este manual explica cómo preparar el Excel, revisar el horario y exportarlo.
@@ -32,7 +34,9 @@ El selector **Idioma / Language** del encabezado permite elegir **Español** o *
 
 El cambio es inmediato y conserva los cursos, aulas, restricciones, horario, filtros, selección y formularios sin guardar. También puede cambiarse durante la generación sin desbloquear controles ni reiniciar el algoritmo. Los nombres que escribiste o importaste nunca se traducen.
 
-La interfaz cambia de idioma, pero los archivos conservan el formato compatible: hojas de entrada **Aulas** y **Cursos**, columnas y días de exportación en español, horas **HH:mm** y los mismos alcances de **Exportar completo / Export all** y **Exportar filtrado / Export filtered**. El selector de archivos del sistema puede aparecer en el idioma de Windows. Los detalles técnicos de errores de bibliotecas externas pueden conservar su texto original.
+La interfaz cambia de idioma, pero los archivos conservan el formato compatible: hojas de entrada **Aulas** y **Cursos**, columnas y días de exportación en español, horas **HH:mm** y los mismos alcances de **Exportar todas las asignaciones / Export all assignments** y **Exportar filtrado / Export filtered**. El selector de archivos del sistema puede aparecer en el idioma de Windows. Los detalles técnicos de errores de bibliotecas externas pueden conservar su texto original.
+
+**Reducir animaciones** elimina las transiciones y utiliza un indicador estático durante la generación. La preferencia se guarda localmente; no cambia el resultado del planificador.
 
 ## 4. Flujo de uso paso a paso
 
@@ -116,7 +120,7 @@ En la barra inferior:
 2. Aparece una barra de progreso animada mientras el algoritmo trabaja en segundo plano. Durante la generación, los controles de edición se deshabilitan; espera a que termine antes de cerrar.
 3. Al terminar, un diálogo muestra el resumen: grupos asignados, aulas utilizadas y cursos programados.
 
-> Si algunos grupos no pudieron asignarse por falta de aulas disponibles, se indica en el resumen y aparecen marcados en **rojo** en la Lista Detallada.
+> Si quedan sesiones sin asignar, se indican en el resumen y en el filtro **Estado: Sin asignar** de Lista detallada. Los motivos ayudan a revisar datos y restricciones; no demuestran que no exista una solución.
 
 ---
 
@@ -129,7 +133,7 @@ En la pestaña **Horario Generado** tienes tres vistas:
 - **Buscar**: filtra por código o nombre de curso en tiempo real.
 - **Ordenar**: haz clic en cualquier encabezado de columna para ordenar ascendente o descendente. Los días se ordenan en orden de semana (Lunes a Sábado).
 - **Editar curso**: selecciona una fila y haz clic en **Editar Curso** para modificar el curso en Gestión de Cursos.
-- **Eliminar del horario**: selecciona una fila y haz clic en **Eliminar del Horario** para quitar ese grupo. Las tres vistas se actualizan en tiempo real.
+- **Quitar del horario**: selecciona una fila y confirma para dejar esa sesión sin asignar. Las tres vistas se actualizan. **Asignar manualmente** permite elegir aula, día y hora; se validan las restricciones. Un LAB en aula regular exige confirmación explícita y muestra **Excepción manual LAB**; no se permite ignorar capacidad ni conflictos.
 - También puedes hacer **clic derecho** sobre una fila para acceder a estas opciones.
 
 #### Vista de Cuadrícula
@@ -155,7 +159,7 @@ Haz clic en **Ver Resumen** para ver:
 
 ### Paso 8 - Exportar resultados
 
-1. Haz clic en **Exportar resultados**.
+1. Elige **Exportar todas las asignaciones** o **Exportar filtrado (N)** según el alcance que necesitas.
 2. Elige el formato y la ubicación:
    - **Excel (`.xlsx`)**: incluye una hoja por aula con grilla visual, más hojas de lista detallada y por aula. Los colores de los cursos son consistentes con la GUI.
    - **CSV (`.csv`)**: lista detallada en formato plano.
@@ -165,11 +169,11 @@ Haz clic en **Ver Resumen** para ver:
 
 ### Consulta y exportación
 
-La exportación separada está incluida en esta versión. Si tu versión muestra **Exportar resultados**, sigue los pasos anteriores. Si muestra **Exportar completo** y **Exportar filtrado (N)**, usa estas instrucciones:
+La versión actual distingue **Exportar todas las asignaciones** y **Exportar filtrado (N)**:
 
 - **Buscar** combina todas las palabras sin distinguir mayúsculas ni acentos. Los filtros compartidos **Aula**, **Día** y **Estado** se aplican a las tres vistas.
 - **Restablecer filtros** vacía Buscar y devuelve Aula, Día y Estado a sus opciones generales.
-- **Exportar completo** y **Ctrl+S** incluyen todas las sesiones asignadas, independientemente de los filtros.
+- **Exportar todas las asignaciones** y **Ctrl+S** incluyen todas las sesiones asignadas, independientemente de los filtros.
 - **Exportar filtrado (N)** incluye solo las sesiones asignadas que cumplen los filtros compartidos. N indica la cantidad; el diálogo de guardado y el mensaje final también muestran alcance y cantidad.
 - Las sesiones **Sin asignar** se consultan en Lista detallada y no se exportan como filas de horario. Sin coincidencias asignadas, la exportación filtrada no está disponible.
 - Cambiar de pestaña o elegir un aula en el selector local de la cuadrícula no restringe la exportación. Para exportar un aula, usa el filtro compartido **Aula**.
@@ -210,7 +214,8 @@ La exportación separada está incluida en esta versión. Si tu versión muestra
 
 ## 6. Comportamiento del algoritmo
 
-- El sistema intenta respetar las preferencias de aula, día y hora indicadas en el Excel.
+- El sistema usa una heurística greedy con reintentos: no garantiza solución completa u óptima ni demuestra inviabilidad. Intenta respetar las preferencias de aula, día y hora indicadas en el Excel.
+- En generación automática, LAB requiere laboratorio. Una asignación manual a aula regular necesita una excepción confirmada y registrada; las demás restricciones siguen vigentes.
 - Si no hay espacio disponible en el slot preferido, el grupo se asigna en otro horario (preferencias blandas).
 - El horario cubre de **07:00 a 22:00**, excluyendo el almuerzo (12:00-13:00).
 - Cursos con duración mayor a 4.5 horas se dividen automáticamente en sesiones para días distintos. Se usan bloques de 2 horas; un resto menor de 1 hora se incorpora al bloque anterior. Puedes cambiar este comportamiento por curso desde el campo **División en días** al editar el curso.
@@ -220,20 +225,13 @@ La exportación separada está incluida en esta versión. Si tu versión muestra
 
 ## 7. Persistencia de datos
 
-SORTH intenta guardar automáticamente la sesión activa en una base de datos local (`data/sorth_session.db`, junto al ejecutable en la distribución de Windows) cada vez que realizas una acción relevante: cargar un Excel, editar cursos, generar el horario o eliminar un grupo.
+SORTH guarda automáticamente la sesión en la carpeta de datos del usuario: `%LOCALAPPDATA%/SORTH/sorth_session.db` en Windows. No se guarda junto al ejecutable en las versiones actuales. Consulta [Guardado y recuperación](SESSION_RECOVERY.md) para las rutas de otras plataformas, migración y copias.
 
-Al abrir la aplicación, si existe una sesión guardada, aparece un diálogo preguntando si deseas restaurarla. Al aceptar, se recuperan:
-- Los cursos y sus configuraciones.
-- Las aulas (incluyendo las agregadas manualmente).
-- Las restricciones de aulas configuradas.
-- El horario generado (si existía al cerrar).
-- La ruta del Excel y el valor de semilla.
+Al abrir, acepta restaurar para recuperar cursos, aulas, restricciones, asignaciones, excepciones LAB, ruta del Excel y semilla. Rechazar la restauración no borra la sesión anterior; antes de sustituirla al editar, SORTH intenta crear una copia independiente.
 
-Si seleccionas **No**, la aplicación inicia con el estado vacío. La sesión anterior no se borra en ese momento, pero las acciones siguientes y el cierre pueden sustituirla.
+**Sin cambios pendientes** confirma el último guardado. Si aparece **Cambios sin guardar**, corrige espacio/permisos y usa **Reintentar**. Al cerrar con un error puedes reintentar, cancelar el cierre o descartar cambios no guardados. Una exportación no sustituye el respaldo completo de la sesión. Ante **Sesión no disponible**, sigue la guía de recuperación y conserva los archivos; no borres la base para forzar el inicio.
 
-La carpeta debe permitir escritura. Si aparece **No se pudo guardar la sesión** en la barra de estado, exporta el horario si hay uno disponible, conserva el Excel original y comunica el error al responsable de la distribución.
-
-> El archivo de sesión contiene datos de los cursos, aulas, horario y ruta del Excel. Protégelo como parte de tus archivos de trabajo y no lo incluyas en una distribución de SORTH.
+La base, sus copias, el Excel y las exportaciones pueden contener información privada. Protégelos y no los adjuntes a issues públicos. Consulta [Privacidad](../PRIVACY.md).
 
 ---
 
@@ -246,13 +244,11 @@ La carpeta debe permitir escritura. Si aparece **No se pudo guardar la sesión**
 
 **Qué hacer:**
 - Revisar que existan aulas suficientes en la hoja `Aulas`.
-- Reducir o eliminar restricciones de aulas.
+- Corregir restricciones de aulas sólo si no representan los requisitos reales.
 - Agregar aulas adicionales con el botón **Agregar aula**.
 
 ### Algunos grupos quedan sin asignar
-Aparecen en rojo en la Lista Detallada. Causas:
-- No hay aulas disponibles en ningún horario para ese grupo.
-- El aula restringida ya está completamente ocupada.
+Consulta **Estado: Sin asignar** en Lista detallada y lee el motivo. Puede faltar un laboratorio compatible, capacidad o un hueco permitido, o la heurística puede no haber encontrado una combinación. Revisa datos y restricciones; prueba otra semilla o una asignación manual válida. No elimines un requisito real sólo para completar el horario.
 
 ### Error al cargar Excel
 **Qué hacer:**
