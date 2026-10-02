@@ -71,3 +71,16 @@ def test_lock_identity_is_stable_across_git_line_endings(tmp_path):
     assert lock_digest(lf) == lock_digest(crlf)
     crlf.write_bytes(content.replace('1.0', '1.1').encode('utf-8'))
     assert lock_digest(lf) != lock_digest(crlf)
+
+
+def test_committed_upstream_notice_bytes_match_inventory_hashes():
+    inventory = json.loads((ROOT / 'third_party/wheel-inventory.json').read_text())
+    for package in inventory['packages']:
+        content = (ROOT / 'third_party' / package['notice_file']).read_bytes()
+        for notice in package['upstream_notice_files']:
+            start = ('\n===== BEGIN ' + notice['path'] + ' =====\n').encode('utf-8')
+            end = ('\n===== END ' + notice['path'] + ' =====\n').encode('utf-8')
+            assert content.count(start) == 1
+            assert content.count(end) == 1
+            original = content.split(start, 1)[1].split(end, 1)[0]
+            assert hashlib.sha256(original).hexdigest() == notice['sha256']

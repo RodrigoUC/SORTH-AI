@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "scope": "all wheels in Windows build lock; not a frozen binary SBOM",
-  "lock_sha256": "fedbeaf99136513f7cdf18622b9f7b4d993258c60da1529d562b2fbd10f5d127",
+  "lock_sha256": "fb3e07b02011e462eeaf4705842c6de411672a2032d1426cbc6ea669a96dd20f",
   "packages": [
     {
       "name": "altgraph",
@@ -655,9 +655,9 @@
     },
     {
       "name": "pypdf",
-      "version": "6.10.0",
-      "wheel": "pypdf-6.10.0-py3-none-any.whl",
-      "sha256": "90005e959e1596c6e6c84c8b0ad383285b3e17011751cedd17f2ce8fcdfc86de",
+      "version": "6.19.0",
+      "wheel": "pypdf-6.19.0-py3-none-any.whl",
+      "sha256": "7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14",
       "license_expression": "BSD-3-Clause",
       "license_metadata": null,
       "license_classifiers": [],
@@ -670,7 +670,7 @@
       "notice_file": "licenses/pypdf.txt",
       "upstream_notice_files": [
         {
-          "path": "pypdf-6.10.0.dist-info/licenses/LICENSE",
+          "path": "pypdf-6.19.0.dist-info/licenses/LICENSE",
           "sha256": "a97ac230e5f33ef10a5367a850eb01f91f1a0b064e34742c7794d2294557f524"
         }
       ]

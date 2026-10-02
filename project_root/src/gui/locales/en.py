@@ -1,6 +1,17 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'The workbook exceeds the import limit. Split it into smaller files.',
+    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Partial schedule: {p1}/{p3} groups; {pending} pending',
+    'Sin resultado': 'No result',
+    'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.': 'No result was produced. Review the inputs and generate the schedule again.',
+
+    '{scope} · horario parcial, {pending} pendientes': '{scope} · partial schedule, {pending} pending',
+    '{gid}: identificador de grupo duplicado': '{gid}: duplicate group identifier',
+    '{gid}: asignación mal formada': '{gid}: malformed assignment',
+    'Exportar todas las asignaciones': 'Export all assignments',
+    'todas las asignaciones': 'all assignments',
+
     "\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.": "\n\nReview the details before continuing. Cancel keeps the current session.",
     "\n⚠️  {p1} grupo(s) sin asignar.\nRevisa la Lista Detallada (marcados en rojo).": "\n⚠️  Unassigned groups: {p1}.\nReview the Detailed list (highlighted in red).",
     "  {p1}  {p3}": "  {p1}  {p3}",

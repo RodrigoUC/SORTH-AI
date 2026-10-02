@@ -26,6 +26,8 @@ def run_smoke_test(app, output_dir: Path) -> int:
         raise ValueError('Use a fresh smoke-output directory to avoid stale results.')
     source_root = Path(sys._MEIPASS) if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[2]
     result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': []}
+    if result['frozen']:
+        result['build_identity'] = json.loads((source_root / 'build-identity.json').read_text(encoding='utf-8'))
     repo = SessionRepository(str(output_dir / 'smoke-session.db'))
     window = MainWindow(repo=repo, restore_session=False)
     window.show()
@@ -49,6 +51,7 @@ def run_smoke_test(app, output_dir: Path) -> int:
     def check_done():
         if window._busy:
             return
+        poll.stop()
         try:
             if not window.current_schedule:
                 raise RuntimeError('The bundled sample produced no schedule.')
@@ -83,6 +86,8 @@ def run_smoke_test(app, output_dir: Path) -> int:
             if not window.grab().save(str(output_dir / 'schedule.png')):
                 raise RuntimeError('Could not capture the rendered Qt window.')
             result['stages'].append('qt_render')
+            from .packaged_workflow import verify_workflow
+            verify_workflow(window, output_dir, result)
             finish()
         except Exception:
             finish(traceback.format_exc())

@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.clicked.connect(self._generate_schedule)
         self.btn_generate.setEnabled(False)
 
-        self.btn_export = QPushButton(msg('Exportar completo'))
+        self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
         self.btn_export.setShortcut("Ctrl+S")
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en formato Excel (.xlsx) o CSV.\nEl Excel incluye una grilla visual por aula.')
@@ -414,6 +414,11 @@ class MainWindow(QMainWindow):
     def _on_schedule_done(self, assignments, groups):
 
         if assignments is not None and groups is not None:
+            errors = validate_schedule(assignments, groups, self._validation_classrooms(),
+                                       TimeModel.default())
+            if errors:
+                self._on_schedule_error(join_messages('\n', (error.render(msg) for error in errors)))
+                return
             self.current_schedule = assignments
             self.current_groups   = groups
 
@@ -430,29 +435,26 @@ class MainWindow(QMainWindow):
                 self._motion.reveal(self.schedule_viewer)
             self._update_export_actions()
 
-            total      = len(groups)
-            assigned   = len(assignments)
-            unassigned = total - assigned
-
-            lines = [
-                msg('Grupos asignados:    {p1} / {p3}', p1=assigned, p3=total),
-                msg('Aulas utilizadas:    {p1}', p1=len(set(v[0] for v in assignments.values()))),
-                msg('Cursos programados:  {p1}', p1=len(set(gid.rsplit('-G',1)[0] for gid in assignments))),
-            ]
-            if unassigned:
-                lines.append(msg('\n⚠️  {p1} grupo(s) sin asignar.\nRevisa la Lista Detallada (marcados en rojo).', p1=unassigned))
-
-            self.status_bar.showMessage(msg('✅ Horario generado: {p1}/{p3} grupos', p1=assigned, p3=total))
+            self._show_schedule_status()
             self._refresh_overview()
             self._save_session()
         else:
             self.status_bar.showMessage(msg('❌ No se pudo generar el horario'))
             dlg = _InfoDialog(
-                self, msg('Sin solución'),
-                msg('No se pudo generar un horario válido.\n\nPosibles causas:\n  • No hay suficientes aulas disponibles\n  • Restricciones demasiado estrictas\n  • Conflictos de horario entre cursos'),
+                self, msg('Sin resultado'),
+                msg('No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.'),
                 warning=True
             )
             dlg.exec()
+
+    def _show_schedule_status(self):
+        total = len(self.current_groups or [])
+        assigned = len(self.current_schedule or {})
+        pending = total - assigned
+        self.status_bar.showMessage(msg(
+            '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes' if pending
+            else '✅ Horario generado: {p1}/{p3} grupos',
+            p1=assigned, p3=total, pending=pending))
 
     def _on_schedule_error(self, message):
         self.status_bar.showMessage(msg('❌ Error al generar horario'))
@@ -488,8 +490,11 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, msg('Sin coincidencias'),
                                     msg('No hay sesiones asignadas con estos filtros. Cambie o restablezca los filtros.'))
             return
-        scope = msg('filtrado') if filtered else msg('completo')
+        scope = msg('filtrado') if filtered else msg('todas las asignaciones')
         count = len(assignments)
+        pending = len(self.current_groups or []) - len(self.current_schedule)
+        if pending:
+            scope = msg('{scope} · horario parcial, {pending} pendientes', scope=scope, pending=pending)
         file_path, selected_format = QFileDialog.getSaveFileName(
             self, msg('Guardar horario {p1} · {p3} sesiones', p1=scope, p3=count),
             "horario_filtrado.xlsx" if filtered else "horario.xlsx",
@@ -687,6 +692,13 @@ class MainWindow(QMainWindow):
                             g.unassigned_reason = "Asignación antigua en aula regular retirada: requiere confirmar una excepción manual."
                     else:
                         g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), time_model)
+                errors = validate_schedule(self.current_schedule, groups,
+                                           self._validation_classrooms(), time_model,
+                                           data.get("lab_overrides", set()))
+                if errors:
+                    self.current_schedule = None
+                    self.current_groups = None
+                    raise ValueError("\n".join(error.render(msg) for error in errors))
                 self.current_groups = groups
                 self.schedule_viewer.display_schedule(
                     self.current_schedule, time_model, groups, course_name_map
@@ -699,6 +711,8 @@ class MainWindow(QMainWindow):
             self._save_error = None
             self._update_save_state()
             self.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
+            if self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
+                self._show_schedule_status()
         except Exception as e:
             self._loading = False
             self._restore_failed = True
@@ -727,6 +741,7 @@ class MainWindow(QMainWindow):
         if self.current_schedule is None:
             self.current_schedule = {}
         self.current_schedule[gid] = group.assignment
+        self._show_schedule_status()
         self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups)
         self._update_export_actions()
         self._refresh_overview()
@@ -745,7 +760,9 @@ class MainWindow(QMainWindow):
                 if g.group_id == gid and g.is_assigned():
                     g.assignment = None
                     g.lab_override = False
+                    g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), TimeModel.default())
 
+        self._show_schedule_status()
         self._update_export_actions()
         self._refresh_overview()
         self._save_session()

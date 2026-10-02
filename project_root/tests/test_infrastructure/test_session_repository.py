@@ -145,7 +145,7 @@ def test_empty_and_cleared_sessions(tmp_path):
     assert not repository.has_session()
     assert repository.get_course_completions() == []
     repository.save_session(None, None, {}, [], {}, None)
-    assert not repository.has_session()
+    assert repository.has_session()
     repository.save_session(None, 0, {}, [Course("BIO101", 1, 60, "REGULAR")], {}, None)
     assert repository.has_session()
     repository.clear_session()

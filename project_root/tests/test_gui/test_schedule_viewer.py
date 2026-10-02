@@ -304,7 +304,7 @@ def test_filtered_export_matches_shared_filters_without_affecting_complete(app, 
         assert book['Asignaciones'].max_row == 2
         assert book['Asignaciones']['C2'].value == 'BIO-G2'
     window._export_schedule()
-    assert 'completo' in dialogs[-1] and '4 sesiones' in dialogs[-1]
+    assert 'todas las asignaciones' in dialogs[-1] and '4 sesiones' in dialogs[-1]
     if extension == 'xlsx':
         assert load_workbook(saved)['Asignaciones'].max_row == 5
     else:
