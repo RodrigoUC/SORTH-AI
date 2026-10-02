@@ -81,7 +81,7 @@ def generate(root=ROOT):
     (root / 'schedule-board.png').write_bytes(icon_png(256))
     sheets, config = demo_data()
     for name, data in [('demo_source.json', sheets), ('courses_config.json', config)]:
-        (root / 'data/input' / name).write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        (root / 'data/input' / name).write_bytes((json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
 
 
 if __name__ == '__main__':

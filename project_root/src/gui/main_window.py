@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _create_file_section(self) -> QVBoxLayout:
-        layout = QVBoxLayout()
+        layout = self._file_layout = QVBoxLayout()
 
         header = QFrame()
         header.setObjectName("brandHeader")
@@ -811,8 +811,11 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, '_main_layout'):
             compact = self.height() <= 700
-            self._main_layout.setSpacing(8 if compact else 16)
-            self._main_layout.setContentsMargins(*(16, 12, 16, 8) if compact else (24, 20, 24, 12))
+            # Reclaim whitespace, not control height, for native Windows metrics.
+            # Keep the schedule rows readable at the supported 960×640 minimum.
+            self._main_layout.setSpacing(6 if compact else 16)
+            self._main_layout.setContentsMargins(*(16, 8, 16, 6) if compact else (24, 20, 24, 12))
+            self._file_layout.setSpacing(4 if compact else 16)
 
     def closeEvent(self, event):
         if self._worker is not None and self._worker.isRunning():

@@ -12,7 +12,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
 from PyQt6.QtCore import QSettings, Qt
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
+from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QStyleFactory
 from openpyxl import load_workbook
 
 from src.gui import i18n
@@ -474,7 +474,18 @@ def test_manual_assignment_signal_fires_once(manager, window, monkeypatch):
     assert opened == ['OTHER-G1']
 
 
-def test_compact_bilingual_schedule_keeps_visible_rows(app, manager, window):
+@pytest.fixture(params=['default', 'Fusion', 'Windows'])
+def compact_style(app, request):
+    original = app.style().objectName()
+    if request.param != 'default':
+        if request.param not in QStyleFactory.keys():
+            pytest.skip(f'{request.param} style is unavailable')
+        app.setStyle(request.param)
+    yield request.param
+    app.setStyle(original)
+
+
+def test_compact_bilingual_schedule_keeps_visible_rows(app, manager, compact_style, window):
     window.resize(960, 640)
     window.tabs.setCurrentIndex(1)
     window.schedule_viewer.tabs.setCurrentIndex(0)
@@ -484,3 +495,12 @@ def test_compact_bilingual_schedule_keeps_visible_rows(app, manager, window):
         window._motion.finish()
         assert window.width() == 960 and window.height() == 640
         assert window.schedule_viewer.list_table.viewport().height() >= 50
+        for control in (window.language_selector, window.btn_generate, window.btn_export,
+                        window.btn_export_filtered, window.chk_reduce_motion,
+                        window.schedule_viewer._list_search,
+                        window.schedule_viewer._room_filter,
+                        window.schedule_viewer._day_filter,
+                        window.schedule_viewer._status_filter):
+            assert control.isVisible()
+            assert window.rect().contains(control.mapTo(window, control.rect().topLeft()))
+            assert window.rect().contains(control.mapTo(window, control.rect().bottomRight()))

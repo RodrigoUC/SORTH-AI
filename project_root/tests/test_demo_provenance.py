@@ -1,5 +1,9 @@
 """Prevent accidental reintroduction of institution-specific demo assets."""
 import json
+import shutil
+import subprocess
+
+import pytest
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -60,3 +64,30 @@ def test_retired_material_is_not_in_current_source_tree():
     assert not (ROOT / 'data/input/Cursos_Biologia.xlsx').exists()
     assert not (ROOT / 'data/input/test_small.xlsx').exists()
 
+
+
+def test_generated_sources_survive_windows_autocrlf_checkout(tmp_path):
+    """Exercise Git's Windows checkout conversion, even on a Linux test host."""
+    git = shutil.which('git')
+    if git is None:
+        pytest.skip('Git is required to verify checkout line-ending policy')
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    shutil.copyfile(ROOT.parent / '.gitattributes', repo / '.gitattributes')
+    names = ['assets/sorth.svg', 'assets/sorth.ico', 'schedule-board.png',
+             'data/input/demo_source.json', 'data/input/courses_config.json']
+    for name in names:
+        target = repo / 'project_root' / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / name).read_bytes())
+    def run(*args):
+        return subprocess.run([git, *args], cwd=repo, check=True, capture_output=True)
+    run('init', '--quiet')
+    run('config', 'core.autocrlf', 'true')
+    run('add', '.gitattributes', 'project_root')
+    checkout = tmp_path / 'checkout'
+    run('checkout-index', '--all', '--prefix=' + checkout.as_posix() + '/')
+    generated = tmp_path / 'generated'
+    generate(generated)
+    for name in names:
+        assert (checkout / 'project_root' / name).read_bytes() == (generated / name).read_bytes()

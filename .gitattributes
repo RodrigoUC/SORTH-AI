@@ -1,0 +1,4 @@
+# Generated sources have a byte-for-byte reproducibility contract.
+/project_root/assets/sorth.svg text eol=lf
+/project_root/data/input/demo_source.json text eol=lf
+/project_root/data/input/courses_config.json text eol=lf
