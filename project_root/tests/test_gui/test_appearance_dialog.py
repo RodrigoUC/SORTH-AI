@@ -621,3 +621,66 @@ def test_nested_preview_and_single_footer_caption_fit_native_metrics(manager, lo
         dialog.reject()
         language.set_language(previous_language, persist=False)
         app.setStyle(previous_style)
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('key', ['original', 'nocturno', 'high_contrast'])
+@pytest.mark.parametrize('style', ['Fusion', 'Windows'])
+def test_initial_compact_input_focus_reveals_entire_frame(manager, locale, key, style):
+    """First Tab entry must expose the frame, not just QLineEdit's cursor."""
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    language = language_manager()
+    previous_language = language.language
+    if style not in QStyleFactory.keys():
+        pytest.skip('native style is unavailable')
+    app.setStyle(style)
+    language.set_language(locale, persist=False)
+    dialog = AppearanceDialog(manager=manager)
+    try:
+        dialog.selector.setCurrentIndex(dialog.selector.findData(key))
+        fonts = 'QWidget { font-size: 20pt; }'
+        dialog.setStyleSheet(dialog.styleSheet() + fonts)
+        dialog.preview.setStyleSheet(dialog.preview.styleSheet() + fonts)
+        dialog.resize(460, 420)
+        dialog.show()
+        settle_settings_layout(dialog)
+        dialog.selector.setFocus()
+        for _ in range(12):
+            QTest.keyClick(app.focusWidget(), Qt.Key.Key_Tab)
+            settle_settings_layout(dialog)
+            if app.focusWidget() is dialog.preview.input:
+                break
+        assert app.focusWidget() is dialog.preview.input
+
+        def assert_input_visible():
+            viewport = dialog.scroll.viewport()
+            rect = dialog.preview.input.rect().translated(
+                dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().topLeft()))
+            assert viewport.rect().contains(rect), (rect.getRect(), viewport.rect().getRect())
+            assert dialog.preview.input.font().pointSizeF() == 20
+            assert dialog.scroll.horizontalScrollBar().maximum() == 0
+            assert not dialog._focus_reveal_timer.isActive()
+
+        # No test-side scrolling, repeated focus, or resize before this assertion.
+        assert_input_visible()
+        QTest.keyClicks(dialog.preview.input, 'Synthetic preview')
+        dialog.preview.input.setSelection(2, 8)
+        cursor = dialog.preview.input.cursorPosition()
+        QTest.qWait(50)
+        assert_input_visible()
+        for size in (QSize(820, 980), QSize(460, 420)):
+            dialog.resize(size)
+            settle_settings_layout(dialog)
+            assert dialog.size() == size
+            assert app.focusWidget() is dialog.preview.input
+            assert_input_visible()
+            assert dialog.preview.input.text() == 'Synthetic preview'
+            assert dialog.preview.input.selectedText() == 'nthetic '
+            assert dialog.preview.input.cursorPosition() == cursor
+        assert manager.current_key == 'original'
+        assert not manager.preferences.path.exists()
+    finally:
+        dialog.reject()
+        language.set_language(previous_language, persist=False)
+        app.setStyle(previous_style)
