@@ -770,7 +770,7 @@ class MainWindow(QMainWindow):
         self.schedule_viewer.set_pin_controls_visible(self._features.enabled('pinned_sessions'))
         self.btn_projects.setVisible(self._features.enabled('project_scenarios'))
         for kind, button in self.resource_buttons.items():
-            button.setVisible(self._features.enabled(kind))
+            button.setVisible(self.resources.catalog(kind).enabled)
         self._update_history_actions()
         self._update_feature_notice()
 
@@ -974,16 +974,18 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Yes:
             return False
-        if not self._confirm_pin_inputs(courses=courses, classrooms=classrooms, restrictions=restrictions):
-            return False
+        proposed = self.resources
         if orphaned:
-            self.resources = SchedulingResources(tuple(replace(c,
+            proposed = SchedulingResources(tuple(replace(c,
                 memberships=tuple((gid, ids) for gid, ids in c.memberships if gid in known))
                 for c in self.resources.catalogs))
+        if not self._confirm_pin_inputs(courses=courses, classrooms=classrooms, restrictions=restrictions, resources=proposed):
+            return False
+        self.resources = proposed
         return True
 
     def _edit_resources(self, kind):
-        if self._busy or self._restore_failed or not self._features.enabled(kind):
+        if self._busy or self._restore_failed or not self.resources.catalog(kind).enabled:
             return
         from .resource_dialog import ResourceDialog
         groups = [g for c in self.course_manager.get_courses() for g in c.generate_groups()]
@@ -1253,8 +1255,14 @@ class MainWindow(QMainWindow):
                 )
                 self._update_export_actions()
 
-            if preferences != self._features.values():
-                self._features.save(preferences)
+            if not self._features.load_error and preferences != self._features.values():
+                try:
+                    self._features.save(preferences)
+                except (OSError, ValueError) as error:
+                    # Effective resource flags belong to this valid session;
+                    # damaged/read-only optional UI preferences cannot erase them
+                    # or prevent recovery of the user's schedule.
+                    self._features.load_error = str(error)
             self._apply_feature_preferences()
             self._refresh_overview()
             self._loading = False
@@ -1356,7 +1364,7 @@ class MainWindow(QMainWindow):
             candidate['pinned_group_ids'].add(gid)
         self._commit_edit(candidate, 'Cambiar sesión fijada')
 
-    def _pin_input_errors(self, courses=None, classrooms=None, restrictions=None):
+    def _pin_input_errors(self, courses=None, classrooms=None, restrictions=None, resources=None):
         """Pure validation shared by edits and staged Excel replacement."""
         if not self.pinned_group_ids:
             return []
@@ -1368,7 +1376,7 @@ class MainWindow(QMainWindow):
         groups = [group for course in courses for group in course.generate_groups()]
         pins = self._pinned_assignments()
         errors = validate_schedule(pins, groups, rooms, TimeModel.from_calendar(self.calendar),
-                                   {g.group_id for g in (self.current_groups or []) if g.lab_override}, resources=self.resources)
+                                   {g.group_id for g in (self.current_groups or []) if g.lab_override}, resources=self.resources if resources is None else resources)
         old = {g.group_id: g for g in (self.current_groups or [])}
         for group in groups:
             previous = old.get(group.group_id)
@@ -1383,7 +1391,7 @@ class MainWindow(QMainWindow):
         """Review proposed inputs before committing. Cancel changes nothing."""
         if self._loading or not self.pinned_group_ids:
             return True
-        errors = self._pin_input_errors(courses, classrooms, restrictions)
+        errors = self._pin_input_errors(courses, classrooms, restrictions, resources)
         if not errors:
             return True
         answer = QMessageBox.warning(

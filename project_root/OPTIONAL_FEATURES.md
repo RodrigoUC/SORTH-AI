@@ -43,8 +43,9 @@ working controls and behavior, never as a placeholder for an unfinished feature.
 
 New advanced tools must start off, retain domain data when disabled, explain any
 remaining effects in the main-window notice, and never bypass safety rules.
-Resources, bulk editing, undo, import preview, placement suggestions and calendar
-configuration are not listed until their implementations are integrated.
+Bulk editing, undo, import preview, placement suggestions and calendar
+configuration are not listed until their implementations are integrated. Resources
+are now implemented as independent parameters, described below.
 
 ## Verification
 
@@ -65,3 +66,11 @@ screen-reader behavior still require platform acceptance.
 lectivos, horas y descansos con revisión previa. Ocultar esta herramienta nunca
 restablece las reglas guardadas. Consulta [Calendario del proyecto](PROJECT_CALENDAR.md)
 para la migración, validaciones, sesiones fijadas y alcance MCP.
+
+## Parámetros de recursos (#14)
+
+El registro ahora incluye `teacher`, `student_group` y `student`. A diferencia de
+ocultar herramientas, apagarlos desactiva sus restricciones efectivas tras
+confirmación y retirada del resultado actual. Conserva recursos y relaciones.
+Los parámetros efectivos viajan con las sesiones/escenarios; las preferencias de
+interfaz no pueden omitir la validación de un snapshot. Véase OPTIONAL_RESOURCES.md.

@@ -1082,3 +1082,6 @@ MESSAGES.update({'Deshacer': 'Deshacer', 'Rehacer': 'Rehacer', 'Deshacer y rehac
 MESSAGES.update({'Cambiar calendario': 'Cambiar calendario'})
 
 MESSAGES.update({'Domingo': 'Domingo'})
+MESSAGES['Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'] = 'Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'
+
+MESSAGES["Curso"] = 'Curso'

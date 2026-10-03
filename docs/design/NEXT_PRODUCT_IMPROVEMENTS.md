@@ -140,5 +140,5 @@ Evidencia: `src/scheduling/time_model.py:3–25`, llamadas a
 Hallazgos estáticos comprobados; no se realizaron sesiones de usuario ni se
 cronometró una UI en esta tarea. El Python por defecto no dispone de PyQt6, por
 lo que no se ejecutaron nuevos ensayos gráficos. No interpretar los objetivos
-de rendimiento anteriores como resultados. Ninguna propuesta cambia reglas de
-docentes/cohortes mientras #14 siga pendiente de decisiones.
+de rendimiento anteriores como resultados. Las decisiones posteriores de #14 y su implementación aislada están recogidas en
+TEACHER_COHORT_CONTRACT_DRAFT.md; este estudio inicial no sustituye ese contrato confirmado.

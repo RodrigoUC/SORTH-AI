@@ -123,3 +123,18 @@ def test_unknown_null_and_empty_memberships_survive_round_trip():
     resources=SchedulingResources((catalog,))
     assert SchedulingResources.from_data(resources.to_data())==resources
     assert not resources.validate({},groups,TimeModel.default())
+
+
+def test_invalid_resource_pins_rejected_before_reservation():
+    courses,groups,rooms,resources=data()
+    pins={groups[0].group_id:('R1',1,480,540),groups[1].group_id:('R2',1,480,540)}
+    with pytest.raises(ValueError,match='TEACHER_OVERLAP'):
+        SchedulingService(None).run(courses,classrooms=rooms,resources=resources,pinned_assignments=pins)
+    assert all(not room.occupancy for room in rooms.values())
+
+
+def test_multiple_simultaneous_teachers_not_inferred_from_course_choice():
+    _,groups,_,resources=data()
+    catalog=replace(resources.catalog('teacher'),resources=(Resource('a','A'),Resource('b','B')),
+                    memberships=((groups[0].group_id,('a','b')),))
+    assert 'INVALID_MEMBERSHIP' in {i.code for i in catalog.validate({},groups,TimeModel.default())}

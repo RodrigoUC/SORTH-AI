@@ -122,8 +122,14 @@ class FeaturePreferences:
         record['features'].update(values)
         self._write_atomic(record)
 
-    def recover_defaults(self):
+    def recover_defaults(self, preserved_values=None):
         """Explicit user-confirmed recovery; retain exact original bytes first."""
+        defaults = {feature.key: False for feature in FEATURES}
+        if preserved_values is not None:
+            if (not set(preserved_values).issubset(defaults)
+                    or any(type(v) is not bool for v in preserved_values.values())):
+                raise ValueError('Invalid preserved preferences')
+            defaults.update(preserved_values)
         backup = None
         if self.path.exists():
             raw = self.path.read_bytes()
@@ -133,5 +139,5 @@ class FeaturePreferences:
                 stream.flush()
                 os.fsync(stream.fileno())
                 backup = Path(stream.name)
-        self._write_atomic({'version': self.VERSION, 'features': {feature.key: False for feature in FEATURES}})
+        self._write_atomic({'version': self.VERSION, 'features': defaults})
         return backup

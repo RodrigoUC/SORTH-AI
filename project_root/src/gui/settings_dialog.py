@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
 from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton
 from .i18n import msg
 from .features import FEATURES
+from ..scheduling.teaching_resources import RESOURCE_KINDS
 
 
 class SettingsDialog(QDialog):
@@ -35,7 +36,8 @@ class SettingsDialog(QDialog):
             control = QCheckBox(msg(feature.title))
             control.setAccessibleName(msg(feature.title))
             control.setAccessibleDescription(msg(feature.description))
-            control.setChecked(window._features.enabled(feature.key))
+            control.setChecked(window.resources.catalog(feature.key).enabled if feature.key in RESOURCE_KINDS
+                               else window._features.enabled(feature.key))
             layout.addWidget(control)
             description = QLabel(msg(feature.description))
             description.setWordWrap(True)
@@ -66,20 +68,21 @@ class SettingsDialog(QDialog):
 
     def recover_preferences(self):
         answer = QMessageBox.question(self, msg('Configuración'), msg(
-            'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?'),
+            'Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel)
         if answer != QMessageBox.StandardButton.Yes:
             return
         try:
-            self.window._features.recover_defaults()
+            self.window._features.recover_defaults({kind: self.window.resources.catalog(kind).enabled
+                                                       for kind in RESOURCE_KINDS})
         except (OSError, ValueError):
             self.recovery_label.setVisible(bool(self.window._features.load_error))
             self.recover_button.setVisible(bool(self.window._features.load_error))
             QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
             return
-        for control in self.controls.values():
-            control.setChecked(False)
+        for key, control in self.controls.items():
+            control.setChecked(self.window._features.enabled(key))
         self.window._apply_feature_preferences()
         self.recovery_label.hide()
         self.recover_button.hide()

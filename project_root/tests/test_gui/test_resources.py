@@ -133,3 +133,64 @@ def test_busy_blocks_resource_parameter_changes(window):
     assert not window.resources.catalog('teacher').enabled
     assert not window.btn_settings.isEnabled()
     window._set_busy(False)
+
+
+def test_corrupt_preferences_do_not_hide_or_disable_restored_resources(window,monkeypatch):
+    activate(window,'teacher')
+    schedule=dict(window.current_schedule)
+    path=window._features.path
+    path.write_text('{broken synthetic preferences',encoding='utf-8')
+    from src.gui.features import FeaturePreferences
+    window._features=FeaturePreferences(window._features.settings)
+    assert window._features.load_error
+    window._restore_session_if_exists(confirm=False,show_status=False)
+    assert not window._restore_failed
+    assert window.resources.catalog('teacher').enabled
+    assert not window.resource_buttons['teacher'].isHidden()
+    assert window.current_schedule==schedule
+    dialog=SettingsDialog(window)
+    assert dialog.controls['teacher'].isChecked()
+    monkeypatch.setattr(QMessageBox,'question',lambda *a,**k:QMessageBox.StandardButton.Yes)
+    dialog.recover_preferences()
+    assert window._features.enabled('teacher')
+    assert window.resources.catalog('teacher').enabled
+    assert window.current_schedule==schedule
+    assert list(path.parent.glob(path.name+'.preserved-*.bak'))
+
+
+def test_atomic_preference_failure_cannot_disable_resources(window,monkeypatch):
+    activate(window,'teacher');before=window.resources;schedule=dict(window.current_schedule)
+    monkeypatch.setattr(QMessageBox,'question',lambda *a,**k:QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox,'warning',lambda *a,**k:None)
+    def fail(_record):raise OSError('Synthetic atomic preference failure')
+    monkeypatch.setattr(window._features,'_write_atomic',fail)
+    dialog=SettingsDialog(window);dialog.controls['teacher'].setChecked(False);dialog.accept()
+    assert window.resources==before and window.current_schedule==schedule
+    assert window._features.enabled('teacher')
+
+
+def test_dialog_retranslates_availability_without_replacing_literal_alias(window):
+    from src.gui.i18n import language_manager
+    manager=language_manager();old=manager.language
+    catalog=ResourceCatalog('teacher',True,(Resource('shared-prefix-001','Guardar'),Resource('shared-prefix-002','Guardar')))
+    dialog=ResourceDialog(catalog,window.current_groups,TimeModel.default())
+    try:
+        manager.set_language('en',persist=False)
+        assert 'Availability not declared' in dialog.list.item(0).text()
+        assert 'Guardar' in dialog.list.item(0).text()
+        assert 'shared-prefix-001' in dialog.list.item(0).text()
+        assert 'shared-prefix-002' in dialog.list.item(1).text()
+    finally:
+        manager.set_language(old,persist=False);dialog.close()
+
+
+def test_removing_unpinned_course_does_not_unpin_valid_resource_session(window,monkeypatch):
+    activate(window,'teacher')
+    first=window.current_groups[0].group_id
+    window.pinned_group_ids={first}
+    monkeypatch.setattr(QMessageBox,'question',lambda *a,**k:QMessageBox.StandardButton.Yes)
+    warnings=[]
+    monkeypatch.setattr(QMessageBox,'warning',lambda *a,**k:warnings.append(a) or QMessageBox.StandardButton.Cancel)
+    assert window._confirm_course_inputs(window.course_manager.get_courses()[:1])
+    assert window.pinned_group_ids=={first}
+    assert not warnings

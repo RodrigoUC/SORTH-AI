@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QHeader
 from .i18n_widgets import (QDialog, QLabel, QPushButton, QLineEdit, QCheckBox,
     QComboBox, QTimeEdit, QTableWidget, QTableWidgetItem, QListWidget,
     QDialogButtonBox, QMessageBox, QFormLayout)
-from .i18n import msg
+from .i18n import msg, language_manager
 from ..scheduling.teaching_resources import Resource, ResourceCatalog
 
 RESOURCE_TITLES = {'teacher': 'Docentes', 'student_group': 'Grupos de estudiantes',
@@ -52,6 +52,8 @@ class ResourceEditor(QDialog):
             self._add_window(window)
         self._availability_state()
         self.error = QLabel(''); self.error.setWordWrap(True)
+        self.error.setAccessibleName(msg('Resultado de validación'))
+        self.error.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout.addWidget(self.error)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self._submit); buttons.rejected.connect(self.reject)
@@ -84,6 +86,7 @@ class ResourceEditor(QDialog):
         errors = ResourceCatalog(resources=(candidate,)).structure_issues(set(), self.time_model)
         if errors:
             self.error.setText(msg('Revise el nombre y las franjas: el final debe ser posterior al inicio.'))
+            self.error.setFocus()
             return
         if windows == () and QMessageBox.question(self, msg('Disponibilidad vacía'),
                 msg('No se permitirá ninguna sesión para este recurso. ¿Guardar disponibilidad vacía?'),
@@ -136,6 +139,7 @@ class ResourceDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self._submit); buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        language_manager().changed.connect(self._refresh)
         self._refresh()
 
     def _refresh(self):
@@ -143,14 +147,16 @@ class ResourceDialog(QDialog):
         self.list.clear()
         for resource in self.resources:
             state = msg('Sin disponibilidad declarada') if resource.availability is None else msg('Disponibilidad declarada')
-            self.list.addItem(QListWidgetItem(f'{resource.label} · {resource.id[:12]} · {state}'))
+            self.list.addItem(QListWidgetItem(f'{resource.label} · {resource.id} · {state}'))
         if selected >= 0:
             self.list.setCurrentRow(min(selected, len(self.resources)-1))
-        labels = {r.id: f'{r.label} [{r.id[:8]}]' for r in self.resources}
+        labels = {r.id: f'{r.label} [{r.id}]' for r in self.resources}
         for row, group in enumerate(self.groups):
             for col, value in enumerate((group.group_id, group.course_name or group.course_code or '',
                     ', '.join(labels.get(r, r) for r in self.memberships.get(group.group_id) or ()) or msg('Sin recursos asignados'))):
-                self.sessions.setItem(row, col, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                item.setToolTip(value)
+                self.sessions.setItem(row, col, item)
 
     def _add(self):
         editor = ResourceEditor(Resource(uuid4().hex, ''), self.time_model, self)
@@ -193,7 +199,7 @@ class ResourceDialog(QDialog):
         multiple.setVisible(self.catalog.kind != 'teacher')
         layout.addWidget(multiple)
         for resource in self.resources:
-            item = QListWidgetItem(f'{resource.label} [{resource.id[:8]}]')
+            item = QListWidgetItem(f'{resource.label} [{resource.id}]')
             item.setData(Qt.ItemDataRole.UserRole, resource.id)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if resource.id in current else Qt.CheckState.Unchecked)

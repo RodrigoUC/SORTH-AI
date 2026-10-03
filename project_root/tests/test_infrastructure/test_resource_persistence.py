@@ -107,3 +107,13 @@ def test_duplicate_json_fields_rejected(tmp_path):
     with sqlite3.connect(repo._db_path) as con:
         con.execute('UPDATE scheduling_resources SET payload=?',('{"version":99,"version":1,"catalogs":[]}',))
     with pytest.raises(ValueError,match='Duplicate resource JSON field'):repo.load_session()
+
+
+def test_failed_resource_transaction_keeps_prior_valid_snapshot(tmp_path):
+    repo=SessionRepository(str(tmp_path/'session.db'));values=payload();repo.save_session(**values)
+    before=session_fingerprint(repo.load_session())
+    with sqlite3.connect(repo._db_path) as con:
+        con.execute("CREATE TRIGGER block_resources BEFORE UPDATE ON scheduling_resources BEGIN SELECT RAISE(ABORT,'synthetic failure'); END")
+    values['resources']=SchedulingResources(tuple(replace(c,enabled=False) for c in values['resources'].catalogs))
+    with pytest.raises(sqlite3.IntegrityError):repo.save_session(**values)
+    assert session_fingerprint(repo.load_session())==before
