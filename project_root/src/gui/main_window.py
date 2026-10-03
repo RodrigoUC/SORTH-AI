@@ -848,12 +848,19 @@ class MainWindow(QMainWindow):
             # resolved destination. Confirm only this extra collision; an
             # explicit suffix has already been handled by the picker.
             destination = Path(file_path)
-            if (destination.exists() or destination.is_symlink()) and QMessageBox.question(
-                    self, msg('Confirmar reemplazo'),
-                    msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path),
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
-                return
+            if destination.exists() or destination.is_symlink():
+                confirmation = QMessageBox(self)
+                confirmation.setWindowTitle(msg('Confirmar reemplazo'))
+                confirmation.setIcon(QMessageBox.Icon.Question)
+                confirmation.setTextFormat(Qt.TextFormat.PlainText)
+                confirmation.setText(msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path))
+                confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                confirmation.setDefaultButton(QMessageBox.StandardButton.No)
+                try:
+                    if confirmation.exec() != QMessageBox.StandardButton.Yes:
+                        return
+                finally:
+                    confirmation.deleteLater()
 
         try:
             time_model = TimeModel.from_calendar(self.calendar)

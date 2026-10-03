@@ -30,14 +30,14 @@ def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (str(selected), f'Format (*.{extension})'))
     prompts = []
-    def confirm(*args):
-        prompts.append(args)
-        assert str(target) in str(args[2])
-        assert args[3] == QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        assert args[4] == QMessageBox.StandardButton.No
+    def confirm(dialog):
+        prompts.append(dialog.text())
+        assert str(target) in dialog.text()
+        assert dialog.standardButtons() == QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        assert dialog.defaultButton() == dialog.button(QMessageBox.StandardButton.No)
         assert target.read_bytes() == original
         return answer
-    monkeypatch.setattr(QMessageBox, 'question', confirm)
+    monkeypatch.setattr(QMessageBox, 'exec', confirm)
     modals = []
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: modals.append(self.windowTitle()))
     window._export_schedule(filtered=filtered)
@@ -81,7 +81,7 @@ def test_explicit_destination_keeps_picker_approval_and_dispatch(
         path.write_bytes(b'Previously approved by the picker')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (str(path), f'Format (*.{extension})'))
-    monkeypatch.setattr(QMessageBox, 'question', lambda *a: pytest.fail('Double confirmation'))
+    monkeypatch.setattr(QMessageBox, 'exec', lambda *a: pytest.fail('Double confirmation'))
     called = []
     for kind in ('excel', 'csv', 'pdf'):
         monkeypatch.setattr(ScheduleExporter, f'to_{kind}',
@@ -100,7 +100,7 @@ def test_missing_resolved_target_and_picker_cancel_do_not_prompt(
     paths = iter(['', str(selected)])
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (next(paths), f'Format (*.{extension})'))
-    monkeypatch.setattr(QMessageBox, 'question', lambda *a: pytest.fail('Unexpected confirmation'))
+    monkeypatch.setattr(QMessageBox, 'exec', lambda *a: pytest.fail('Unexpected confirmation'))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     window.status_bar.showMessage('Previous outcome')
     window._export_schedule()
@@ -131,11 +131,11 @@ def test_real_qt_picker_suffixless_collision_preserves_bytes(
         assert picker.selectedFiles() == [str(tmp_path / 'report')]
         return picker.selectedFiles()[0], picker.selectedNameFilter()
     prompts = []
-    def decline(*args):
-        prompts.append(str(args[2]))
+    def decline(dialog):
+        prompts.append(dialog.text())
         return QMessageBox.StandardButton.No
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', select)
-    monkeypatch.setattr(QMessageBox, 'question', decline)
+    monkeypatch.setattr(QMessageBox, 'exec', decline)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     try:
         window._export_schedule()
@@ -183,7 +183,7 @@ def test_approved_resolved_overwrite_still_preserves_bytes_on_atomic_failure(
     target.write_bytes(b'original')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
-    monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     def fail_replace(source, destination):
         raise PermissionError('synthetic locked export')
@@ -212,10 +212,10 @@ def test_resolved_symlink_destination_needs_consent(
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
     prompts = []
-    def confirm(*args):
-        prompts.append(str(args[2]))
+    def confirm(dialog):
+        prompts.append(dialog.text())
         return QMessageBox.StandardButton.Yes if approve else QMessageBox.StandardButton.No
-    monkeypatch.setattr(QMessageBox, 'question', confirm)
+    monkeypatch.setattr(QMessageBox, 'exec', confirm)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     window._export_schedule()
     assert len(prompts) == 1 and str(target) in prompts[0]
@@ -226,3 +226,34 @@ def test_resolved_symlink_destination_needs_consent(
     assert referent.exists() is not dangling
     if not dangling:
         assert referent.read_bytes() == b'linked original'
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+@pytest.mark.parametrize('filename', ['report <b>important</b>', 'report & copy'])
+def test_overwrite_confirmation_treats_literal_filename_as_plain_text(
+        window, tmp_path, monkeypatch, language, filename):
+    from PyQt6.QtCore import Qt
+    # Slash cannot occur in a filename; a lone supported rich-text tag is enough
+    # to exercise Qt AutoText detection on Linux. Windows rejects angle brackets.
+    filename = filename.replace('</b>', '')
+    target = tmp_path / f'{filename}.csv'
+    try:
+        target.write_bytes(b'original')
+    except OSError:
+        pytest.skip('This filesystem does not support the filename characters')
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName',
+                        lambda *a: (str(tmp_path / filename), 'CSV (*.csv)'))
+    manager, old_language = language_manager(), language_manager().language
+    observations = []
+    def decline(dialog):
+        observations.append((dialog.textFormat(), str(target) in dialog.text()))
+        assert ('already exists' if language == 'en' else 'ya existe') in dialog.text()
+        return QMessageBox.StandardButton.No
+    monkeypatch.setattr(QMessageBox, 'exec', decline)
+    try:
+        manager.set_language(language, persist=False)
+        window._export_schedule()
+        assert observations == [(Qt.TextFormat.PlainText, True)]
+        assert target.read_bytes() == b'original'
+    finally:
+        manager.set_language(old_language, persist=False)

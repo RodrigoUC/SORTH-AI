@@ -41,7 +41,7 @@ def test_pdf_gui_full_filtered_selected_format_and_scope(app, tmp_path, monkeypa
         assert ('Wednesday' if language == 'en' else 'Miércoles') in output
         assert 'Biología marina' in output
         assert 'BIO-G2' not in output
-        monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.StandardButton.Yes)
+        monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Yes)
         window._export_schedule()
         output = content(path)
         assert ('All assignments' if language == 'en' else 'Todas las asignaciones') in output
