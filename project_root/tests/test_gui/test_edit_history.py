@@ -173,7 +173,8 @@ def test_database_commit_failure_after_materialization_restores_accepted_state(w
     def fail_commit():
         with original() as con:
             yield con
-            raise OSError('injected commit failure')
+            if con.total_changes:
+                raise OSError('injected commit failure')
     with monkeypatch.context() as patch:
         patch.setattr(window._repo, '_connect', fail_commit)
         assert not window._commit_course_edit([], 'delete')

@@ -405,8 +405,9 @@ def test_import_commit_failure_after_presentation_rolls_back(window, tmp_path, m
     def fail_commit():
         with original() as connection:
             yield connection
-            assert window.excel_path == candidate.path
-            raise sqlite3.OperationalError('late commit failure')
+            if connection.total_changes:
+                assert window.excel_path == candidate.path
+                raise sqlite3.OperationalError('late commit failure')
     monkeypatch.setattr(window._repo, '_connect', fail_commit)
     with pytest.raises(sqlite3.OperationalError, match='late commit failure'):
         window._commit_import(candidate, set())
