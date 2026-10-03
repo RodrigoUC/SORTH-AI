@@ -48,3 +48,30 @@ def test_actual_worker_cancel_close_and_inputs(tmp_path, monkeypatch):
     assert window.pinned_group_ids=={'A-G1'}
     assert (tmp_path/'session.db').read_bytes()==original
     window.close()
+
+
+def test_cooperative_worker_stops_with_cancelled_not_error(tmp_path, monkeypatch):
+    from src.gui.scheduler_worker import SchedulerWorker
+    from src.scheduling.scheduler import Scheduler
+    entered = threading.Event()
+    original = Scheduler._build_domains
+    def observed(self, *args, **kwargs):
+        entered.set()
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(Scheduler, '_build_domains', observed)
+    worker = SchedulerWorker(None, [Course('BIG', 3000, 60, 'REGULAR')],
+                             {'R': Classroom('R', 30, 'REGULAR')}, {}, 42)
+    results, errors, cancellations = [], [], []
+    worker.result_ready.connect(lambda *args: results.append(args))
+    worker.error.connect(errors.append)
+    worker.cancelled.connect(lambda: cancellations.append(True))
+    worker.start()
+    assert entered.wait(3)
+    started = time.monotonic()
+    worker.requestInterruption()
+    assert worker.wait(2000), 'Synthetic fixture cancellation exceeds two-second test budget'
+    elapsed = time.monotonic() - started
+    QApplication.processEvents()
+    assert cancellations == [True]
+    assert not results and not errors
+    assert elapsed < 2

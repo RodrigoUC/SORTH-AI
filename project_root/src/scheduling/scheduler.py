@@ -3,11 +3,13 @@ from typing import List
 from .schedule_state import ScheduleState
 from .group import Group
 from .validation import unassigned_reason
+from .cancellation import checkpoint
 
 
 class Scheduler:
 
-    def __init__(self, seed: int | None = 42):
+    def __init__(self, seed: int | None = 42, cancelled=None):
+        self._cancelled = cancelled
         self._rng = Random(seed)
         self._all_groups: List[Group] = []
 
@@ -24,6 +26,11 @@ class Scheduler:
     # ------------------------------------------------------------------
 
     def schedule(self, state: ScheduleState, groups: List[Group]) -> bool:
+        if state.resources is not None:
+            errors = state.resources.structure_issues({g.group_id for g in groups}, state.time_model)
+            if errors:
+                raise ValueError('; '.join(map(str, errors)))
+        checkpoint(self._cancelled)
         self._all_groups = groups
         self._reset_counters()
         self._seed_counters(state, groups)
@@ -34,6 +41,7 @@ class Scheduler:
 
         MAX_RETRIES = 3
         for _ in range(MAX_RETRIES):
+            checkpoint(self._cancelled)
             unassigned = [g for g in groups if not g.is_assigned()]
             if not unassigned:
                 break
@@ -49,8 +57,10 @@ class Scheduler:
                 break
 
         for group in groups:
+            checkpoint(self._cancelled)
             group.unassigned_reason = "" if group.is_assigned() else unassigned_reason(
                 group, state.classrooms, state.time_model)
+        checkpoint(self._cancelled)
         return all(g.is_assigned() for g in groups)
 
     # ------------------------------------------------------------------
@@ -59,6 +69,7 @@ class Scheduler:
 
     def _greedy_pass(self, state: ScheduleState, groups: List[Group]):
         for group in groups:
+            checkpoint(self._cancelled)
             if group.is_assigned():
                 continue
             # Domains were built before earlier groups occupied their rooms.
@@ -67,8 +78,10 @@ class Scheduler:
             # the same first-in-domain tie breaking as the previous stable sort.
             candidates = (
                 candidate for candidate in group.domain
-                if candidate[0].is_available(
+                if self._candidate_available(candidate, group)
+                and candidate[0].is_available(
                     candidate[1], candidate[2], candidate[2] + group.duration_min)
+                and state.resources_allow(group, candidate[1], candidate[2])
                 and (not group.parent_group_id or self._is_valid_subgroup(
                     group, candidate[1], candidate[2]))
             )
@@ -79,23 +92,30 @@ class Scheduler:
                 if state.assign(group, classroom.name, day, start_min):
                     self._track_assign(group, classroom.name, day, start_min)
 
+    def _candidate_available(self, candidate, group):
+        checkpoint(self._cancelled)
+        return True
+
     # ------------------------------------------------------------------
     # Domain initialization
     # ------------------------------------------------------------------
 
     def _build_domains(self, state: ScheduleState, groups: List[Group],
-                        strict_preferences: bool = True):
+                        strict_preferences: bool = True, domain_limit=None, additional_starts=()):
         # Build reverse map: course_code -> set of classrooms it is restricted to.
         # The reverse restriction applies only when this group's suggested
         # classroom belongs to the reserved set, never to unrelated groups.
         restricted_to: dict[str, set[str]] = {}
         for cls in state.classrooms.values():
+            checkpoint(self._cancelled)
             if cls.allowed_courses is not None:
                 for code in cls.allowed_courses:
+                    checkpoint(self._cancelled)
                     restricted_to.setdefault(code, set()).add(cls.name)
 
         start_candidates: dict[tuple[int, int | None], list[int]] = {}
         for group in groups:
+            checkpoint(self._cancelled)
             domain = []
             # Bidirectional restriction only applies if this specific group's
             # suggested_classroom is one of the restricted classrooms for this course.
@@ -110,10 +130,16 @@ class Scheduler:
             if start_key not in start_candidates:
                 start_candidates[start_key] = state.time_model.generate_start_candidates(
                     group.duration_min, pref_start)
+                if additional_starts:
+                    start_candidates[start_key] = sorted(set(start_candidates[start_key]) | {
+                        start for start in additional_starts if type(start) is int
+                        and state.time_model.is_valid_interval(1, start, start + group.duration_min)
+                        and not state.time_model.overlaps_lunch(start, start + group.duration_min)})
             days = [day for day in range(1, state.time_model.days_count + 1)
                     if not (strict_preferences and group.preferred_day)
                     or state.time_model.to_day_name(day) == group.preferred_day]
             for classroom in state.classrooms.values():
+                checkpoint(self._cancelled)
                 if group.required_room_type == "LAB" and classroom.room_type != "LAB":
                     continue
                 if classroom.capacity < group.size:
@@ -128,10 +154,17 @@ class Scheduler:
                     if classroom.name != group.suggested_classroom:
                         continue
                 for day in days:
+                    checkpoint(self._cancelled)
                     for start_min in start_candidates[start_key]:
-                        if classroom.is_available(day, start_min, start_min + group.duration_min):
+                        checkpoint(self._cancelled)
+                        if (classroom.is_available(day, start_min, start_min + group.duration_min)
+                                and state.resources_allow(group, day, start_min)):
+                            if domain_limit is not None and len(domain) >= domain_limit:
+                                group.domain = domain
+                                return True
                             domain.append((classroom, day, start_min))
             group.domain = domain
+        return False
 
     # ------------------------------------------------------------------
     # Incremental counter management
@@ -147,6 +180,7 @@ class Scheduler:
         """Include existing reservations when continuing an existing schedule."""
         known_groups = {group.group_id: group for group in groups}
         for group_id, (classroom, day, start, end) in state.assignments.items():
+            checkpoint(self._cancelled)
             self._day_load[day] = self._day_load.get(day, 0) + 1
             self._time_load[start] = self._time_load.get(start, 0) + 1
             self._classroom_uses[classroom] = self._classroom_uses.get(classroom, 0) + 1
@@ -173,6 +207,7 @@ class Scheduler:
         return sorted(candidates, key=lambda a: self._candidate_score(state, group, a))
 
     def _candidate_score(self, state: ScheduleState, group: Group, a: tuple) -> tuple:
+        checkpoint(self._cancelled)
         return (
             self._type_score(state, group, a[0].name),
             self._suggested_classroom_score(group, a[0].name),
@@ -202,6 +237,7 @@ class Scheduler:
 
         best_level, best_secondary = 3, 0
         for sib_day, sib_start, sib_end, _ in slots:
+            checkpoint(self._cancelled)
             next_hour = ((sib_end + 59) // 60) * 60
             if day == sib_day and start_min == next_hour and start_min > sib_end:
                 gap = start_min - sib_end
@@ -252,6 +288,7 @@ class Scheduler:
     def _is_valid_subgroup(self, subgroup: Group, day: int, start_min: int) -> bool:
         parent_id = subgroup.parent_group_id
         for other in self._all_groups:
+            checkpoint(self._cancelled)
             if other.parent_group_id != parent_id or other is subgroup:
                 continue
             if not other.is_assigned():

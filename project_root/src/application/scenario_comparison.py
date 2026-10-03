@@ -3,16 +3,18 @@ import json
 import hashlib
 from ..scheduling.quality import QualitySnapshot, analyze_quality
 from ..scheduling.time_model import TimeModel
+from ..scheduling.project_calendar import ProjectCalendar
+from ..scheduling.teaching_resources import SchedulingResources
 
 ALGORITHM_VERSION = 'sorth-scheduler-v1'
 
 
-def scenario_metadata(algorithm_version=None):
-    time = TimeModel.default()
+def scenario_metadata(algorithm_version=None, calendar=None):
+    time = TimeModel.from_calendar(calendar or ProjectCalendar())
     return dict(format_version=1, algorithm_version=algorithm_version,
-                metrics_version=1, calendar=dict(days=time.index_to_day,
-                start=time.day_start, end=time.day_end,
-                lunch=[time.LUNCH_START, time.LUNCH_END]))
+                metrics_version=1, calendar=(dict(days=time.index_to_day,
+                start=time.day_start, end=time.day_end, lunch=[time.LUNCH_START, time.LUNCH_END])
+                if time.calendar == ProjectCalendar() else time.calendar.to_dict()))
 
 
 def analyze_scenario(data):
@@ -20,7 +22,7 @@ def analyze_scenario(data):
     for group in groups:
         group.lab_override = group.group_id in data.get('lab_overrides', ())
     return analyze_quality(QualitySnapshot.capture(data['assignments'] or {}, groups,
-                                                   TimeModel.default(), data['classrooms']))
+                                                   TimeModel.from_calendar(data.get('calendar', ProjectCalendar())), data['classrooms']))
 
 
 def _inputs(data):
@@ -42,6 +44,7 @@ def compare_scenarios(left, right):
     for key, x, y in (
         ('courses', ac, bc), ('classrooms', ar, br),
         ('restrictions', a['restrictions'], b['restrictions']),
+        ('resources', a.get('resources', SchedulingResources()).to_data(), b.get('resources', SchedulingResources()).to_data()),
         ('pins', a.get('pinned_group_ids', set()), b.get('pinned_group_ids', set())),
         ('seed', a['seed'], b['seed']),
         ('calendar', am.get('calendar'), bm.get('calendar')),
@@ -53,11 +56,12 @@ def compare_scenarios(left, right):
             differences.append(key)
             difference_values[key] = (x, y)
     unknown = not am.get('algorithm_version') or not bm.get('algorithm_version')
-    # Calendar mismatch is not silently analyzed using a different operational
-    # window. Current application only supports the default calendar.
-    calendar = scenario_metadata()['calendar']
-    supported = all(json.dumps(m.get('calendar'), sort_keys=True) == json.dumps(calendar, sort_keys=True)
-                    for m in (am, bm))
+    supported = True
+    for data, metadata in ((a, am), (b, bm)):
+        try:
+            validate_scenario_metadata(metadata, data.get('calendar', ProjectCalendar()))
+        except ValueError:
+            supported = False
     supported = supported and all(
         type(m.get('format_version')) is int and m.get('format_version') == 1
         and type(m.get('metrics_version')) is int and m.get('metrics_version') == 1 for m in (am, bm))
@@ -73,12 +77,14 @@ def session_fingerprint(data):
     values = dict(courses=courses, rooms=rooms, restrictions=data['restrictions'],
                   seed=data['seed'], excel_path=data['excel_path'],
                   assignments=data['assignments'] or {}, lab_overrides=data.get('lab_overrides', ()),
-                  pins=data.get('pinned_group_ids', ()))
+                  pins=data.get('pinned_group_ids', ()),
+                  calendar=data.get('calendar', ProjectCalendar()).to_dict(),
+                  resources=data.get('resources', SchedulingResources()).to_data())
     return hashlib.sha256(json.dumps(values, sort_keys=True, ensure_ascii=False,
                                     default=lambda value: sorted(value)).encode()).hexdigest()
 
 
-def validate_scenario_metadata(metadata):
+def validate_scenario_metadata(metadata, calendar=None):
     if not isinstance(metadata, dict):
         raise ValueError('Invalid scenario metadata')
     if (type(metadata.get('format_version')) is not int or metadata.get('format_version') != 1
@@ -86,6 +92,11 @@ def validate_scenario_metadata(metadata):
         raise ValueError('Unsupported scenario format or metrics version')
     if metadata.get('algorithm_version') is not None and not isinstance(metadata['algorithm_version'], str):
         raise ValueError('Invalid algorithm version')
-    expected = scenario_metadata()['calendar']
-    if json.dumps(metadata.get('calendar'), sort_keys=True) != json.dumps(expected, sort_keys=True):
-        raise ValueError('Unsupported scenario calendar; original preserved')
+    value = metadata.get('calendar')
+    legacy = scenario_metadata()['calendar']
+    if json.dumps(value, sort_keys=True) == json.dumps(legacy, sort_keys=True):
+        parsed = ProjectCalendar()
+    else:
+        parsed = ProjectCalendar.from_dict(value)
+    if calendar is not None and parsed != calendar:
+        raise ValueError('Scenario calendar does not match persisted project rules; original preserved')

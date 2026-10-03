@@ -1,8 +1,9 @@
 """Transactional native settings: Cancel never changes preferences or project data."""
-from PyQt6.QtWidgets import QVBoxLayout
+from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
 from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton
 from .i18n import msg
 from .features import FEATURES
+from ..scheduling.teaching_resources import RESOURCE_KINDS
 
 
 class SettingsDialog(QDialog):
@@ -10,8 +11,15 @@ class SettingsDialog(QDialog):
         super().__init__(window)
         self.window = window
         self.setWindowTitle(msg('Configuración'))
-        self.resize(560, 380)
-        layout = QVBoxLayout(self)
+        self.resize(620, 620)
+        outer = QVBoxLayout(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
         intro = QLabel(msg('Las funciones opcionales empiezan desactivadas. Los cambios se guardan en este equipo.'))
         intro.setWordWrap(True)
         layout.addWidget(intro)
@@ -28,14 +36,20 @@ class SettingsDialog(QDialog):
             control = QCheckBox(msg(feature.title))
             control.setAccessibleName(msg(feature.title))
             control.setAccessibleDescription(msg(feature.description))
-            control.setChecked(window._features.enabled(feature.key))
+            control.setChecked(window.resources.catalog(feature.key).enabled if feature.key in RESOURCE_KINDS
+                               else window._features.enabled(feature.key))
             layout.addWidget(control)
             description = QLabel(msg(feature.description))
             description.setWordWrap(True)
             description.setObjectName('mutedText')
             layout.addWidget(description)
             self.controls[feature.key] = control
-        note = QLabel(msg('Desactivar oculta los controles, sin borrar datos. Las sesiones ya fijadas siguen protegidas. Las validaciones de seguridad siempre están activas.'))
+        self.calendar_button = QPushButton(msg('Guardar configuración y editar calendario'))
+        self.calendar_button.setEnabled(window._features.enabled('project_calendar') and not window._busy and not window._restore_failed)
+        self.calendar_button.clicked.connect(self.open_calendar)
+        self.controls['project_calendar'].toggled.connect(lambda enabled: self.calendar_button.setEnabled(enabled and not window._busy and not window._restore_failed))
+        layout.addWidget(self.calendar_button)
+        note = QLabel(msg('Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.'))
         note.setWordWrap(True)
         layout.addWidget(note)
         mcp = QLabel(msg('MCP se instala y se inicia por separado; esta configuración no activa servicios externos.'))
@@ -45,24 +59,30 @@ class SettingsDialog(QDialog):
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
+        outer.addWidget(self.buttons)
+
+    def open_calendar(self):
+        self.accept()
+        if self.result() == QDialog.DialogCode.Accepted:
+            self.window._show_calendar()
 
     def recover_preferences(self):
         answer = QMessageBox.question(self, msg('Configuración'), msg(
-            'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?'),
+            'Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel)
         if answer != QMessageBox.StandardButton.Yes:
             return
         try:
-            self.window._features.recover_defaults()
+            self.window._features.recover_defaults({kind: self.window.resources.catalog(kind).enabled
+                                                       for kind in RESOURCE_KINDS})
         except (OSError, ValueError):
             self.recovery_label.setVisible(bool(self.window._features.load_error))
             self.recover_button.setVisible(bool(self.window._features.load_error))
             QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
             return
-        for control in self.controls.values():
-            control.setChecked(False)
+        for key, control in self.controls.items():
+            control.setChecked(self.window._features.enabled(key))
         self.window._apply_feature_preferences()
         self.recovery_label.hide()
         self.recover_button.hide()
@@ -77,12 +97,38 @@ class SettingsDialog(QDialog):
                 QMessageBox.StandardButton.Cancel)
             if answer != QMessageBox.StandardButton.Yes:
                 return
+        changes = self.window._resource_parameter_changes(values)
+        if changes and (self.window.current_schedule or any(
+                self.window.resources.catalog(kind).memberships for kind in changes)):
+            answer = QMessageBox.question(self, msg('Cambiar parámetros de recursos'), msg(
+                'Al desactivar un parámetro, sus recursos dejan de limitar nuevos horarios. Los registros se conservan. Cambiar estos parámetros retira el resultado actual y desfija sus sesiones; deberá regenerarlo. ¿Continuar?'),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        previous = self.window._features.values()
         try:
             self.window._features.save(values)
+            if not self.window._apply_resource_parameters(values):
+                try:
+                    self.window._features.save(previous)
+                except (OSError, ValueError) as error:
+                    detail = msg('La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}', detail=str(error))
+                    self.window._features.load_error = str(detail)
+                    self.window._view_recovery_failure(detail, committed=False)
+                    self.recovery_label.show()
+                    self.recover_button.show()
+                    QMessageBox.warning(self, msg('Configuración'), detail)
+                return
         except (OSError, ValueError):
             self.recovery_label.setVisible(bool(self.window._features.load_error))
             self.recover_button.setVisible(bool(self.window._features.load_error))
             QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
             return
-        self.window._apply_feature_preferences()
+        try:
+            self.window._apply_feature_preferences()
+        except Exception as error:
+            # Preferences (and any resource transaction) are already accepted.
+            # A late widget failure is recovery, never a failed-save claim.
+            self.window._committed_view_failure(error)
         super().accept()

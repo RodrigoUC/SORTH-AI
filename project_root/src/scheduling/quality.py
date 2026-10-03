@@ -49,8 +49,8 @@ class QualitySnapshot:
         if len({g.group_id for g in sessions}) != len(sessions):
             raise ValueError("Duplicate session IDs cannot be analyzed")
         days = tuple(sorted(time_model.index_to_day.items()))
-        exclusions = [(None, day, time_model.LUNCH_START, time_model.LUNCH_END)
-                      for day, _ in days]
+        exclusions = [(None, day, start, end)
+                      for day, _ in days for start, end in time_model.breaks]
         for (room, day), intervals in (room_exclusions or {}).items():
             if classrooms is None or room not in classrooms or day not in dict(days):
                 raise ValueError("Room exclusion references unknown room or day")

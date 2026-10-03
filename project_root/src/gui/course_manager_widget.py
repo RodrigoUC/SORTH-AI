@@ -3,13 +3,15 @@
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QHeaderView
 )
-from PyQt6.QtCore import Qt, QTime, pyqtSignal
+from PyQt6.QtCore import Qt, QTime, pyqtSignal, QItemSelectionModel
+from copy import deepcopy
 from PyQt6.QtWidgets import (
     QCompleter
 )
 
 from ..scheduling.course import Course
 from ..scheduling.time_model import TimeModel
+from ..scheduling.project_calendar import ProjectCalendar
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
@@ -60,12 +62,11 @@ def _confirm(parent, title: str, message: str) -> bool:
 class CourseDialog(QDialog):
     """Dialog for adding/editing a course."""
 
-    DAYS = ["(Sin preferencia)", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-
     def __init__(self, parent=None, course: Course = None,
-                 completions: list[tuple[str, str]] | None = None):
+                 completions: list[tuple[str, str]] | None = None, calendar=None):
         super().__init__(parent)
         self.course = course
+        self.calendar = calendar if calendar is not None else ProjectCalendar()
         self._completions = completions or []   # [(code, name), ...]
         self._code_to_name = {c: n for c, n in self._completions}
         self.setWindowTitle(msg('Agregar Curso') if not course else msg('Editar Curso'))
@@ -133,8 +134,14 @@ class CourseDialog(QDialog):
 
         # Preferred day
         self.day_combo = QComboBox()
-        for index, day in enumerate(self.DAYS):
-            self.day_combo.addItem(msg(day), day if index else None)
+        self.day_combo.addItem(msg('(Sin preferencia)'), None)
+        days = list(self.calendar.days)
+        if self.course and self.course.preferred_day and self.course.preferred_day not in days:
+            # A soft preference may be latent outside the active calendar.
+            # Opening an editor must never silently erase it.
+            days.append(self.course.preferred_day)
+        for day in days:
+            self.day_combo.addItem(msg(day), day)
         layout.addRow(msg('Día Preferido:'), self.day_combo)
 
         # Preferred start time — QTimeEdit for clarity
@@ -145,8 +152,8 @@ class CourseDialog(QDialog):
         self.pref_time_edit.setAccessibleName(msg('Hora de inicio preferida'))
         self.pref_time_edit.setDisplayFormat("HH:mm")
         self.pref_time_edit.setTime(QTime(8, 0))
-        self.pref_time_edit.setMinimumTime(QTime(7, 0))
-        self.pref_time_edit.setMaximumTime(QTime(21, 0))
+        self.pref_time_edit.setMinimumTime(QTime(0, 0))
+        self.pref_time_edit.setMaximumTime(QTime(23, 59))
         self.pref_time_edit.setToolTip(msg('Hora de inicio preferida para este curso (ej: 08:00, 13:00)'))
         time_layout.addWidget(self.chk_pref_time)
         time_layout.addWidget(self.pref_time_edit)
@@ -256,7 +263,9 @@ class CourseDialog(QDialog):
         idx = self.split_combo.currentIndex()
         force_split = None if idx == 0 else (True if idx == 1 else False)
 
-        return Course(
+        if self.course is not None and code == self.course.code:
+            room_type = self.course.required_room_type
+        course = Course(
             code=code,
             name=self.name_edit.text().strip() or None,
             number_of_groups=self.groups_spin.value(),
@@ -267,6 +276,15 @@ class CourseDialog(QDialog):
             preferred_start_min=preferred_start_min,
             force_split=force_split,
         )
+        if self.course is not None:
+            # Editing visible fields must not erase enrollment, per-group
+            # suggestions, or future domain metadata that this dialog cannot edit.
+            original = deepcopy(self.course)
+            for key, value in vars(course).items():
+                if key not in ('size', 'group_suggestions'):
+                    setattr(original, key, value)
+            return original
+        return course
 
 
 class CourseManagerWidget(QWidget):
@@ -274,10 +292,11 @@ class CourseManagerWidget(QWidget):
 
     courses_changed = pyqtSignal()  # emitted after any add/edit/delete/clear/load
 
-    def __init__(self, repo=None):
+    def __init__(self, repo=None, calendar_provider=None):
         super().__init__()
         self.courses: list[Course] = []
         self._repo = repo  # SessionRepository, optional
+        self._calendar_provider = calendar_provider or ProjectCalendar
         self._init_ui()
 
     def _init_ui(self):
@@ -320,7 +339,7 @@ class CourseManagerWidget(QWidget):
         layout.addWidget(self.table)
 
         # Buttons
-        btn_layout = QHBoxLayout()
+        btn_layout = self.edit_actions = QHBoxLayout()
         btn_add = QPushButton(msg('➕ Agregar Curso'))
         btn_add.setToolTip(msg('Agregar un nuevo curso manualmente a la lista'))
         btn_add.clicked.connect(self._add_course)
@@ -360,14 +379,21 @@ class CourseManagerWidget(QWidget):
         guard = getattr(self, "change_guard", None)
         return guard is None or guard(list(courses))
 
+    def _commit_courses(self, proposed, label):
+        handler = getattr(self, 'commit_handler', None)
+        if handler is not None:
+            return handler(proposed, label)
+        if not self._accept_courses(proposed):
+            return False
+        self.courses = list(proposed)
+        self._refresh_table()
+        self.courses_changed.emit()
+        return True
+
     def _replace_course(self, index, course):
         proposed = list(self.courses)
         proposed[index] = course
-        if not self._accept_courses(proposed):
-            return
-        self.courses = proposed
-        self._refresh_table()
-        self.courses_changed.emit()
+        return self._commit_courses(proposed, 'Editar curso')
 
     def get_courses(self) -> list[Course]:
         return list(self.courses)
@@ -377,7 +403,7 @@ class CourseManagerWidget(QWidget):
         for i, c in enumerate(self.courses):
             if c.code == code:
                 self.table.setCurrentCell(i, 0)
-                dialog = CourseDialog(self, self.courses[i], completions=self._get_completions())
+                dialog = CourseDialog(self, self.courses[i], completions=self._get_completions(), calendar=self._calendar_provider())
                 if dialog.exec():
                     course = dialog.get_course()
                     if course:
@@ -399,7 +425,7 @@ class CourseManagerWidget(QWidget):
         return []
 
     def _add_course(self):
-        dialog = CourseDialog(self, completions=self._get_completions())
+        dialog = CourseDialog(self, completions=self._get_completions(), calendar=self._calendar_provider())
         if dialog.exec():
             course = dialog.get_course()
             if not course:
@@ -410,17 +436,19 @@ class CourseManagerWidget(QWidget):
                 if _confirm(self, msg('Curso ya existe'),
                             msg("El curso '{p1}' ya existe en la lista.\n¿Deseas modificarlo en su lugar?", p1=course.code)):
                     edit_dlg = CourseDialog(self, self.courses[existing],
-                                           completions=self._get_completions())
+                                           completions=self._get_completions(), calendar=self._calendar_provider())
                     if edit_dlg.exec():
                         updated = edit_dlg.get_course()
                         if updated:
                             self._replace_course(existing, updated)
                 return
-            if not self._accept_courses([*self.courses, course]):
-                return
-            self.courses.append(course)
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._commit_courses([*self.courses, course], 'Agregar curso')
+
+    def selected_course_codes(self):
+        # Hidden rows never participate; stable codes, not sorted visual indices.
+        return tuple(sorted(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            for row in {index.row() for index in self.table.selectionModel().selectedRows()}
+            if not self.table.isRowHidden(row)))
 
     def _selected_course_index(self):
         item = self.table.item(self.table.currentRow(), 0)
@@ -434,7 +462,7 @@ class CourseManagerWidget(QWidget):
         if row < 0:
             QMessageBox.warning(self, msg('Advertencia'), msg('Seleccione un curso para editar.'))
             return
-        dialog = CourseDialog(self, self.courses[row], completions=self._get_completions())
+        dialog = CourseDialog(self, self.courses[row], completions=self._get_completions(), calendar=self._calendar_provider())
         if dialog.exec():
             course = dialog.get_course()
             if not course:
@@ -449,27 +477,20 @@ class CourseManagerWidget(QWidget):
             return
         if _confirm(self, msg('Confirmar eliminación'),
                     msg('¿Eliminar el curso {p1}?', p1=self.courses[row].code)):
-            if not self._accept_courses(self.courses[:row] + self.courses[row + 1:]):
-                return
-            del self.courses[row]
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._commit_courses(self.courses[:row] + self.courses[row + 1:], 'Eliminar curso')
 
     def _clear_all(self):
         if not self.courses:
             return
-        if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?\nEsta acción no se puede deshacer.')):
-            if not self._accept_courses([]):
-                return
-            self.courses.clear()
-            self._refresh_table()
-            self.courses_changed.emit()
+        if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?')):
+            self._commit_courses([], 'Eliminar cursos')
 
     # ------------------------------------------------------------------
     # Table rendering
     # ------------------------------------------------------------------
 
     def _refresh_table(self):
+        selected_codes = self.selected_course_codes()
         current = self.table.item(self.table.currentRow(), 0)
         selected_code = current.data(Qt.ItemDataRole.UserRole) if current else None
         column = max(0, self.table.currentColumn())
@@ -503,6 +524,12 @@ class CourseManagerWidget(QWidget):
                     and not self.table.isRowHidden(row)):
                 self.table.setCurrentCell(row, column)
                 break
+        if self.table.selectionMode() == self.table.SelectionMode.ExtendedSelection:
+            for row in range(self.table.rowCount()):
+                if (not self.table.isRowHidden(row) and
+                        self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) in selected_codes):
+                    self.table.selectionModel().select(self.table.model().index(row, 0),
+                        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
 
     def _filter_table(self, text: str):
         text = text.strip().lower()

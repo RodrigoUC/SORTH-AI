@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit
+    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit, QMenu
 )
 from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtGui import (
@@ -25,9 +25,13 @@ from .import_controller import ImportController
 from .theme import apply_theme, COLORS
 from .motion import MotionController, update_busy_indicator
 from .features import FeaturePreferences
+from .edit_view_state import EditViewState
 from .manual_assignment_dialog import ManualAssignmentDialog
+from dataclasses import replace
+from ..scheduling.teaching_resources import SchedulingResources, RESOURCE_KINDS
 from ..scheduling.validation import validate_schedule, unassigned_reason
 from copy import deepcopy
+from ..application.edit_history import EditHistory, EditError, course_change, validation_rooms
 
 from .i18n import msg, plural, language_manager, join_messages
 from .locales import LANGUAGES
@@ -36,18 +40,25 @@ from .i18n_widgets import (
 )
 
 
+from ..scheduling.project_calendar import ProjectCalendar
+
+
 class MainWindow(QMainWindow):
 
     def __init__(self, repo=None, restore_session=True, feature_settings=None):
         super().__init__()
+        self._history = EditHistory()
         self._busy = False
         self._loading = False
         self._worker = None
         self._generation_cancelled = False
+        self._close_after_generation = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
         self.current_groups: list | None = None
+        self.calendar = ProjectCalendar()
         self.pinned_group_ids: set[str] = set()
+        self.resources = SchedulingResources()
         self.classroom_restrictions: dict[str, set[str]] = {}
         self._classroom_course_map: dict[str, list[str]] = {}
         self._classrooms: dict[str, Classroom] = {}
@@ -69,6 +80,8 @@ class MainWindow(QMainWindow):
                 self._restore_failed = True
 
         self._features = FeaturePreferences(feature_settings)
+        # Resource activation belongs exclusively to the accepted SQLite
+        # session. Cached UI preference flags never activate a fresh project.
         self._motion = MotionController(self)
         self._init_ui()
         self._import = ImportController(self)
@@ -100,23 +113,70 @@ class MainWindow(QMainWindow):
         self._feature_notice.setWordWrap(True)
         self._feature_notice.setAccessibleName(msg('Datos de funciones desactivadas'))
         main_layout.addWidget(self._feature_notice)
+        from .resource_dialog import RESOURCE_TITLES
+        resource_actions = QHBoxLayout()
+        self.resource_buttons = {}
+        for kind in RESOURCE_KINDS:
+            button = QPushButton(msg(RESOURCE_TITLES[kind]))
+            button.clicked.connect(lambda _checked=False, key=kind: self._edit_resources(key))
+            resource_actions.addWidget(button)
+            self.resource_buttons[kind] = button
+        resource_actions.addStretch()
+        main_layout.addLayout(resource_actions)
+        self._compact_tools = QWidget()
+        compact_row = QHBoxLayout(self._compact_tools)
+        compact_row.setContentsMargins(0, 0, 0, 0)
+        self._compact_summary = QLabel()
+        compact_row.addWidget(self._compact_summary, 1)
+        self._compact_tools_button = QPushButton(msg('Herramientas del horario (F7)'))
+        self._compact_tools_button.setAccessibleName(msg('Herramientas del horario (F7)'))
+        compact_row.addWidget(self._compact_tools_button)
+        compact_menu = QMenu(self._compact_tools_button)
+        self._compact_tools_button.setMenu(compact_menu)
+        self._compact_resource_actions = {}
+        for kind in RESOURCE_KINDS:
+            action = QAction(msg(RESOURCE_TITLES[kind]), self)
+            action.triggered.connect(lambda _checked=False, key=kind: self._edit_resources(key))
+            compact_menu.addAction(action)
+            self._compact_resource_actions[kind] = action
+        compact_menu.addSeparator()
+        self._compact_summary_action = QAction(msg('Ver resumen'), self)
+        self._compact_summary_action.triggered.connect(lambda: self.schedule_viewer._show_summary())
+        compact_menu.addAction(self._compact_summary_action)
+        self._compact_clear_action = QAction(msg('Limpiar horario'), self)
+        self._compact_clear_action.triggered.connect(lambda: self.schedule_viewer._clear_schedule())
+        compact_menu.addAction(self._compact_clear_action)
+        detail_action = QAction(msg('Leer estado (F6)'), self)
+        detail_action.triggered.connect(self._show_accessible_status)
+        compact_menu.addAction(detail_action)
+        compact_menu.aboutToShow.connect(self._update_compact_overview)
+        shortcut = QAction(self)
+        shortcut.setShortcut('F7')
+        shortcut.triggered.connect(lambda: self._compact_tools_button.showMenu() if self._compact_tools.isVisible() else None)
+        self.addAction(shortcut)
+        self._compact_tools.hide()
+        main_layout.addWidget(self._compact_tools)
 
         self.tabs = QTabWidget()
-        self.course_manager = CourseManagerWidget(repo=self._repo)
+        self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
         self.tabs.addTab(self.course_manager, msg('📚 Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
-        self.course_manager.change_guard = lambda courses: self._confirm_pin_inputs(courses=courses)
+        self.course_manager.commit_handler = self._commit_course_edit
+        self.course_manager.change_guard = self._confirm_course_inputs
         self.schedule_viewer = ScheduleViewerWidget()
         self.tabs.addTab(self.schedule_viewer, msg('📅 Horario Generado'))
         self.tabs.setTabToolTip(1, msg('Visualizar el horario generado en lista, cuadrícula o por aula'))
         self.schedule_viewer.edit_course_requested.connect(self._edit_course_from_viewer)
         self.schedule_viewer.group_removed.connect(self._on_group_removed)
+        self.schedule_viewer.remove_handler = self._on_group_removed
+        self.schedule_viewer.clear_handler = self._on_schedule_cleared
         self.schedule_viewer.pin_requested.connect(self._toggle_pin)
         self.schedule_viewer.schedule_cleared.connect(self._on_schedule_cleared)
         main_layout.addWidget(self.tabs, 1)
         self.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.tabs.currentWidget()))
+        self.tabs.currentChanged.connect(self._update_compact_overview)
         self.schedule_viewer.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.schedule_viewer.tabs.currentWidget()))
 
@@ -160,6 +220,26 @@ class MainWindow(QMainWindow):
         self.btn_projects = QPushButton(msg('Proyectos y escenarios'))
         self.btn_projects.clicked.connect(self._show_projects)
         self.status_bar.addPermanentWidget(self.btn_projects)
+        self._undo_action = QAction(msg('Deshacer'), self)
+        self._undo_action.setShortcut('Ctrl+Z')
+        self._undo_action.triggered.connect(lambda: self._travel_history(True))
+        self.addAction(self._undo_action)
+        self._redo_action = QAction(msg('Rehacer'), self)
+        self._redo_action.setShortcuts(['Ctrl+Shift+Z', 'Ctrl+Y'])
+        self._redo_action.triggered.connect(lambda: self._travel_history(False))
+        self.addAction(self._redo_action)
+        self.btn_undo = QPushButton(msg('Deshacer'))
+        self.btn_undo.setToolTip(msg('Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.'))
+        self.btn_undo.clicked.connect(lambda: self._travel_history(True))
+        self.btn_redo = QPushButton(msg('Rehacer'))
+        self.btn_redo.setToolTip(msg('Rehacer el último cambio (Ctrl+Shift+Z).'))
+        self.btn_redo.clicked.connect(lambda: self._travel_history(False))
+        self.course_manager.edit_actions.insertWidget(3, self.btn_undo)
+        self.course_manager.edit_actions.insertWidget(4, self.btn_redo)
+        self.btn_bulk = QPushButton(msg('Editar en lote'))
+        self.btn_bulk.clicked.connect(self._show_bulk_edit)
+        self.course_manager.edit_actions.insertWidget(5, self.btn_bulk)
+        self.course_manager.table.itemSelectionChanged.connect(self._update_history_actions)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
         self._status_action = QAction(msg('Leer estado (F6)'), self)
         self._status_action.setShortcut('F6')
@@ -185,7 +265,7 @@ class MainWindow(QMainWindow):
         text.setPlainText('\n\n'.join(filter(None, (
             self.status_bar.currentMessage(), self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
-            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._save_error))))
+            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(), self._save_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
@@ -327,6 +407,7 @@ class MainWindow(QMainWindow):
         self.btn_export_filtered.clicked.connect(lambda: self._export_schedule(filtered=True))
         self.schedule_viewer.filters_changed.connect(self._update_export_actions)
         self.schedule_viewer.manual_assignment_requested.connect(self._manual_assignment)
+        self.schedule_viewer.placement_options_requested.connect(self._placement_options)
 
         layout.addStretch()
         layout.addWidget(seed_label)
@@ -365,49 +446,55 @@ class MainWindow(QMainWindow):
         if self._restore_failed:
             self._block_for_recovery()
 
-    def _commit_import(self, candidate, retained_pins):
+    def _commit_import(self, candidate, retained_pins, resources=None):
         """Present and persist one accepted import, rolling both back on failure."""
         imported = candidate.imported
+        resources = self.resources if resources is None else resources
         assignments = {gid: value for gid, value in (self.current_schedule or {}).items()
                        if gid in retained_pins} or None
         overrides = {g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in retained_pins}
-        # Preflight expensive typed presentation without touching the live session.
+        # Preflight only the presentation the accepted import will materialize.
+        # With no retained pins, _invalidate_schedule clears the schedule: building
+        # a hidden table of every pending group would validate an unused view.
         # No dialogs, signals to the window, repository writes or event pumping.
         preview = CourseManagerWidget()
-        preview_schedule = ScheduleViewerWidget()
+        preview_schedule = None
         try:
             preview.load_courses_from_excel(imported.courses)
-            groups = [group for course in imported.courses for group in course.generate_groups()]
-            for group in groups:
-                group.assignment = (assignments or {}).get(group.group_id)
-                group.pinned = group.group_id in retained_pins
-                group.lab_override = group.group_id in overrides
-            preview_schedule.display_schedule(assignments or {}, TimeModel.default(), groups,
-                                              classrooms=imported.classrooms)
+            if retained_pins:
+                preview_schedule = ScheduleViewerWidget()
+                time_model = TimeModel.from_calendar(self.calendar)
+                rooms = deepcopy(imported.classrooms)
+                for room in rooms.values():
+                    room.allowed_courses = None  # Import clears classroom restrictions.
+                groups = [group for course in imported.courses for group in course.generate_groups()]
+                for group in groups:
+                    group.assignment = (assignments or {}).get(group.group_id)
+                    group.pinned = group.group_id in retained_pins
+                    group.lab_override = group.group_id in overrides
+                    if not group.assignment:
+                        group.unassigned_reason = unassigned_reason(group, rooms, time_model)
+                preview_schedule.display_schedule(assignments or {}, time_model, groups,
+                                                  classrooms=imported.classrooms)
         finally:
             preview.deleteLater()
-            preview_schedule.deleteLater()
+            if preview_schedule is not None:
+                preview_schedule.deleteLater()
         previous = {name: getattr(self, name) for name in (
             'pinned_group_ids', '_classroom_course_map', '_classrooms', 'excel_path',
             'classroom_restrictions', 'current_schedule', 'current_groups',
-            '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty')}
+            '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty', 'resources')}
+        previous_history = deepcopy(vars(self._history))
         previous_courses = self.course_manager.courses
-        previous_search = self.course_manager._search.text()
         previous_label = self.excel_path_label.text()
-        previous_status = self.status_bar.currentMessage()
+        previous_view = EditViewState.capture(self)
         viewer = self.schedule_viewer
-        previous_filters = (viewer._list_search.text(), viewer._room_filter.currentData(),
-                            viewer._day_filter.currentData(), viewer._status_filter.currentData(),
-                            viewer.classroom_selector.currentText(), viewer.tabs.currentIndex())
-        previous_tables = [(table, table.currentRow(), table.currentColumn(),
-                            [(item.row(), item.column()) for item in table.selectedItems()],
-                            table.verticalScrollBar().value(), table.horizontalScrollBar().value())
-                           for table in (self.course_manager.table, viewer.list_table, viewer.classroom_table)]
         if self._preserve_previous:
             self._repo.backup_session()
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
 
         def present():
+            self.resources = resources
             self.pinned_group_ids = set(retained_pins)
             self._classroom_course_map = imported.classroom_course_map
             self._classrooms = imported.classrooms
@@ -424,6 +511,7 @@ class MainWindow(QMainWindow):
             self._scenario_dirty = bool(self._scenario_name)
             self._update_save_state()
             self._update_feature_notice()
+            self._reset_edit_history('import')
             self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
                                       p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
@@ -434,47 +522,32 @@ class MainWindow(QMainWindow):
                                    classrooms=imported.classrooms, courses=imported.courses,
                                    restrictions={}, assignments=assignments,
                                    pinned_group_ids=retained_pins, lab_overrides=overrides,
-                                   before_commit=present)
+                                   resources=resources, calendar=self.calendar, before_commit=present)
         except Exception:
             # Restore the underlying state first, independently of rendering APIs.
             # In particular, don't call the failing import loader a second time.
             for name, value in previous.items():
                 setattr(self, name, value)
+            vars(self._history).clear()
+            vars(self._history).update(previous_history)
             self.course_manager.courses = previous_courses
             try:
-                self.course_manager._search.setText(previous_search)
                 self.course_manager._refresh_table()
                 self.excel_path_label.setText(previous_label)
                 if self.current_groups is None:
                     viewer._clear()
                 else:
                     viewer.display_schedule(
-                        self.current_schedule or {}, TimeModel.default(), self.current_groups,
+                        self.current_schedule or {}, TimeModel.from_calendar(self.calendar), self.current_groups,
                         {c.code: c.name for c in previous_courses if c.name}, classrooms=self._classrooms)
-                viewer._list_search.setText(previous_filters[0])
-                for combo, value in zip((viewer._room_filter, viewer._day_filter, viewer._status_filter),
-                                        previous_filters[1:4]):
-                    combo.setCurrentIndex(max(0, combo.findData(value)))
-                viewer.classroom_selector.setCurrentText(previous_filters[4])
-                viewer.tabs.setCurrentIndex(previous_filters[5])
-                for table, row, column, selected, vertical, horizontal in previous_tables:
-                    table.setCurrentCell(row, column)
-                    table.clearSelection()
-                    for selected_row, selected_column in selected:
-                        item = table.item(selected_row, selected_column)
-                        if item is not None:
-                            item.setSelected(True)
-                    table.verticalScrollBar().setValue(vertical)
-                    table.horizontalScrollBar().setValue(horizontal)
+                previous_view.restore(self)
                 self._refresh_overview()
                 self._update_save_state()
-                self.status_bar.showMessage(previous_status)
+                self._update_history_actions()
             except Exception as recovery_error:
                 # SQL and domain data remain original; a damaged view is explicitly
                 # locked so it cannot overwrite the preserved session on disk.
-                self._restore_failed = True
-                self._record_save_error(recovery_error)
-                self._block_for_recovery()
+                self._view_recovery_failure(recovery_error, committed=False)
             raise
         finally:
             signal_guard.unblock()
@@ -531,6 +604,7 @@ class MainWindow(QMainWindow):
             self._generation_cancelled = True
             self._worker.requestInterruption()
             self._cancel_button.setEnabled(False)
+            self._cancel_button.setText(msg('Cancelando…'))
             self.status_bar.showMessage(msg('Cancelando generación; se conservarán el horario y las sesiones fijadas.'))
 
     def _generate_schedule(self):
@@ -556,16 +630,35 @@ class MainWindow(QMainWindow):
             classrooms=self._classrooms or None,
             restrictions=self.classroom_restrictions,
             seed=seed,
+            calendar=self.calendar,
+            resources=self.resources,
             pinned_assignments=self._pinned_assignments(),
             lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in self.pinned_group_ids},
         )
-        self._worker.result_ready.connect(self._on_schedule_done)
-        self._worker.finished.connect(lambda: self._set_busy(False))
-        self._worker.error.connect(self._on_schedule_error)
+        worker = self._worker
+        worker.result_ready.connect(lambda assignments, groups: self._on_schedule_done(assignments, groups)
+                                    if self._worker is worker else None)
+        worker.finished.connect(lambda: self._generation_finished(worker))
+        worker.error.connect(lambda message: self._on_schedule_error(message)
+                             if self._worker is worker else None)
+        worker.cancelled.connect(lambda: self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+                                 if self._worker is worker else None)
 
         self._set_busy(True)
         self.status_bar.showMessage(msg('⏳ Generando horario...'))
         self._worker.start()
+
+    def _generation_finished(self, worker):
+        if self._worker is not worker:
+            return
+        self._set_busy(False)
+        if self._generation_cancelled:
+            self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+        self._worker = None
+        worker.deleteLater()
+        if self._close_after_generation:
+            self._close_after_generation = False
+            self.close()
 
     def _on_schedule_done(self, assignments, groups):
         if self._generation_cancelled:
@@ -573,8 +666,8 @@ class MainWindow(QMainWindow):
 
         if assignments is not None and groups is not None:
             errors = validate_schedule(assignments, groups, self._validation_classrooms(),
-                                       TimeModel.default(),
-                                       {g.group_id for g in groups if g.lab_override})
+                                       TimeModel.from_calendar(self.calendar),
+                                       {g.group_id for g in groups if g.lab_override}, resources=self.resources)
             if errors:
                 self._on_schedule_error(join_messages('\n', (error.render(msg) for error in errors)))
                 return
@@ -589,7 +682,7 @@ class MainWindow(QMainWindow):
             self.current_groups   = groups
 
             courses = self.course_manager.get_courses()
-            time_model = TimeModel.default()
+            time_model = TimeModel.from_calendar(self.calendar)
             course_name_map = {c.code: c.name for c in courses if c.name}
 
             self.schedule_viewer.display_schedule(
@@ -647,8 +740,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, msg('Advertencia'), msg('No hay horario para exportar.'))
             return
         errors = validate_schedule(self.current_schedule or {}, self.current_groups or [],
-                                   self._validation_classrooms(), TimeModel.default(),
-                                   {g.group_id for g in (self.current_groups or []) if g.lab_override})
+                                   self._validation_classrooms(), TimeModel.from_calendar(self.calendar),
+                                   {g.group_id for g in (self.current_groups or []) if g.lab_override}, resources=self.resources)
         if errors:
             QMessageBox.warning(self, msg('Horario no válido'), join_messages('\n', (error.render(msg) for error in errors)))
             return
@@ -675,7 +768,7 @@ class MainWindow(QMainWindow):
                           ".csv" if "*.csv" in selected_format else ".xlsx")
 
         try:
-            time_model = TimeModel.default()
+            time_model = TimeModel.from_calendar(self.calendar)
             exporter = ScheduleExporter(time_model)
             courses = self.course_manager.get_courses()
             course_name_map = {c.code: c.name for c in courses if c.name}
@@ -701,26 +794,407 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _show_settings(self):
+        if self._busy or self._restore_failed:
+            return
         from .settings_dialog import SettingsDialog
         SettingsDialog(self).exec()
 
+    def _show_calendar(self):
+        if self._busy or self._restore_failed or not self._features.enabled('project_calendar'):
+            return
+        from .calendar_dialog import CalendarDialog
+        CalendarDialog(self).exec()
+
+    def _apply_calendar(self, calendar, preview, expected=None):
+        if self._busy or self._restore_failed or set(preview.affected) & self.pinned_group_ids:
+            return False
+        candidate = self._capture_edit_state()
+        candidate['calendar'] = calendar
+        candidate['resources'] = preview.resources
+        candidate['assignments'] = dict(preview.assignments)
+        candidate['lab_overrides'].intersection_update(preview.assignments)
+        for gid in preview.affected:
+            candidate['group_feedback'].pop(gid, None)
+        return self._commit_edit(candidate, 'Cambiar calendario', expected=expected)
+
     def _apply_feature_preferences(self):
+        self.schedule_viewer.set_suggestion_controls_visible(self._features.enabled('placement_suggestions'))
         self.schedule_viewer.set_pin_controls_visible(self._features.enabled('pinned_sessions'))
         self.btn_projects.setVisible(self._features.enabled('project_scenarios'))
+        for kind, button in self.resource_buttons.items():
+            button.setVisible(self.resources.catalog(kind).enabled)
+        self._update_history_actions()
         self._update_feature_notice()
+
+    def _update_history_actions(self):
+        enabled = self._features.enabled('undo_redo')
+        for control in (self.btn_undo, self.btn_redo):
+            control.setVisible(enabled)
+        active = enabled and not self._busy and not self._restore_failed
+        self._undo_action.setEnabled(active and self._history.can_undo)
+        self._redo_action.setEnabled(active and self._history.can_redo)
+        self.btn_undo.setEnabled(self._undo_action.isEnabled())
+        self.btn_redo.setEnabled(self._redo_action.isEnabled())
+        if hasattr(self, 'btn_bulk'):
+            bulk = self._features.enabled('bulk_operations')
+            self.btn_bulk.setVisible(bulk)
+            self.btn_bulk.setEnabled(bulk and active and bool(self.course_manager.selected_course_codes()))
+            self.btn_bulk.setToolTip(msg('Seleccione cursos y active Deshacer y rehacer en Configuración.'))
+            table = self.course_manager.table
+            table.setSelectionMode(table.SelectionMode.ExtendedSelection if bulk else table.SelectionMode.SingleSelection)
+
+    def _show_bulk_edit(self):
+        if (not self._features.enabled('bulk_operations') or not self._features.enabled('undo_redo')
+                or self._busy or self._restore_failed):
+            return
+        from .bulk_course_dialog import BulkCourseDialog
+        BulkCourseDialog(self).exec()
+
+    def _capture_edit_state(self):
+        return deepcopy(dict(
+            calendar=self.calendar, resources=self.resources,
+            excel_path=self.excel_path,
+            seed=None if self.chk_random_seed.isChecked() else self.seed_input.value(),
+            classrooms=self._classrooms, courses=self.course_manager.get_courses(),
+            restrictions=self.classroom_restrictions, assignments=self.current_schedule,
+            pinned_group_ids=self.pinned_group_ids,
+            lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override},
+            schedule_present=self.current_groups is not None,
+            group_feedback={g.group_id: g.unassigned_reason for g in (self.current_groups or [])},
+            classroom_course_map=self._classroom_course_map,
+        ))
+
+    def _persist_edit_state(self, state):
+        if self._repo is None or self._restore_failed:
+            raise OSError(msg('Sesión no disponible'))
+        before = self._capture_edit_state()
+        before_view = EditViewState.capture(self)
+        courses, assignments, groups = (self.course_manager.courses,
+                                        self.current_schedule, self.current_groups)
+        group_values = [(group, deepcopy(vars(group))) for group in (groups or [])]
+        model_references = {key: getattr(self, key) for key in (
+            '_classrooms', 'classroom_restrictions', 'excel_path', '_classroom_course_map',
+            'resources', 'calendar') if hasattr(self, key)}
+        bookkeeping = {key: getattr(self, key) for key in (
+            '_unsaved', '_save_error', '_scenario_dirty', '_preserve_previous', '_loading')}
+        materialized = False
+
+        def restore_references():
+            self.course_manager.courses = courses
+            self.current_schedule = assignments
+            self.current_groups = groups
+            self.pinned_group_ids = set(before['pinned_group_ids'])
+            for key, value in model_references.items():
+                setattr(self, key, value)
+            for group, values in group_values:
+                vars(group).clear()
+                vars(group).update(deepcopy(values))
+            for key, value in bookkeeping.items():
+                setattr(self, key, value)
+
+        def materialize():
+            nonlocal materialized
+            materialized = True
+            # Synchronous, no dialogs/event loops. _loading suppresses autosaves.
+            self._display_edit_state(state)
+
+        if self._preserve_previous or state['calendar'] != self.calendar:
+            self._repo.backup_session()
+        try:
+            self._repo.save_session(**{key: state[key] for key in (
+                'excel_path', 'seed', 'classrooms', 'courses', 'restrictions',
+                'assignments', 'lab_overrides', 'pinned_group_ids', 'calendar', 'resources')}, before_commit=materialize)
+        except Exception:
+            if materialized:
+                restore_references()
+                try:
+                    self._display_edit_state(before)
+                    before_view.restore(self)
+                except Exception as recovery_error:
+                    # The database transaction has rolled back. Preserve model
+                    # references and lock the UI when its renderer cannot recover.
+                    restore_references()
+                    self._view_recovery_failure(recovery_error, committed=False)
+                else:
+                    restore_references()
+                    self._update_save_state()
+                    self._update_history_actions()
+            raise
+
+    def _finish_edit_commit(self, message=None):
+        # Commit and history acceptance are already durable. A presentation-only
+        # failure here must never claim the previous edit was preserved.
+        try:
+            self._update_history_actions()
+            self._update_feature_notice()
+            if message is not None:
+                self._edit_status(message)
+        except Exception as error:
+            self._committed_view_failure(error)
+            return False
+        return True
+
+    def _committed_view_failure(self, error):
+        self._view_recovery_failure(error, committed=True)
+
+    def _view_recovery_failure(self, error, committed):
+        self._restore_failed = True
+        self._save_error = str(error)
+        self._busy = True
+        message = (msg('El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.')
+                   if committed else msg('No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}',
+                                         detail=str(error)))
+        # Set the recovery guard before touching potentially failed widgets. Even
+        # if another presentation setter fails, no exception escapes a Qt slot.
+        updates = [lambda: self._save_state_label.setText(message),
+                   lambda: self._retry_save_button.setVisible(True),
+                   lambda: self.status_bar.showMessage(message)]
+        for control in (self.course_manager, self.schedule_viewer, self.btn_load,
+                        self.btn_add_classroom, self.btn_generate, self.btn_restrictions,
+                        self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):
+            updates.append(lambda control=control: control.setEnabled(False))
+        for update in updates:
+            try:
+                update()
+            except Exception as secondary:
+                self._save_error += '\n' + str(secondary)
+
+    def _display_edit_state(self, state):
+        self._loading = True
+        previous_calendar = self.calendar
+        previous_groups = {g.group_id: g for g in (self.current_groups or [])}
+        view = EditViewState.capture(self)
+        try:
+            self.calendar = state['calendar']
+            self.resources = state['resources']
+            self.course_manager.courses = state['courses']
+            self.course_manager._refresh_table()
+            self.current_schedule = state['assignments']
+            self.pinned_group_ids = set(state['pinned_group_ids'])
+            self.current_groups = None
+            if state['schedule_present']:
+                generated = [g for c in state['courses'] for g in c.generate_groups()]
+                dynamic = {'assignment', 'pinned', 'lab_override', 'unassigned_reason', 'domain'}
+                self.current_groups = []
+                for group in generated:
+                    previous = previous_groups.get(group.group_id)
+                    if previous is not None and all(getattr(previous, key, None) == value
+                            for key, value in vars(group).items() if key not in dynamic):
+                        # Preserve existing viewer references only after durable
+                        # acceptance, when the underlying session identity matches.
+                        group = previous
+                    self.current_groups.append(group)
+                for group in self.current_groups:
+                    group.assignment = (self.current_schedule or {}).get(group.group_id)
+                    group.pinned = group.group_id in self.pinned_group_ids
+                    group.lab_override = group.group_id in state['lab_overrides']
+                    group.unassigned_reason = ''
+                    if not group.assignment:
+                        group.unassigned_reason = state.get('group_feedback', {}).get(group.group_id,
+                            unassigned_reason(group, validation_rooms(state), TimeModel.from_calendar(self.calendar)))
+            self.schedule_viewer.display_schedule(self.current_schedule or {}, TimeModel.from_calendar(self.calendar),
+                self.current_groups or [], classrooms=self._classrooms)
+            if previous_calendar != self.calendar:
+                name = TimeModel.from_calendar(previous_calendar).index_to_day.get(view.filters[1])
+                view.filters = (view.filters[0], TimeModel.from_calendar(self.calendar).day_to_index.get(name), view.filters[2])
+            view.restore(self)
+            self._preserve_previous = False
+            self._unsaved = False
+            self._save_error = None
+            if self._scenario_baseline is not None:
+                from ..application.scenario_comparison import session_fingerprint
+                self._scenario_dirty = session_fingerprint(state) != self._scenario_baseline
+            self.btn_generate.setEnabled(bool(self._classrooms and state['courses']) and not self._busy)
+            self._refresh_overview()
+            self._update_export_actions()
+            self._update_save_state()
+            self._update_history_actions()
+            self._update_feature_notice()
+        finally:
+            self._loading = False
+
+    def _edit_status(self, message):
+        if self.current_groups is not None:
+            self._show_schedule_status()
+            message = join_messages(' ', (self.status_bar.currentMessage(), message))
+        self.status_bar.showMessage(message)
+
+    def _edit_failed(self, error):
+        detail = error.render(msg) if isinstance(error, EditError) else str(error)
+        QMessageBox.warning(self, msg('Cambio no aplicado'),
+            msg('Se conservan los datos, el horario y el historial. {detail}', detail=detail))
+        self._update_history_actions()
+
+    def _commit_edit(self, candidate, label, expected=None):
+        if self._busy or self._restore_failed:
+            return False
+        try:
+            before = self._capture_edit_state()
+            if expected is not None:
+                from ..application.edit_history import fingerprint
+                if fingerprint(before) != expected:
+                    raise EditError('La sesión cambió desde la revisión. Vuelva a revisar el cambio.')
+            accepted = self._history.execute(before, candidate, self._persist_edit_state,
+                label, enabled=self._features.enabled('undo_redo'))
+        except Exception as error:
+            self._edit_failed(error)
+            return False
+        self._finish_edit_commit(msg('Cambio guardado.'))
+        return True
+
+    def _commit_course_edit(self, courses, label):
+        before = self._capture_edit_state()
+        known = {g.group_id for c in courses for g in c.generate_groups()}
+        orphaned = {gid for c in before['resources'].catalogs for gid, _ in c.memberships if gid not in known}
+        if orphaned:
+            answer = QMessageBox.question(self, msg('Recursos por revisar'), msg(
+                'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?', count=len(orphaned)),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+            before['resources'] = SchedulingResources(tuple(replace(c,
+                memberships=tuple((gid, ids) for gid, ids in c.memberships if gid in known))
+                for c in before['resources'].catalogs))
+        try:
+            candidate = course_change(before, courses)
+        except EditError as error:
+            if not before['pinned_group_ids']:
+                self._edit_failed(error)
+                return False
+            answer = QMessageBox.warning(self, msg('Sesiones fijadas en conflicto'),
+                msg('Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.',
+                    details=error.render(msg)),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+            # Clear only a private candidate; the accepted pin set survives a
+            # cancelled dialog, invalid course, or failed database transaction.
+            unpinned = deepcopy(before)
+            unpinned['pinned_group_ids'] = set()
+            try:
+                candidate = course_change(unpinned, courses)
+            except Exception as error:
+                self._edit_failed(error)
+                return False
+        return self._commit_edit(candidate, label)
+
+    def _travel_history(self, undo):
+        if not self._features.enabled('undo_redo') or self._busy or self._restore_failed:
+            return False
+        try:
+            method = self._history.undo if undo else self._history.redo
+            accepted = method(self._capture_edit_state(), self._persist_edit_state)
+        except Exception as error:
+            self._edit_failed(error)
+            return False
+        self._finish_edit_commit(msg('Cambio deshecho.') if undo else msg('Cambio rehecho.'))
+        return True
+
+    def _reset_edit_history(self, reason='session'):
+        self._history.reset(self._capture_edit_state(), reason)
+        self._update_history_actions()
+        if self._features.enabled('undo_redo'):
+            self.status_bar.showMessage(msg('Historial reiniciado al importar o restaurar una sesión.'))
 
     def _update_feature_notice(self):
         notices = []
+        if self.calendar != ProjectCalendar():
+            notices.append(msg('Calendario personalizado activo: se respeta aunque el editor esté oculto. Puedes revisarlo en Configuración.'))
         if self._features.load_error:
             notices.append(msg('No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.'))
+        from .resource_dialog import RESOURCE_TITLES
+        resource_details = []
+        resource_summaries = []
+        for catalog in self.resources.catalogs:
+            if catalog.resources or catalog.enabled:
+                state = msg('Activo') if catalog.enabled else msg('Desactivado: datos conservados, sin restricciones')
+                count = len({r for _g, ids in catalog.memberships for r in ids or ()})
+                resource_details.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+                resource_summaries.append(msg('{name}: {state} ({count})',
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= 700 and resource_summaries
+                       else resource_details)
+        if self._features.enabled('undo_redo') and self._history.reset_reason == 'feature_disabled_change':
+            notices.append(msg('El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'))
+        if self._features.enabled('bulk_operations') and not self._features.enabled('undo_redo'):
+            notices.append(msg('Active Deshacer y rehacer en Configuración antes de editar en lote.'))
         if self.pinned_group_ids and not self._features.enabled('pinned_sessions'):
             notices.append(msg('Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.'))
         catalog_path = getattr(self._repo, '_db_path', None)
         catalog_exists = bool(catalog_path and Path(catalog_path).with_name('sorth_projects.db').exists())
         if (self._scenario_name or catalog_exists) and not self._features.enabled('project_scenarios'):
             notices.append(msg('Hay datos de escenarios conservados. Activa Proyectos y escenarios en Configuración para acceder.'))
+        self._feature_notice.setToolTip(join_messages('\n', resource_details))
+        self._feature_notice.setAccessibleDescription(join_messages('\n', resource_details))
         self._feature_notice.setText(join_messages('\n', notices))
         self._feature_notice.setVisible(bool(notices))
+        if hasattr(self, '_compact_tools'):
+            self._update_compact_overview()
+
+    def _confirm_course_inputs(self, courses, classrooms=None, restrictions=None):
+        known = {g.group_id for c in courses for g in c.generate_groups()}
+        orphaned = {gid for c in self.resources.catalogs for gid, _ids in c.memberships if gid not in known}
+        if orphaned and QMessageBox.question(self, msg('Recursos por revisar'), msg(
+                'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?', count=len(orphaned)),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Yes:
+            return False
+        proposed = self.resources
+        if orphaned:
+            proposed = SchedulingResources(tuple(replace(c,
+                memberships=tuple((gid, ids) for gid, ids in c.memberships if gid in known))
+                for c in self.resources.catalogs))
+        if not self._confirm_pin_inputs(courses=courses, classrooms=classrooms, restrictions=restrictions, resources=proposed):
+            return False
+        self.resources = proposed
+        return True
+
+    def _edit_resources(self, kind):
+        if self._busy or self._restore_failed or not self.resources.catalog(kind).enabled:
+            return
+        from .resource_dialog import ResourceDialog
+        groups = [g for c in self.course_manager.get_courses() for g in c.generate_groups()]
+        dialog = ResourceDialog(self.resources.catalog(kind), groups, TimeModel.from_calendar(self.calendar), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        proposed = self.resources.with_catalog(dialog.result_catalog)
+        errors = validate_schedule(self.current_schedule or {}, groups,
+                    self._validation_classrooms(), TimeModel.from_calendar(self.calendar),
+                    {g.group_id for g in self.current_groups or [] if g.lab_override}, proposed)
+        if errors and QMessageBox.question(self, msg('Recursos por revisar'), msg(
+                'Los cambios entran en conflicto con el horario. Se retirará el resultado y se desfijarán sus sesiones para regenerarlo. ¿Aplicar cambios?'),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Yes:
+            return
+        self._commit_resource_change(proposed, clear_schedule=bool(errors))
+
+    def _resource_parameter_changes(self, values):
+        return [kind for kind in RESOURCE_KINDS
+                if self.resources.catalog(kind).enabled != values[kind]]
+
+    def _apply_resource_parameters(self, values):
+        if self._busy or self._restore_failed:
+            return False
+        changed = self._resource_parameter_changes(values)
+        if not changed:
+            return True
+        proposed = self.resources
+        for kind in changed:
+            proposed = proposed.with_catalog(replace(proposed.catalog(kind), enabled=values[kind]))
+        return self._commit_resource_change(proposed, clear_schedule=True)
+
+    def _commit_resource_change(self, proposed, clear_schedule=False):
+        # Resource catalogs and activation flags use the same validated,
+        # rollback-safe unit of work as calendar edits and manual placements.
+        candidate = self._capture_edit_state()
+        candidate['resources'] = proposed
+        if clear_schedule:
+            candidate.update(assignments=None, schedule_present=False,
+                             pinned_group_ids=set(), lab_overrides=set(), group_feedback={})
+        return self._commit_edit(candidate, 'Actualizar recursos')
 
     def _show_projects(self):
         if not self._features.enabled('project_scenarios') or self._busy or self._restore_failed:
@@ -777,6 +1251,11 @@ class MainWindow(QMainWindow):
     def _save_session(self, *_):
         if self._loading:
             return True
+        had_history = self._history.can_undo or self._history.can_redo
+        if self._history.observe(self._capture_edit_state()) and had_history:
+            self.status_bar.showMessage(join_messages(' ', (self.status_bar.currentMessage(),
+                msg('El historial se reinició por cambios fuera del historial.'))))
+        self._update_history_actions()
         self._unsaved = True
         self._scenario_dirty = bool(self._scenario_name)
         if self._restore_failed:
@@ -794,6 +1273,8 @@ class MainWindow(QMainWindow):
                 courses=self.course_manager.get_courses(),
                 restrictions=self.classroom_restrictions,
                 assignments=self.current_schedule,
+                calendar=self.calendar,
+                resources=self.resources,
                 pinned_group_ids=self.pinned_group_ids,
                 lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override},
             )
@@ -859,13 +1340,18 @@ class MainWindow(QMainWindow):
             if not data:
                 return
 
+            self.calendar = data.get("calendar", ProjectCalendar())
+            self.resources = data.get('resources', SchedulingResources())
+            preferences = self._features.values()
+            for catalog in self.resources.catalogs:
+                preferences[catalog.kind] = catalog.enabled
             self.pinned_group_ids = set(data.get("pinned_group_ids", ()))
             self.excel_path = None
             self._classroom_course_map = {}
             self.current_schedule = None
             self.current_groups = None
             self.excel_path_label.setText(msg('Ningún archivo seleccionado'))
-            self.schedule_viewer.display_schedule({}, TimeModel.default(), [], {}, classrooms={})
+            self.schedule_viewer.display_schedule({}, TimeModel.from_calendar(self.calendar), [], {}, classrooms={})
             self._classrooms = data["classrooms"]
             self.classroom_restrictions = data["restrictions"]
 
@@ -898,7 +1384,7 @@ class MainWindow(QMainWindow):
 
             if data["courses"]:
                 self.current_schedule = data["assignments"] or {}
-                time_model = TimeModel.default()
+                time_model = TimeModel.from_calendar(self.calendar)
                 course_name_map = {c.code: c.name for c in data["courses"] if c.name}
                 # Regenerate groups so the viewer has full group info
                 groups = []
@@ -921,7 +1407,7 @@ class MainWindow(QMainWindow):
                         g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), time_model)
                 errors = validate_schedule(self.current_schedule, groups,
                                            self._validation_classrooms(), time_model,
-                                           data.get("lab_overrides", set()))
+                                           data.get("lab_overrides", set()), resources=self.resources)
                 if errors:
                     self.current_schedule = None
                     self.current_groups = None
@@ -932,12 +1418,22 @@ class MainWindow(QMainWindow):
                 )
                 self._update_export_actions()
 
+            if not self._features.load_error and preferences != self._features.values():
+                try:
+                    self._features.save(preferences)
+                except (OSError, ValueError) as error:
+                    # Effective resource flags belong to this valid session;
+                    # damaged/read-only optional UI preferences cannot erase them
+                    # or prevent recovery of the user's schedule.
+                    self._features.load_error = str(error)
+            self._apply_feature_preferences()
             self._refresh_overview()
             self._loading = False
             self._unsaved = False
             self._save_error = None
             self._update_save_state()
             self.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
+            self._reset_edit_history('restore')
             if show_status and self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
                 self._show_schedule_status()
         except Exception as e:
@@ -952,6 +1448,38 @@ class MainWindow(QMainWindow):
             room.allowed_courses = self.classroom_restrictions.get(name)
         return rooms
 
+    def _placement_inputs(self):
+        if self._busy or self.current_groups is None or not self._features.enabled('placement_suggestions'):
+            return None
+        calendar = getattr(self, 'calendar', None)
+        time_model = TimeModel.from_calendar(calendar) if calendar is not None else TimeModel.default()
+        return dict(assignments=self.current_schedule or {}, groups=self.current_groups,
+                    classrooms=self._validation_classrooms(), time_model=time_model,
+                    lab_overrides={g.group_id for g in self.current_groups if g.lab_override},
+                    pinned=self.pinned_group_ids, resources=getattr(self, 'resources', None))
+
+    def _placement_options(self, gid):
+        from .placement_options_dialog import PlacementOptionsDialog
+        inputs = self._placement_inputs()
+        if inputs is None or gid in inputs['assignments'] or gid in self.pinned_group_ids:
+            return
+        PlacementOptionsDialog(gid, self._placement_inputs, self._apply_placement_option, self).exec()
+
+    def _apply_placement_option(self, options, placement):
+        from ..application.placement_suggestions import validate_choice
+        from ..application.edit_history import fingerprint
+        inputs = self._placement_inputs()
+        if inputs is None or validate_choice(options, placement, **inputs):
+            return False
+        before = self._capture_edit_state()
+        candidate = deepcopy(before)
+        candidate['assignments'] = dict(candidate['assignments'] or {})
+        candidate['assignments'][options.group_id] = placement
+        candidate['lab_overrides'].discard(options.group_id)
+        candidate['group_feedback'][options.group_id] = ''
+        candidate['schedule_present'] = True
+        return self._commit_edit(candidate, 'Asignar opción válida', expected=fingerprint(before))
+
     def _manual_assignment(self, gid):
         if self._busy or self.current_groups is None:
             return
@@ -962,21 +1490,18 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, msg("Sesión fijada"), msg("Desfije la sesión antes de cambiar su asignación."))
             return
         dialog = ManualAssignmentDialog(group, self.current_groups, self.current_schedule or {},
-                                        self._validation_classrooms(), TimeModel.default(), self)
+                                        self._validation_classrooms(), TimeModel.from_calendar(self.calendar), self, resources=self.resources)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        group.assignment = dialog.result_assignment
-        group.lab_override = dialog.lab_override
-        group.unassigned_reason = ""
-        if self.current_schedule is None:
-            self.current_schedule = {}
-        self.current_schedule[gid] = group.assignment
-        self._show_schedule_status()
-        self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups,
-                                              classrooms=self._classrooms)
-        self._update_export_actions()
-        self._refresh_overview()
-        self._save_session()
+        candidate = self._capture_edit_state()
+        candidate['assignments'] = dict(candidate['assignments'] or {})
+        candidate['assignments'][gid] = dialog.result_assignment
+        candidate['lab_overrides'].discard(gid)
+        if dialog.lab_override:
+            candidate['lab_overrides'].add(gid)
+        candidate['schedule_present'] = True
+        candidate['group_feedback'][gid] = ''
+        self._commit_edit(candidate, 'Asignación manual')
 
     def _edit_course_from_viewer(self, course_code: str):
         """Open CourseDialog for the given course code from the schedule viewer."""
@@ -984,32 +1509,21 @@ class MainWindow(QMainWindow):
         self.course_manager.edit_course_by_code(course_code)
 
     def _on_group_removed(self, gid: str):
-        self.pinned_group_ids.discard(gid)
-        for group in self.current_groups or []:
-            if group.group_id == gid:
-                group.pinned = False
-        if self.current_schedule and gid in self.current_schedule:
-            del self.current_schedule[gid]
-        if self.current_groups:
-            for g in self.current_groups:
-                if g.group_id == gid and g.is_assigned():
-                    g.assignment = None
-                    g.lab_override = False
-                    g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), TimeModel.default())
-
-        self._show_schedule_status()
-        self._update_export_actions()
-        self._refresh_overview()
-        self._save_session()
+        candidate = self._capture_edit_state()
+        if gid in candidate['pinned_group_ids']:
+            return
+        candidate['assignments'] = dict(candidate['assignments'] or {})
+        candidate['assignments'].pop(gid, None)
+        candidate['lab_overrides'].discard(gid)
+        candidate['group_feedback'].pop(gid, None)
+        self._commit_edit(candidate, 'Quitar asignación')
 
     def _on_schedule_cleared(self):
-        self.pinned_group_ids.clear()
-        self.current_schedule = None
-        self.current_groups = None
-        self._update_export_actions()
-        self._refresh_overview()
-        self.status_bar.showMessage(msg('Horario eliminado.'))
-        self._save_session()
+        if self.pinned_group_ids:
+            return
+        candidate = self._capture_edit_state()
+        candidate.update(assignments=None, lab_overrides=set(), schedule_present=False, group_feedback={})
+        self._commit_edit(candidate, 'Eliminar horario')
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1038,22 +1552,14 @@ class MainWindow(QMainWindow):
             return
         if self._busy or gid not in (self.current_schedule or {}):
             return
-        if gid in self.pinned_group_ids:
-            self.pinned_group_ids.remove(gid)
+        candidate = self._capture_edit_state()
+        if gid in candidate['pinned_group_ids']:
+            candidate['pinned_group_ids'].remove(gid)
         else:
-            errors = validate_schedule(self.current_schedule, self.current_groups or [],
-                                       self._validation_classrooms(), TimeModel.default(),
-                                       {g.group_id for g in (self.current_groups or []) if g.lab_override})
-            if errors:
-                QMessageBox.warning(self, msg('Horario no válido'), join_messages('\n', (e.render(msg) for e in errors)))
-                return
-            self.pinned_group_ids.add(gid)
-        for group in self.current_groups or []:
-            group.pinned = group.group_id in self.pinned_group_ids
-        self.schedule_viewer.refresh_pin_marks()
-        self._save_session()
+            candidate['pinned_group_ids'].add(gid)
+        self._commit_edit(candidate, 'Cambiar sesión fijada')
 
-    def _pin_input_errors(self, courses=None, classrooms=None, restrictions=None):
+    def _pin_input_errors(self, courses=None, classrooms=None, restrictions=None, resources=None):
         """Pure validation shared by edits and staged Excel replacement."""
         if not self.pinned_group_ids:
             return []
@@ -1064,8 +1570,8 @@ class MainWindow(QMainWindow):
             room.allowed_courses = restrictions.get(name)
         groups = [group for course in courses for group in course.generate_groups()]
         pins = self._pinned_assignments()
-        errors = validate_schedule(pins, groups, rooms, TimeModel.default(),
-                                   {g.group_id for g in (self.current_groups or []) if g.lab_override})
+        errors = validate_schedule(pins, groups, rooms, TimeModel.from_calendar(self.calendar),
+                                   {g.group_id for g in (self.current_groups or []) if g.lab_override}, resources=self.resources if resources is None else resources)
         old = {g.group_id: g for g in (self.current_groups or [])}
         for group in groups:
             previous = old.get(group.group_id)
@@ -1076,11 +1582,11 @@ class MainWindow(QMainWindow):
                 errors.append(ValidationNotice('La estructura dividida de {gid} cambió.', gid=group.group_id))
         return errors
 
-    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None, commit=True):
+    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None, commit=True, resources=None):
         """Review proposed inputs before committing. Cancel changes nothing."""
         if self._loading or not self.pinned_group_ids:
             return True
-        errors = self._pin_input_errors(courses, classrooms, restrictions)
+        errors = self._pin_input_errors(courses, classrooms, restrictions, resources)
         if not errors:
             return True
         answer = QMessageBox.warning(
@@ -1107,10 +1613,10 @@ class MainWindow(QMainWindow):
                 g.pinned = g.group_id in self.pinned_group_ids
                 g.lab_override = g.pinned and g.group_id in overrides
                 if not g.assignment:
-                    g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), TimeModel.default())
+                    g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), TimeModel.from_calendar(self.calendar))
             self.current_schedule = pins
             self.current_groups = groups
-            self.schedule_viewer.display_schedule(pins, TimeModel.default(), groups, classrooms=self._classrooms)
+            self.schedule_viewer.display_schedule(pins, TimeModel.from_calendar(self.calendar), groups, classrooms=self._classrooms)
             self._update_export_actions()
             return
         self.current_schedule = None
@@ -1133,17 +1639,52 @@ class MainWindow(QMainWindow):
 
     def _set_busy(self, busy):
         self._busy = busy
+        self._update_history_actions()
         for control in (self.btn_load, self.btn_add_classroom, self.course_manager,
-                        self.schedule_viewer, self.chk_random_seed):
+                        self.schedule_viewer, self.chk_random_seed, self.btn_settings,
+                        *self.resource_buttons.values()):
             control.setEnabled(not busy)
         self.seed_input.setEnabled(not busy and not self.chk_random_seed.isChecked())
         self.btn_restrictions.setEnabled(not busy and bool(self._classroom_course_map))
         self.btn_generate.setEnabled(not busy and bool(self._classrooms and self.course_manager.get_courses()))
         self.btn_generate.setText(msg('Generando…') if busy else msg('Generar horario'))
+        self._cancel_button.setText(msg('Cancelando…') if self._generation_cancelled else msg('Cancelar generación'))
         self._cancel_button.setVisible(busy and self._worker is not None)
         self._cancel_button.setEnabled(busy and not self._generation_cancelled)
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
+
+    def _update_compact_overview(self, *_):
+        # Reclaim duplicate summaries and secondary toolbars, not table fonts or
+        # window size. All secondary actions remain in the native F7 menu; F6
+        # retains complete feature status and the full schedule summary.
+        compact = self.height() <= 700 and self.tabs.currentIndex() == 1
+        self.overview_label.setVisible(not compact)
+        self._feature_notice.setVisible(not compact and bool(self._feature_notice.text()))
+        self._compact_tools.setVisible(compact)
+        viewer = self.schedule_viewer
+        viewer.set_compact_layout(compact)
+        tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
+        if self.tabs.styleSheet() != tab_style:
+            self.tabs.setStyleSheet(tab_style)
+        for control in (viewer._summary_label, viewer._btn_summary, viewer._btn_clear_schedule):
+            control.setVisible(not compact)
+        for kind, button in self.resource_buttons.items():
+            enabled = self.resources.catalog(kind).enabled
+            button.setVisible(enabled and not compact)
+            self._compact_resource_actions[kind].setVisible(enabled)
+            self._compact_resource_actions[kind].setEnabled(not self._busy and not self._restore_failed)
+        self._compact_summary_action.setEnabled(viewer._btn_summary.isEnabled())
+        self._compact_clear_action.setEnabled(viewer._btn_clear_schedule.isEnabled() and not self._busy)
+        summary = [join_messages(', ', (
+            plural('compact_assigned_count', len(self.current_schedule or {})),
+            plural('compact_pending_count', max(0, len(self.current_groups or [])-len(self.current_schedule or {}))))),
+            msg('Parámetros activos: {count}', count=sum(c.enabled for c in self.resources.catalogs))]
+        if self.calendar != ProjectCalendar():
+            summary.append(msg('Calendario personalizado'))
+        self._compact_summary.setText(join_messages(' · ', summary))
+        self._compact_summary.setToolTip(self._feature_notice.text())
+        self._compact_summary.setAccessibleDescription(self._feature_notice.text())
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1154,6 +1695,9 @@ class MainWindow(QMainWindow):
             self._main_layout.setSpacing(6 if compact else 16)
             self._main_layout.setContentsMargins(*(16, 8, 16, 6) if compact else (24, 20, 24, 12))
             self._file_layout.setSpacing(4 if compact else 16)
+            if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
+                self._update_feature_notice()
+                self._update_compact_overview()
 
     def closeEvent(self, event):
         if hasattr(self, "_import") and not self._import.prepare_close():
@@ -1161,7 +1705,8 @@ class MainWindow(QMainWindow):
             return
         if self._worker is not None and self._worker.isRunning():
             self._import.closing = False
-            self.status_bar.showMessage(msg('Espere a que termine la generación antes de cerrar.'))
+            self._close_after_generation = True
+            self._cancel_generation()
             event.ignore()
             return
         self._motion.finish()

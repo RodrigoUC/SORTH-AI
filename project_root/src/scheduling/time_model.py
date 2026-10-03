@@ -1,6 +1,8 @@
+from .project_calendar import ProjectCalendar, DAYS, DEFAULT_DAYS
+
 class TimeModel:
 
-    DAY_ORDER = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+    DAY_ORDER = list(DAYS)
 
     # Default operating hours in minutes from midnight
     DEFAULT_DAY_START = 7 * 60    # 07:00 = 420
@@ -16,14 +18,23 @@ class TimeModel:
 
     def __init__(self, days: list[str],
                  day_start: int = DEFAULT_DAY_START,
-                 day_end: int = DEFAULT_DAY_END):
+                 day_end: int = DEFAULT_DAY_END, breaks=None):
         self.days = self._sort_days(days)
         self.day_start = day_start  # minutes from midnight
         self.day_end = day_end      # minutes from midnight
+        self.breaks = tuple(breaks) if breaks is not None else ((self.LUNCH_START, self.LUNCH_END),)
 
         self.day_to_index = {d: i + 1 for i, d in enumerate(self.days)}
         self.index_to_day = {i + 1: d for i, d in enumerate(self.days)}
         self.days_count = len(self.days)
+
+    @classmethod
+    def from_calendar(cls, calendar: ProjectCalendar):
+        return cls(list(calendar.days), calendar.day_start, calendar.day_end, calendar.breaks)
+
+    @property
+    def calendar(self):
+        return ProjectCalendar(tuple(self.days), self.day_start, self.day_end, self.breaks)
 
     def _sort_days(self, days: list[str]) -> list[str]:
         return sorted(set(days), key=lambda d: self.DAY_ORDER.index(d) if d in self.DAY_ORDER else 999)
@@ -42,7 +53,7 @@ class TimeModel:
 
     def overlaps_lunch(self, start_min: int, end_min: int) -> bool:
         """Return True if the interval overlaps with the lunch block (12:00-13:00)."""
-        return start_min < self.LUNCH_END and end_min > self.LUNCH_START
+        return any(start_min < end and end_min > start for start, end in self.breaks)
 
     def generate_start_candidates(self, duration_min: int,
                                   preferred_start_min: int | None = None) -> list[int]:
@@ -118,4 +129,4 @@ class TimeModel:
     @classmethod
     def default(cls) -> "TimeModel":
         """Create a TimeModel with all 6 days and default 07:00-22:00 hours."""
-        return cls(cls.DAY_ORDER)
+        return cls(list(DEFAULT_DAYS))

@@ -7,12 +7,13 @@ from .i18n import msg, join_messages
 
 
 class ManualAssignmentDialog(QDialog):
-    def __init__(self, group, groups, assignments, classrooms, time_model, parent=None):
+    def __init__(self, group, groups, assignments, classrooms, time_model, parent=None, resources=None):
         super().__init__(parent)
         self.setWindowTitle(msg('Asignar sesión manualmente'))
         self.setMinimumWidth(480)
         self.group, self.groups = group, groups
         self.assignments, self.classrooms, self.time_model = assignments, classrooms, time_model
+        self.resources = resources
         self.result_assignment = None
         self.lab_override = False
         layout = QFormLayout(self)
@@ -29,7 +30,7 @@ class ManualAssignmentDialog(QDialog):
         self.day = QComboBox()
         for day in time_model.days:
             self.day.addItem(msg(day), time_model.to_day_index(day))
-        self.start = QTimeEdit(QTime(7, 0))
+        self.start = QTimeEdit(QTime(time_model.day_start // 60, time_model.day_start % 60))
         self.start.setDisplayFormat('HH:mm')
         layout.addRow(msg('Aula'), self.room)
         layout.addRow(msg('Día'), self.day)
@@ -65,7 +66,7 @@ class ManualAssignmentDialog(QDialog):
             overrides.add(self.group.group_id)
         else:
             overrides.discard(self.group.group_id)
-        errors = validate_schedule(proposed, self.groups, self.classrooms, self.time_model, overrides)
+        errors = validate_schedule(proposed, self.groups, self.classrooms, self.time_model, overrides, self.resources)
         if errors:
             self.error.setText(join_messages('\n', (error.render(msg) for error in errors)))
             self.error.setFocus()

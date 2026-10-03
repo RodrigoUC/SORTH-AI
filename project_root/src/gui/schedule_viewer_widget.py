@@ -49,6 +49,7 @@ class _SortableItem(QTableWidgetItem):
 class ScheduleViewerWidget(QWidget):
     edit_course_requested = pyqtSignal(str)
     manual_assignment_requested = pyqtSignal(str)
+    placement_options_requested = pyqtSignal(str)
     group_removed = pyqtSignal(str)
     pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
@@ -58,6 +59,8 @@ class ScheduleViewerWidget(QWidget):
     def __init__(self):
         super().__init__()
         self._pin_controls = []
+        self._suggestion_controls = []
+        self._selection_hints = []
         self._assignments = {}
         self._search_keys = {}
         self._matching_gids = set()
@@ -76,6 +79,10 @@ class ScheduleViewerWidget(QWidget):
         self._init_ui()
         self._clear()
         language_manager().changed.connect(self._request_grid_render)
+
+    def set_suggestion_controls_visible(self, visible):
+        for control in self._suggestion_controls:
+            control.setVisible(visible)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -162,10 +169,26 @@ class ScheduleViewerWidget(QWidget):
             msg('Asignaciones ordenadas por aula'))
         self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
-        scope = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope = self._export_scope_hint = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
+
+    def set_compact_layout(self, compact):
+        # Reserve room for actual timetable rows at native Windows metrics.
+        # Explanatory copy remains available through accessible descriptions and
+        # tooltips; every filter and action retains its normal font and target.
+        self.layout().setContentsMargins(*(4, 2, 4, 2) if compact else (9, 9, 9, 9))
+        for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
+            hint.setVisible(not compact)
+            table.setAccessibleDescription(hint.text())
+            table.setToolTip(hint.text())
+        self._export_scope_hint.setVisible(not compact)
+        self.setAccessibleDescription(self._export_scope_hint.text())
+        self.setToolTip(self._export_scope_hint.text())
+        tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
+        if self.tabs.styleSheet() != tab_style:
+            self.tabs.setStyleSheet(tab_style)
 
     def _make_filter(self, layout, text, accessible_name):
         label = QLabel(text)
@@ -205,6 +228,14 @@ class ScheduleViewerWidget(QWidget):
         remove.setObjectName("dangerAction")
         remove.setToolTip(msg('Dejar la sesión seleccionada sin asignar'))
         remove.clicked.connect(lambda: self._action_remove(table, {}))
+        options = QPushButton(msg('Ver opciones'))
+        options.setVisible(False)
+        options.setEnabled(False)
+        options.clicked.connect(lambda: self.placement_options_requested.emit(self._selected_gid(table)))
+        table.itemSelectionChanged.connect(lambda: options.setEnabled(
+            self._selected_gid(table) in self._groups and self._selected_gid(table) not in self._assignments))
+        self._suggestion_controls.append(options)
+        actions.addWidget(options)
         assign = QPushButton(msg('Asignar manualmente'))
         assign.setEnabled(False)
         assign.clicked.connect(lambda: self.manual_assignment_requested.emit(self._selected_gid(table)))
@@ -227,6 +258,9 @@ class ScheduleViewerWidget(QWidget):
         hint = QLabel(msg('Seleccione una fila para editar o quitar.'))
         hint.setWordWrap(True)
         hint.setObjectName("mutedText")
+        self._selection_hints.append(hint)
+        table.setAccessibleDescription(hint.text())
+        table.setToolTip(hint.text())
         actions.addWidget(hint)
         layout.addLayout(actions)
         details = QLabel("")
@@ -664,6 +698,9 @@ class ScheduleViewerWidget(QWidget):
             self._remove_group(gid)
 
     def _remove_group(self, gid):
+        handler = getattr(self, 'remove_handler', None)
+        if handler is not None:
+            return handler(gid)
         if gid not in self._assignments:
             return
         del self._assignments[gid]
@@ -686,6 +723,9 @@ class ScheduleViewerWidget(QWidget):
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                       QMessageBox.StandardButton.No)
         if answer == QMessageBox.StandardButton.Yes:
+            handler = getattr(self, 'clear_handler', None)
+            if handler is not None:
+                return handler()
             self._clear()
             self.schedule_cleared.emit()
 

@@ -1,10 +1,36 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}': 'The session and its resource parameters did not change. Some tool preferences were saved and could not be restored. Recover settings before continuing. {detail}',
+    'Actualizar recursos': 'Update resources',
+    'compact_assigned_count': {'one': '{n} assigned', 'other': '{n} assigned'},
+    'compact_pending_count': {'one': '{n} pending', 'other': '{n} pending'},
+    'Parámetros activos: {count}': 'Active parameters: {count}',
+    'Calendario personalizado': 'Custom calendar',
+
+    'Herramientas del horario (F7)': 'Schedule tools (F7)',
+
+    '{name}: {state} ({count})': '{name}: {state} ({count})',
     'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'The saved session is preserved. The view requires recovery before continuing.',
     'Sin valor': 'No value',
     'Grupo {number}: aula {room}, día {day}, hora {time}': 'Group {number}: room {room}, day {day}, time {time}',
+    "Cancelando…": 'Cancelling…',
+    'Opciones de ubicación': 'Placement options',
+    'Mostrar ubicaciones válidas para sesiones pendientes sin mover otras sesiones.': 'Show valid placements for pending sessions without moving other sessions.',
+    'Ver opciones': 'View options',
+    'Opciones para {gid}': 'Options for {gid}',
+    'Opciones del horario actual, sin mover otras sesiones. Búsqueda cada 30 minutos y en horas guardadas; la asignación manual permite otras horas.': 'Options in the current schedule, without moving other sessions. Search uses 30-minute intervals and saved times; manual placement allows other times.',
+    'Resultado de opciones': 'Placement options result',
+    'Ubicaciones válidas para la sesión pendiente': 'Valid placements for the pending session',
+    'Recalcular opciones': 'Recalculate options',
+    'La sesión o la herramienta ya no está disponible. No se aplicó ningún cambio.': 'The session or tool is no longer available. No changes were applied.',
+    'El horario cambió. Opciones recalculadas; elija de nuevo.': 'The schedule changed. Options recalculated; choose again.',
+    '{count} opciones en el horario actual.': '{count} options in the current schedule.',
+    'No hay opciones en el horario actual. Esto no demuestra imposibilidad global.': 'There are no options in the current schedule. This does not prove global impossibility.',
+    'Búsqueda limitada: se muestran solo los primeros resultados válidos.': 'Limited search: only the first valid results are shown.',
+    'Asignar opción válida': 'Assign valid option',
 
+    "Generación cancelada. Se conserva el horario anterior.": 'Generation cancelled. The previous schedule is preserved.',
     'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'Optional settings could not be read. Open Settings to preserve and recover them.',
     'Herramientas de sesiones fijadas': 'Pinned session tools',
     'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Show pin/unpin controls. Saved pins are always enforced.',
@@ -799,3 +825,382 @@ MESSAGES.update({'Configuración': 'Settings',
                                                                                                       'to '
                                                                                                       'access '
                                                                                                       'it.'})
+
+MESSAGES.update({'Calendario del proyecto': 'Project calendar', 'Define días lectivos, horas y descansos. El calendario guardado se respeta aunque ocultes el editor.': 'Set teaching days, hours and breaks. Saved calendar rules remain active when the editor is hidden.', 'Hora de apertura': 'Opening time', 'Hora de cierre': 'Closing time', 'Las horas se expresan en HH:mm. Para terminar a medianoche, usa 00:00 como cierre.': 'Times use HH:mm. To finish at midnight, use 00:00 as the closing time.', 'Descansos del proyecto': 'Project breaks', 'Añadir descanso': 'Add break', 'Quitar descanso seleccionado': 'Remove selected break', 'Restablecer calendario predeterminado': 'Reset to default calendar', 'Resultado de la revisión del calendario': 'Calendar review result', 'Revisar y aplicar': 'Review and apply', 'Inicio del descanso': 'Break start', 'Fin del descanso': 'Break end', 'Revisa días, horas y descansos: deben ser válidos, no solaparse y dejar tiempo lectivo. {detail}': 'Check days, hours and breaks: they must be valid, must not overlap and must leave teaching time. {detail}', 'Hay sesiones fijadas afectadas. Desfíjalas explícitamente antes de cambiar el calendario.': 'Pinned sessions would be affected. Explicitly unpin them before changing the calendar.', 'Ninguna': 'None', 'Revisar calendario': 'Review calendar', 'Sesiones que quedarán pendientes: {sessions}. Las demás conservan su día y hora. ¿Aplicar el calendario?': 'Sessions that will become pending: {sessions}. Other sessions keep their day and time. Apply this calendar?', 'No se pudo guardar el calendario. No se aplicaron cambios.': 'Could not save the calendar. No changes were applied.', 'Calendario personalizado activo: se respeta aunque el editor esté oculto. Puedes revisarlo en Configuración.': 'Custom calendar active: its rules apply even while the editor is hidden. Review it in Settings.', 'Parámetros avanzados del calendario': 'Advanced calendar parameters', 'Mostrar el editor de días, horas y descansos del proyecto. El calendario guardado siempre se respeta.': 'Show the editor for project days, hours and breaks. Saved calendar rules always apply.', 'Editar calendario del proyecto': 'Edit project calendar'})
+
+MESSAGES.update({'Guardar configuración y editar calendario': 'Save settings and edit calendar'})
+MESSAGES.update({'Docentes': 'Teachers',
+ 'Grupos de estudiantes': 'Student groups',
+ 'Estudiantes individuales': 'Individual students',
+ 'Asignar docentes por sesión y evitar cruces de horario.': 'Choose teachers for each session and prevent '
+                                                            'overlapping classes.',
+ 'Asignar grupos compartidos y evitar cruces de horario.': 'Assign shared student groups and prevent '
+                                                           'overlapping classes.',
+ 'Asignar personas explícitas con alias locales y evitar cruces.': 'Assign individuals using local aliases '
+                                                                   'and prevent overlaps.',
+ 'Editar recurso': 'Edit resource',
+ 'Nombre o alias': 'Name or alias',
+ 'Use un alias si lo prefiere. No se necesitan correos, edades ni identificaciones personales.': 'Use an '
+                                                                                                 'alias if '
+                                                                                                 'you '
+                                                                                                 'prefer. No '
+                                                                                                 'emails, '
+                                                                                                 'ages or '
+                                                                                                 'personal '
+                                                                                                 'identification '
+                                                                                                 'numbers '
+                                                                                                 'are '
+                                                                                                 'needed.',
+ 'Limitar a la disponibilidad declarada': 'Restrict to declared availability',
+ 'Sin declarar: no limita horarios. Declarada sin franjas: ninguna sesión puede asignarse.': 'Undeclared '
+                                                                                             'availability '
+                                                                                             'does not limit '
+                                                                                             'times. '
+                                                                                             'Declared '
+                                                                                             'availability '
+                                                                                             'with no '
+                                                                                             'windows '
+                                                                                             'prevents all '
+                                                                                             'placements.',
+ 'Disponibilidad declarada': 'Declared availability',
+ 'Agregar franja': 'Add time window',
+ 'Quitar franja': 'Remove time window',
+ 'Revise el nombre y las franjas: el final debe ser posterior al inicio.': 'Check the name and time windows: '
+                                                                           'the end must be after the start.',
+ 'Disponibilidad vacía': 'Empty availability',
+ 'No se permitirá ninguna sesión para este recurso. ¿Guardar disponibilidad vacía?': 'No sessions will be '
+                                                                                     'permitted for this '
+                                                                                     'resource. Save empty '
+                                                                                     'availability?',
+ 'Agregue recursos y elija explícitamente sus sesiones. No se asignan personas automáticamente.': 'Add '
+                                                                                                  'resources '
+                                                                                                  'and '
+                                                                                                  'explicitly '
+                                                                                                  'choose '
+                                                                                                  'their '
+                                                                                                  'sessions. '
+                                                                                                  'People '
+                                                                                                  'are never '
+                                                                                                  'allocated '
+                                                                                                  'automatically.',
+ 'Recursos locales': 'Local resources',
+ 'Agregar recurso': 'Add resource',
+ 'Quitar recurso': 'Remove resource',
+ 'Sesión': 'Session',
+ 'Recursos asignados': 'Assigned resources',
+ 'Asignaciones de recursos por sesión': 'Resource assignments by session',
+ 'Elegir recursos de la sesión': 'Choose session resources',
+ 'Los grupos de estudiantes y las personas se asignan por separado. No se infieren matrículas ni pertenencias entre ellos.': 'Student '
+                                                                                                                             'groups '
+                                                                                                                             'and '
+                                                                                                                             'individuals '
+                                                                                                                             'are '
+                                                                                                                             'assigned '
+                                                                                                                             'separately. '
+                                                                                                                             'Enrollment '
+                                                                                                                             'and '
+                                                                                                                             'group '
+                                                                                                                             'membership '
+                                                                                                                             'are '
+                                                                                                                             'not '
+                                                                                                                             'inferred.',
+ 'Sin disponibilidad declarada': 'Availability not declared',
+ 'Sin recursos asignados': 'No resources assigned',
+ '¿Quitar {name} y sus asignaciones de todas las sesiones? Cancelar conserva todo.': 'Remove {name} and '
+                                                                                     'their assignments from '
+                                                                                     'all sessions? Cancel '
+                                                                                     'preserves everything.',
+ 'Asignar varios recursos a esta sesión': 'Assign multiple resources to this session',
+ 'Sin selección no se aplica esta restricción. Cada recurso seleccionado queda ocupado durante toda la sesión.': 'With '
+                                                                                                                 'no '
+                                                                                                                 'selection, '
+                                                                                                                 'this '
+                                                                                                                 'constraint '
+                                                                                                                 'does '
+                                                                                                                 'not '
+                                                                                                                 'apply. '
+                                                                                                                 'Each '
+                                                                                                                 'selected '
+                                                                                                                 'resource '
+                                                                                                                 'is '
+                                                                                                                 'occupied '
+                                                                                                                 'for '
+                                                                                                                 'the '
+                                                                                                                 'whole '
+                                                                                                                 'session.',
+ 'Activo': 'Active',
+ 'Desactivado: datos conservados, sin restricciones': 'Off: records retained, constraints not applied',
+ '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count} resources with '
+                                                              'assigned sessions.',
+ 'Recursos por revisar': 'Review resources',
+ 'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?': 'This '
+                                                                                                                                                          'change '
+                                                                                                                                                          'removes '
+                                                                                                                                                          '{count} '
+                                                                                                                                                          'sessions '
+                                                                                                                                                          'with '
+                                                                                                                                                          'saved '
+                                                                                                                                                          'resource '
+                                                                                                                                                          'relationships. '
+                                                                                                                                                          'Those '
+                                                                                                                                                          'relationships '
+                                                                                                                                                          'will '
+                                                                                                                                                          'be '
+                                                                                                                                                          'removed, '
+                                                                                                                                                          'but '
+                                                                                                                                                          'resources '
+                                                                                                                                                          'will '
+                                                                                                                                                          'be '
+                                                                                                                                                          'retained. '
+                                                                                                                                                          'Continue?',
+ 'Los cambios entran en conflicto con el horario. Se retirará el resultado y se desfijarán sus sesiones para regenerarlo. ¿Aplicar cambios?': 'These '
+                                                                                                                                              'changes '
+                                                                                                                                              'conflict '
+                                                                                                                                              'with '
+                                                                                                                                              'the '
+                                                                                                                                              'timetable. '
+                                                                                                                                              'The '
+                                                                                                                                              'result '
+                                                                                                                                              'and '
+                                                                                                                                              'session '
+                                                                                                                                              'pins '
+                                                                                                                                              'will '
+                                                                                                                                              'be '
+                                                                                                                                              'cleared '
+                                                                                                                                              'so '
+                                                                                                                                              'it '
+                                                                                                                                              'can '
+                                                                                                                                              'be '
+                                                                                                                                              'regenerated. '
+                                                                                                                                              'Apply '
+                                                                                                                                              'changes?',
+ 'Parámetros actualizados. Genere un nuevo horario; los recursos registrados se conservan.': 'Parameters '
+                                                                                             'updated. '
+                                                                                             'Generate a new '
+                                                                                             'timetable; '
+                                                                                             'registered '
+                                                                                             'resources have '
+                                                                                             'been retained.',
+ 'Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.': 'Turning '
+                                                                                                                                                                                          'off '
+                                                                                                                                                                                          'tools '
+                                                                                                                                                                                          'hides '
+                                                                                                                                                                                          'controls '
+                                                                                                                                                                                          'and '
+                                                                                                                                                                                          'preserves '
+                                                                                                                                                                                          'data. '
+                                                                                                                                                                                          'Turning '
+                                                                                                                                                                                          'off '
+                                                                                                                                                                                          'resources '
+                                                                                                                                                                                          'removes '
+                                                                                                                                                                                          'those '
+                                                                                                                                                                                          'constraints '
+                                                                                                                                                                                          'after '
+                                                                                                                                                                                          'confirmation '
+                                                                                                                                                                                          'and '
+                                                                                                                                                                                          'regeneration. '
+                                                                                                                                                                                          'Core '
+                                                                                                                                                                                          'rules '
+                                                                                                                                                                                          'remain '
+                                                                                                                                                                                          'active.',
+ 'Cambiar parámetros de recursos': 'Change resource parameters',
+ 'Al desactivar un parámetro, sus recursos dejan de limitar nuevos horarios. Los registros se conservan. Cambiar estos parámetros retira el resultado actual y desfija sus sesiones; deberá regenerarlo. ¿Continuar?': 'Turning '
+                                                                                                                                                                                                                       'off '
+                                                                                                                                                                                                                       'a '
+                                                                                                                                                                                                                       'parameter '
+                                                                                                                                                                                                                       'stops '
+                                                                                                                                                                                                                       'its '
+                                                                                                                                                                                                                       'resources '
+                                                                                                                                                                                                                       'from '
+                                                                                                                                                                                                                       'constraining '
+                                                                                                                                                                                                                       'new '
+                                                                                                                                                                                                                       'timetables. '
+                                                                                                                                                                                                                       'Records '
+                                                                                                                                                                                                                       'are '
+                                                                                                                                                                                                                       'retained. '
+                                                                                                                                                                                                                       'Changing '
+                                                                                                                                                                                                                       'these '
+                                                                                                                                                                                                                       'parameters '
+                                                                                                                                                                                                                       'clears '
+                                                                                                                                                                                                                       'the '
+                                                                                                                                                                                                                       'current '
+                                                                                                                                                                                                                       'result '
+                                                                                                                                                                                                                       'and '
+                                                                                                                                                                                                                       'session '
+                                                                                                                                                                                                                       'pins; '
+                                                                                                                                                                                                                       'you '
+                                                                                                                                                                                                                       'must '
+                                                                                                                                                                                                                       'regenerate '
+                                                                                                                                                                                                                       'it. '
+                                                                                                                                                                                                                       'Continue?',
+ 'Datos de recursos por corregir: {details}': 'Resource data needs correction: {details}',
+ 'Docente {resource}: las sesiones {session} y {other} se solapan.': 'Teacher {resource}: sessions {session} '
+                                                                     'and {other} overlap.',
+ 'Grupo de estudiantes {resource}: las sesiones {session} y {other} se solapan.': 'Student group {resource}: '
+                                                                                  'sessions {session} and '
+                                                                                  '{other} overlap.',
+ 'Estudiante {resource}: las sesiones {session} y {other} se solapan.': 'Student {resource}: sessions '
+                                                                        '{session} and {other} overlap.',
+ 'Recurso {resource}: la sesión {session} queda fuera de su disponibilidad declarada.': 'Resource '
+                                                                                        '{resource}: session '
+                                                                                        '{session} is '
+                                                                                        'outside its '
+                                                                                        'declared '
+                                                                                        'availability.'})
+
+MESSAGES.update({'Calendar requires unique supported teaching days': 'Calendar requires unique supported teaching days', 'Calendar hours must be increasing integer minutes in 00:00–24:00': 'Calendar hours must be increasing integer minutes in 00:00–24:00', 'Calendar breaks must be intervals': 'Calendar breaks must be intervals', 'Breaks must be within opening hours': 'Breaks must be within opening hours', 'Calendar breaks must not overlap': 'Calendar breaks must not overlap', 'Calendar must leave teaching time available': 'Calendar must leave teaching time available', 'Resource availability references a removed teaching day; edit it explicitly first': 'Resource availability references a removed teaching day; edit it explicitly first', 'La duración no cabe en el horario permitido sin cruzar los descansos.': 'The duration does not fit the permitted hours without overlapping breaks.'})
+MESSAGES.update({'Deshacer': 'Undo', 'Rehacer': 'Redo', 'Deshacer y rehacer': 'Undo and redo', 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.': 'Revert local changes in this session. Up to 50 changes or 16 MiB; importing or restoring resets history.', 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.': 'Undo the last change (Ctrl+Z). Session history: up to 50 changes or 16 MiB.', 'Rehacer el último cambio (Ctrl+Shift+Z).': 'Redo the last change (Ctrl+Shift+Z).', 'Cambio no aplicado': 'Change not applied', 'Se conservan los datos, el horario y el historial. {detail}': 'Data, schedule and history are preserved. {detail}', 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.': 'The session has changed since review. Review the change again.', 'Cambio guardado.': 'Change saved.', 'Cambio deshecho.': 'Change undone.', 'Cambio rehecho.': 'Change redone.', 'Historial reiniciado al importar o restaurar una sesión.': 'History reset after importing or restoring a session.', 'El historial se reinició por cambios fuera del historial.': 'History reset because of changes outside history.', 'No hay cambios disponibles en el historial.': 'No changes are available in history.', 'El cambio supera el límite de memoria del historial. No se aplicó.': 'The change exceeds the history memory limit. It was not applied.', 'Los códigos de curso deben ser únicos y no estar vacíos.': 'Course codes must be unique and nonempty.', 'Datos de curso no válidos: {code}.': 'Invalid course data: {code}.', 'Las sesiones fijadas deben conservar una asignación válida.': 'Pinned sessions must retain a valid assignment.', 'Las excepciones LAB deben corresponder a sesiones asignadas.': 'LAB exceptions must belong to assigned sessions.', 'El cambio no es válido. Revise las asignaciones y las restricciones.': 'The change is invalid. Review assignments and restrictions.', 'Desfije las sesiones afectadas antes de editar los cursos.': 'Unpin affected sessions before editing courses.', '¿Eliminar todos los cursos de la lista?': 'Remove all courses from the list?'})
+
+MESSAGES.update({'Cambiar calendario': 'Change calendar'})
+
+MESSAGES.update({'Domingo': 'Sunday'})
+MESSAGES['Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'] = 'The original file will be preserved and optional tools will be reset. Session resource parameters, timetables, pins and scenarios will not change. Continue?'
+
+MESSAGES["Curso"] = 'Course'
+MESSAGES.update({'Deshacer': 'Undo',
+ 'Rehacer': 'Redo',
+ 'Deshacer y rehacer': 'Undo and redo',
+ 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.': 'Revert '
+                                                                                                                     'local '
+                                                                                                                     'changes '
+                                                                                                                     'in '
+                                                                                                                     'this '
+                                                                                                                     'session. '
+                                                                                                                     'Up '
+                                                                                                                     'to '
+                                                                                                                     '50 '
+                                                                                                                     'changes '
+                                                                                                                     'or '
+                                                                                                                     '16 '
+                                                                                                                     'MiB; '
+                                                                                                                     'importing '
+                                                                                                                     'or '
+                                                                                                                     'restoring '
+                                                                                                                     'resets '
+                                                                                                                     'history.',
+ 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.': 'Undo the last '
+                                                                                              'change '
+                                                                                              '(Ctrl+Z). '
+                                                                                              'Session '
+                                                                                              'history: up '
+                                                                                              'to 50 changes '
+                                                                                              'or 16 MiB.',
+ 'Rehacer el último cambio (Ctrl+Shift+Z).': 'Redo the last change (Ctrl+Shift+Z).',
+ 'Cambio no aplicado': 'Change not applied',
+ 'Se conservan los datos, el horario y el historial. {detail}': 'Data, schedule and history are preserved. '
+                                                                '{detail}',
+ 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.': 'The session has changed since review. '
+                                                                    'Review the change again.',
+ 'Cambio guardado.': 'Change saved.',
+ 'Cambio deshecho.': 'Change undone.',
+ 'Cambio rehecho.': 'Change redone.',
+ 'Historial reiniciado al importar o restaurar una sesión.': 'History reset after importing or restoring a '
+                                                             'session.',
+ 'El historial se reinició por cambios fuera del historial.': 'History reset because of changes outside '
+                                                              'history.',
+ 'No hay cambios disponibles en el historial.': 'No changes are available in history.',
+ 'El cambio supera el límite de memoria del historial. No se aplicó.': 'The change exceeds the history '
+                                                                       'memory limit. It was not applied.',
+ 'Los códigos de curso deben ser únicos y no estar vacíos.': 'Course codes must be unique and nonempty.',
+ 'Datos de curso no válidos: {code}.': 'Invalid course data: {code}.',
+ 'Las sesiones fijadas deben conservar una asignación válida.': 'Pinned sessions must retain a valid '
+                                                                'assignment.',
+ 'Las excepciones LAB deben corresponder a sesiones asignadas.': 'LAB exceptions must belong to assigned '
+                                                                 'sessions.',
+ 'El cambio no es válido. Revise las asignaciones y las restricciones.': 'The change is invalid. Review '
+                                                                         'assignments and restrictions.',
+ 'Desfije las sesiones afectadas antes de editar los cursos.': 'Unpin affected sessions before editing '
+                                                               'courses.',
+ '¿Eliminar todos los cursos de la lista?': 'Remove all courses from the list?'})
+
+MESSAGES.update({'Edición de cursos en lote': 'Bulk course editing',
+ 'Cambiar campos seleccionados con revisión previa. Requiere activar Deshacer y rehacer.': 'Change selected '
+                                                                                           'fields after '
+                                                                                           'preview. '
+                                                                                           'Requires Undo '
+                                                                                           'and redo to be '
+                                                                                           'enabled.',
+ 'Editar en lote': 'Bulk edit',
+ 'Editar cursos en lote': 'Edit courses in bulk',
+ 'Seleccione cursos y active Deshacer y rehacer en Configuración.': 'Select courses and enable Undo and redo '
+                                                                    'in Settings.',
+ 'Seleccione al menos un curso; no repita identificadores.': 'Select at least one course; do not repeat '
+                                                             'identifiers.',
+ 'Marque los campos que desea cambiar. Los códigos no se pueden editar en lote.': 'Select the fields to '
+                                                                                  'change. Course codes '
+                                                                                  'cannot be edited in bulk.',
+ 'El tamaño debe ser un entero entre 0 y 100000.': 'Size must be a whole number between 0 and 100000.',
+ 'Seleccione un tipo de aula válido.': 'Select a valid room type.',
+ 'Seleccione un día válido o borre la preferencia explícitamente.': 'Select a valid day or explicitly clear '
+                                                                    'the preference.',
+ 'La selección cambió. Cierre y vuelva a seleccionar los cursos.': 'The selection changed. Close and select '
+                                                                   'the courses again.',
+ 'Los valores elegidos no cambian ningún curso.': 'The selected values do not change any course.',
+ 'Active Deshacer y rehacer en Configuración antes de editar en lote.': 'Enable Undo and redo in Settings '
+                                                                        'before editing in bulk.',
+ 'La sesión o selección cambió desde la revisión. Vuelva a revisar el lote.': 'The session or selection '
+                                                                              'changed since review. Review '
+                                                                              'the batch again.',
+ 'Tipo de aula': 'Room type',
+ 'Tamaño': 'Size',
+ 'Día preferido': 'Preferred day',
+ 'Cursos seleccionados: {count}. Identificadores: {codes}': 'Selected courses: {count}. IDs: {codes}',
+ 'Marque solo los campos que desea cambiar. Sin marcar conserva el valor de cada curso.': 'Check only the '
+                                                                                          'fields to change. '
+                                                                                          'Unchecked fields '
+                                                                                          'keep each '
+                                                                                          'course’s current '
+                                                                                          'value.',
+ 'Borrar preferencia': 'Clear preference',
+ 'Valores mezclados': 'Mixed values',
+ 'Conservar valor': 'Keep value',
+ 'Vista previa de cambios por código': 'Changes preview by code',
+ 'Campo': 'Field',
+ 'Antes': 'Before',
+ 'Después': 'After',
+ 'Revise el lote antes de aplicarlo.': 'Review the batch before applying it.',
+ 'Impacto en horario y restricciones': 'Impact on schedule and constraints',
+ 'Error de edición en lote': 'Bulk edit error',
+ 'Revisar cambios': 'Review changes',
+ 'Aplicar lote': 'Apply batch',
+ 'Sin preferencia': 'No preference',
+ 'Se dejarán pendientes {pending} asignaciones no fijadas. Se conservan {pins} sesiones fijadas y todas las restricciones. Las preferencias por grupo se conservan y pueden prevalecer sobre el día del curso.': '{pending} '
+                                                                                                                                                                                                                 'unpinned '
+                                                                                                                                                                                                                 'assignments '
+                                                                                                                                                                                                                 'will '
+                                                                                                                                                                                                                 'become '
+                                                                                                                                                                                                                 'pending. '
+                                                                                                                                                                                                                 '{pins} '
+                                                                                                                                                                                                                 'pinned '
+                                                                                                                                                                                                                 'sessions '
+                                                                                                                                                                                                                 'and '
+                                                                                                                                                                                                                 'all '
+                                                                                                                                                                                                                 'constraints '
+                                                                                                                                                                                                                 'are '
+                                                                                                                                                                                                                 'preserved. '
+                                                                                                                                                                                                                 'Per-group '
+                                                                                                                                                                                                                 'preferences '
+                                                                                                                                                                                                                 'are '
+                                                                                                                                                                                                                 'kept '
+                                                                                                                                                                                                                 'and '
+                                                                                                                                                                                                                 'may '
+                                                                                                                                                                                                                 'override '
+                                                                                                                                                                                                                 'the '
+                                                                                                                                                                                                                 'course '
+                                                                                                                                                                                                                 'day.',
+ 'La herramienta no está disponible. Cierre el diálogo y revise Configuración.': 'This tool is unavailable. '
+                                                                                 'Close the dialog and check '
+                                                                                 'Settings.',
+ 'No se pudo guardar el lote. Se conservan todos los datos. {detail}': 'The batch could not be saved. All '
+                                                                       'data is preserved. {detail}',
+ 'Lote guardado. Puede deshacerlo en una sola operación.': 'Batch saved. You can undo it in one operation.'})
+
+MESSAGES['Cursos seleccionados'] = 'Selected courses'
+
+MESSAGES['El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'] = 'History was reset by changes made while Undo and redo was disabled.'
+
+MESSAGES['No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'] = 'The view could not be restored. Data was preserved; retry session recovery. {detail}'
+
+MESSAGES['El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.'] = 'The change was saved, but the view could not be updated. Retry session recovery.'
+
+MESSAGES['No se pudo obtener acceso exclusivo a la sesión. Cierre la otra ventana de SORTH y vuelva a intentarlo. Si el problema continúa, revise los permisos de la carpeta de datos o solicite ayuda. No elimine archivos de bloqueo mientras SORTH esté abierto.'] = 'Exclusive access to the session could not be obtained. Close the other SORTH window and try again. If the problem continues, check the data folder permissions or ask for help. Do not delete lock files while SORTH is open.'

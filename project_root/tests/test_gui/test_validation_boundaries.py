@@ -66,4 +66,4 @@ def test_removing_assignment_updates_complete_status(window):
     window._on_group_removed(groups[0].group_id)
     assert 'parcial: 1/2' in window.status_bar.currentMessage()
     assert '1 pendientes' in window.status_bar.currentMessage()
-    assert groups[0].unassigned_reason
+    assert window.current_groups[0].unassigned_reason

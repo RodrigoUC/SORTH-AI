@@ -47,7 +47,7 @@ def test_restart_and_future_keys_preserved(tmp_path):
     assert prefs.settings.value('features/future_feature') == 'preserved'
     assert not prefs.enabled('future_feature')
     with pytest.raises(ValueError):
-        prefs.save({'pinned_sessions': 'true', 'project_scenarios': False})
+        prefs.save({'project_calendar': False, 'pinned_sessions': 'true', 'project_scenarios': False})
 
 
 def test_cancel_and_escape_do_not_write(window):

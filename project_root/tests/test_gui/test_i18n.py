@@ -88,7 +88,7 @@ def test_catalog_placeholders_and_literal_key_coverage():
         else:
             assert fields(source) == fields(english), key
     root = Path(__file__).parents[2] / 'src' / 'gui'
-    for filename in ['main_window.py', 'course_manager_widget.py', 'dialogs.py', 'schedule_viewer_widget.py', 'manual_assignment_dialog.py', 'motion.py']:
+    for filename in ['main_window.py', 'course_manager_widget.py', 'dialogs.py', 'schedule_viewer_widget.py', 'manual_assignment_dialog.py', 'motion.py', 'resource_dialog.py', 'settings_dialog.py']:
         for node in ast.walk(ast.parse((root / filename).read_text(encoding='utf-8'))):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id in ('msg', 'plural'):
@@ -468,7 +468,7 @@ def test_manual_assignment_signal_fires_once(manager, window, monkeypatch):
     import src.gui.main_window as main
     opened = []
     class CancelledDialog:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             opened.append(args[0].group_id)
         def exec(self):
             return 0

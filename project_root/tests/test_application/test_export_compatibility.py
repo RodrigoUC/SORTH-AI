@@ -47,3 +47,26 @@ def test_shipped_workbook_export_preserves_every_assignment_and_constraint(tmp_p
     assert actual == expected
     assert assignments == original
     assert_valid_assignments(assignments, groups, ExcelReader(str(source)).load_classrooms())
+
+
+def test_custom_calendar_export_keeps_persisted_weekday_identity(tmp_path):
+    from src.scheduling.project_calendar import ProjectCalendar
+    from src.infrastructure.session_repository import SessionRepository
+    from src.scheduling.course import Course
+    from src.scheduling.classroom import Classroom
+    calendar = ProjectCalendar(('Martes','Viernes'), 360, 1440, ((720,780),(1080,1110)))
+    course = Course('BIO', 1, 60, 'REGULAR')
+    assignments = {'BIO-G1': ('A1', 2, 1380, 1440)}
+    repo = SessionRepository(str(tmp_path/'calendar.db'))
+    repo.save_session(None,42,{'A1':Classroom('A1',30,'REGULAR')},[course],{},assignments,calendar=calendar)
+    data = repo.load_session()
+    exporter = ScheduleExporter(TimeModel.from_calendar(data['calendar']))
+    csv_path, excel_path = tmp_path/'calendar.csv', tmp_path/'calendar.xlsx'
+    exporter.to_csv(data['assignments'],str(csv_path))
+    exporter.to_excel(data['assignments'],str(excel_path))
+    csv = pd.read_csv(csv_path)
+    excel = pd.read_excel(excel_path,sheet_name='Asignaciones')
+    pd.testing.assert_frame_equal(csv,excel)
+    assert csv.iloc[0]['Día'] == 'Viernes'
+    assert csv.iloc[0]['Hora Inicio'] == '23:00'
+    assert csv.iloc[0]['Hora Fin'] == '24:00'

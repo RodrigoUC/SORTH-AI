@@ -1,0 +1,44 @@
+{
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "pandas": "3.0.6",
+  "openpyxl": "3.1.5",
+  "pyqt": "6.11.0",
+  "qt": "6.11.0",
+  "method": "5 ms QTimer; actual background import through atomic persistence and Qt table replacement; synthetic unique courses; one observation per size, not a throughput guarantee.",
+  "measurements": [
+    {
+      "rows": 100,
+      "xlsx_bytes": 7437,
+      "start_return_ms": 1.61,
+      "total_ms": 83.09,
+      "timer_ticks": 3,
+      "max_event_loop_gap_ms": 35.43,
+      "reader_ms": 33.36,
+      "verify_ms": 0.13,
+      "persist_and_present_ms": 22.75
+    },
+    {
+      "rows": 1000,
+      "xlsx_bytes": 24879,
+      "start_return_ms": 1.12,
+      "total_ms": 557.59,
+      "timer_ticks": 17,
+      "max_event_loop_gap_ms": 318.64,
+      "reader_ms": 235.02,
+      "verify_ms": 0.14,
+      "persist_and_present_ms": 237.55
+    },
+    {
+      "rows": 10000,
+      "xlsx_bytes": 197166,
+      "start_return_ms": 1.11,
+      "total_ms": 5553.96,
+      "timer_ticks": 213,
+      "max_event_loop_gap_ms": 2048.39,
+      "reader_ms": 3489.3,
+      "verify_ms": 0.37,
+      "persist_and_present_ms": 1944.92
+    }
+  ]
+}

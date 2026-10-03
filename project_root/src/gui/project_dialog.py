@@ -11,6 +11,7 @@ from ..infrastructure.session_repository import SessionRepository
 from ..application.scenario_comparison import scenario_metadata, compare_scenarios, session_fingerprint, validate_scenario_metadata
 from ..scheduling.validation import validate_schedule
 from ..scheduling.time_model import TimeModel
+from ..scheduling.project_calendar import ProjectCalendar
 from copy import deepcopy
 
 
@@ -39,7 +40,8 @@ class ProjectDialog(QDialog):
         self.setWindowTitle(msg('Proyectos y escenarios'))
         self.resize(850, 540)
         self.catalog = ProjectRepository(Path(window._repo._db_path).with_name('sorth_projects.db'))
-        self.catalog.preserve_legacy(window._repo, scenario_metadata())
+        persisted = window._repo.load_session()
+        self.catalog.preserve_legacy(window._repo, scenario_metadata(calendar=(persisted or {}).get('calendar', ProjectCalendar())))
         layout = QVBoxLayout(self)
         hint = QLabel(msg('Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.'))
         hint.setWordWrap(True)
@@ -131,7 +133,7 @@ class ProjectDialog(QDialog):
             return
         self._save_working()
         _, scenario = self.catalog.create_project(name, '1', self.window._repo,
-                                                  scenario_metadata(self.window._algorithm_version))
+                                                  scenario_metadata(self.window._algorithm_version, self.window.calendar))
         self._saved(scenario)
 
     def save_as(self):
@@ -141,7 +143,7 @@ class ProjectDialog(QDialog):
             return
         self._save_working()
         scenario = self.catalog.save_as(selected['project_id'], name, self.window._repo,
-                                        scenario_metadata(self.window._algorithm_version))
+                                        scenario_metadata(self.window._algorithm_version, self.window.calendar))
         self._saved(scenario)
 
     def duplicate(self):
@@ -173,7 +175,9 @@ class ProjectDialog(QDialog):
         with tempfile.TemporaryDirectory(prefix='sorth-open-check-') as directory:
             repository = SessionRepository(str(Path(directory) / 'candidate.db'))
             repository.save_session(**data)
-            candidate = MainWindow(repository, restore_session=False)
+            from PyQt6.QtCore import QSettings
+            candidate = MainWindow(repository, restore_session=False,
+                feature_settings=QSettings(str(Path(directory) / "preferences.ini"), QSettings.Format.IniFormat))
             try:
                 candidate._restore_session_if_exists(confirm=False, show_status=False)
                 if candidate._restore_failed:
@@ -186,7 +190,7 @@ class ProjectDialog(QDialog):
     def open_selected(self):
         row = self.selected()[0]
         data, metadata = self.catalog.read(row['id'])
-        validate_scenario_metadata(metadata)
+        validate_scenario_metadata(metadata, data.get("calendar", ProjectCalendar()))
         self._preflight_restore(data)
         # Validate before touching current memory/disk; no silent removal of pins
         # or manual exceptions. Work on detached room objects only.
@@ -194,8 +198,8 @@ class ProjectDialog(QDialog):
         rooms = deepcopy(data['classrooms'])
         for name, room in rooms.items():
             room.allowed_courses = data['restrictions'].get(name)
-        errors = validate_schedule(data['assignments'] or {}, groups, rooms, TimeModel.default(),
-                                   data.get('lab_overrides', set()))
+        errors = validate_schedule(data['assignments'] or {}, groups, rooms, TimeModel.from_calendar(data.get("calendar", ProjectCalendar())),
+                                   data.get('lab_overrides', set()), resources=data.get('resources'))
         if errors:
             raise ValueError('\n'.join(str(error.render(msg)) for error in errors))
         if QMessageBox.question(self, msg('Abrir escenario'),

@@ -13,7 +13,7 @@ class ValidationNotice(str):
         return translate(self.source, **self.parameters)
 
 
-def validate_schedule(assignments, groups, classrooms, time_model, lab_overrides=()):
+def validate_schedule(assignments, groups, classrooms, time_model, lab_overrides=(), resources=None):
     errors = []
     known = {}
     for group in groups:
@@ -57,6 +57,8 @@ def validate_schedule(assignments, groups, classrooms, time_model, lab_overrides
                 if day == other_day or start != other_start:
                     errors.append(ValidationNotice("{gid}: sesiones divididas deben usar días distintos y la misma hora", gid=gid))
             split[group.parent_group_id].append((day, start))
+    if resources is not None:
+        errors.extend(resources.validate(assignments, groups, time_model))
     return errors
 
 
@@ -76,6 +78,6 @@ def unassigned_reason(group, classrooms, time_model):
     if not rooms:
         return 'Las restricciones de cursos excluyen todas las aulas compatibles.'
     if not time_model.generate_start_candidates(group.duration_min):
-        return 'La duración no cabe en el horario permitido sin cruzar el almuerzo.'
+        return 'La duración no cabe en el horario permitido sin cruzar los descansos.'
     return ('La búsqueda automática no encontró un horario compatible con las asignaciones actuales. '
             'Esto no demuestra que sea imposible; revise horarios, restricciones o asigne manualmente.')

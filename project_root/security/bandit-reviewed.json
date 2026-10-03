@@ -146,10 +146,10 @@
   {
     "file": "src/scheduling/scheduler.py",
     "test_id": "B311",
-    "code_sha256": "7f5d8b081887d5df43f095ffb607f1409647843a050bf4b4eee1ca66afe1255f",
+    "code_sha256": "e175cb9d0b7ef5687381e5845ff0d7e41114a3250e80de9f065ada48a6d9b263",
     "count": 1,
-    "reviewed_on": "2026-10-02",
-    "reason": "Seeded scheduling heuristic needs reproducibility; this randomness is not used for secrets, tokens or security decisions."
+    "reviewed_on": "2026-10-03",
+    "reason": "Seeded scheduling heuristic needs reproducibility; this randomness is not used for secrets, tokens or security decisions. Re-reviewed after adding the adjacent cooperative cancellation token; Random(seed) behavior is unchanged."
   },
   {
     "file": "tools/package_windows.py",

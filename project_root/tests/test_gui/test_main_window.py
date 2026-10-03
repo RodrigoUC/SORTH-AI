@@ -137,10 +137,10 @@ def test_actual_worker_completes_and_controls_recover(window, app):
     window._generate_schedule()
     assert window._busy
     deadline = time.monotonic() + 5
-    while (window._busy or window._worker.isRunning()) and time.monotonic() < deadline:
+    while (window._busy or (window._worker is not None and window._worker.isRunning())) and time.monotonic() < deadline:
         app.processEvents()
         time.sleep(0.005)
-    assert window._worker.wait(1000)
+    assert window._worker is None or window._worker.wait(1000)
     app.processEvents()
     assert not window._busy
     assert window.current_schedule
