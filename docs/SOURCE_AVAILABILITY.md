@@ -20,3 +20,14 @@ La GPL del código propio está elegida. La entrega de fuentes de cada binario s
 - [ ] Obtener aprobación del mantenedor antes de publicar. Si hay dudas legales, resolverlas antes de redistribuir.
 
 No se emite una oferta escrita de fuentes sin un responsable y un método que puedan cumplirla. Las URLs upstream de esta guía son evidencia de origen, no reemplazo automático de las obligaciones de quien distribuye el binario.
+
+## Perímetro nativo del nuevo modo carpeta
+
+El paso `prune_unused_qt_pdf.py` excluye qpdf/Qt6Pdf sólo tras comprobar las
+importaciones PE normales y diferidas del resto del paquete. El inventario final
+debe confirmar su ausencia; entonces no se atribuye Qt PDF/PDFium a ese paquete.
+No cambia las obligaciones de artefactos antiguos que sí los contenían, ni elimina
+las de Qt Core/GUI/Widgets/Network/SVG/ImageFormats, traducciones o PyQt retenidos.
+Mesa/LLVM y los runtimes Microsoft permanecen; requieren sus propios avisos y
+condiciones, no una etiqueta LGPL inferida del wheel. No se ha demostrado todavía
+la configuración/parches/fuentes correspondientes completos del build Qt proveedor.
