@@ -1336,11 +1336,10 @@ class MainWindow(QMainWindow):
                 if self._repo is None:
                     self._repo = SessionRepository()
                     self.course_manager._repo = self._repo
-                self._repo.load_session()
-                self._restore_failed = False
-                self._save_error = None
-                self._set_busy(False)
-                self._restore_session_if_exists()
+                # Retry is an explicit restore request. Never unlock merely
+                # because SQLite is readable: widget materialization can fail,
+                # and declining a second prompt would leave a partial session.
+                self._restore_session_if_exists(confirm=False)
                 self._update_save_state()
             except Exception as error:
                 self._record_save_error(error)
@@ -1530,6 +1529,9 @@ class MainWindow(QMainWindow):
             self._update_save_state()
             self.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
             self._reset_edit_history('restore')
+            if self._restore_failed:
+                self._restore_failed = False
+                self._set_busy(False)
             if show_status and self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
                 self._show_schedule_status()
         except Exception as e:

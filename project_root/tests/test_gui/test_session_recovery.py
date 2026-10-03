@@ -132,6 +132,57 @@ def test_failed_load_blocks_save_until_readable(window, monkeypatch):
     assert window._repo.load_session == fail
     monkeypatch.setattr(window._repo, "load_session", real_load)
     monkeypatch.setattr(window._repo, "has_session", lambda: False)
+    assert not window._retry_session()
+    assert window._restore_failed and not window.btn_load.isEnabled()
+    window._repo.save_session(None, 5, {}, [], {}, None)
+    monkeypatch.setattr(window._repo, "has_session", lambda: True)
     assert window._retry_session()
     assert not window._restore_failed
     assert window.btn_load.isEnabled()
+
+
+@pytest.mark.parametrize('reject_prompt', [True, False])
+def test_retry_materializes_before_unlocking(window, monkeypatch, tmp_path, reject_prompt):
+    from src.scheduling.classroom import Classroom
+    repo = window._repo
+    repo.save_session(None, 5, {'R': Classroom('R', 30, 'REGULAR')},
+                      [Course('BIO', 1, 60, 'REGULAR')], {},
+                      {'BIO-G1': ('R', 1, 480, 540)})
+    before = (tmp_path / 'session.db').read_bytes()
+    render = window.course_manager.load_courses_from_excel
+    monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
+    window._restore_session_if_exists(confirm=False)
+    assert window._restore_failed and window._busy
+    assert not window.course_manager.get_courses() and set(window._classrooms) == {'R'}
+    prompts = []
+    def prompt(dialog):
+        prompts.append(dialog)
+        return QDialog.DialogCode.Rejected if reject_prompt else QDialog.DialogCode.Accepted
+    monkeypatch.setattr(QDialog, 'exec', prompt)
+    assert not window._retry_session()
+    assert window._restore_failed and window._busy and not window.btn_load.isEnabled()
+    assert not window._save_session()
+    assert (tmp_path / 'session.db').read_bytes() == before
+    monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', render)
+    assert window._retry_session()
+    assert not prompts  # Retry itself already authorizes restoration.
+    assert not window._restore_failed and not window._busy
+    assert [c.code for c in window.course_manager.get_courses()] == ['BIO']
+    assert window.current_schedule == {'BIO-G1': ('R', 1, 480, 540)}
+    assert (tmp_path / 'session.db').read_bytes() == before
+    window.seed_input.setValue(22)
+    assert [c.code for c in repo.load_session()['courses']] == ['BIO']
+    assert window._retry_session()
+    assert not list(tmp_path.glob('previous-session-*'))
+
+
+def test_missing_session_after_partial_restore_stays_locked(window, monkeypatch, tmp_path):
+    window._repo.save_session(None, 5, {}, [Course('BIO', 1, 60, 'REGULAR')], {}, None)
+    monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
+    window._restore_session_if_exists(confirm=False)
+    before = (tmp_path / 'session.db').read_bytes()
+    monkeypatch.setattr(window._repo, 'has_session', lambda: False)
+    assert not window._retry_session()
+    assert window._restore_failed and window._busy
+    assert not window._save_session()
+    assert (tmp_path / 'session.db').read_bytes() == before
