@@ -49,7 +49,7 @@ Al rechazar la restauración y cerrar sin editar, la sesión anterior se conserv
 
 El estado **Sesión no disponible** bloquea la edición y mantiene los archivos intactos. **Reintentar** vuelve a comprobar la lectura y ofrece restaurar cuando sea posible. No hay borrado, reparación destructiva ni selección automática de una copia más antigua.
 
-Para una recuperación manual, cierre SORTH y conserve primero una copia de la carpeta completa, incluidos archivos `-wal` y `-shm` si existen. Con ayuda técnica, identifique una copia válida y sustitúyala sólo tras preservar el archivo afectado. No borre una base dañada para intentar que el programa arranque. Las copias contienen datos de la sesión, incluidos recursos personales cuando existan: manténgalas privadas. Incluya también `sorth_projects.db` para conservar escenarios; editar la sesión no modifica esas copias. Consulte [Privacidad y datos locales](../PRIVACY.md) para configuración separada y eliminación.
+Para una recuperación manual, cierre SORTH y conserve primero una copia de la carpeta completa, incluidos archivos `-wal` y `-shm` si existen. Con ayuda técnica, identifique una copia válida y sustitúyala sólo tras preservar el archivo afectado. No borre una base dañada para intentar que el programa arranque. Las copias contienen datos de la sesión, incluidos recursos personales cuando existan: manténgalas privadas. Incluya también `sorth_projects.db` para conservar escenarios; editar la sesión no modifica esas copias. Consulte [Privacidad y datos locales](../../PRIVACY.md) para configuración separada y eliminación.
 
 ## Verificación
 

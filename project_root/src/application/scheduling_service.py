@@ -1,6 +1,7 @@
 # src/application/scheduling_service.py
 
 from copy import deepcopy
+from .scheduling_ports import SchedulingInputReader, SchedulingReaderFactory
 from ..scheduling.cancellation import checkpoint
 
 from ..scheduling.time_model import TimeModel
@@ -11,10 +12,28 @@ from ..scheduling.validation import validate_schedule
 
 
 class SchedulingService:
+    """Generate from supplied domain data or an explicitly selected input reader.
 
-    def __init__(self, excel_path: str | None, seed: int | None = 42):
+    ``reader_factory`` receives ``excel_path`` only when input is missing. The
+    optional historical fallback preserves ``SchedulingService(path).run()``;
+    new GUI/CLI compositions provide the factory themselves.
+    """
+
+    def __init__(self, excel_path: str | None, seed: int | None = 42, *,
+                 reader_factory: SchedulingReaderFactory | None = None):
         self.excel_path = excel_path
         self.seed = seed
+        self._reader_factory = reader_factory
+
+    def _input_reader(self) -> SchedulingInputReader:
+        factory = self._reader_factory
+        if factory is None:
+            # Named compatibility bridge for SchedulingService(path).run().
+            # New entrypoints inject their adapter from the composition root;
+            # supplied-data callers never import or invoke this fallback.
+            from ..bootstrap.scheduling import create_excel_reader
+            factory = create_excel_reader
+        return factory(self.excel_path)
 
     def run(self, courses: list[Course] | None = None,
             classroom_restrictions: dict[str, set[str]] | None = None,
@@ -24,30 +43,32 @@ class SchedulingService:
         Run the scheduling algorithm.
 
         Args:
-            courses: List of Course objects. If None, loads from Excel.
+            courses: List of Course objects. If None, loads through the input reader.
             classroom_restrictions: {classroom_name: {course_codes}} to apply
                                     restricted classrooms. If None, no restrictions.
-            classrooms: Pre-built classrooms dict. If None, loads from Excel.
+            classrooms: Pre-built classrooms dict. If None, loads through the input reader.
 
         Returns:
-            (assignments, groups) on success, (None, None) on failure.
+            (assignments, groups), including partial or empty schedules.
+            Invalid input/results and cancellation raise without accepting state.
         """
         checkpoint(cancelled)
-        # Optional file adapter is loaded only for the legacy Excel workflow.
-        # Supplied-data callers need neither pandas, Qt nor filesystem access.
+        # Resolve I/O only when inputs are missing. Fully supplied requests
+        # (including MCP previews) depend solely on domain/application code.
         if classrooms is None or courses is None:
-            from ..infrastructure.excel_reader import ExcelReader
-            reader = ExcelReader(self.excel_path)
-        if classrooms is None and courses is None:
-            imported = reader.load_validated()
-            classrooms = imported.classrooms
-            courses = imported.courses
+            reader = self._input_reader()
+            if classrooms is None and courses is None:
+                imported = reader.load_validated()
+                classrooms = imported.classrooms
+                courses = imported.courses
+            else:
+                if classrooms is None:
+                    classrooms = reader.load_classrooms()
+                if courses is None:
+                    courses = reader.load_courses()
 
-        # 1. Load classrooms (use provided or load from Excel)
-        if classrooms is None:
-            classrooms = reader.load_classrooms()
-        else:
-            classrooms = deepcopy(classrooms)  # isolate occupancy and restrictions from the UI
+        # 1. Isolate occupancy/restrictions from both caller and reader state.
+        classrooms = deepcopy(classrooms)
 
         # Reset occupancy AND restrictions so re-runs start from a clean state
         for cls in classrooms.values():
@@ -60,21 +81,17 @@ class SchedulingService:
                 if classroom_name in classrooms:
                     classrooms[classroom_name].set_allowed_courses(allowed_codes)
 
-        # 3. Load courses from Excel if not provided externally
-        if courses is None:
-            courses = reader.load_courses()
-
-        # 4. Build TimeModel (default 07:00-22:00, all 6 days)
+        # 3. Build TimeModel (default 07:00-22:00, all 6 days)
         time_model = TimeModel.default() if calendar is None else TimeModel.from_calendar(calendar)
 
-        # 5. Build ScheduleState
+        # 4. Build ScheduleState
         state = ScheduleState(
             time_model=time_model,
             classrooms=list(classrooms.values()),
             resources=deepcopy(resources),
         )
 
-        # 6. Generate groups from courses
+        # 5. Generate groups from courses
         groups = []
         for course in courses:
             checkpoint(cancelled)
@@ -94,7 +111,7 @@ class SchedulingService:
                 raise ValueError(f"{gid}: pinned reservation failed")
             group.pinned = True
 
-        # 7. Run scheduler
+        # 6. Run scheduler
         scheduler = Scheduler(seed=self.seed, cancelled=cancelled)
         scheduler.schedule(state, groups)
 

@@ -28,7 +28,7 @@ Cada versión debe identificar un único commit, fecha, plataforma validada, cam
 
 ## Contenido y publicación
 
-Seguir [WINDOWS_DISTRIBUTION.md](../project_root/WINDOWS_DISTRIBUTION.md) para compilación, firmas y empaquetado.
+Seguir [WINDOWS_DISTRIBUTION.md](release/WINDOWS_DISTRIBUTION.md) para compilación, firmas y empaquetado.
 
 - [ ] Preparar ZIP completo, manual vigente, hashes SHA-256, manifiesto de versiones y avisos/licencias de terceros.
 - [ ] Para la distribución GPL, preparar el código fuente correspondiente de la versión, scripts de construcción y textos aplicables, con acceso junto al binario; un enlace a `main` mutable no identifica la versión distribuida.

@@ -30,9 +30,19 @@ python -m pytest -q
 
 En un entorno sin pantalla, ejecuta los tests con `QT_QPA_PLATFORM=offscreen` (PowerShell: `$env:QT_QPA_PLATFORM="offscreen"`; Linux/macOS: `export QT_QPA_PLATFORM=offscreen`). Esto no sustituye la revisión visual en un escritorio real.
 
-Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](project_root/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
+Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](docs/release/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
 
 ## Organización y revisión
+
+La [arquitectura del README](project_root/README.md#arquitectura) sigue siendo la
+referencia. Consulta el [mapa y límites](docs/architecture/ARCHITECTURE.md) y el
+[flujo de desarrollo](docs/development/WORKFLOW.md) para ubicar archivos, revisar
+dependencias y coordinar cambios grandes en etapas.
+
+Desde `project_root`, ejecuta también `python tools/check_architecture.py` y
+`python -m pytest -q tests/test_architecture tests/test_documentation`. Estas
+pruebas forman parte de la suite completa; comprueban los límites estáticos, las
+rutas públicas y los enlaces locales de la documentación.
 
 - La aplicación está en `project_root/`: dominio en `src/scheduling`, orquestación en `src/application`, archivos/persistencia en `src/infrastructure` e interfaz en `src/gui`.
 - Mantén cada PR enfocado. Evita reformatear archivos no relacionados o cambiar el lock sin necesidad.

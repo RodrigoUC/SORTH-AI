@@ -104,6 +104,11 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 
 ## Arquitectura
 
+La organización conserva estas cuatro capas. El árbol muestra sus módulos principales;
+[el índice de documentación](../docs/README.md) reúne las guías por audiencia.
+El [mapa de responsabilidades y guardas](../docs/architecture/ARCHITECTURE.md)
+explica los límites, adaptadores opcionales y excepciones de compatibilidad.
+
 ```
 src/
 ├── scheduling/              # Dominio — algoritmo y modelo
@@ -277,7 +282,7 @@ pytest --tb=short
 
 Salida predeterminada: carpeta `dist/SORTH/` con `SORTH.exe` y sus dependencias. Distribuye la carpeta completa. El modo de archivo único es opcional: `.\build_exe.ps1 -OneFile`.
 
-Antes de compilar en Python 3.12 x64, instala `requirements-windows.lock` con `--require-hashes` en `.venv-build`; el script no instala ni actualiza paquetes automáticamente. El workflow **Windows review build** ejecuta pruebas, genera el manual PDF, compila y valida el ejecutable, y conserva ZIP/checksums de revisión por siete días. No firma ni publica releases. Consulta [Distribución para Windows](WINDOWS_DISTRIBUTION.md) para preparación, firmas y validación con las protecciones activadas.
+Antes de compilar en Python 3.12 x64, instala `requirements-windows.lock` con `--require-hashes` en `.venv-build`; el script no instala ni actualiza paquetes automáticamente. El workflow **Windows review build** ejecuta pruebas, genera el manual PDF, compila y valida el ejecutable, y conserva ZIP/checksums de revisión por siete días. No firma ni publica releases. Consulta [Distribución para Windows](../docs/release/WINDOWS_DISTRIBUTION.md) para preparación, firmas y validación con las protecciones activadas.
 
 ---
 

@@ -296,7 +296,7 @@ Las pruebas cubren cliente SDK real `initialize`/`tools/list`/`tools/call`/`reso
 
 Antes de afirmar cierre nativo por teclado, abre una consola Windows real, ejecuta el comando documentado, deja el proceso esperando stdin y pulsa Ctrl+C. Debe volver al prompt sin cerrar primero stdin y sin dejar procesos Python hijos. Después, en el host MCP elegido, genera/cancela una propuesta y cierra el host; comprueba que servidor y trabajador finalizan y que la sesión de la GUI queda intacta. Verifica también un host que deja de consumir stdout. El CI de pipes/protocolo no sustituye esta aceptación de consola/host; regístrala por separado con versión de Windows, Python, host y commit.
 
-Base de trabajo: correcciones de validación y persistencia #2/#3, no un reemplazo de ellas. La aplicación incluye [indicadores explicables de calidad](QUALITY_METRICS.md) y [exportación PDF bilingüe](PDF_EXPORT_NOTES.md); este contrato MCP incluye aclaración, validación, propuestas y Excel temporal, sin exponer los indicadores ni PDF. No modifica la sesión, las métricas ni los archivos de la GUI.
+Base de trabajo: correcciones de validación y persistencia #2/#3, no un reemplazo de ellas. La aplicación incluye [indicadores explicables de calidad](../docs/user/QUALITY_METRICS.md) y [exportación PDF bilingüe](../docs/user/PDF_EXPORT_NOTES.md); este contrato MCP incluye aclaración, validación, propuestas y Excel temporal, sin exponer los indicadores ni PDF. No modifica la sesión, las métricas ni los archivos de la GUI.
 
 Fuentes oficiales consultadas al implementar el adaptador (2 de octubre de 2026); guías de clientes revisadas el 3 de octubre de 2026:
 

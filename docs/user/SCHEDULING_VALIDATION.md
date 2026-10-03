@@ -66,7 +66,7 @@ small feasible/impossible cases and explicit manual Yes/No exception tests remai
 Offscreen verification is not native Windows, Excel or print acceptance.
 
 Synthetic partial-result captures at 960×640 (Linux Qt offscreen):
-[Español](docs/validation/partial-es-960.png) ·
-[English](docs/validation/partial-en-960.png).
+[Español](../evidence/validation/partial-es-960.png) ·
+[English](../evidence/validation/partial-en-960.png).
 Both show 1/2 scheduled sessions, one pending LAB without an available laboratory,
 an enabled export of assigned sessions, and explicit partial status.

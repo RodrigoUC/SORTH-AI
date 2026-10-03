@@ -20,7 +20,7 @@ Currently implemented switches:
   without network or system Python installation. Missing bundles are reported
   explicitly. Preparation does not enable the feature, start a service, connect
   a model or open a listener. OFF also suppresses pending results; the client
-  owns process shutdown. See [MCP configuration](MCP_OPTIONAL.md).
+  owns process shutdown. See [MCP configuration](../../project_root/MCP_OPTIONAL.md).
 
 - **Herramientas de sesiones fijadas / Pinned session tools**: exposes pin/unpin controls in schedule
   tables. Disabling never removes existing pins or changes their placements.
@@ -88,5 +88,5 @@ confirmación y retirada del resultado actual. Conserva recursos y relaciones.
 Los parámetros efectivos viajan con las sesiones/escenarios; las preferencias de
 interfaz no pueden omitir la validación de un snapshot. Véase OPTIONAL_RESOURCES.md.
 
-Consulta [Privacidad y datos locales](../PRIVACY.md) para ubicaciones, datos
+Consulta [Privacidad y datos locales](../../PRIVACY.md) para ubicaciones, datos
 conservados, exportaciones, respaldos y diferencia entre desactivar y borrar.

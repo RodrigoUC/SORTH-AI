@@ -1,7 +1,7 @@
 # SORTH desktop design
 
 ## Product and audience
-Spanish-first native PyQt6 application for academic timetable planning. The primary task is reviewing courses, generating a schedule, checking pending sessions and exporting the result. Spanish and English are selectable in the masthead. Additional locales use a central language registry and independent catalogs; see `project_root/LOCALIZATION.md`.
+Spanish-first native PyQt6 application for academic timetable planning. The primary task is reviewing courses, generating a schedule, checking pending sessions and exporting the result. Spanish and English are selectable in the masthead. Additional locales use a central language registry and independent catalogs; see `docs/development/LOCALIZATION.md`.
 
 ## Direction
 Professional academic workspace with a more recognizable identity than the previous all-blue/gray surface. A navy masthead anchors the application. Teal marks the principal scheduling action and overview. Violet marks active navigation and keyboard focus. Pale reading surfaces keep dense course and schedule tables comfortable.
@@ -56,7 +56,7 @@ also cover tables, lists, time fields, checkboxes and selectable feedback.
 The status-bar **Leer estado (F6)** action opens a keyboard-readable snapshot of
 progress, save state, totals and errors, with focus returned on close. This is
 an explicit fallback, not a claim of live screen-reader announcement support.
-See `project_root/ACCESSIBILITY.md` for inventory, shortcuts and outstanding
+See `docs/development/ACCESSIBILITY.md` for inventory, shortcuts and outstanding
 Windows acceptance; do not declare issue #11 complete from offscreen tests.
 ## Named projects and scenario comparison
 
@@ -77,7 +77,7 @@ palette, typography, localized controls and keyboard focus. Only implemented
 advanced tools appear, all disabled initially. Disabling changes entry-point
 visibility and never deletes project data or relaxes constraints. A main-window
 text notice (also included in F6 status) explains retained pins/scenario data and
-where to reactivate controls. See `project_root/OPTIONAL_FEATURES.md`.
+where to reactivate controls. See `docs/user/OPTIONAL_FEATURES.md`.
 
 Optional-tool preferences use one versioned atomic JSON record, separate from
 QSettings language/motion preferences. Failed saves keep committed flags and
@@ -94,7 +94,7 @@ replacement wording, and default Cancel. Changes show previous/new field values;
 restrictions and assignments describe exactly what will be cleared or retained.
 No silent merge or partially editable model replacement. The indicator respects
 reduced motion; F6 exposes full status when the compact bar elides text. See
-`project_root/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.
+`docs/user/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.
 
 ## Calendar editor
 The optional advanced calendar editor reuses native time controls, checkboxes,

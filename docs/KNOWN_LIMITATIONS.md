@@ -1,7 +1,7 @@
 # Alcance y limitaciones conocidas
 
 - El planificador utiliza heurísticas greedy con reintentos. No garantiza encontrar una asignación completa aunque exista, ni demostrar optimalidad o inviabilidad. Revisa los grupos sin asignar y valida el resultado antes de utilizarlo institucionalmente.
-- LAB es obligatorio en generación automática. Una excepción manual en aula regular requiere confirmación y queda registrada; capacidad, conflictos y las demás restricciones siguen vigentes. REGULAR conserva una preferencia de tipo; día/hora sugeridos son preferencias blandas. Consulta el [manual](../project_root/MANUAL_USUARIO.md).
+- LAB es obligatorio en generación automática. Una excepción manual en aula regular requiere confirmación y queda registrada; capacidad, conflictos y las demás restricciones siguen vigentes. REGULAR conserva una preferencia de tipo; día/hora sugeridos son preferencias blandas. Consulta el [manual](user/MANUAL_USUARIO.md).
 - El tiempo de ejecución depende de grupos, aulas, candidatos y restricciones. No se promete complejidad lineal para el flujo completo.
 - El formato de importación requiere las hojas y columnas documentadas; importar un archivo no certifica que sus datos sean correctos. Las mejoras de formato sólo están disponibles una vez integradas en la versión utilizada.
 - La referencia de distribución es Windows x64 con CPython 3.12.10. Ejecutar tests en Linux o macOS no certifica el paquete ni la interfaz en esas plataformas.

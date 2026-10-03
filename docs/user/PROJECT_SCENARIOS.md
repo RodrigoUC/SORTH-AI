@@ -87,5 +87,5 @@ La revisión Qt offscreen en Linux no sustituye pruebas nativas de Windows ni un
 validación con lector de pantalla. No cerrar el issue solamente por este documento;
 registrar el resultado de tests/CI del commit final y los controles no ejecutados.
 
-Consulta [Privacidad y datos locales](../PRIVACY.md) para ubicaciones, datos
+Consulta [Privacidad y datos locales](../../PRIVACY.md) para ubicaciones, datos
 conservados, exportaciones, respaldos y diferencia entre desactivar y borrar.
