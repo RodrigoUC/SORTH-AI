@@ -100,3 +100,30 @@ step record PASS, FAIL or NOT RUN with exact speech, keystrokes and issue link.
 
 Any failure remains open with reproduction details. Do not close #11 until its
 criteria have final-commit evidence, including real Windows screen-reader tasks.
+
+## Visible classroom-grid session details
+
+The classroom grid retains full model/tooltip/accessibility text. It also offers
+native **Ver detalles / View details**: select an occupied block and press Enter,
+double-click it, or Tab/Shift+Tab to the explicit button. A read-only, keyboard-
+selectable text area exposes the complete session ID, course, classroom, day and
+exact start/end time without hover. Tab leaves the text area; Escape/Close returns
+to the grid. This is visible keyboard access, not a new screen-reader claim.
+
+For a conflict, the dialog initially shows every constituent session. **Ver en
+lista / View in list** stays disabled until the user explicitly selects a session
+from the native selector. The handoff selects that exact GID in the existing,
+sorted detailed list without changing filters or schedule data. Removed,
+replaced or filtered-out sessions invalidate the dialog and clear stale action
+selection. Theme/language changes preserve the selected identity.
+
+Counts beside the classroom selector describe that local grid only. The shared
+filter summary separately names exportable assignments, pending sessions and
+matching/total sessions. A visible compact scope line explains that changing the
+grid classroom does not change filtered export. Actual CSV/XLSX regressions
+verify that export still uses the canonical shared filters.
+
+`tests/test_gui/test_grid_scope_details.py` exercises real Qt widgets, keyboard
+focus, conflict choices, stale removal/replacement, long text, ES/EN, actual
+export rows and reduced motion. Offscreen evidence does not certify native
+Windows rendering or screen-reader announcement behavior.

@@ -6,7 +6,7 @@ from dataclasses import replace
 import unicodedata
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea
+    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea, QPlainTextEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
@@ -82,6 +82,7 @@ class ScheduleViewerWidget(QWidget):
         self.summary_data = None
         self._quality_snapshot = None
         self._refreshing = False
+        self._grid_details_dialog = None
         self._init_ui()
         self._clear()
         language_manager().changed.connect(self._request_grid_render)
@@ -185,15 +186,22 @@ class ScheduleViewerWidget(QWidget):
         self._grid_hint = QLabel()
         self._grid_hint.setWordWrap(True)
         grid_row.addWidget(self._grid_hint, 1)
+        self._btn_grid_details = QPushButton(msg('Ver detalles'))
+        self._btn_grid_details.setEnabled(False)
+        self._btn_grid_details.setToolTip(msg('Seleccione un bloque y pulse Intro o Ver detalles para leer la sesión completa.'))
+        self._btn_grid_details.clicked.connect(self._show_grid_details)
+        grid_row.addWidget(self._btn_grid_details)
         grid_layout.addLayout(grid_row)
         self.grid_table = QTableWidget()
         self.grid_table.setAccessibleName(msg('Cuadrícula semanal por aula'))
-        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.'))
+        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula, Intro para ver detalles y Tab para salir.'))
         self.grid_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.grid_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.grid_table.verticalHeader().setVisible(False)
         self.grid_table.setWordWrap(True)
         self.grid_table.setItemDelegate(ScheduleGridDelegate(self.grid_table))
+        self.grid_table.itemSelectionChanged.connect(self._update_grid_action)
+        self.grid_table.itemActivated.connect(self._show_grid_details)
         grid_layout.addWidget(self.grid_table, 1)
         self.tabs.addTab(grid_widget, msg('Cuadrícula por aula'))
 
@@ -316,6 +324,8 @@ class ScheduleViewerWidget(QWidget):
         return table, edit, remove
 
     def _clear(self):
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.reject()
         self._refreshing = True
         self._assignments = {}
         self._search_keys = {}
@@ -484,6 +494,7 @@ class ScheduleViewerWidget(QWidget):
 
     def _request_grid_render(self, *_):
         self._grid_dirty = True
+        self._update_grid_action()
         if self.tabs.currentIndex() == 1:
             self._render_grid(self.classroom_selector.currentText())
 
@@ -491,6 +502,57 @@ class ScheduleViewerWidget(QWidget):
         if self.tabs.currentIndex() == 1 and self._grid_dirty:
             self._render_grid(self.classroom_selector.currentText())
         self._update_result_label()
+
+    def _selected_grid_gids(self):
+        item = self.grid_table.currentItem()
+        if self._grid_dirty or item is None or not self.grid_table.selectedItems():
+            return ()
+        gids = item.data(Qt.ItemDataRole.UserRole) or ()
+        # The model may have changed since a native item was selected. Never
+        # recover a missing identity by falling back to the previous list row.
+        return tuple(gids) if all(gid in self._assignments and gid in self._matching_gids
+                                  for gid in gids) else ()
+
+    def _update_grid_action(self):
+        self._btn_grid_details.setEnabled(bool(self._selected_grid_gids()))
+
+    def _show_grid_details(self, *_):
+        gids = self._selected_grid_gids() if self.tabs.currentIndex() == 1 else ()
+        if not gids:
+            return
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.raise_()
+            self._grid_details_dialog.activateWindow()
+            return
+        dialog = GridSessionDetailsDialog(self, gids)
+        self._grid_details_dialog = dialog
+
+        def finished(result):
+            self._grid_details_dialog = None
+            self.window().activateWindow()
+            target = self.list_table if result == QDialog.DialogCode.Accepted else self.grid_table
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
+            dialog.deleteLater()
+
+        dialog.finished.connect(finished)
+        dialog.open()
+        dialog.details.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _show_grid_gid_in_list(self, gid):
+        table = self.list_table
+        table.clearSelection()
+        table.setCurrentItem(None)
+        if gid not in self._assignments or gid not in self._matching_gids:
+            return False
+        for row in range(table.rowCount()):
+            if (not table.isRowHidden(row)
+                    and table.item(row, 0).data(Qt.ItemDataRole.UserRole) == gid):
+                table.setCurrentCell(row, 0)
+                self.tabs.setCurrentIndex(0)
+                table.scrollToItem(table.item(row, 0))
+                table.setFocus(Qt.FocusReason.OtherFocusReason)
+                return True
+        return False
 
     def _render_grid(self, classroom):
         if self._refreshing or self._time_model is None:
@@ -503,6 +565,8 @@ class ScheduleViewerWidget(QWidget):
         table = self.grid_table
         selected_block = (table.currentItem().data(GRID_BLOCK_ROLE)
                           if table.currentItem() and table.selectedItems() else None)
+        table.clearSelection()
+        table.setCurrentItem(None)
         table.clearSpans()
         table.clear()
         table.setRowCount(len(grid.boundaries) - 1)
@@ -578,6 +642,9 @@ class ScheduleViewerWidget(QWidget):
         else:
             self._grid_hint.setText(msg('Sin sesiones para esta aula y estos filtros.'))
         self._update_result_label()
+        self._update_grid_action()
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.refresh_details()
 
     def _filter_spec(self):
         return (self._status_filter.currentData(), self._room_filter.currentData(),
@@ -623,6 +690,8 @@ class ScheduleViewerWidget(QWidget):
                                                (self._room_filter, self._day_filter, self._status_filter)))
         self._update_actions()
         self._update_result_label()
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.refresh_details()
         self.filters_changed.emit()
 
     def export_filter_description(self):
@@ -813,6 +882,82 @@ class ScheduleViewerWidget(QWidget):
     def _show_summary(self):
         if self.summary_data:
             SummaryDialog(self, self.summary_data).exec()
+
+
+class GridSessionDetailsDialog(QDialog):
+    """Read-only native inspection, with an explicit identity-safe list handoff."""
+
+    def __init__(self, viewer, gids):
+        super().__init__(viewer)
+        self._viewer = viewer
+        self._gids = tuple(gids)
+        self._assignments = {gid: viewer._assignments[gid] for gid in gids}
+        self.setWindowTitle(msg('Sesiones del bloque en conflicto') if len(gids) > 1
+                            else msg('Detalles de la sesión'))
+        self.resize(620, 420)
+        layout = QVBoxLayout(self)
+        self.session_selector = QComboBox()
+        self.session_selector.setAccessibleName(msg('Grupo / sesión'))
+        self.session_selector.addItem(msg('Seleccione una sesión para verla en la lista.'), None)
+        for gid in gids:
+            self.session_selector.addItem(gid, gid)
+        self.session_selector.setCurrentIndex(1 if len(gids) == 1 else 0)
+        self.session_selector.setVisible(len(gids) > 1)
+        layout.addWidget(self.session_selector)
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setTabChangesFocus(True)
+        self.details.setAccessibleName(str(msg('Detalles de la sesión')))
+        layout.addWidget(self.details, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.view_in_list = QPushButton(msg('Ver en lista'))
+        self.view_in_list.setAutoDefault(False)
+        buttons.addButton(self.view_in_list, QDialogButtonBox.ButtonRole.ActionRole)
+        self.view_in_list.clicked.connect(self._view_in_list)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.session_selector.currentIndexChanged.connect(self.refresh_details)
+        language_manager().changed.connect(self.refresh_details)
+        self.refresh_details()
+
+    def _valid(self):
+        return all(gid in self._viewer._matching_gids
+                   and self._viewer._assignments.get(gid) == slot
+                   for gid, slot in self._assignments.items())
+
+    def refresh_details(self, *_):
+        if not self._valid():
+            self.view_in_list.setEnabled(False)
+            self._viewer._show_grid_gid_in_list(None)
+            self.reject()
+            return
+        gid = self.session_selector.currentData()
+        self.view_in_list.setEnabled(gid in self._gids)
+        texts = []
+        for selected_gid in ((gid,) if gid is not None else self._gids):
+            room, day, start, end = self._assignments[selected_gid]
+            texts.append(str(msg('Sesión: {gid}\nCurso: {course}\nAula: {room}\nDía: {day}\nHorario: {start}–{end}',
+                                 gid=selected_gid, course=self._viewer._name_map.get(selected_gid, ''),
+                                 room=room, day=msg(self._viewer._time_model.to_day_name(day)),
+                                 start=TimeModel.minutes_to_hhmm(start), end=TimeModel.minutes_to_hhmm(end))))
+        self.details.setAccessibleName(str(msg('Detalles de la sesión')))
+        text = '\n\n'.join(texts)
+        if self.details.toPlainText() != text:
+            self.details.setPlainText(text)
+
+    def _view_in_list(self):
+        gid = self.session_selector.currentData()
+        if not self._valid() or gid not in self._gids:
+            self.view_in_list.setEnabled(False)
+            if not self._valid():
+                self._viewer._show_grid_gid_in_list(None)
+                self.reject()
+            return
+        if self._viewer._show_grid_gid_in_list(gid):
+            self.accept()
+            # Modal dismissal can restore its invoker. The explicit handoff
+            # instead leaves keyboard focus on the exact selected list row.
+            self._viewer.list_table.setFocus(Qt.FocusReason.OtherFocusReason)
 
 
 class SummaryDialog(QDialog):
