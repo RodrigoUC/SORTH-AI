@@ -250,8 +250,9 @@ def test_unsaved_changes_take_precedence_over_pending_comparison(window, monkeyp
     assert not window._scenario_dirty
 
 
-@pytest.mark.parametrize('language', ['es', 'en'])
-def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeypatch, language):
+@pytest.mark.parametrize('language,display_language', [('es', 'es'), ('en', 'en'),
+                                                     ('es', 'en'), ('en', 'es')])
+def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeypatch, language, display_language):
     from PyQt6.QtCore import QTimer, Qt
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QPlainTextEdit
@@ -272,7 +273,8 @@ def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeyp
             monkeypatch.setattr(window._repo, 'load_session', comparison_failure)
         monkeypatch.setattr(window._repo, 'save_session', commit_then_fail_comparison)
         assert window._save_session()
-        explanation = str(window._scenario_comparison_error)
+        manager.set_language(display_language, persist=False)
+        explanation = window._scenario_comparison_error.render()
         window.status_bar.showMessage('Unrelated status')
         window.show()
         window.activateWindow()
@@ -311,3 +313,15 @@ def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeyp
         assert str(msg('Sin cambios pendientes')) in recovered
     finally:
         manager.set_language(previous_language, persist=False)
+
+
+def test_f6_preserves_plain_comparison_diagnostic(window, monkeypatch):
+    from PyQt6.QtWidgets import QPlainTextEdit
+    window._scenario_comparison_error = 'Plain diagnostic <not markup>'
+    observed = []
+    def inspect(dialog):
+        observed.append(dialog.findChild(QPlainTextEdit).toPlainText())
+        return QDialog.DialogCode.Rejected
+    monkeypatch.setattr(QDialog, 'exec', inspect)
+    window._show_accessible_status()
+    assert window._scenario_comparison_error in observed[0]
