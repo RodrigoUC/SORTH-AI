@@ -55,3 +55,19 @@ def test_direct_theme_construction_detaches_color_dictionary():
         spec.colors['canvas'] = '#000000'
     with pytest.raises(FrozenInstanceError):
         spec.name = 'Changed'
+
+
+@pytest.mark.parametrize('choice', builtin_themes(), ids=lambda choice: choice.key)
+def test_trusted_sort_resources_render_the_validated_header_foreground(choice):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from PyQt6.QtSvg import QSvgRenderer
+    for name in ('sort_up', 'sort_down'):
+        renderer = QSvgRenderer(trusted_assets(choice.spec)[name])
+        assert renderer.isValid()
+        image = QImage(8, 5, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image); renderer.render(painter); painter.end()
+        actual = image.pixelColor(4, 2)
+        assert actual.name() == choice.spec.colors['on_header'].lower()
+        assert actual.alpha() == 255
