@@ -70,3 +70,11 @@ Opening another scenario explicitly confirms and preserves a recovery copy. Nami
 cancellation performs no write; duplicate names show an inline error and never
 replace data. Shared i18n widgets own labels/buttons/tables, `ProjectRepository`
 owns uniqueness and transactions, and quality v1 owns all descriptive measures.
+
+## Optional feature preferences
+The masthead Settings button opens a native Save/Cancel dialog using the existing
+palette, typography, localized controls and keyboard focus. Only implemented
+advanced tools appear, all disabled initially. Disabling changes entry-point
+visibility and never deletes project data or relaxes constraints. A main-window
+text notice (also included in F6 status) explains retained pins/scenario data and
+where to reactivate controls. See `project_root/OPTIONAL_FEATURES.md`.
