@@ -266,3 +266,69 @@ paths consistent during retranslation and focus changes without fixed heights.
 The regression compares fresh native CT_CheckBox sizing and text-content height
 as well as cached minimumSizeHint, because the latter can hide a stale focus-state
 size on some platforms. Other application checkboxes retain their existing chrome.
+
+## Selectable native appearance
+
+`project_root/src/gui/theme_contract.py` is the single Qt-free v1 validator used
+by the application and `.agents/skills/sorth-theme-designer`. A theme supplies a
+complete, strictly validated data-only palette (30 opaque colors, bounded plain
+text and at most 16 KiB UTF-8); it never supplies QSS, asset paths, fonts, code or
+remote resources. `ThemeSpec` is frozen and defensively copies its color mapping.
+The structural schema and contrast checks stay in that canonical owner.
+
+`src/gui/theme.py` owns built-in Original claro, Nocturno and Alto contraste claro,
+the dynamic read-only `COLORS` mapping, canonical QSS, and Active/Inactive/Disabled
+QPalette roles. Header, heading and on-primary-soft are separate semantic roles;
+selected input text uses on-accent. Original keeps the incumbent canonical palette,
+typography and density. Previously independent literal-colored summary cards and
+recovery headers now use validated semantic soft surfaces and foregrounds; these
+small legacy treatments are deliberately not pixel-identical to the old palette.
+Native Qt controls, i18n wrappers, selection helpers and responsive layout remain
+canonical. No external design dependency or browser component is introduced.
+
+QSS and palette changes apply to the existing QApplication, never to OS settings.
+Owned dialogs, lists, text editors, menus, combo popups, tooltips, status areas and
+headers follow the selected appearance. `refresh_theme()` updates only cached
+pending-row and time-gutter brushes with item-change notifications blocked; it
+never repopulates a model, clears a filter, regenerates a schedule or saves domain
+data. Native system file pickers and window chrome can retain the operating
+system's appearance. Palette tests do not establish full accessibility compliance.
+
+Sort-arrow paths are trusted internal assets separate from imported color roles.
+The runtime draws arrows using validated on-header into its own temporary files,
+retaining bundled white arrows for the original palette. No external paths or
+content are read from a theme. Course category fills, accents, markers, text and
+export palettes remain owned by the scheduling/export code. Classroom course
+cards retain an explicit white gutter/separator and a fixed dark-red/pale-red
+conflict presentation. Only the selection outline follows the theme's focus role,
+validated against that fixed white separator as well as adjacent theme surfaces.
+
+`src/gui/theme_preferences.py` owns one versioned appearance JSON record containing
+both the selected key and complete normalized theme. It is independent of optional
+feature flags, MCP/provider permissions, language, reduced motion and session data.
+Deleting the source import file does not change the saved appearance. Writes use
+QSaveFile with direct-write fallback disabled and verify byte counts and commit.
+A cooperative writer lock and expected snapshot reject stale saves. A failed write
+leaves both the prior saved record and live theme intact. A successful commit is
+the success boundary, even if a subsequent verification read becomes unavailable.
+Malformed or future records display Original and leave the exact bytes untouched;
+replacement requires explicit recovery and first creates an exact sibling backup.
+
+Appearance uses a separate Apply/Cancel transaction. `preview_theme(widget, spec)`
+styles only a dialog-owned representative subtree. Preview never saves or changes
+the main UI; Cancel therefore leaves the current appearance and all other unsaved
+settings intact. Restore original selects a candidate and still requires Apply.
+Apply validates and persists before updating the shared application. A post-commit
+refresh failure is reported separately as saved-but-incomplete, and remaining
+controls still update; it never claims the former theme is still active. Reopening
+Appearance rereads the external preference snapshot without silently applying it.
+Imported
+metadata renders as plain text. AI-generated files pass the same validator and
+preview, without activating a provider, network call or paid service in SORTH.
+
+Verification includes strict contract/contrast tests, actual Qt palette/paint and
+repeated light/dark/high-contrast changes, preservation of drafts/focus/selection/
+filters/scroll and course identity, atomic failures, corruption/recovery, restart
+and deleted import sources. Fusion/offscreen captures are genuine Qt development
+evidence; packaged Windows/native chrome and screen-reader acceptance remain
+separate release checks.

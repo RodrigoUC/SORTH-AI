@@ -156,7 +156,7 @@ def test_invalid_saved_preference_is_safe(app, settings):
 def test_status_preference_text_has_header_contrast(window):
     from PyQt6.QtGui import QColor, QPalette
     from src.gui.theme import COLORS
-    assert window.chk_reduce_motion.palette().color(QPalette.ColorRole.WindowText) == QColor(COLORS['on_navy_muted'])
+    assert window.chk_reduce_motion.palette().color(QPalette.ColorRole.WindowText) == QColor(COLORS['on_header_muted'])
 
 
 def test_result_refresh_on_current_tab_is_animated(window):

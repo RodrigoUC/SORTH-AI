@@ -10,7 +10,7 @@ from string import Template
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6 import sip
@@ -69,6 +69,7 @@ COLORS = _CurrentColors()
 _QSS = """
 QWidget { font-family: 'Segoe UI', 'DejaVu Sans', sans-serif; font-size: 10pt; color: $text; }
 QMainWindow, QDialog { background: $canvas; }
+QWidget[sorthThemePreview="true"] { background: $canvas; }
 QFrame#brandHeader { background: $header; border-radius: 9px; }
 QLabel#appTitle { font-size: 24pt; font-weight: 700; color: $on_header; background: transparent; }
 QLabel#subtitle { color: $on_header_muted; padding-left: 12px; background: transparent; }
@@ -107,6 +108,7 @@ QLineEdit { placeholder-text-color: $muted; }
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QTimeEdit:disabled, QDateEdit:disabled, QDateTimeEdit:disabled, QComboBox:disabled, QPlainTextEdit:disabled, QTextEdit:disabled { background: $disabled; color: $disabled_text; }
 QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus, QLineEdit:focus, QSpinBox:focus, QTimeEdit:focus, QComboBox:focus, QTableWidget:focus, QListWidget:focus, QPlainTextEdit:focus, QLabel:focus { border: 2px solid $focus; }
 QPushButton#primaryAction:focus { border: 2px solid $on_primary; }
+QPushButton#dangerAction:focus { border: 2px solid $danger; }
 QPushButton#headerAction:focus { border: 2px solid $on_header; }
 QCheckBox:focus, QTabBar::tab:focus { border: 2px solid $focus; }
 QTabWidget::pane { border: 1px solid $divider; background: $surface; }
@@ -233,9 +235,19 @@ def preview_theme(widget: QWidget, spec: ThemeSpec):
     """Style only a dialog-owned sample subtree; no preferences/global state."""
     spec = validate_theme(spec.to_dict())
     widget.setProperty('sorthThemePreview', True)
+    widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
     widget.setPalette(palette_for(spec))
     widget.setStyleSheet(stylesheet_for(spec))
     widget.update()
+
+
+class ThemeApplicationError(RuntimeError):
+    """The preference committed, but an open control could not finish repainting."""
+    def __init__(self, saved_theme, issues):
+        self.saved_theme = saved_theme
+        self.issues = tuple(issues)
+        super().__init__('Appearance was saved, but some open controls could not update. '
+                         'Restart SORTH to finish applying it. ' + '; '.join(self.issues))
 
 
 class ThemeManager(QObject):
@@ -251,6 +263,7 @@ class ThemeManager(QObject):
         self.preferences = preferences if preferences is not None else ThemePreferences()
         self._current = self.preferences.current
         self._current_key = self.preferences.current_key
+        self.application_issue = None
         self._apply(self._current)
 
     @property
@@ -265,37 +278,61 @@ class ThemeManager(QObject):
     def recovery_issue(self):
         return self.preferences.recovery_issue
 
-    def _apply(self, spec):
+    def refresh_preferences(self):
+        """Reconcile disk on explicit reopen; never apply or write during a read."""
+        from .theme_preferences import ThemePreferences
+        previous = self.preferences
+        fresh = ThemePreferences(previous.path)
+        changed = (fresh._snapshot != previous._snapshot or
+                   fresh.recovery_issue != previous.recovery_issue)
+        self.preferences = fresh
+        return changed
+
+    def _apply(self, spec, *, prepared=None):
         global _current
-        stylesheet, palette = stylesheet_for(spec), palette_for(spec)
+        stylesheet, palette = prepared or (stylesheet_for(spec), palette_for(spec))
         _current = self._current = spec
-        self.app.setPalette(palette)
-        self.app.setStyleSheet(stylesheet)
+        issues = []
+        for name, operation, value in (('palette', self.app.setPalette, palette),
+                                       ('stylesheet', self.app.setStyleSheet, stylesheet)):
+            try:
+                operation(value)
+            except Exception as error:
+                issues.append(f'{name}: {type(error).__name__}: {error}')
+        # A failed custom refresh never prevents remaining owned controls from
+        # updating, and never turns a successful disk commit into a failed save.
         for widget in self.app.allWidgets():
             if sip.isdeleted(widget):
                 continue
-            ancestor = widget
-            in_preview = False
-            while ancestor is not None:
-                if ancestor.property('sorthThemePreview'):
-                    in_preview = True
-                    break
-                ancestor = ancestor.parentWidget()
-            if in_preview:
-                continue
-            refresh = getattr(widget, 'refresh_theme', None)
-            if refresh is not None:
-                refresh()
-            widget.update()
+            try:
+                ancestor = widget
+                in_preview = False
+                while ancestor is not None:
+                    if ancestor.property('sorthThemePreview'):
+                        in_preview = True
+                        break
+                    ancestor = ancestor.parentWidget()
+                if in_preview:
+                    continue
+                refresh = getattr(widget, 'refresh_theme', None)
+                if refresh is not None:
+                    refresh()
+                widget.update()
+            except Exception as error:
+                issues.append(f'{type(widget).__name__}: {type(error).__name__}: {error}')
+        self.application_issue = '; '.join(issues) if issues else None
+        return tuple(issues)
 
     def save_and_apply(self, spec: ThemeSpec, key='custom', *, recover=False):
-        """Commit first. A failed save leaves the visible/committed theme intact."""
+        """Commit first; distinguish rejected save from incomplete live refresh."""
         spec = validate_theme(spec.to_dict())
-        stylesheet_for(spec)  # Stage trusted icons before preference commit.
+        prepared = stylesheet_for(spec), palette_for(spec)
         self.preferences.save(spec, key=key, recover=recover)
         self._current_key = self.preferences.current_key
-        self._apply(self.preferences.current)
+        issues = self._apply(self.preferences.current, prepared=prepared)
         self.changed.emit(self.current)
+        if issues:
+            raise ThemeApplicationError(self.current, issues)
         return self.current
 
 
