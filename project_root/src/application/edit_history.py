@@ -132,9 +132,12 @@ class EditHistory:
         self.reset_reason = reason
 
     def observe(self, state):
-        actual = fingerprint(state)
+        return self._observe_fingerprint(fingerprint(state))
+
+    def _observe_fingerprint(self, actual):
         if self._expected is not None and self._expected != actual:
-            self.reset(state, 'external_change')
+            self.reset(reason='external_change')
+            self._expected = actual
             return True
         self._expected = actual
         return False
@@ -142,23 +145,31 @@ class EditHistory:
     def execute(self, before, after, persist, label, enabled=True):
         before, after = deepcopy(before), deepcopy(after)
         self.validator(after)
-        if fingerprint(before) == fingerprint(after):
+        # These detached snapshots do not change during the transaction. Reuse
+        # their canonical bytes for equality, byte limits and expected digests
+        # instead of serializing each full state three times. No cross-edit cache.
+        before_bytes, after_bytes = encoded(before), encoded(after)
+        before_digest = hashlib.sha256(before_bytes).hexdigest()
+        after_digest = hashlib.sha256(after_bytes).hexdigest()
+        if before_digest == after_digest:
             return deepcopy(before)
-        command = Command(label, before, after, len(encoded(before)) + len(encoded(after)))
+        command = Command(label, before, after, len(before_bytes) + len(after_bytes))
+        del before_bytes, after_bytes
         if enabled and command.bytes > self.max_bytes:
             raise EditError('El cambio supera el límite de memoria del historial. No se aplicó.')
         # No stack mutation, including redo invalidation, before a successful save.
         persist(deepcopy(after))
-        self.observe(before)
+        self._observe_fingerprint(before_digest)
         if enabled:
             self._redo.clear()
             self._undo.append(command)
             while len(self._undo) > self.max_commands or self.bytes_used > self.max_bytes:
                 self._undo.pop(0)
-            self._expected = fingerprint(after)
+            self._expected = after_digest
             self.reset_reason = None
         else:
-            self.reset(after, 'feature_disabled_change')
+            self.reset(reason='feature_disabled_change')
+            self._expected = after_digest
         return deepcopy(after)
 
     def _travel(self, current, persist, undo):
