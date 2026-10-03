@@ -31,6 +31,7 @@ from dataclasses import replace
 from ..scheduling.teaching_resources import SchedulingResources, RESOURCE_KINDS
 from ..scheduling.validation import validate_schedule, unassigned_reason
 from copy import deepcopy
+from ..application.schedule_result import matches_requested_groups
 from ..application.edit_history import EditHistory, EditError, course_change, normalized_group_feedback
 
 from .i18n import msg, plural, language_manager, join_messages
@@ -734,6 +735,14 @@ class MainWindow(QMainWindow):
 
         self._generation_result_committed = False
         if assignments is not None and groups is not None:
+            # Worker copies and result metadata cannot redefine the requested
+            # population, including pending groups and every split-session part.
+            expected_groups = [g for c in self.course_manager.get_courses()
+                               for g in c.generate_groups()]
+            if (not isinstance(assignments, dict)
+                    or not matches_requested_groups(groups, expected_groups)):
+                self._on_schedule_error(msg('La generación cambió u omitió grupos solicitados. Se conserva el horario anterior.'))
+                return
             errors = validate_schedule(assignments, groups, self._validation_classrooms(),
                                        TimeModel.from_calendar(self.calendar),
                                        {g.group_id for g in groups if g.lab_override}, resources=self.resources)

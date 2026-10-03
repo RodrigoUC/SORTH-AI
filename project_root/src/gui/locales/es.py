@@ -7,6 +7,7 @@ MESSAGES = {
 
     'Confirmar reemplazo': 'Confirmar reemplazo',
     'El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?': 'El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?',
+    'La generación cambió u omitió grupos solicitados. Se conserva el horario anterior.': 'La generación cambió u omitió grupos solicitados. Se conserva el horario anterior.',
     'Crear un tema con IA…': 'Crear un tema con IA…',
     'Crear un tema con IA': 'Crear un tema con IA',
     'No se pudo preparar la especificación. No se ha aplicado ningún cambio.': 'No se pudo preparar la especificación. No se ha aplicado ningún cambio.',

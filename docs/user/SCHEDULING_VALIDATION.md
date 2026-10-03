@@ -35,6 +35,14 @@ application/service flows must validate domain constraints before calling it.
 
 ## Partial, empty, failed, and exported results
 
+The GUI also checks the worker's complete group population against the requested
+courses, including every split-session part, before accepting its result. Missing,
+extra, duplicate, or changed request-derived group metadata rejects the result
+and preserves the previous schedule. Reordering groups is allowed. This is a
+defensive result-boundary check, not evidence that the normal scheduler omits
+groups. A partial assignment set remains valid when all requested groups are
+present, so unscheduled sessions retain their pending status.
+
 A nonempty set of assignments does not imply completeness. The status explicitly
 labels a partial result (including zero assigned with expected groups) and shows
 assigned/expected counts. Pending sessions remain visible in the detailed list.
