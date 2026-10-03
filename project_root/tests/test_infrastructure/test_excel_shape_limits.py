@@ -158,7 +158,7 @@ def test_ambiguous_or_spoofed_relationships_fail_before_pandas(monkeypatch, muta
         ExcelReader('input.xlsx', source_bytes=data).load_validated()
 
 
-@pytest.mark.parametrize('mutation', ['extra_workbook', 'duplicate_part', 'wrong_namespace'])
+@pytest.mark.parametrize('mutation', ['extra_workbook', 'duplicate_part', 'wrong_namespace', 'double_slash', 'relative_part'])
 def test_ambiguous_content_types_fail_before_pandas(monkeypatch, mutation):
     def alter(xml):
         part = re.search(rb'<Override\b[^>]*PartName="/xl/workbook.xml"[^>]*/>', xml).group()
@@ -168,6 +168,10 @@ def test_ambiguous_content_types_fail_before_pandas(monkeypatch, mutation):
             return xml.replace(b'</Types>', extra + b'</Types>')
         if mutation == 'duplicate_part':
             return xml.replace(b'</Types>', part + b'</Types>')
+        if mutation == 'double_slash':
+            return xml.replace(b'PartName="/xl/workbook.xml"', b'PartName="//xl/workbook.xml"')
+        if mutation == 'relative_part':
+            return xml.replace(b'PartName="/xl/workbook.xml"', b'PartName="xl/workbook.xml"')
         return xml.replace(part, part.replace(b'<Override ', b'<fake:Override xmlns:fake="urn:fake" '))
     data = mutate_member(workbook_bytes(), '[Content_Types].xml', alter)
     monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))

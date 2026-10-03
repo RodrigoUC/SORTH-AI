@@ -121,11 +121,13 @@ class ExcelReader:
             content = attributes.get('ContentType')
             if tag == content_ns + 'Override':
                 part = attributes['PartName']
+                if not part.startswith('/') or part.startswith('//'):
+                    raise ValueError('Invalid absolute content type part name')
                 if part in part_names:
                     raise ValueError('Duplicate content type part')
                 part_names.add(part)
                 if content in (XLSX, XLSM, XLTX, XLTM):
-                    workbook_paths.append(part.lstrip('/'))
+                    workbook_paths.append(part[1:])
             else:
                 extension = attributes['Extension']
                 if extension in extensions:
@@ -181,7 +183,7 @@ class ExcelReader:
             if relation.get('TargetMode') == 'External':
                 raise ValueError('An imported worksheet must be inside the workbook')
             target = relation['Target']
-            path = (target.lstrip('/') if target.startswith('/') else
+            path = (target[1:] if target.startswith('/') else
                     posixpath.normpath(posixpath.join(directory, target)))
             row = column = max_row = max_column = 0
             def worksheet_element(tag, attributes, parents):
