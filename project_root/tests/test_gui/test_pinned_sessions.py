@@ -3,7 +3,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from copy import deepcopy
 import pytest
 from PyQt6.QtWidgets import QApplication, QMessageBox, QPushButton
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSettings
 from src.gui.main_window import MainWindow
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.classroom import Classroom
@@ -14,7 +14,9 @@ from src.scheduling.time_model import TimeModel
 @pytest.fixture
 def window(tmp_path):
     app = QApplication.instance() or QApplication([])
-    window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False)
+    settings = QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat)
+    settings.setValue('features/pinned_sessions', True)
+    window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_settings=settings)
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 2, 60, 'REGULAR')])
     groups = window.course_manager.get_courses()[0].generate_groups()
