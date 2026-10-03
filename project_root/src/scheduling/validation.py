@@ -77,7 +77,19 @@ def unassigned_reason(group, classrooms, time_model):
              and (group.suggested_classroom not in reserved or c.name in reserved)]
     if not rooms:
         return 'Las restricciones de cursos excluyen todas las aulas compatibles.'
-    if not time_model.generate_start_candidates(group.duration_min):
+    # A coarse search grid is not a feasibility proof. Check continuous free
+    # intervals, including off-grid break endpoints, before claiming no fit.
+    cursor = time_model.day_start
+    longest = 0
+    for start, end in sorted(time_model.breaks):
+        # Low-level TimeModel callers may retain the default lunch outside a
+        # shortened day; those exclusions cannot enlarge its teaching window.
+        start = min(time_model.day_end, max(time_model.day_start, start))
+        end = min(time_model.day_end, max(time_model.day_start, end))
+        longest = max(longest, start - cursor)
+        cursor = max(cursor, end)
+    longest = max(longest, time_model.day_end - cursor)
+    if group.duration_min > longest:
         return 'La duración no cabe en el horario permitido sin cruzar los descansos.'
     return ('La búsqueda automática no encontró un horario compatible con las asignaciones actuales. '
             'Esto no demuestra que sea imposible; revise horarios, restricciones o asigne manualmente.')
