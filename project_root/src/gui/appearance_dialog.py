@@ -473,7 +473,8 @@ class AppearanceDialog(QDialog):
     def _scroll_to_focus(self, previous, focused):
         if (self.isVisible() and focused is not None
                 and self.scroll.widget().isAncestorOf(focused)):
-            self.scroll.ensureWidgetVisible(focused, 0, 12)
+            self._reveal_after_reflow()
+            self._focus_reveal_timer.start(0)
 
     def eventFilter(self, watched, event):
         if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
@@ -494,11 +495,17 @@ class AppearanceDialog(QDialog):
         visible = viewport.rect()
         if visible.contains(rect):
             return
-        # A long selectable label/table may be taller than the viewport. Its
-        # visible center is the same usable target as ensureWidgetVisible uses.
+        # A long selectable label/table may be taller than the viewport.
+        # Keep its visible center as the usable target.
         if rect.height() > visible.height() and visible.contains(rect.center()):
             return
-        self.scroll.ensureWidgetVisible(focused, 0, 12)
+        # Like the theme creation guide, reveal the whole native frame.
+        # ensureWidgetVisible uses QLineEdit's cursor rectangle and can leave
+        # its bottom border clipped on first focus in a compact 20pt layout.
+        center = focused.mapTo(self.scroll.widget(), focused.rect().center())
+        self.scroll.ensureVisible(center.x(), center.y(), 0,
+                                  min(viewport.height() // 2,
+                                      focused.height() // 2 + 12))
 
     def _retranslate_details(self, *_):
         self.details.setAccessibleName(str(msg('Detalles del error de tema')))
