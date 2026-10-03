@@ -117,3 +117,47 @@ def test_failed_resource_transaction_keeps_prior_valid_snapshot(tmp_path):
     values['resources']=SchedulingResources(tuple(replace(c,enabled=False) for c in values['resources'].catalogs))
     with pytest.raises(sqlite3.IntegrityError):repo.save_session(**values)
     assert session_fingerprint(repo.load_session())==before
+
+
+@pytest.mark.parametrize('explicit_resources',[False,True])
+def test_missing_resource_row_fails_load_save_and_reopen_without_mutation(tmp_path,explicit_resources):
+    path=tmp_path/'session.db';repo=SessionRepository(str(path));values=payload();repo.save_session(**values)
+    with sqlite3.connect(path) as con:con.execute('DELETE FROM scheduling_resources')
+    before=path.read_bytes()
+    with pytest.raises(sqlite3.DatabaseError,match='resource contract'):
+        repo.load_session()
+    assert path.read_bytes()==before
+    if not explicit_resources:values.pop('resources')
+    with pytest.raises(sqlite3.DatabaseError,match='resource contract'):
+        repo.save_session(**values)
+    assert path.read_bytes()==before
+    with pytest.raises(sqlite3.DatabaseError,match='resource contract'):
+        repo.has_session()
+    assert path.read_bytes()==before
+    with pytest.raises(sqlite3.DatabaseError,match='resource contract'):
+        SessionRepository(str(path))
+    assert path.read_bytes()==before
+
+
+def test_missing_resource_table_is_not_recreated_in_saved_schema3(tmp_path):
+    path=tmp_path/'session.db';repo=SessionRepository(str(path));repo.save_session(**payload())
+    with sqlite3.connect(path) as con:con.execute('DROP TABLE scheduling_resources')
+    before=path.read_bytes()
+    with pytest.raises(sqlite3.DatabaseError):SessionRepository(str(path))
+    assert path.read_bytes()==before
+
+
+@pytest.mark.parametrize('legacy_version',[0,1,2])
+def test_only_legacy_migration_initializes_explicit_empty_contract(tmp_path,legacy_version):
+    path=tmp_path/'session.db';repo=SessionRepository(str(path));values=payload();values.pop('resources');repo.save_session(**values)
+    with sqlite3.connect(path) as con:
+        con.execute('DROP TABLE scheduling_resources');con.execute(f'PRAGMA user_version={legacy_version}')
+    migrated=SessionRepository(str(path))
+    assert migrated.schema_backup is not None
+    with sqlite3.connect(migrated.schema_backup) as con:
+        assert con.execute('PRAGMA user_version').fetchone()[0]==legacy_version
+        assert not con.execute("SELECT 1 FROM sqlite_master WHERE name='scheduling_resources'").fetchone()
+    with sqlite3.connect(path) as con:
+        rows=con.execute('SELECT id,payload FROM scheduling_resources').fetchall()
+        assert rows==[(1,json.dumps(SchedulingResources().to_data()))]
+    assert migrated.load_session()['resources']==SchedulingResources()

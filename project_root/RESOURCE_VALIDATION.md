@@ -5,7 +5,7 @@ This follow-on does not replace the already reviewed product batch.
 
 ## Verified
 
-- Full suite, Qt offscreen: **669 passed, 12 skipped, 3 subtests passed**.
+- Full suite, Qt offscreen: **675 passed, 12 skipped, 3 subtests passed**.
   Command: `QT_QPA_PLATFORM=offscreen /workspace/shared/sorth_work/venv/bin/python -m pytest -q -rs --disable-warnings`.
 - All three optional kinds exercise shared-identity overlap, adjacent intervals,
   empty/unknown/declared availability, contiguous-window union, holes, retries,
@@ -15,6 +15,10 @@ This follow-on does not replace the already reviewed product batch.
 - SQLite schema2→3 backup/migration, active/inactive snapshot round trips,
   scenario comparability, legacy save omission preservation, duplicate JSON field
   rejection and failed-write transaction preservation are tested.
+- Independent-review hardening: saved schema3+ sessions require their resource
+  singleton. Missing rows/tables fail load/save/reopen without changing bytes;
+  only genuine legacy schema0/1/2 migration creates an explicit empty contract.
+  All saves verify the existing contract inside the write transaction.
 - Native Qt tests cover cancel/accept parameter-off transitions, retained records,
   withdrawn results, no hidden active constraints, manual placement, editing,
   alias/ID preservation, availability confirmation, course-orphan consent,

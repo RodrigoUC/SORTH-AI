@@ -108,6 +108,13 @@ class SessionRepository:
                     f"Session schema {version} is newer than supported {self.SCHEMA_VERSION}. "
                     "Open it with the newer SORTH version; do not overwrite it."
                 )
+            # Schema3 introduced a mandatory resource contract for saved
+            # sessions. Missing/corrupt new-format rows are not legacy defaults.
+            # Check before CREATE TABLE or migration writes can repair evidence.
+            if version >= 3:
+                self._read_resource_contract(con)
+            if version >= 4:
+                self._read_calendar_contract(con)
             if version < self.SCHEMA_VERSION and con.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
                 path = Path(self._db_path)
@@ -196,6 +203,12 @@ class SessionRepository:
             if version < 4:
                 con.execute("INSERT OR IGNORE INTO project_calendar SELECT 1, ? WHERE EXISTS (SELECT 1 FROM session WHERE id=1)",
                             (json.dumps(ProjectCalendar().to_dict(), ensure_ascii=False),))
+            if version < 3 and con.execute("SELECT 1 FROM session WHERE id=1").fetchone():
+                # Only a genuine legacy migration initializes absence, in the
+                # same transaction as the schema change and after the backup.
+                con.execute("INSERT OR IGNORE INTO scheduling_resources VALUES (1, ?)",
+                            (json.dumps(SchedulingResources().to_data()),))
+            self._read_resource_contract(con)
             con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
@@ -218,24 +231,16 @@ class SessionRepository:
                      restrictions: dict[str, set[str]],
                      assignments: dict | None, lab_overrides=(), pinned_group_ids=(), resources=None, calendar=None,
                      *, before_commit=None):
-        if calendar is None:
-            # Extension-unaware callers must not silently reset project rules.
-            with self._connect() as con:
-                calendar_row = con.execute("SELECT payload FROM project_calendar WHERE id=1").fetchone()
-                if calendar_row is None and con.execute("SELECT 1 FROM session WHERE id=1").fetchone():
-                    raise ValueError('Saved project calendar is missing; preserve and recover the session')
-            calendar = self._decode_calendar(calendar_row['payload']) if calendar_row else ProjectCalendar()
-        calendar = ProjectCalendar.from_dict(calendar.to_dict())
-        if resources is None:
-            with self._connect() as con:
-                resource_row = con.execute("SELECT payload FROM scheduling_resources WHERE id=1").fetchone()
-            resources = (self._decode_resources(resource_row['payload'])
-                         if resource_row else SchedulingResources())
-        self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
         pinned_group_ids = frozenset(pinned_group_ids)
         if not pinned_group_ids.issubset(assignments or {}):
             raise ValueError("Pinned sessions must have assignments")
         with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            existing_calendar = self._read_calendar_contract(con)
+            calendar = existing_calendar if calendar is None else ProjectCalendar.from_dict(calendar.to_dict())
+            existing_resources = self._read_resource_contract(con)
+            resources = existing_resources if resources is None else resources
+            self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
             con.execute("INSERT INTO project_calendar VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
                         (json.dumps(calendar.to_dict(), ensure_ascii=False),))
             con.execute("INSERT INTO scheduling_resources VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
@@ -316,6 +321,7 @@ class SessionRepository:
         with self._connect() as con:
             # All tables belong to one consistent snapshot, including in WAL mode.
             con.execute("BEGIN")
+            resources = self._read_resource_contract(con)
             row = con.execute("SELECT * FROM session WHERE id = 1").fetchone()
             if not row:
                 return None
@@ -375,13 +381,7 @@ class SessionRepository:
                     r["classroom_name"], r["day"], r["start_min"], r["end_min"]
                 )
 
-            calendar_row = con.execute("SELECT payload FROM project_calendar WHERE id=1").fetchone()
-            if calendar_row is None:
-                raise ValueError('Saved project calendar is missing; preserve and recover the session')
-            calendar = self._decode_calendar(calendar_row["payload"])
-            resource_row = con.execute("SELECT payload FROM scheduling_resources WHERE id=1").fetchone()
-            resources = (self._decode_resources(resource_row['payload'])
-                         if resource_row else SchedulingResources())
+            calendar = self._read_calendar_contract(con)
             self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
             return {
                 "calendar": calendar,
@@ -399,6 +399,7 @@ class SessionRepository:
     def has_session(self) -> bool:
         """Even a classroom-only or deliberately empty saved session is recoverable."""
         with self._connect() as con:
+            self._read_resource_contract(con)
             if con.execute("SELECT id FROM session WHERE id = 1").fetchone() is not None:
                 return True
             # An incomplete/corrupt logical session must not be mistaken for an
@@ -463,3 +464,26 @@ class SessionRepository:
                 result[key] = value
             return result
         return ProjectCalendar.from_dict(json.loads(payload, object_pairs_hook=unique_object))
+    @classmethod
+    def _read_resource_contract(cls, con):
+        saved = con.execute("SELECT 1 FROM session WHERE id=1").fetchone() is not None
+        rows = con.execute("SELECT id, payload FROM scheduling_resources").fetchall()
+        if not saved and not rows:
+            return SchedulingResources()
+        if not saved:
+            raise sqlite3.DatabaseError('Resource data exists without session metadata; restore a backup')
+        if len(rows) != 1 or rows[0]['id'] != 1:
+            raise sqlite3.DatabaseError('Saved session resource contract is missing or inconsistent; restore a backup')
+        return cls._decode_resources(rows[0]['payload'])
+
+    @classmethod
+    def _read_calendar_contract(cls, con):
+        saved = con.execute("SELECT 1 FROM session WHERE id=1").fetchone() is not None
+        rows = con.execute("SELECT id, payload FROM project_calendar").fetchall()
+        if not saved and not rows:
+            return ProjectCalendar()
+        if not saved:
+            raise sqlite3.DatabaseError('Calendar data exists without session metadata; restore a backup')
+        if len(rows) != 1 or rows[0]['id'] != 1:
+            raise sqlite3.DatabaseError('Saved project calendar is missing or inconsistent; restore a backup')
+        return cls._decode_calendar(rows[0]['payload'])
