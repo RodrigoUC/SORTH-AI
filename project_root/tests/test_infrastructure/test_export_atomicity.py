@@ -48,11 +48,16 @@ def test_excel_finalization_failure_preserves_existing_file(tmp_path, monkeypatc
     path = tmp_path / 'schedule.xlsx'
     path.write_bytes(b'previous export')
     from openpyxl.workbook.workbook import Workbook
-    def fail(*args, **kwargs):
+    streams = []
+    def fail(self, target):
+        streams.append(target)
         raise OSError('finalization failed')
     monkeypatch.setattr(Workbook, 'save', fail)
-    with pytest.raises(OSError, match='finalization failed'):
+    with pytest.raises(OSError, match='finalization failed') as error:
         ScheduleExporter(TimeModel.default()).to_excel(ASSIGNMENTS, str(path))
+    # Retain the traceback so garbage collection cannot hide an open handle.
+    assert str(error.value) == 'finalization failed'
+    assert streams and all(stream.closed for stream in streams)
     assert path.read_bytes() == b'previous export'
     assert set(tmp_path.iterdir()) == {path}
 

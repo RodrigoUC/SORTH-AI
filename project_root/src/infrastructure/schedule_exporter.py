@@ -52,11 +52,14 @@ class ScheduleExporter:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         name_map = self._build_name_map(assignments, groups, course_name_by_code)
         with self._atomic_output(output_path, ".xlsx") as temporary:
-            with pd.ExcelWriter(temporary, engine="openpyxl") as writer:
-                if include_grid:
-                    self._write_grid_sheets(writer, assignments, name_map)
-                self._write_detail_sheet(writer, assignments, name_map)
-                self._write_by_classroom_sheet(writer, assignments, name_map)
+            # Own the stream lifetime: pandas can raise during save before it
+            # closes its handles. Windows cannot unlink that open temporary.
+            with temporary.open("w+b") as target:
+                with pd.ExcelWriter(target, engine="openpyxl") as writer:
+                    if include_grid:
+                        self._write_grid_sheets(writer, assignments, name_map)
+                    self._write_detail_sheet(writer, assignments, name_map)
+                    self._write_by_classroom_sheet(writer, assignments, name_map)
 
     def to_csv(self, assignments: dict, output_path: str,
                groups=None, course_name_by_code: dict = None) -> None:
