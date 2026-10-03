@@ -143,6 +143,7 @@ class ScheduleViewerWidget(QWidget):
         grid_layout.addLayout(grid_row)
         self.grid_table = QTableWidget()
         self.grid_table.setAccessibleName(msg('Cuadrícula semanal por aula'))
+        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.'))
         self.grid_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.grid_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.grid_table.verticalHeader().setVisible(False)
@@ -213,6 +214,8 @@ class ScheduleViewerWidget(QWidget):
         layout.addLayout(actions)
         details = QLabel("")
         details.setWordWrap(True)
+        details.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
         details.setVisible(False)
         details.setAccessibleName(msg('Motivo y excepciones de la sesión seleccionada'))
         layout.addWidget(details)
@@ -298,6 +301,8 @@ class ScheduleViewerWidget(QWidget):
             self._classroom_assignments.setdefault(room, []).append((gid, day, start, end))
 
     def _set_table_rows(self, table, rows, name_col, widths):
+        selected_gid = self._selected_gid(table)
+        selected_column = max(0, table.currentColumn())
         sort_col = table.horizontalHeader().sortIndicatorSection()
         sort_order = table.horizontalHeader().sortIndicatorOrder()
         table.setSortingEnabled(False)
@@ -308,6 +313,11 @@ class ScheduleViewerWidget(QWidget):
                 item = _SortableItem(value, sort_key)
                 item.setData(Qt.ItemDataRole.UserRole, gid)
                 item.setToolTip(value)
+                group = self._groups.get(gid)
+                if group and group.lab_override:
+                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, msg('Excepción manual confirmada: laboratorio en aula regular.'))
+                elif group and gid not in self._assignments and group.unassigned_reason:
+                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, msg(group.unassigned_reason))
                 if gid not in self._assignments:
                     item.setBackground(QColor(COLORS["danger_soft"]))
                     item.setForeground(QColor(COLORS["danger"]))
@@ -321,6 +331,10 @@ class ScheduleViewerWidget(QWidget):
         table.sortItems(max(0, sort_col), sort_order)
         table.clearSelection()
         table.setCurrentItem(None)
+        for row in range(table.rowCount()):
+            if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == selected_gid:
+                table.setCurrentCell(row, selected_column)
+                break
 
     def _display_list(self, assignments, tm, unassigned_groups=None, course_name_by_code=None):
         rows = []

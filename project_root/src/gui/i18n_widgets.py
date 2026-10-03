@@ -5,7 +5,8 @@ always literal, including user-entered data equal to a catalog key. The same
 widgets/items remain alive, preserving focus, input, selection and scroll state.
 """
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QEvent
+from PyQt6.QtCore import QEvent, Qt
+from PyQt6 import sip
 from PyQt6.QtGui import QAction as QtAction
 from .i18n import Message, msg, language_manager, _render
 
@@ -59,6 +60,10 @@ class QCheckBox(_Localized, QtW.QCheckBox):
     pass
 
 
+class QListWidget(_Localized, QtW.QListWidget):
+    pass
+
+
 class QLineEdit(_Localized, QtW.QLineEdit):
     pass
 
@@ -80,7 +85,16 @@ class QWidget(_Localized, QtW.QWidget):
 
 
 class QDialog(_Localized, QtW.QDialog):
-    pass
+    def exec(self):
+        # A stable invoker, rather than a reconstructed first control, receives
+        # focus after both acceptance and Escape/cancellation.
+        invoker = QtW.QApplication.focusWidget()
+        try:
+            return super().exec()
+        finally:
+            if (invoker is not None and not sip.isdeleted(invoker)
+                    and invoker.isVisible() and invoker.isEnabled()):
+                invoker.setFocus(Qt.FocusReason.OtherFocusReason)
 
 
 class QMainWindow(_Localized, QtW.QMainWindow):
@@ -92,10 +106,28 @@ class QAction(_Localized, QtAction):
 
 
 class QTableWidgetItem(_Localized, QtW.QTableWidgetItem):
-    pass
+    def setData(self, role, value):
+        self._remember('setData', (role, value), ('data', role))
 
 
 class QTableWidget(_Localized, QtW.QTableWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Arrow keys explore cells; Tab always reaches the following action.
+        self.setTabKeyNavigation(False)
+        self.setAccessibleDescription(msg('Use flechas para recorrer celdas y Tab para salir. En tablas ordenables, Ctrl+Mayús+Arriba o Abajo ordena la columna actual.'))
+
+    def keyPressEvent(self, event):
+        if (self.isSortingEnabled() and self.currentColumn() >= 0
+                and event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+                and event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down)):
+            order = (Qt.SortOrder.AscendingOrder if event.key() == Qt.Key.Key_Up
+                     else Qt.SortOrder.DescendingOrder)
+            self.sortItems(self.currentColumn(), order)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def setHorizontalHeaderLabels(self, labels):
         for column, label in enumerate(labels):
             self.setHorizontalHeaderItem(column, QTableWidgetItem(label))
@@ -138,6 +170,8 @@ class QFormLayout(QtW.QFormLayout):
             label = QLabel(args[0])
             if isinstance(args[1], QtW.QWidget):
                 label.setBuddy(args[1])
+                if not args[1].accessibleName():
+                    args[1].setAccessibleName(args[0])
             args = (label, *args[1:])
         super().addRow(*args)
 

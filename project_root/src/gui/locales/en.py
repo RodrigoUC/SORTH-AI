@@ -530,3 +530,60 @@ MESSAGES.update({'No aplica': 'Not applicable',
                                                                                                                                                                                             'Inactive '
                                                                                                                                                                                             'records: '
                                                                                                                                                                                             '{inactive}.'})
+
+# Keyboard and assistive-technology labels.
+MESSAGES.update({'Use flechas para recorrer celdas y Tab para salir. En tablas ordenables, Ctrl+Mayús+Arriba o Abajo ordena la columna actual.': 'Use '
+                                                                                                                                 'arrow '
+                                                                                                                                 'keys '
+                                                                                                                                 'to '
+                                                                                                                                 'explore '
+                                                                                                                                 'cells '
+                                                                                                                                 'and '
+                                                                                                                                 'Tab '
+                                                                                                                                 'to '
+                                                                                                                                 'leave. '
+                                                                                                                                 'In '
+                                                                                                                                 'sortable '
+                                                                                                                                 'tables, '
+                                                                                                                                 'Ctrl+Shift+Up '
+                                                                                                                                 'or '
+                                                                                                                                 'Down '
+                                                                                                                                 'sorts '
+                                                                                                                                 'the '
+                                                                                                                                 'current '
+                                                                                                                                 'column.',
+ 'Aulas con restricciones': 'Restricted classrooms',
+ 'Use flechas para seleccionar y Espacio para marcar o desmarcar.': 'Use arrow keys to select and Space to '
+                                                                    'check or uncheck.',
+ 'Cursos permitidos en el aula seleccionada': 'Allowed courses in the selected classroom',
+ 'Duración en horas': 'Duration in hours',
+ 'Duración en minutos': 'Duration in minutes',
+ 'Hora de inicio preferida': 'Preferred start time',
+ 'Semilla fija': 'Fixed seed',
+ 'Progreso de generación': 'Schedule generation progress',
+ 'Leer estado (F6)': 'Read status (F6)',
+ 'Estado actual': 'Current status',
+ 'Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.': 'Use '
+                                                                                                                                             'arrow '
+                                                                                                                                             'keys '
+                                                                                                                                             'to '
+                                                                                                                                             'explore '
+                                                                                                                                             'the '
+                                                                                                                                             'grid '
+                                                                                                                                             'and '
+                                                                                                                                             'Tab '
+                                                                                                                                             'to '
+                                                                                                                                             'leave. '
+                                                                                                                                             'The '
+                                                                                                                                             'Detailed '
+                                                                                                                                             'list '
+                                                                                                                                             'offers '
+                                                                                                                                             'the '
+                                                                                                                                             'same '
+                                                                                                                                             'sessions '
+                                                                                                                                             'in '
+                                                                                                                                             'rows, '
+                                                                                                                                             'with '
+                                                                                                                                             'status '
+                                                                                                                                             'and '
+                                                                                                                                             'actions.'})

@@ -569,3 +569,58 @@ MESSAGES.update({'No aplica': 'No aplica',
                                                                                                                                                                                             'Registros '
                                                                                                                                                                                             'inactivos: '
                                                                                                                                                                                             '{inactive}.'})
+
+# Keyboard and assistive-technology labels.
+MESSAGES.update({'Use flechas para recorrer celdas y Tab para salir. En tablas ordenables, Ctrl+Mayús+Arriba o Abajo ordena la columna actual.': 'Use '
+                                                                                                                                 'flechas '
+                                                                                                                                 'para '
+                                                                                                                                 'recorrer '
+                                                                                                                                 'celdas '
+                                                                                                                                 'y '
+                                                                                                                                 'Tab '
+                                                                                                                                 'para '
+                                                                                                                                 'salir. '
+                                                                                                                                 'En '
+                                                                                                                                 'tablas '
+                                                                                                                                 'ordenables, '
+                                                                                                                                 'Ctrl+Mayús+Arriba '
+                                                                                                                                 'o '
+                                                                                                                                 'Abajo '
+                                                                                                                                 'ordena '
+                                                                                                                                 'la '
+                                                                                                                                 'columna '
+                                                                                                                                 'actual.',
+ 'Aulas con restricciones': 'Aulas con restricciones',
+ 'Use flechas para seleccionar y Espacio para marcar o desmarcar.': 'Use flechas para seleccionar y Espacio '
+                                                                    'para marcar o desmarcar.',
+ 'Cursos permitidos en el aula seleccionada': 'Cursos permitidos en el aula seleccionada',
+ 'Duración en horas': 'Duración en horas',
+ 'Duración en minutos': 'Duración en minutos',
+ 'Hora de inicio preferida': 'Hora de inicio preferida',
+ 'Semilla fija': 'Semilla fija',
+ 'Progreso de generación': 'Progreso de generación',
+ 'Leer estado (F6)': 'Leer estado (F6)',
+ 'Estado actual': 'Estado actual',
+ 'Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.': 'Use '
+                                                                                                                                             'flechas '
+                                                                                                                                             'para '
+                                                                                                                                             'recorrer '
+                                                                                                                                             'la '
+                                                                                                                                             'cuadrícula '
+                                                                                                                                             'y '
+                                                                                                                                             'Tab '
+                                                                                                                                             'para '
+                                                                                                                                             'salir. '
+                                                                                                                                             'La '
+                                                                                                                                             'Lista '
+                                                                                                                                             'detallada '
+                                                                                                                                             'ofrece '
+                                                                                                                                             'las '
+                                                                                                                                             'mismas '
+                                                                                                                                             'sesiones '
+                                                                                                                                             'en '
+                                                                                                                                             'filas, '
+                                                                                                                                             'con '
+                                                                                                                                             'estado '
+                                                                                                                                             'y '
+                                                                                                                                             'acciones.'})

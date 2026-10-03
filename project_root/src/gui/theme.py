@@ -37,12 +37,13 @@ QPushButton#primaryAction:disabled { background: $disabled; border-color: $divid
 QPushButton#dangerAction { color: $danger; border-color: $danger; }
 QPushButton#dangerAction:hover { background: $danger_soft; }
 QPushButton#dangerAction:disabled { color: $disabled_text; border-color: $divider; background: $disabled; }
-QLineEdit, QSpinBox, QComboBox { background: $surface; border: 1px solid $border; border-radius: 4px; padding: 6px; selection-background-color: $accent; selection-color: $surface; }
+QLineEdit, QSpinBox, QTimeEdit, QComboBox { background: $surface; border: 1px solid $border; border-radius: 4px; padding: 6px; selection-background-color: $accent; selection-color: $surface; }
 QLineEdit { placeholder-text-color: $muted; }
 QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled { background: $disabled; color: $disabled_text; }
-QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus, QLineEdit:focus, QSpinBox:focus, QComboBox:focus { border: 2px solid $focus; }
+QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus, QLineEdit:focus, QSpinBox:focus, QTimeEdit:focus, QComboBox:focus, QTableWidget:focus, QListWidget:focus, QPlainTextEdit:focus, QLabel:focus { border: 2px solid $focus; }
 QPushButton#primaryAction:focus { border: 2px solid $on_primary; }
 QPushButton#headerAction:focus { border: 2px solid $on_navy; }
+QCheckBox:focus, QTabBar::tab:focus { border: 2px solid $focus; }
 QTabWidget::pane { border: 1px solid $divider; background: $surface; }
 QTabBar::tab { padding: 11px 20px; background: $accent_soft; color: $muted; border: 0; margin-right: 3px; }
 QTabBar::tab:selected { background: $surface; color: $accent; font-weight: 600; border-bottom: 3px solid $accent; }

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame
+    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import (
@@ -30,7 +30,7 @@ from copy import deepcopy
 from .i18n import msg, plural, language_manager, join_messages
 from .locales import LANGUAGES
 from .i18n_widgets import (
-    QProgressBar, QComboBox, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMainWindow, QMessageBox, QPushButton, QSpinBox, QStatusBar, QTabWidget, QWidget
+    QAction, QProgressBar, QComboBox, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMainWindow, QMessageBox, QPushButton, QSpinBox, QStatusBar, QTabWidget, QWidget
 )
 
 
@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
 
         self._progress = QProgressBar()
+        self._progress.setAccessibleName(msg('Progreso de generación'))
         self._progress.setRange(0, 0)   # indeterminate
         self._progress.setFixedWidth(160)
         self._progress.setFixedHeight(16)
@@ -128,10 +129,37 @@ class MainWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self._save_state_label)
         self.status_bar.addPermanentWidget(self._retry_save_button)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
+        self._status_action = QAction(msg('Leer estado (F6)'), self)
+        self._status_action.setShortcut('F6')
+        self._status_action.triggered.connect(self._show_accessible_status)
+        self.addAction(self._status_action)
+        self._status_button = QPushButton(msg('Leer estado (F6)'))
+        self._status_button.clicked.connect(self._show_accessible_status)
+        self.status_bar.addPermanentWidget(self._status_button)
 
     # ------------------------------------------------------------------
     # UI builders
     # ------------------------------------------------------------------
+
+    def _show_accessible_status(self):
+        """On-demand, focusable status; no unsupported screen-reader promises."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(msg('Estado actual'))
+        dialog.resize(620, 420)
+        layout = QVBoxLayout(dialog)
+        text = QPlainTextEdit()
+        text.setReadOnly(True)
+        text.setAccessibleName(msg('Estado actual'))
+        text.setPlainText('\n\n'.join(filter(None, (
+            self.status_bar.currentMessage(), self._save_state_label.text(),
+            self.overview_label.text(), self.schedule_viewer._summary_label.text(),
+            self.schedule_viewer._result_label.text(), self._save_error))))
+        layout.addWidget(text)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        text.setFocus()
+        dialog.exec()
 
     def _create_file_section(self) -> QVBoxLayout:
         layout = self._file_layout = QVBoxLayout()
@@ -234,6 +262,8 @@ class MainWindow(QMainWindow):
         self.chk_random_seed.setChecked(False)
 
         self.seed_input = QSpinBox()
+        self.seed_input.setAccessibleName(msg('Semilla fija'))
+        seed_label.setBuddy(self.seed_input)
         self.seed_input.setRange(0, 999999)
         self.seed_input.setValue(42)
         self.seed_input.setPrefix(msg('Valor: '))
