@@ -64,8 +64,12 @@ comparabilidad directa. La semilla diferente se informa, sin suponer que invalid
 la aritmética descriptiva. Los calendarios no soportados no se recalculan usando
 las reglas actuales y tampoco pueden abrirse sobre la sesión activa.
 
-Las nuevas generaciones identifican el contrato `sorth-scheduler-v1`; las sesiones
-históricas no permiten inferir la versión y se conservan con versión desconocida.
+Las nuevas generaciones identifican el contrato `sorth-scheduler-v2`: la semilla
+desempata candidatos con la misma puntuación sin modificar las prioridades. Con
+las mismas entradas, orden, versión y semilla fija, el resultado es reproducible;
+semillas diferentes pueden producir el mismo horario. Una semilla no garantiza
+el mismo resultado entre v1 y v2. Los horarios guardados no se regeneran al abrir.
+Las sesiones históricas sin marcador conservan versión desconocida.
 Las revisiones que cambien la semántica del algoritmo deben actualizar ese marcador.
 La semilla `None` conserva el modo aleatorio, sin inventar una semilla concreta.
 El formato de metadatos y el contrato de métricas son v1. Las versiones futuras,
