@@ -3,7 +3,7 @@ import json
 from pathlib import Path, PureWindowsPath
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QVBoxLayout, QWidget, QScrollArea, QFrame
 
 from .i18n import msg, language_manager
 from .i18n_widgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QPushButton
@@ -39,20 +39,45 @@ def client_configuration(client, command):
 
 
 class McpClientHelp(QDialog):
-    def __init__(self, command, parent=None):
+    def __init__(self, command, parent=None, *, permission_enabled=None, pending_permission=False):
         super().__init__(parent)
         self.command = list(command) if command else None
-        self.setWindowTitle(msg('Conectar un cliente MCP'))
+        self.setWindowTitle(msg('Guía de conexión MCP'))
         self.resize(660, 560)
-        layout = QVBoxLayout(self)
-        intro = QLabel(msg('Elige tu cliente. Esta guía no modifica su configuración. Revisa privacidad, permisos y posibles cargos del proveedor antes de conectar datos. No se han probado estos hosts comerciales.'))
+        outer = QVBoxLayout(self)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        self.scroll.setWidget(content)
+        outer.addWidget(self.scroll, 1)
+        intro = QLabel(msg('Sigue los pasos en tu cliente. Esta guía solo muestra instrucciones y no modifica otras apps.'))
         intro.setWordWrap(True)
         layout.addWidget(intro)
         self.client = QComboBox()
         self.client.setAccessibleName(msg('Cliente MCP'))
         for title, key in [('OpenCode V2', 'opencode'), ('Claude Desktop', 'claude'), ('ChatGPT', 'chatgpt')]:
             self.client.addItem(title, key)
+        client_label = QLabel(msg('Cliente MCP'))
+        client_label.setBuddy(self.client)
+        layout.addWidget(client_label)
         layout.addWidget(self.client)
+        self.permission_status = QLabel()
+        self.permission_status.setWordWrap(True)
+        self.permission_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.permission_status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        if pending_permission:
+            saved_status = (msg('Permiso local guardado: activado.') if permission_enabled is True
+                            else msg('Permiso local guardado: desactivado.'))
+            self.permission_status.setText(saved_status + ' ' + msg('Hay un cambio de permiso sin guardar. Cierra esta guía, revisa la casilla y pulsa Guardar antes de conectar.'))
+        elif permission_enabled is True:
+            self.permission_status.setText(msg('Permiso local guardado: activado. Aún debes configurar y autorizar la conexión en el cliente.'))
+        elif permission_enabled is False:
+            self.permission_status.setText(msg('Permiso local guardado: desactivado.') + ' ' + msg('Antes de conectar, marca Permitir servidor MCP local y pulsa Guardar en Configuración.'))
+        else:
+            self.permission_status.setText(msg('Antes de conectar, marca Permitir servidor MCP local y pulsa Guardar en Configuración.'))
+        layout.addWidget(self.permission_status)
         self.instructions = QLabel()
         self.instructions.setWordWrap(True)
         self.instructions.setTextFormat(Qt.TextFormat.PlainText)
@@ -60,6 +85,8 @@ class McpClientHelp(QDialog):
         layout.addWidget(self.instructions)
         self.configuration = QPlainTextEdit()
         self.configuration.setReadOnly(True)
+        self.configuration.setTabChangesFocus(True)
+        self.configuration.setMinimumHeight(180)
         self.configuration.setAccessibleName(str(msg('Configuración del cliente para copiar')))
         self.configuration.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         layout.addWidget(self.configuration, 1)
@@ -68,6 +95,7 @@ class McpClientHelp(QDialog):
         layout.addWidget(self.copy_button)
         self.copy_status = QLabel()
         self.copy_status.setWordWrap(True)
+        self.copy_status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.copy_status)
         self.empty_space = QWidget()
         layout.addWidget(self.empty_space, 1)
@@ -76,12 +104,24 @@ class McpClientHelp(QDialog):
         self.source.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.source.setOpenExternalLinks(True)
         layout.addWidget(self.source)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        privacy = QLabel(msg('Antes de compartir datos, revisa la privacidad, los permisos y los posibles cargos del proveedor. Estas conexiones comerciales aún no se han probado.'))
+        privacy.setWordWrap(True)
+        privacy.setObjectName('mutedText')
+        layout.addWidget(privacy)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.buttons.rejected.connect(self.reject)
+        outer.addWidget(self.buttons)
+        self.setTabOrder(self.client, self.permission_status)
+        self.setTabOrder(self.permission_status, self.instructions)
+        self.setTabOrder(self.instructions, self.configuration)
+        self.setTabOrder(self.configuration, self.copy_button)
+        self.setTabOrder(self.copy_button, self.copy_status)
+        self.setTabOrder(self.copy_status, self.source)
+        self.setTabOrder(self.source, self.buttons.button(QDialogButtonBox.StandardButton.Close))
         self.client.currentIndexChanged.connect(self._update)
         language_manager().changed.connect(self._language_changed)
         self._update()
+        self.client.setFocus(Qt.FocusReason.TabFocusReason)
 
     def _language_changed(self):
         self.configuration.setAccessibleName(str(msg('Configuración del cliente para copiar')))
@@ -89,9 +129,9 @@ class McpClientHelp(QDialog):
     def _update(self):
         client = self.client.currentData()
         instructions = {
-            'opencode': 'Añade esta entrada a mcp.servers en opencode.jsonc sin reemplazar otras entradas. Empieza desconectada (disabled: true). Después de guardar el permiso MCP en SORTH, revisa las herramientas y conecta con /mcps. Usa protocol: legacy.',
-            'claude': 'Integra esta entrada en mcpServers de la configuración local de Claude Desktop sin reemplazar otros servidores. Al reiniciar el cliente puede iniciar el proceso; primero guarda el permiso MCP en SORTH. Claude admite extensiones MCPB, pero SORTH no genera un paquete MCPB en este flujo.',
-            'chatgpt': 'ChatGPT necesita una conexión HTTPS o Secure MCP Tunnel autorizada por separado; esta ruta local no es una URL. El túnel requiere sus propios permisos y credenciales. SORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT. Consulta las instrucciones oficiales y las reglas de tu organización.',
+            'opencode': '1. Copia esta configuración y combina sorth-preview en mcp.servers de opencode.jsonc. Conserva las otras entradas.\n2. Empieza desconectada (disabled: true) y usa protocol: legacy.\n3. Tras guardar el permiso en SORTH, revisa las herramientas y conecta con /mcps.',
+            'claude': '1. Copia esta configuración y combina sorth-preview en mcpServers de la configuración local de Claude Desktop. Conserva los otros servidores.\n2. Guarda primero el permiso MCP en SORTH. Reiniciar Claude puede iniciar el servidor.\n3. Revisa y autoriza las herramientas en Claude. Este flujo no genera extensiones MCPB.',
+            'chatgpt': 'ChatGPT no acepta esta ruta local como conexión. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Consulta las instrucciones oficiales y las reglas de tu organización.\n2. Configura y autoriza esa conexión por separado, incluidos sus permisos y credenciales.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.',
         }
         self.instructions.setText(msg(instructions[client]))
         can_copy = self.command is not None and client != 'chatgpt'

@@ -1265,3 +1265,43 @@ MESSAGES.update({
 })
 MESSAGES['Desactivar MCP bloquea nuevos inicios y solicitudes y descarta resultados pendientes. El cliente cierra el proceso stdio; una tarea en curso puede tardar hasta 10 segundos. La verificación solo comprueba este entorno; el EXE estándar no incluye MCP. Consulta MCP_OPTIONAL.md para un entorno Python separado.'] = 'Disabling MCP blocks new starts and requests and discards pending results. The client closes the stdio process; a running task can take up to 10 seconds. Preparation does not allow MCP or configure clients or models. See MCP_OPTIONAL.md for details.'
 MESSAGES['<a href="{url}">Configuración local de MCP</a>'] = '<a href="{url}">Local MCP configuration</a>'
+
+# Guided MCP setup: preparation, saved permission and client connection stay separate.
+MESSAGES.update({
+    '1. Preparar MCP': '1. Prepare MCP',
+    'Estado del complemento MCP': 'MCP add-on status',
+    'Preparar requiere confirmación y conserva el complemento aunque canceles Configuración. No concede permiso ni conecta clientes.': 'Preparation asks for confirmation and keeps the add-on even if you cancel Settings. It does not grant permission or connect clients.',
+    '2. Guardar el permiso local': '2. Save local permission',
+    '3. Configurar tu cliente': '3. Set up your client',
+    'Ver guía de conexión': 'View connection guide',
+    'Abre instrucciones para OpenCode, Claude Desktop o ChatGPT. La conexión y sus permisos se gestionan en el cliente.': 'Open instructions for OpenCode, Claude Desktop or ChatGPT. Manage the connection and its permissions in your client.',
+    'Otras funciones opcionales': 'Other optional features',
+    'Cambio pendiente: pulsa Guardar para permitir MCP. Cancelar conserva el permiso desactivado.': 'Unsaved change: select Save to allow MCP. Cancel keeps permission off.',
+    'Cambio pendiente: pulsa Guardar para desactivar MCP. El permiso sigue activo hasta guardar.': 'Unsaved change: select Save to turn off MCP. Permission stays on until then. After saving, new requests are blocked and pending results are discarded. Close the process in your client; an in-flight task may take up to 10 seconds.',
+    'Permiso guardado: activado. El cliente inicia el servidor; SORTH no lo inicia al guardar.': 'Saved permission: on. Your client starts the server; saving in SORTH does not start it.',
+    'Permiso guardado: desactivado. Prepara y verifica MCP antes de permitirlo y guardar.': 'Saved permission: off. Prepare and check MCP before allowing it and saving.',
+    'Cancelar verificación MCP': 'Cancel MCP check',
+    'Cancelando la verificación MCP de forma segura…': 'Cancelling the MCP check safely…',
+    'Guía de conexión MCP': 'MCP connection guide',
+    'Sigue los pasos en tu cliente. Esta guía solo muestra instrucciones y no modifica otras apps.': 'Follow the steps in your client. This guide only shows instructions and does not change other apps.',
+    'Hay un cambio de permiso sin guardar. Cierra esta guía, revisa la casilla y pulsa Guardar antes de conectar.': 'There is an unsaved permission change. Close this guide, review the checkbox and select Save before connecting.',
+    'Permiso local guardado: activado. Aún debes configurar y autorizar la conexión en el cliente.': 'Saved local permission: on. You still need to set up and authorize the connection in your client.',
+    'Antes de conectar, marca Permitir servidor MCP local y pulsa Guardar en Configuración.': 'Before connecting, select Allow local MCP server and Save in Settings.',
+    'Antes de compartir datos, revisa la privacidad, los permisos y los posibles cargos del proveedor. Estas conexiones comerciales aún no se han probado.': 'Before sharing data, review the provider’s privacy, permissions and possible charges. These commercial-client connections have not yet been tested.',
+    '1. Copia esta configuración y combina sorth-preview en mcp.servers de opencode.jsonc. Conserva las otras entradas.\n2. Empieza desconectada (disabled: true) y usa protocol: legacy.\n3. Tras guardar el permiso en SORTH, revisa las herramientas y conecta con /mcps.': '1. Copy this configuration and merge sorth-preview into mcp.servers in opencode.jsonc. Keep the other entries.\n2. It starts disconnected (disabled: true) and uses protocol: legacy.\n3. After saving permission in SORTH, review the tools and connect with /mcps.',
+    '1. Copia esta configuración y combina sorth-preview en mcpServers de la configuración local de Claude Desktop. Conserva los otros servidores.\n2. Guarda primero el permiso MCP en SORTH. Reiniciar Claude puede iniciar el servidor.\n3. Revisa y autoriza las herramientas en Claude. Este flujo no genera extensiones MCPB.': '1. Copy this configuration and merge sorth-preview into mcpServers in Claude Desktop’s local configuration. Keep other servers.\n2. Save MCP permission in SORTH first. Restarting Claude may start the server.\n3. Review and authorize tools in Claude. This flow does not generate MCPB extensions.',
+    'ChatGPT no acepta esta ruta local como conexión. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Consulta las instrucciones oficiales y las reglas de tu organización.\n2. Configura y autoriza esa conexión por separado, incluidos sus permisos y credenciales.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.': 'ChatGPT cannot use this local path as a connection. It requires HTTPS or Secure MCP Tunnel with separate authorization.\n\n1. Read the official instructions and your organization’s rules.\n2. Set up and authorize that connection separately, including its permissions and credentials.\n\nSORTH does not create tunnels or keys, open ports, or configure ChatGPT.',
+    'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.': 'Allow your client to start the local server. Saving does not start it or connect models.',
+    'Disponibilidad MCP sin verificar en este entorno.': 'First check whether MCP is available. If the add-on is missing, you can prepare it separately.',
+    'MCP disponible en este entorno. El cliente inicia el servidor; Guardar no lo inicia.': 'MCP checked and available. No need to prepare it again. Review local permission in step 2.',
+    'Complemento MCP preparado y verificado. El permiso no ha cambiado. Puedes conectar un cliente y activar MCP por separado con Guardar.': 'MCP add-on prepared and checked. Permission is unchanged. Continue with step 2.',
+    'Falta el SDK MCP opcional en este entorno. No se ha instalado nada.': 'The MCP Python component is missing in this environment. See MCP_OPTIONAL.md to prepare it in a separate environment. Nothing has been installed.',
+    'MCP ya está disponible. Usa Verificar disponibilidad local de MCP para comprobarlo de nuevo.': 'MCP is already available. Use Check local MCP availability to check it again.',
+    'Permiso guardado: desactivado. MCP está listo; marca la casilla y pulsa Guardar si deseas permitirlo.': 'Saved permission: off. MCP is ready; select the checkbox and Save if you want to allow it.',
+})
+
+MESSAGES.update({
+    'Permiso local guardado: activado.': 'Saved local permission: on.',
+    'Permiso local guardado: desactivado.': 'Saved local permission: off.',
+    'Espera a que termine la verificación MCP antes de guardar el permiso.': 'Wait for the MCP check to finish before saving permission.',
+})
