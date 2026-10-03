@@ -33,6 +33,7 @@ def test_windows_regression_gate_is_bounded_and_diagnostic():
     assert "if ($LASTEXITCODE -ne 0)" in inventory
 
     for name, batch, minutes in (("Run GUI regression tests", "gui", 8),
+                                 ("Run theme runtime regression tests", "theme-runtime", 7),
                                  ("Run remaining regression tests", "remaining", 4)):
         step = steps[name]
         assert f"timeout-minutes: {minutes}" in step
@@ -45,6 +46,7 @@ def test_windows_regression_gate_is_bounded_and_diagnostic():
         assert "--maxfail" not in step and " -x " not in step
 
     collect_after_failure = "if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}"
+    assert collect_after_failure in steps["Run theme runtime regression tests"]
     assert collect_after_failure in steps["Run remaining regression tests"]
     verify = steps["Verify exact regression batch coverage"]
     assert collect_after_failure in verify
@@ -52,7 +54,8 @@ def test_windows_regression_gate_is_bounded_and_diagnostic():
     assert "tools/windows_test_batches.py --verify build/reports" in verify
     assert "if ($LASTEXITCODE -ne 0)" in verify
     assert text.index("Collect full regression inventory") < text.index("Run GUI regression tests")
-    assert text.index("Run GUI regression tests") < text.index("Run remaining regression tests")
+    assert text.index("Run GUI regression tests") < text.index("Run theme runtime regression tests")
+    assert text.index("Run theme runtime regression tests") < text.index("Run remaining regression tests")
     assert text.index("Run remaining regression tests") < text.index("Verify exact regression batch coverage")
     assert text.index("Verify exact regression batch coverage") < text.index("Generate current manual")
     assert "continue-on-error:" not in text

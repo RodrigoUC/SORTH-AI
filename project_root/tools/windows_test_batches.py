@@ -1,6 +1,6 @@
 """Serial pytest batches and an exact-coverage guard for the Windows review job.
 
-Load with ``-p tools.windows_test_batches``. Both batches collect the full suite
+Load with ``-p tools.windows_test_batches``. All batches collect the full suite
 before selecting tests, so new tests automatically belong to exactly one batch.
 The standalone verifier compares the actual selected node IDs to a separate full
 collection. It does not turn failed tests into successful workflow steps.
@@ -13,11 +13,14 @@ import json
 from pathlib import Path
 
 
-BATCHES = ("gui", "remaining")
+BATCHES = ("gui", "theme-runtime", "remaining")
 
 
 def batch_for_nodeid(nodeid: str) -> str:
-    return "gui" if nodeid.split("::", 1)[0].startswith("tests/test_gui/") else "remaining"
+    test_file = nodeid.split("::", 1)[0]
+    if test_file == "tests/test_gui/test_theme_runtime.py":
+        return "theme-runtime"
+    return "gui" if test_file.startswith("tests/test_gui/") else "remaining"
 
 
 def pytest_addoption(parser):
@@ -63,10 +66,11 @@ def verify_inventories(directory: Path) -> dict[str, int]:
             raise ValueError(f"Duplicate {batch} node IDs: {duplicates!r}")
         inventories[batch] = set(nodeids)
 
-    full, gui, remaining = (inventories[batch] for batch in ("all", *BATCHES))
-    overlap = gui & remaining
-    missing = full - (gui | remaining)
-    unexpected = (gui | remaining) - full
+    full = inventories["all"]
+    selected = Counter(nodeid for batch in BATCHES for nodeid in inventories[batch])
+    overlap = {nodeid for nodeid, count in selected.items() if count > 1}
+    missing = full - selected.keys()
+    unexpected = selected.keys() - full
     if overlap or missing or unexpected:
         raise ValueError(
             f"Regression inventory mismatch: overlap={sorted(overlap)!r}; "
@@ -90,8 +94,8 @@ def main() -> int:
         summary.write_text(json.dumps(counts, indent=2) + "\n", encoding="utf-8")
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(1, f"Regression batch coverage failed: {error}\n")
-    print(f"Regression coverage verified: {counts['gui']} GUI + "
-          f"{counts['remaining']} remaining = {counts['all']} unique tests.")
+    breakdown = " + ".join(f"{counts[batch]} {batch}" for batch in BATCHES)
+    print(f"Regression coverage verified: {breakdown} = {counts['all']} unique tests.")
     return 0
 
 
