@@ -94,3 +94,92 @@ gui_app.main()
     diagnostic = json.loads((output / 'text-rendering-startup.json').read_text())
     assert diagnostic['ok'] is False and diagnostic['family_count'] == 0
     assert not (output / 'schedule.png').exists()
+
+
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'])
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('font_points', [10, 20])
+def test_capture_settles_busy_and_localized_action_captions(tmp_path, style_name, locale, font_points):
+    """Reproduce the short busy/ES widths used by the formerly clipped PNGs."""
+    from PyQt6.QtCore import QTimer
+    from PyQt6.QtWidgets import QApplication, QHBoxLayout, QStyleFactory
+    from src.gui.i18n import language_manager, msg
+    from src.gui.i18n_widgets import QPushButton
+    from src.gui.theme import builtin_themes, stylesheet_for
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    manager = language_manager()
+    previous_locale = manager.language
+    host = QWidget()
+    timer = QTimer(host)
+    timer.setSingleShot(True)
+    callbacks = []
+    timer.timeout.connect(lambda: callbacks.append('timer'))
+    try:
+        if style_name:
+            app.setStyle(QStyleFactory.create(style_name))
+        manager.set_language('es', persist=False)
+        row = QHBoxLayout(host)
+        row.addStretch()
+        generate = QPushButton(msg('Generando…'))
+        generate.setObjectName('primaryAction')
+        add = QPushButton(msg('Agregar aula'))
+        export = QPushButton(msg('Exportar filtrado ({p1})', p1=0))
+        for button in (generate, add, export):
+            row.addWidget(button)
+        host.show()
+        # Test each palette through repeated compact/wide transitions; the
+        # helper must preserve fonts and source captions, not resize to fit.
+        for choice in builtin_themes():
+            host.setStyleSheet(stylesheet_for(choice.spec) +
+                              f'\nQPushButton {{ font-size: {font_points}pt; }}')
+            for width in (1200, 960, 1200):
+                host.resize(width, 120)
+                manager.set_language('es', persist=False)
+                generate.setText(msg('Generando…'))
+                export.setText(msg('Exportar filtrado ({p1})', p1=0))
+                smoke_rendering.settle_capture_layout(host)
+                old_width = generate.width()
+                generate.setText(msg('Generar horario'))
+                export.setText(msg('Exportar filtrado ({p1})', p1=42))
+                manager.set_language(locale, persist=False)
+                assert generate.width() == old_width
+                assert any(not entry['fits'] for entry in smoke_rendering._action_geometry(host))
+                fonts = [button.font().toString() for button in (generate, add, export)]
+                captions = [button.text() for button in (generate, add, export)]
+                window_size = host.size()
+                timer.start(0)
+                smoke_rendering.settle_capture_layout(host)
+                assert all(entry['fits'] for entry in smoke_rendering._action_geometry(host))
+                assert [button.font().toString() for button in (generate, add, export)] == fonts
+                assert [button.text() for button in (generate, add, export)] == captions
+                assert host.size() == window_size
+                assert callbacks == [] and timer.isActive()
+                timer.stop()
+        report = smoke_rendering.require_readable_text(host, tmp_path, 'actions')
+        assert report['actions'] and all(entry['fits'] for entry in report['actions'])
+    finally:
+        timer.stop()
+        host.close()
+        host.deleteLater()
+        manager.set_language(previous_locale, persist=False)
+        app.setStyle(QStyleFactory.create(previous_style))
+
+
+def test_capture_rejects_a_genuinely_clipped_action(window, tmp_path):
+    from PyQt6.QtWidgets import QPushButton
+    button = QPushButton('Generate schedule', window)
+    button.setFixedSize(30, 30)
+    button.show()
+    with pytest.raises(RuntimeError, match='action caption does not fit'):
+        smoke_rendering.require_readable_text(window, tmp_path, 'clipped')
+    report = json.loads((tmp_path / 'text-rendering-clipped.json').read_text())
+    assert report['ok'] is False and report['actions'][0]['fits'] is False
+    assert not (tmp_path / 'text-rendering-clipped.png').exists()
+
+
+def test_capture_rejects_unstable_layout(window, monkeypatch):
+    states = iter(range(18))
+    monkeypatch.setattr(smoke_rendering, '_layout_signature', lambda _: next(states))
+    with pytest.raises(RuntimeError, match='capture layout did not settle'):
+        smoke_rendering.settle_capture_layout(window)

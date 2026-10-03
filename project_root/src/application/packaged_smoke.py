@@ -191,7 +191,7 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
     source_root = Path(sys._MEIPASS) if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[2]
     result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': [],
               'text_rendering': {}}
-    from ..gui.smoke_rendering import require_readable_text
+    from ..gui.smoke_rendering import require_readable_text, settle_capture_layout
     if result['frozen']:
         result['build_identity'] = json.loads((source_root / 'build-identity.json').read_text(encoding='utf-8'))
     window = create_smoke_window(output_dir, restore_session=False)
@@ -262,6 +262,7 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
                 result['stages'].append('language_switch_es_en')
             finally:
                 manager.set_language(previous_language, persist=False)
+            settle_capture_layout(window)
             if not window.grab().save(str(output_dir / 'schedule.png')):
                 raise RuntimeError('Could not capture the rendered Qt window.')
             result['stages'].append('qt_render')
