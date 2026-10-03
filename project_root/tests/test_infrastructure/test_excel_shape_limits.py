@@ -1,5 +1,6 @@
 """Tiny sparse workbooks must not allocate unbounded rectangular frames."""
 from io import BytesIO
+import re
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from openpyxl import Workbook
@@ -122,3 +123,67 @@ def test_ten_thousand_data_rows_remain_supported():
     assert len(imported.courses) == 1
     assert imported.courses[0].number_of_groups == 10000
     assert len(imported.courses[0].group_suggestions) == 10000
+
+
+def test_direct_reader_preflight_and_materialization_share_snapshot(tmp_path, monkeypatch):
+    path = tmp_path / 'input.xlsx'
+    path.write_bytes(workbook_bytes())
+    reader = ExcelReader(str(path))
+    check = reader._check_sheet_sizes
+    def change_path_after_check(archive):
+        check(archive)
+        path.write_bytes(workbook_bytes('XFD2'))
+    monkeypatch.setattr(reader, '_check_sheet_sizes', change_path_after_check)
+    imported = reader.load_validated()
+    assert imported.courses[0].code == 'BIO'
+    assert reader._read_sheet('Cursos').shape == (1, 2)
+
+
+@pytest.mark.parametrize('mutation', ['duplicate_id', 'wrong_namespace', 'wrong_tag', 'nested_relationship'])
+def test_ambiguous_or_spoofed_relationships_fail_before_pandas(monkeypatch, mutation):
+    def alter(xml):
+        relation = re.search(rb'<Relationship\b[^>]*Id="rId2"[^>]*/>', xml).group()
+        if mutation == 'duplicate_id':
+            return xml.replace(b'</Relationships>', relation + b'</Relationships>')
+        if mutation == 'wrong_namespace':
+            replacement = relation.replace(b'<Relationship ', b'<fake:Relationship xmlns:fake="urn:fake" ')
+        elif mutation == 'wrong_tag':
+            replacement = relation.replace(b'<Relationship ', b'<Other ')
+        else:
+            replacement = b'<Wrapper>' + relation + b'</Wrapper>'
+        return xml.replace(relation, replacement)
+    data = mutate_member(workbook_bytes(), 'xl/_rels/workbook.xml.rels', alter)
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='No se pudo leer'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+@pytest.mark.parametrize('mutation', ['extra_workbook', 'duplicate_part', 'wrong_namespace'])
+def test_ambiguous_content_types_fail_before_pandas(monkeypatch, mutation):
+    def alter(xml):
+        part = re.search(rb'<Override\b[^>]*PartName="/xl/workbook.xml"[^>]*/>', xml).group()
+        if mutation == 'extra_workbook':
+            extra = (b'<Override PartName="/xl/alternate.xml" '
+                     b'ContentType="application/vnd.ms-excel.template.macroEnabled.main+xml"/>')
+            return xml.replace(b'</Types>', extra + b'</Types>')
+        if mutation == 'duplicate_part':
+            return xml.replace(b'</Types>', part + b'</Types>')
+        return xml.replace(part, part.replace(b'<Override ', b'<fake:Override xmlns:fake="urn:fake" '))
+    data = mutate_member(workbook_bytes(), '[Content_Types].xml', alter)
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='No se pudo leer'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_relocated_workbook_part_matches_downstream_mapping():
+    out = BytesIO()
+    with ZipFile(BytesIO(workbook_bytes())) as archive, ZipFile(out, 'w', ZIP_DEFLATED) as target:
+        for item in archive.infolist():
+            path = {'xl/workbook.xml': 'alternate/book.xml',
+                    'xl/_rels/workbook.xml.rels': 'alternate/_rels/book.xml.rels'}.get(item.filename, item.filename)
+            value = archive.read(item.filename)
+            if item.filename in ('[Content_Types].xml', '_rels/.rels'):
+                value = value.replace(b'xl/workbook.xml', b'alternate/book.xml')
+            target.writestr(path, value)
+    imported = ExcelReader('input.xlsx', source_bytes=out.getvalue()).load_validated()
+    assert imported.courses[0].code == 'BIO'

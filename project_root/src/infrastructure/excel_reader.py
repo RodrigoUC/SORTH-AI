@@ -79,7 +79,16 @@ class ExcelReader:
 
     def _check_workbook_size(self):
         self._checkpoint()
-        size = len(self._source_bytes) if self._source_bytes is not None else Path(self.file_path).stat().st_size
+        if self._source_bytes is None:
+            # Direct reader callers need the same immutable bytes for the
+            # preflight and pandas. The GUI already supplies its snapshot.
+            with open(self.file_path, 'rb') as source:
+                data = source.read(self.MAX_FILE_BYTES + 1)
+            self._checkpoint()
+            if len(data) > self.MAX_FILE_BYTES:
+                raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._source_bytes = data
+        size = len(self._source_bytes)
         if size > self.MAX_FILE_BYTES:
             raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
         with zipfile.ZipFile(self._source()) as archive:
@@ -96,42 +105,89 @@ class ExcelReader:
         dimension hint. Only the two imported sheets are subject to these
         shape limits; extra sheets retain their existing ignored behavior.
         """
+        content_ns = 'http://schemas.openxmlformats.org/package/2006/content-types}'
+        content_root = content_ns + 'Types'
         workbook_paths = []
-        def content_type(tag, attributes):
-            if (attributes.get('ContentType') in (XLSX, XLSM, XLTX, XLTM)
-                    and 'PartName' in attributes and not workbook_paths):
-                workbook_paths.append(attributes['PartName'].lstrip('/'))
+        workbook_defaults = set()
+        part_names = set()
+        extensions = set()
+        def content_type(tag, attributes, parents):
+            if not parents:
+                if tag != content_root:
+                    raise ValueError('Invalid content type namespace')
+                return
+            if parents != (content_root,) or tag not in (content_ns + 'Override', content_ns + 'Default'):
+                raise ValueError('Invalid content type element')
+            content = attributes.get('ContentType')
+            if tag == content_ns + 'Override':
+                part = attributes['PartName']
+                if part in part_names:
+                    raise ValueError('Duplicate content type part')
+                part_names.add(part)
+                if content in (XLSX, XLSM, XLTX, XLTM):
+                    workbook_paths.append(part.lstrip('/'))
+            else:
+                extension = attributes['Extension']
+                if extension in extensions:
+                    raise ValueError('Duplicate default content type')
+                extensions.add(extension)
+                if content in (XLSX, XLSM, XLTX, XLTM):
+                    workbook_defaults.add(content)
         self._scan_xml(archive, '[Content_Types].xml', content_type)
+        if len(workbook_paths) > 1 or (not workbook_paths and len(workbook_defaults) != 1):
+            raise ValueError('Missing or ambiguous workbook part')
         workbook_path = workbook_paths[0] if workbook_paths else 'xl/workbook.xml'
         ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
         relationship_id = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
         sheet_ids = []
         sheet_names = set()
-        def workbook_sheet(tag, attributes):
-            if tag == ns + 'sheet' and attributes.get('name') in ('Aulas', 'Cursos'):
-                if attributes['name'] in sheet_names:
-                    raise ValueError('Duplicate imported worksheet name')
-                sheet_names.add(attributes['name'])
-                sheet_ids.append(attributes[relationship_id])
+        def workbook_sheet(tag, attributes, parents):
+            if not parents and tag != ns + 'workbook':
+                raise ValueError('Invalid workbook namespace')
+            if tag.rsplit('}', 1)[-1] == 'sheet':
+                if tag != ns + 'sheet' or parents != (ns + 'workbook', ns + 'sheets'):
+                    raise ValueError('Invalid workbook sheet element')
+                if attributes.get('name') in ('Aulas', 'Cursos'):
+                    if attributes['name'] in sheet_names:
+                        raise ValueError('Duplicate imported worksheet name')
+                    sheet_names.add(attributes['name'])
+                    sheet_ids.append(attributes[relationship_id])
         self._scan_xml(archive, workbook_path, workbook_sheet)
         directory, filename = posixpath.split(workbook_path)
         relationships_path = posixpath.join(directory, '_rels', filename + '.rels')
         targets = {}
-        def relationship(tag, attributes):
-            if attributes.get('Id') in sheet_ids:
-                targets[attributes['Id']] = attributes
+        seen_ids = set()
+        relation_ns = 'http://schemas.openxmlformats.org/package/2006/relationships}'
+        relation_root = relation_ns + 'Relationships'
+        def relationship(tag, attributes, parents):
+            if not parents:
+                if tag != relation_root:
+                    raise ValueError('Invalid relationship namespace')
+                return
+            if tag != relation_ns + 'Relationship' or parents != (relation_root,):
+                raise ValueError('Invalid relationship element')
+            identifier = attributes['Id']
+            if identifier in seen_ids:
+                raise ValueError('Duplicate workbook relationship ID')
+            seen_ids.add(identifier)
+            if identifier in sheet_ids:
+                targets[identifier] = attributes
         self._scan_xml(archive, relationships_path, relationship)
         for sheet_id in sheet_ids:
             self._checkpoint()
             relation = targets[sheet_id]
+            if relation.get('Type') != 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet':
+                raise ValueError('Invalid imported worksheet relationship type')
             if relation.get('TargetMode') == 'External':
                 raise ValueError('An imported worksheet must be inside the workbook')
             target = relation['Target']
             path = (target.lstrip('/') if target.startswith('/') else
                     posixpath.normpath(posixpath.join(directory, target)))
             row = column = max_row = max_column = 0
-            def worksheet_element(tag, attributes):
+            def worksheet_element(tag, attributes, parents):
                 nonlocal row, column, max_row, max_column
+                if not parents and tag != ns + 'worksheet':
+                    raise ValueError('Invalid worksheet namespace')
                 if tag == ns + 'row':
                     self._checkpoint()
                     row = int(attributes.get('r', row + 1))
@@ -163,7 +219,14 @@ class ExcelReader:
     def _scan_xml(self, archive, path, on_start):
         """Streaming SAX-style scan without a tree, DTDs or entity expansion."""
         parser = expat.ParserCreate(namespace_separator='}')
-        parser.StartElementHandler = on_start
+        stack = []
+        def start_element(tag, attributes):
+            if len(stack) >= 64:
+                raise ValueError('Workbook XML nesting exceeds the supported depth')
+            on_start(tag, attributes, tuple(stack))
+            stack.append(tag)
+        parser.StartElementHandler = start_element
+        parser.EndElementHandler = lambda tag: stack.pop()
         def reject_entities(*args):
             raise ValueError('Workbook XML must not contain DTDs or entities')
         parser.StartDoctypeDeclHandler = reject_entities
