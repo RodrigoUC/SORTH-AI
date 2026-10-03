@@ -841,28 +841,28 @@ class MainWindow(QMainWindow):
         )
         if not file_path:
             return
-        if not Path(file_path).suffix:
-            file_path += (".pdf" if "*.pdf" in selected_format else
-                          ".csv" if "*.csv" in selected_format else ".xlsx")
-            # The native picker approved its returned path, not this newly
-            # resolved destination. Confirm only this extra collision; an
-            # explicit suffix has already been handled by the picker.
-            destination = Path(file_path)
-            if destination.exists() or destination.is_symlink():
-                confirmation = QMessageBox(self)
-                confirmation.setWindowTitle(msg('Confirmar reemplazo'))
-                confirmation.setIcon(QMessageBox.Icon.Question)
-                confirmation.setTextFormat(Qt.TextFormat.PlainText)
-                confirmation.setText(msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path))
-                confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                confirmation.setDefaultButton(QMessageBox.StandardButton.No)
-                try:
-                    if confirmation.exec() != QMessageBox.StandardButton.Yes:
-                        return
-                finally:
-                    confirmation.deleteLater()
-
         try:
+            if not Path(file_path).suffix:
+                file_path += (".pdf" if "*.pdf" in selected_format else
+                              ".csv" if "*.csv" in selected_format else ".xlsx")
+                # The native picker approved its returned path, not this newly
+                # resolved destination. Confirm only this extra collision; an
+                # explicit suffix has already been handled by the picker.
+                destination = Path(file_path)
+                if destination.exists() or destination.is_symlink():
+                    confirmation = QMessageBox(self)
+                    confirmation.setWindowTitle(msg('Confirmar reemplazo'))
+                    confirmation.setIcon(QMessageBox.Icon.Question)
+                    confirmation.setTextFormat(Qt.TextFormat.PlainText)
+                    confirmation.setText(msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path))
+                    confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    confirmation.setDefaultButton(QMessageBox.StandardButton.No)
+                    try:
+                        if confirmation.exec() != QMessageBox.StandardButton.Yes:
+                            return
+                    finally:
+                        confirmation.deleteLater()
+
             time_model = TimeModel.from_calendar(self.calendar)
             exporter = ScheduleExporter(time_model)
             courses = self.course_manager.get_courses()

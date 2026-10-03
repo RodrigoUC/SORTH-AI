@@ -257,3 +257,26 @@ def test_overwrite_confirmation_treats_literal_filename_as_plain_text(
         assert target.read_bytes() == b'original'
     finally:
         manager.set_language(old_language, persist=False)
+
+
+@pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
+def test_resolved_destination_inspection_failure_keeps_prior_export(
+        window, tmp_path, monkeypatch, extension):
+    from pathlib import Path
+
+    target = tmp_path / f'report.{extension}'
+    target.write_bytes(b'original')
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName',
+                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+    original_exists = Path.exists
+    def inaccessible(path):
+        if path == target:
+            raise PermissionError('synthetic traversal denied')
+        return original_exists(path)
+    monkeypatch.setattr(Path, 'exists', inaccessible)
+    monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
+    window._export_schedule()
+    assert target.read_bytes() == b'original'
+    assert target.name in window.status_bar.currentMessage()
+    assert ('No se pudo exportar' in window.status_bar.currentMessage()
+            or 'Could not export' in window.status_bar.currentMessage())
