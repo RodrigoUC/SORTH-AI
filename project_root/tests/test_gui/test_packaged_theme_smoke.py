@@ -59,6 +59,8 @@ def test_source_smoke_covers_themes_without_touching_external_profile(tmp_path):
     assert set(report['text_rendering']) == {'startup', 'es', 'en'}
     for text_report in report['text_rendering'].values():
         assert text_report['ok'] and text_report['family_count'] > 0
+        assert text_report['layout_deliveries'] >= 2
+        assert text_report['actions'] and all(action['fits'] for action in text_report['actions'])
         assert text_report['fonts'] and (output / text_report['raster_image']).is_file()
     assert report['assigned'] == report['groups'] == 42
     assert report['large_fixture']['assigned'] == 500
