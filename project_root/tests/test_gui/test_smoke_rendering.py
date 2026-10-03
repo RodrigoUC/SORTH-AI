@@ -183,3 +183,44 @@ def test_capture_rejects_unstable_layout(window, monkeypatch):
     monkeypatch.setattr(smoke_rendering, '_layout_signature', lambda _: next(states))
     with pytest.raises(RuntimeError, match='capture layout did not settle'):
         smoke_rendering.settle_capture_layout(window)
+
+
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('adornment', ['menu', 'icon', 'both'])
+@pytest.mark.parametrize('themed', [False, True])
+def test_action_guard_reserves_menu_and_icon_space(window, tmp_path, style_name, adornment, themed):
+    from PyQt6.QtGui import QIcon, QPixmap
+    from PyQt6.QtWidgets import QApplication, QMenu, QPushButton, QStyleFactory, QVBoxLayout
+    from src.gui.theme import builtin_themes, stylesheet_for
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    try:
+        app.setStyle(QStyleFactory.create(style_name))
+        if themed:
+            window.setStyleSheet(stylesheet_for(builtin_themes()[0].spec))
+        layout = QVBoxLayout(window)
+        button = QPushButton('Schedule tools (F7)')
+        if adornment in ('menu', 'both'):
+            button.setMenu(QMenu(button))
+        if adornment in ('icon', 'both'):
+            pixmap = QPixmap(16, 16)
+            pixmap.fill(Qt.GlobalColor.blue)
+            button.setIcon(QIcon(pixmap))
+        layout.addWidget(button)
+        button.show()
+        smoke_rendering.settle_capture_layout(window)
+        natural = smoke_rendering._action_geometry(window)[0]
+        assert natural['fits']
+        # Leave room for bare text/chrome but not the actual menu/icon. The old
+        # content-only assertion accepted this visibly clipped native button.
+        chrome = button.width() - natural['content_size'][0]
+        button.setFixedWidth(chrome + natural['text_size'][0])
+        smoke_rendering.settle_capture_layout(window)
+        clipped = smoke_rendering._action_geometry(window)[0]
+        assert clipped['content_size'][0] >= clipped['text_size'][0]
+        assert clipped['required_native_size'][0] > button.width()
+        assert not clipped['fits']
+        with pytest.raises(RuntimeError, match='action caption does not fit'):
+            smoke_rendering.require_readable_text(window, tmp_path, 'adorned')
+    finally:
+        app.setStyle(QStyleFactory.create(previous_style))
