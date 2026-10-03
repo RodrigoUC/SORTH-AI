@@ -6,7 +6,7 @@ from dataclasses import replace
 import unicodedata
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea, QPlainTextEdit
+    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea, QPlainTextEdit, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
@@ -25,7 +25,7 @@ from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE
 
 from .i18n import msg, plural, language_manager
 from .i18n_widgets import (
-    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget
+    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget, ResponsiveDialogButtonBox
 )
 
 _DAY_ORDER = {d: i for i, d in enumerate(TimeModel.DAY_ORDER)}
@@ -905,14 +905,15 @@ class GridSessionDetailsDialog(QDialog):
         self._viewer = viewer
         self._generation = viewer._schedule_generation
         self._closed = False
+        self._initial_size_applied = False
         self.finished.connect(self._mark_closed)
         self._gids = tuple(gids)
         self._assignments = {gid: viewer._assignments[gid] for gid in gids}
         self.setWindowTitle(msg('Sesiones del bloque en conflicto') if len(gids) > 1
                             else msg('Detalles de la sesión'))
-        self.resize(620, 420)
         layout = QVBoxLayout(self)
         self.session_selector = QComboBox()
+        self.session_selector.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.session_selector.setAccessibleName(msg('Grupo / sesión'))
         self.session_selector.addItem(msg('Seleccione una sesión para verla en la lista.'), None)
         for gid in gids:
@@ -925,7 +926,7 @@ class GridSessionDetailsDialog(QDialog):
         self.details.setTabChangesFocus(True)
         self.details.setAccessibleName(str(msg('Detalles de la sesión')))
         layout.addWidget(self.details, 1)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.view_in_list = QPushButton(msg('Ver en lista'))
         self.view_in_list.setAutoDefault(False)
         buttons.addButton(self.view_in_list, QDialogButtonBox.ButtonRole.ActionRole)
@@ -935,6 +936,39 @@ class GridSessionDetailsDialog(QDialog):
         self.session_selector.currentIndexChanged.connect(self.refresh_details)
         language_manager().changed.connect(self.refresh_details)
         self.refresh_details()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._initial_size_applied or self._closed:
+            return
+        self._initial_size_applied = True
+        # Measure the actual wrapped plain-text blocks after native font/style
+        # and footer layout, not character counts or QTextDocument's line-count
+        # height. Only the initial size adapts; later user resizing is retained.
+        available = self.screen().availableGeometry().adjusted(12, 12, -12, -12)
+        frame = self.frameGeometry().size() - self.size()
+        width = min(620, max(1, available.width() - frame.width()))
+        height_limit = max(1, available.height() - frame.height())
+        self.resize(width, height_limit)
+        self.layout().activate()
+        document = self.details.document()
+        document_layout = document.documentLayout()
+        # Leave one native line below the last field, including the text
+        # cursor's scroll allowance, instead of a large empty fixed panel.
+        text_height = document.documentMargin() + self.details.fontMetrics().lineSpacing()
+        block = document.begin()
+        while block.isValid() and text_height < height_limit:
+            text_height += document_layout.blockBoundingRect(block).height()
+            block = block.next()
+        chrome_height = self.height() - self.details.viewport().height()
+        self.resize(width, min(height_limit, math.ceil(text_height + chrome_height)))
+        self.layout().activate()
+        # Resizing during the first show must not leave the footer off-screen
+        # when Qt centered the pre-layout size or the parent straddles screens.
+        centered = self.frameGeometry()
+        centered.moveCenter(self._viewer.window().frameGeometry().center())
+        self.move(max(available.left(), min(centered.left(), available.right() - centered.width() + 1)),
+                  max(available.top(), min(centered.top(), available.bottom() - centered.height() + 1)))
 
     def _valid(self):
         return (not self._closed
