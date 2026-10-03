@@ -23,6 +23,7 @@ from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialo
 from .scheduler_worker import SchedulerWorker
 from .theme import apply_theme, COLORS
 from .motion import MotionController, update_busy_indicator
+from .features import FeaturePreferences
 from .manual_assignment_dialog import ManualAssignmentDialog
 from ..scheduling.validation import validate_schedule, unassigned_reason
 from copy import deepcopy
@@ -36,7 +37,7 @@ from .i18n_widgets import (
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, repo=None, restore_session=True):
+    def __init__(self, repo=None, restore_session=True, feature_settings=None):
         super().__init__()
         self._busy = False
         self._loading = False
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
                 self._save_error = str(error)
                 self._restore_failed = True
 
+        self._features = FeaturePreferences(feature_settings)
         self._motion = MotionController(self)
         self._init_ui()
         self._update_save_state()
@@ -74,6 +76,7 @@ class MainWindow(QMainWindow):
             self._block_for_recovery()
         if restore_session and self._repo is not None:
             self._restore_session_if_exists()
+        self._apply_feature_preferences()
         self.chk_random_seed.toggled.connect(self._save_session)
         self.seed_input.valueChanged.connect(self._save_session)
 
@@ -91,6 +94,10 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(16)
 
         main_layout.addLayout(self._create_file_section())
+        self._feature_notice = QLabel()
+        self._feature_notice.setWordWrap(True)
+        self._feature_notice.setAccessibleName(msg('Datos de funciones desactivadas'))
+        main_layout.addWidget(self._feature_notice)
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo)
@@ -170,7 +177,7 @@ class MainWindow(QMainWindow):
         text.setPlainText('\n\n'.join(filter(None, (
             self.status_bar.currentMessage(), self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
-            self.schedule_viewer._result_label.text(), self._save_error))))
+            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._save_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
@@ -207,6 +214,10 @@ class MainWindow(QMainWindow):
         language_label.setStyleSheet(f"color: {COLORS['on_navy_muted']};")
         heading.addWidget(language_label)
         heading.addWidget(self.language_selector)
+        self.btn_settings = QPushButton(msg('Configuración'))
+        self.btn_settings.setObjectName("headerAction")
+        self.btn_settings.clicked.connect(self._show_settings)
+        heading.addWidget(self.btn_settings)
         help_button = QPushButton(msg('Guía rápida'))
         help_button.setObjectName("headerAction")
         help_button.setCheckable(True)
@@ -606,8 +617,28 @@ class MainWindow(QMainWindow):
     # Session persistence
     # ------------------------------------------------------------------
 
+    def _show_settings(self):
+        from .settings_dialog import SettingsDialog
+        SettingsDialog(self).exec()
+
+    def _apply_feature_preferences(self):
+        self.schedule_viewer.set_pin_controls_visible(self._features.enabled('pinned_sessions'))
+        self.btn_projects.setVisible(self._features.enabled('project_scenarios'))
+        self._update_feature_notice()
+
+    def _update_feature_notice(self):
+        notices = []
+        if self.pinned_group_ids and not self._features.enabled('pinned_sessions'):
+            notices.append(msg('Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.'))
+        catalog_path = getattr(self._repo, '_db_path', None)
+        catalog_exists = bool(catalog_path and Path(catalog_path).with_name('sorth_projects.db').exists())
+        if (self._scenario_name or catalog_exists) and not self._features.enabled('project_scenarios'):
+            notices.append(msg('Hay datos de escenarios conservados. Activa Proyectos y escenarios en Configuración para acceder.'))
+        self._feature_notice.setText(join_messages('\n', notices))
+        self._feature_notice.setVisible(bool(notices))
+
     def _show_projects(self):
-        if self._busy or self._restore_failed:
+        if not self._features.enabled('project_scenarios') or self._busy or self._restore_failed:
             return
         try:
             from .project_dialog import ProjectDialog
@@ -627,6 +658,7 @@ class MainWindow(QMainWindow):
         self._save_state_label.setText(text)
         self._save_state_label.setToolTip(self._save_error or self._scenario_name or "")
         self._retry_save_button.setVisible(bool(self._save_error))
+        self._update_feature_notice()
 
     def _record_save_error(self, error):
         self._save_error = str(error)
@@ -917,6 +949,8 @@ class MainWindow(QMainWindow):
                 if gid in self.pinned_group_ids}
 
     def _toggle_pin(self, gid):
+        if not self._features.enabled('pinned_sessions'):
+            return
         if self._busy or gid not in (self.current_schedule or {}):
             return
         if gid in self.pinned_group_ids:

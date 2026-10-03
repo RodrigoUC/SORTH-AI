@@ -57,6 +57,7 @@ class ScheduleViewerWidget(QWidget):
 
     def __init__(self):
         super().__init__()
+        self._pin_controls = []
         self._assignments = {}
         self._known_gids = set()
         self._groups = {}
@@ -205,6 +206,7 @@ class ScheduleViewerWidget(QWidget):
         assign.clicked.connect(lambda: self.manual_assignment_requested.emit(self._selected_gid(table)))
         table.itemSelectionChanged.connect(lambda: assign.setEnabled(self._selected_gid(table) is not None))
         pin = QPushButton(msg('Fijar sesión'))
+        self._pin_controls.append(pin)
         pin.setEnabled(False)
         pin.setToolTip(msg('Conservar solo esta sesión al regenerar; no es una preferencia.'))
         pin.clicked.connect(lambda: self.pin_requested.emit(self._selected_gid(table)))
@@ -600,6 +602,10 @@ class ScheduleViewerWidget(QWidget):
         gid = self._selected_gid(table)
         if gid in self._assignments:
             self._confirm_remove_group(gid)
+
+    def set_pin_controls_visible(self, visible):
+        for control in self._pin_controls:
+            control.setVisible(visible)
 
     def refresh_pin_marks(self):
         selected = [self._selected_gid(table) for table in (self.list_table, self.classroom_table)]
