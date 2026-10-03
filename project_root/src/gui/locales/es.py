@@ -1,6 +1,22 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Cancelar generación': 'Cancelar generación',
+    'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelando generación; se conservarán el horario y las sesiones fijadas.',
+
+    'La generación cambió sesiones fijadas. Se conserva el horario anterior.': 'La generación cambió sesiones fijadas. Se conserva el horario anterior.',
+    'La sesión fijada {gid} requiere confirmar una excepción LAB.': 'La sesión fijada {gid} requiere confirmar una excepción LAB.',
+    'Sesión fijada': 'Sesión fijada',
+    'Desfije la sesión antes de cambiar su asignación.': 'Desfije la sesión antes de cambiar su asignación.',
+    'La estructura dividida de {gid} cambió.': 'La estructura dividida de {gid} cambió.',
+    'Sesiones fijadas en conflicto': 'Sesiones fijadas en conflicto',
+    'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.': 'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.',
+    'Fijar sesión': 'Fijar sesión',
+    'Conservar solo esta sesión al regenerar; no es una preferencia.': 'Conservar solo esta sesión al regenerar; no es una preferencia.',
+    'Desfijar sesión': 'Desfijar sesión',
+    'Fijada · {state}': 'Fijada · {state}',
+    'Desfije las sesiones antes de limpiar el horario.': 'Desfije las sesiones antes de limpiar el horario.',
+
     'El PDF filtrado requiere el total global de asignaciones.': 'El PDF filtrado requiere el total global de asignaciones.',
     'El alcance y el total de asignaciones no coinciden.': 'El alcance y el total de asignaciones no coinciden.',
     'El número de sesiones pendientes no puede ser negativo.': 'El número de sesiones pendientes no puede ser negativo.',

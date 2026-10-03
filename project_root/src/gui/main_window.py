@@ -41,9 +41,11 @@ class MainWindow(QMainWindow):
         self._busy = False
         self._loading = False
         self._worker = None
+        self._generation_cancelled = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
         self.current_groups: list | None = None
+        self.pinned_group_ids: set[str] = set()
         self.classroom_restrictions: dict[str, set[str]] = {}
         self._classroom_course_map: dict[str, list[str]] = {}
         self._classrooms: dict[str, Classroom] = {}
@@ -90,11 +92,13 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.course_manager, msg('📚 Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
+        self.course_manager.change_guard = lambda courses: self._confirm_pin_inputs(courses=courses)
         self.schedule_viewer = ScheduleViewerWidget()
         self.tabs.addTab(self.schedule_viewer, msg('📅 Horario Generado'))
         self.tabs.setTabToolTip(1, msg('Visualizar el horario generado en lista, cuadrícula o por aula'))
         self.schedule_viewer.edit_course_requested.connect(self._edit_course_from_viewer)
         self.schedule_viewer.group_removed.connect(self._on_group_removed)
+        self.schedule_viewer.pin_requested.connect(self._toggle_pin)
         self.schedule_viewer.schedule_cleared.connect(self._on_schedule_cleared)
         main_layout.addWidget(self.tabs, 1)
         self.tabs.currentChanged.connect(
@@ -114,6 +118,10 @@ class MainWindow(QMainWindow):
         self._progress.setFixedHeight(16)
         self._progress.setVisible(False)
         self.status_bar.addPermanentWidget(self._progress)
+        self._cancel_button = QPushButton(msg('Cancelar generación'))
+        self._cancel_button.clicked.connect(self._cancel_generation)
+        self._cancel_button.setVisible(False)
+        self.status_bar.addPermanentWidget(self._cancel_button)
 
         self.chk_reduce_motion = QCheckBox(msg('Reducir animaciones'))
         self.chk_reduce_motion.setToolTip(msg('Desactiva las transiciones y el indicador animado.'))
@@ -336,6 +344,8 @@ class MainWindow(QMainWindow):
                 review.setButtonText(QMessageBox.StandardButton.Cancel, msg('Cancelar'))
                 if review.exec() != QMessageBox.StandardButton.Ok:
                     return
+            if not self._confirm_pin_inputs(courses=courses, classrooms=classrooms, restrictions={}):
+                return
             self._loading = True
             self._classroom_course_map = classroom_course_map
             self._classrooms = classrooms
@@ -397,7 +407,10 @@ class MainWindow(QMainWindow):
         )
 
         if dialog.exec():
-            self.classroom_restrictions = dialog.get_restrictions()
+            restrictions = dialog.get_restrictions()
+            if not self._confirm_pin_inputs(restrictions=restrictions):
+                return
+            self.classroom_restrictions = restrictions
             self._invalidate_schedule()
             count = len(self.classroom_restrictions)
             if count:
@@ -410,9 +423,17 @@ class MainWindow(QMainWindow):
                 self.status_bar.showMessage(msg('Restricciones de aulas eliminadas.'))
             self._save_session()
 
+    def _cancel_generation(self):
+        if self._busy and self._worker is not None:
+            self._generation_cancelled = True
+            self._worker.requestInterruption()
+            self._cancel_button.setEnabled(False)
+            self.status_bar.showMessage(msg('Cancelando generación; se conservarán el horario y las sesiones fijadas.'))
+
     def _generate_schedule(self):
         if self._busy:
             return
+        self._generation_cancelled = False
         if not self._classrooms:
             QMessageBox.warning(self, msg('Advertencia'),
                                 msg('Cargue un Excel o agregue al menos un aula primero.'))
@@ -432,6 +453,8 @@ class MainWindow(QMainWindow):
             classrooms=self._classrooms or None,
             restrictions=self.classroom_restrictions,
             seed=seed,
+            pinned_assignments=self._pinned_assignments(),
+            lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in self.pinned_group_ids},
         )
         self._worker.result_ready.connect(self._on_schedule_done)
         self._worker.finished.connect(lambda: self._set_busy(False))
@@ -442,13 +465,21 @@ class MainWindow(QMainWindow):
         self._worker.start()
 
     def _on_schedule_done(self, assignments, groups):
+        if self._generation_cancelled:
+            return
 
         if assignments is not None and groups is not None:
             errors = validate_schedule(assignments, groups, self._validation_classrooms(),
-                                       TimeModel.default())
+                                       TimeModel.default(),
+                                       {g.group_id for g in groups if g.lab_override})
             if errors:
                 self._on_schedule_error(join_messages('\n', (error.render(msg) for error in errors)))
                 return
+            if any(assignments.get(gid) != placement for gid, placement in self._pinned_assignments().items()):
+                self._on_schedule_error(msg('La generación cambió sesiones fijadas. Se conserva el horario anterior.'))
+                return
+            for group in groups:
+                group.pinned = group.group_id in self.pinned_group_ids
             self.current_schedule = assignments
             self.current_groups   = groups
 
@@ -487,6 +518,8 @@ class MainWindow(QMainWindow):
             p1=assigned, p3=total, pending=pending))
 
     def _on_schedule_error(self, message):
+        if self._generation_cancelled:
+            return
         self.status_bar.showMessage(msg('❌ Error al generar horario'))
         _InfoDialog(self, msg('Error'), msg('Error al generar el horario:\n{p1}', p1=message), warning=True).exec()
 
@@ -619,6 +652,7 @@ class MainWindow(QMainWindow):
                 courses=self.course_manager.get_courses(),
                 restrictions=self.classroom_restrictions,
                 assignments=self.current_schedule,
+                pinned_group_ids=self.pinned_group_ids,
                 lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override},
             )
         except Exception as error:
@@ -679,6 +713,7 @@ class MainWindow(QMainWindow):
             if not data:
                 return
 
+            self.pinned_group_ids = set(data.get("pinned_group_ids", ()))
             self._classrooms = data["classrooms"]
             self.classroom_restrictions = data["restrictions"]
 
@@ -719,11 +754,14 @@ class MainWindow(QMainWindow):
                     groups.extend(c.generate_groups())
                 # Re-attach assignments to groups
                 for g in groups:
+                    g.pinned = g.group_id in self.pinned_group_ids
                     g.lab_override = g.group_id in data.get("lab_overrides", set())
                     if g.group_id in self.current_schedule:
                         g.assignment = self.current_schedule[g.group_id]
                         room = self._classrooms.get(g.assignment[0])
                         if g.required_room_type == "LAB" and room and room.room_type != "LAB" and not g.lab_override:
+                            if g.pinned:
+                                raise ValueError(msg("La sesión fijada {gid} requiere confirmar una excepción LAB.", gid=g.group_id))
                             del self.current_schedule[g.group_id]
                             g.assignment = None
                             g.unassigned_reason = "Asignación antigua en aula regular retirada: requiere confirmar una excepción manual."
@@ -768,6 +806,9 @@ class MainWindow(QMainWindow):
         group = next((g for g in self.current_groups if g.group_id == gid), None)
         if group is None:
             return
+        if gid in self.pinned_group_ids:
+            QMessageBox.information(self, msg("Sesión fijada"), msg("Desfije la sesión antes de cambiar su asignación."))
+            return
         dialog = ManualAssignmentDialog(group, self.current_groups, self.current_schedule or {},
                                         self._validation_classrooms(), TimeModel.default(), self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -791,6 +832,10 @@ class MainWindow(QMainWindow):
         self.course_manager.edit_course_by_code(course_code)
 
     def _on_group_removed(self, gid: str):
+        self.pinned_group_ids.discard(gid)
+        for group in self.current_groups or []:
+            if group.group_id == gid:
+                group.pinned = False
         if self.current_schedule and gid in self.current_schedule:
             del self.current_schedule[gid]
         if self.current_groups:
@@ -806,6 +851,7 @@ class MainWindow(QMainWindow):
         self._save_session()
 
     def _on_schedule_cleared(self):
+        self.pinned_group_ids.clear()
         self.current_schedule = None
         self.current_groups = None
         self._update_export_actions()
@@ -831,7 +877,80 @@ class MainWindow(QMainWindow):
             text += msg('  ·  Cargue un Excel para comenzar')
         self.overview_label.setText(text)
 
+    def _pinned_assignments(self):
+        return {gid: placement for gid, placement in (self.current_schedule or {}).items()
+                if gid in self.pinned_group_ids}
+
+    def _toggle_pin(self, gid):
+        if self._busy or gid not in (self.current_schedule or {}):
+            return
+        if gid in self.pinned_group_ids:
+            self.pinned_group_ids.remove(gid)
+        else:
+            errors = validate_schedule(self.current_schedule, self.current_groups or [],
+                                       self._validation_classrooms(), TimeModel.default(),
+                                       {g.group_id for g in (self.current_groups or []) if g.lab_override})
+            if errors:
+                QMessageBox.warning(self, msg('Horario no válido'), join_messages('\n', (e.render(msg) for e in errors)))
+                return
+            self.pinned_group_ids.add(gid)
+        for group in self.current_groups or []:
+            group.pinned = group.group_id in self.pinned_group_ids
+        self.schedule_viewer.refresh_pin_marks()
+        self._save_session()
+
+    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None):
+        """Review proposed inputs before committing. Cancel changes nothing."""
+        if self._loading or not self.pinned_group_ids:
+            return True
+        courses = self.course_manager.get_courses() if courses is None else courses
+        rooms = deepcopy(self._classrooms if classrooms is None else classrooms)
+        restrictions = self.classroom_restrictions if restrictions is None else restrictions
+        for name, room in rooms.items():
+            room.allowed_courses = restrictions.get(name)
+        groups = [group for course in courses for group in course.generate_groups()]
+        pins = self._pinned_assignments()
+        errors = validate_schedule(pins, groups, rooms, TimeModel.default(),
+                                   {g.group_id for g in (self.current_groups or []) if g.lab_override})
+        old = {g.group_id: g for g in (self.current_groups or [])}
+        for group in groups:
+            previous = old.get(group.group_id)
+            if group.group_id in pins and previous and (
+                    group.parent_group_id, group.total_subgroups, group.subgroup_index) != (
+                    previous.parent_group_id, previous.total_subgroups, previous.subgroup_index):
+                from ..scheduling.validation import ValidationNotice
+                errors.append(ValidationNotice('La estructura dividida de {gid} cambió.', gid=group.group_id))
+        if not errors:
+            return True
+        answer = QMessageBox.warning(
+            self, msg('Sesiones fijadas en conflicto'),
+            msg('Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.',
+                details=join_messages('\n', (e.render(msg) for e in errors))),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        if answer != QMessageBox.StandardButton.Yes:
+            return False
+        self.pinned_group_ids.clear()
+        return True
+
     def _invalidate_schedule(self):
+        if self.pinned_group_ids:
+            # Only validated pins survive input changes; remaining sessions become
+            # explicitly pending, with no stale generated placements presented.
+            pins = self._pinned_assignments()
+            overrides = {g.group_id for g in (self.current_groups or []) if g.lab_override}
+            groups = [g for c in self.course_manager.get_courses() for g in c.generate_groups()]
+            for g in groups:
+                g.assignment = pins.get(g.group_id)
+                g.pinned = g.group_id in self.pinned_group_ids
+                g.lab_override = g.pinned and g.group_id in overrides
+                if not g.assignment:
+                    g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), TimeModel.default())
+            self.current_schedule = pins
+            self.current_groups = groups
+            self.schedule_viewer.display_schedule(pins, TimeModel.default(), groups, classrooms=self._classrooms)
+            self._update_export_actions()
+            return
         self.current_schedule = None
         self.current_groups = None
         self.schedule_viewer._clear()
@@ -859,6 +978,8 @@ class MainWindow(QMainWindow):
         self.btn_restrictions.setEnabled(not busy and bool(self._classroom_course_map))
         self.btn_generate.setEnabled(not busy and bool(self._classrooms and self.course_manager.get_courses()))
         self.btn_generate.setText(msg('Generando…') if busy else msg('Generar horario'))
+        self._cancel_button.setVisible(busy and self._worker is not None)
+        self._cancel_button.setEnabled(busy and not self._generation_cancelled)
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
 

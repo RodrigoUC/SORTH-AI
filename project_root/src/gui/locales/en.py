@@ -1,6 +1,22 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Cancelar generación': 'Cancel generation',
+    'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelling generation; the schedule and pinned sessions will be preserved.',
+
+    'La generación cambió sesiones fijadas. Se conserva el horario anterior.': 'Generation changed pinned sessions. The previous schedule is preserved.',
+    'La sesión fijada {gid} requiere confirmar una excepción LAB.': 'Pinned session {gid} requires confirmation of a LAB exception.',
+    'Sesión fijada': 'Pinned session',
+    'Desfije la sesión antes de cambiar su asignación.': 'Unpin the session before changing its assignment.',
+    'La estructura dividida de {gid} cambió.': 'The split structure of {gid} changed.',
+    'Sesiones fijadas en conflicto': 'Conflicting pinned sessions',
+    'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.': 'This change invalidates pinned sessions:\n{details}\n\nUnpin all sessions and apply the change? Cancel preserves the data and schedule.',
+    'Fijar sesión': 'Pin session',
+    'Conservar solo esta sesión al regenerar; no es una preferencia.': 'Keep only this session when regenerating; this is not a preference.',
+    'Desfijar sesión': 'Unpin session',
+    'Fijada · {state}': 'Pinned · {state}',
+    'Desfije las sesiones antes de limpiar el horario.': 'Unpin the sessions before clearing the schedule.',
+
     'El PDF filtrado requiere el total global de asignaciones.': 'A filtered PDF requires the global assignment count.',
     'El alcance y el total de asignaciones no coinciden.': 'The scope and assignment count do not match.',
     'El número de sesiones pendientes no puede ser negativo.': 'The pending session count cannot be negative.',

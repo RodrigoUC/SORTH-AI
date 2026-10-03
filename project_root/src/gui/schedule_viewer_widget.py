@@ -50,6 +50,7 @@ class ScheduleViewerWidget(QWidget):
     edit_course_requested = pyqtSignal(str)
     manual_assignment_requested = pyqtSignal(str)
     group_removed = pyqtSignal(str)
+    pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
     filters_changed = pyqtSignal()
     _COLOR_PALETTE = [QColor("#" + color) for color in COURSE_COLORS]
@@ -203,6 +204,16 @@ class ScheduleViewerWidget(QWidget):
         assign.setEnabled(False)
         assign.clicked.connect(lambda: self.manual_assignment_requested.emit(self._selected_gid(table)))
         table.itemSelectionChanged.connect(lambda: assign.setEnabled(self._selected_gid(table) is not None))
+        pin = QPushButton(msg('Fijar sesión'))
+        pin.setEnabled(False)
+        pin.setToolTip(msg('Conservar solo esta sesión al regenerar; no es una preferencia.'))
+        pin.clicked.connect(lambda: self.pin_requested.emit(self._selected_gid(table)))
+        def update_pin():
+            gid = self._selected_gid(table)
+            pin.setEnabled(gid in self._assignments)
+            pin.setText(msg('Desfijar sesión') if getattr(self._groups.get(gid), 'pinned', False) else msg('Fijar sesión'))
+        table.itemSelectionChanged.connect(update_pin)
+        actions.addWidget(pin)
         actions.addWidget(assign)
         actions.addWidget(edit)
         actions.addWidget(remove)
@@ -346,6 +357,8 @@ class ScheduleViewerWidget(QWidget):
                       TimeModel.minutes_to_hhmm(start) if assigned else "—",
                       TimeModel.minutes_to_hhmm(end) if assigned else "—",
                       (msg('Excepción manual LAB') if getattr(self._groups.get(gid), 'lab_override', False) else msg('Asignado')) if assigned else msg('Sin asignar')]
+            if getattr(self._groups.get(gid), "pinned", False):
+                values[-1] = msg("Fijada · {state}", state=values[-1])
             keys = [_natural_key(v) for v in values]
             keys[4:7] = [day if assigned else 999, start if assigned else 9999, end if assigned else 9999]
             rows.append((gid, values, keys))
@@ -359,6 +372,8 @@ class ScheduleViewerWidget(QWidget):
             values = [room, gid, self._name_map.get(gid, ""), msg(tm.to_day_name(day)),
                       TimeModel.minutes_to_hhmm(start), TimeModel.minutes_to_hhmm(end)]
             keys = [_natural_key(v) for v in values]
+            if getattr(self._groups.get(gid), "pinned", False):
+                values[2] = msg("Fijada · {state}", state=values[2])
             # Secondary ordering remains chronological within a classroom.
             keys[0] = (_natural_key(room), day, start, _natural_key(gid))
             keys[3:] = [day, start, end]
@@ -408,7 +423,8 @@ class ScheduleViewerWidget(QWidget):
                 continue
             parts = []
             for gid, day, start, end in block.entries:
-                parts.append(f"{gid}\n"
+                display_gid = msg("Fijada · {state}", state=gid) if getattr(self._groups.get(gid), "pinned", False) else gid
+                parts.append(f"{display_gid}\n"
                              f"{TimeModel.minutes_to_hhmm(start)}–{TimeModel.minutes_to_hhmm(end)}\n"
                              f"{self._name_map.get(gid, '')}")
             conflict = len(block.entries) > 1
@@ -585,7 +601,21 @@ class ScheduleViewerWidget(QWidget):
         if gid in self._assignments:
             self._confirm_remove_group(gid)
 
+    def refresh_pin_marks(self):
+        selected = [self._selected_gid(table) for table in (self.list_table, self.classroom_table)]
+        self._display_list(self._assignments, self._time_model)
+        self._display_classroom_view(self._assignments, self._time_model)
+        for table, gid in zip((self.list_table, self.classroom_table), selected):
+            for row in range(table.rowCount()):
+                if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == gid:
+                    table.setCurrentCell(row, 0)
+                    break
+        self._apply_filters()
+
     def _confirm_remove_group(self, gid):
+        if getattr(self._groups.get(gid), 'pinned', False):
+            QMessageBox.information(self, msg('Sesión fijada'), msg('Desfije la sesión antes de cambiar su asignación.'))
+            return
         answer = QMessageBox.question(self, msg('Quitar sesión del horario'),
                                       msg('¿Quitar {p1} del horario?\nLa sesión quedará sin asignar y no se exportará.', p1=gid),
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -607,6 +637,9 @@ class ScheduleViewerWidget(QWidget):
 
     def _clear_schedule(self):
         if not self._known_gids:
+            return
+        if any(getattr(g, "pinned", False) for g in self._groups.values()):
+            QMessageBox.information(self, msg("Sesión fijada"), msg("Desfije las sesiones antes de limpiar el horario."))
             return
         answer = QMessageBox.question(self, msg('Limpiar horario'),
                                       msg('¿Eliminar todas las asignaciones del horario actual?\nSe conservarán los cursos y las aulas para generar un horario nuevo.'),

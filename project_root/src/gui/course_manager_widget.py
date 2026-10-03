@@ -349,8 +349,23 @@ class CourseManagerWidget(QWidget):
 
     def load_courses_from_excel(self, courses: list[Course]):
         """Load courses imported from Excel, replacing current list."""
+        if not self._accept_courses(courses):
+            return False
         self.courses = list(courses)
         self._search.clear()
+        self._refresh_table()
+        self.courses_changed.emit()
+
+    def _accept_courses(self, courses):
+        guard = getattr(self, "change_guard", None)
+        return guard is None or guard(list(courses))
+
+    def _replace_course(self, index, course):
+        proposed = list(self.courses)
+        proposed[index] = course
+        if not self._accept_courses(proposed):
+            return
+        self.courses = proposed
         self._refresh_table()
         self.courses_changed.emit()
 
@@ -366,9 +381,7 @@ class CourseManagerWidget(QWidget):
                 if dialog.exec():
                     course = dialog.get_course()
                     if course:
-                        self.courses[i] = course
-                        self._refresh_table()
-                        self.courses_changed.emit()
+                        self._replace_course(i, course)
                 return
         QMessageBox.information(self, msg('Info'),
                                 msg('El curso {p1} no se encuentra en la lista de cursos.', p1=code))
@@ -401,9 +414,9 @@ class CourseManagerWidget(QWidget):
                     if edit_dlg.exec():
                         updated = edit_dlg.get_course()
                         if updated:
-                            self.courses[existing] = updated
-                            self._refresh_table()
-                            self.courses_changed.emit()
+                            self._replace_course(existing, updated)
+                return
+            if not self._accept_courses([*self.courses, course]):
                 return
             self.courses.append(course)
             self._refresh_table()
@@ -427,9 +440,7 @@ class CourseManagerWidget(QWidget):
             if not course:
                 QMessageBox.warning(self, msg('Advertencia'), msg('El código del curso es obligatorio.'))
                 return
-            self.courses[row] = course
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._replace_course(row, course)
 
     def _delete_course(self):
         row = self._selected_course_index()
@@ -438,6 +449,8 @@ class CourseManagerWidget(QWidget):
             return
         if _confirm(self, msg('Confirmar eliminación'),
                     msg('¿Eliminar el curso {p1}?', p1=self.courses[row].code)):
+            if not self._accept_courses(self.courses[:row] + self.courses[row + 1:]):
+                return
             del self.courses[row]
             self._refresh_table()
             self.courses_changed.emit()
@@ -446,6 +459,8 @@ class CourseManagerWidget(QWidget):
         if not self.courses:
             return
         if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?\nEsta acción no se puede deshacer.')):
+            if not self._accept_courses([]):
+                return
             self.courses.clear()
             self._refresh_table()
             self.courses_changed.emit()
