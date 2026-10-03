@@ -36,7 +36,9 @@ las preferencias antiguas sin identificador se migran en la siguiente escritura
 explícita, sin escrituras al leer. Un identificador inválido también cierra el
 acceso. No mata el proceso que pertenece al cliente. Una generación ya iniciada puede terminar
 internamente con su límite existente de diez segundos. Cierra el proceso desde
-el cliente. No se revocan copias de resultados entregados previamente.
+el cliente. Una generación de permiso cambia al activar o desactivar: volver a activar
+MCP no recupera propuestas iniciadas antes de la revocación. No se revocan
+copias de resultados entregados previamente.
 
 Para instalaciones sin Qt, el CLI de configuración siguiente usa el mismo archivo
 y conserva sus demás preferencias mediante reemplazo atómico. `--preferences`

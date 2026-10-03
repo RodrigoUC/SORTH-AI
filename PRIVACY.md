@@ -70,3 +70,5 @@ GitHub es un servicio externo: al visitarlo o publicar, GitHub procesa datos de 
 ## Base de esta revisión
 
 Se inspeccionaron `gui_app.py`, `main.py`, `src/`, la configuración de empaquetado y los puntos de escritura de datos: `SessionRepository`, `ProjectRepository`, `SchedulingResources`, `FeaturePreferences`, `SettingsDialog`, `EditHistory`, `gui_session_lock.py`, `LanguageManager`, `MotionController`, exportadores y `packaged_smoke.py`. Las rutas y los datos descritos corresponden al inicio normal; pruebas y herramientas técnicas pueden usar rutas explícitas distintas. Revisa este aviso si una versión añade red, registros, nuevas preferencias, almacenamiento o integraciones.
+
+El permiso MCP opcional incluye una generación aleatoria local para descartar propuestas iniciadas antes de desactivarlo. No identifica a una persona ni se envía a un proveedor. Un archivo lateral `.lock` coordina los cambios de configuración entre procesos; no contiene horarios ni credenciales.
