@@ -490,6 +490,22 @@ class CourseManagerWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _refresh_table(self):
+        # ResizeToContents recalculates column widths synchronously for each
+        # replaced cell in a visible table. Batch those calculations until the
+        # complete table is ready; disabling painting alone is insufficient.
+        header = self.table.horizontalHeader()
+        modes = [header.sectionResizeMode(column) for column in range(header.count())]
+        updates_enabled = self.table.updatesEnabled()
+        try:
+            self.table.setUpdatesEnabled(False)
+            header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+            self._refresh_table_contents()
+        finally:
+            for column, mode in enumerate(modes):
+                header.setSectionResizeMode(column, mode)
+            self.table.setUpdatesEnabled(updates_enabled)
+
+    def _refresh_table_contents(self):
         selected_codes = self.selected_course_codes()
         current = self.table.item(self.table.currentRow(), 0)
         selected_code = current.data(Qt.ItemDataRole.UserRole) if current else None
