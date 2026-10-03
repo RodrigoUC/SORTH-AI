@@ -17,7 +17,7 @@ concurrency:
 jobs:
   windows-build-and-smoke:
     runs-on: windows-2025
-    timeout-minutes: 35
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -55,8 +55,16 @@ jobs:
         run: |
           .\.venv-build\Scripts\python.exe tools/build_manual.py --output build/docs/MANUAL_USUARIO.pdf
           if ($LASTEXITCODE -ne 0) { throw 'Manual generation failed.' }
+      - name: Build isolated offline MCP companion first
+        run: .\build_mcp.ps1
       - name: Build unsigned onedir application
-        run: .\build_exe.ps1
+        run: .\build_exe.ps1 -McpPrepared
+      - name: Validate bundled installation and real frozen MCP with no Python in child PATH
+        timeout-minutes: 5
+        run: |
+          $runner = (Resolve-Path 'build/mcp/venv/Scripts/python.exe').Path
+          & $runner tools/frozen_mcp_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen MCP preparation/protocol verification failed.' }
       - name: Validate packaged application in an isolated session
         run: |
           # Frozen execution with Python locations removed; not a clean-PC claim.

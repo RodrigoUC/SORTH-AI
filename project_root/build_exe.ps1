@@ -1,6 +1,8 @@
 Param(
     [switch]$OneFile = $false,
-    [string]$IconPath = ".\assets\sorth.ico"
+    [string]$IconPath = ".\assets\sorth.ico",
+    [switch]$WithoutMcp = $false,
+    [switch]$McpPrepared = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,6 +39,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 & $pythonExe -m PyInstaller --version
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo verificar PyInstaller.' }
+& $pythonExe -c "import importlib.util; assert importlib.util.find_spec('mcp') is None, 'Build the GUI in the SDK-free base environment'"
+if ($LASTEXITCODE -ne 0) { throw 'The main build environment must remain MCP SDK-free.' }
 
 if (-not $env:SOURCE_COMMIT) {
     $env:SOURCE_COMMIT = (& git rev-parse HEAD)
@@ -44,6 +48,13 @@ if (-not $env:SOURCE_COMMIT) {
 }
 & $pythonExe tools/build_identity.py --commit $env:SOURCE_COMMIT
 if ($LASTEXITCODE -ne 0) { throw 'Build identity failed.' }
+
+if ($WithoutMcp -and $McpPrepared) { throw 'WithoutMcp and McpPrepared are mutually exclusive.' }
+if (-not $WithoutMcp) {
+    if (-not $McpPrepared) { & .\build_mcp.ps1 -PythonExe $pythonExe }
+    & $pythonExe tools/mcp_payload.py verify --commit $env:SOURCE_COMMIT
+    if ($LASTEXITCODE -ne 0) { throw 'Companion payload must be built and verified before the GUI.' }
+}
 
 $baseArgs = @(
     '--noconfirm',
@@ -64,6 +75,15 @@ $baseArgs = @(
     '--add-data', ((Join-Path $PSScriptRoot '../third_party') + ';third_party'),
     (Join-Path $PSScriptRoot 'gui_app.py')
 )
+
+if (-not $WithoutMcp) {
+    # Compile the manifest into the GUI. An editable JSON beside the ZIP is not
+    # a trust anchor. The readable JSON is included only as audit evidence.
+    $baseArgs = @('--paths', (Join-Path $PSScriptRoot 'build/identity'),
+                  '--hidden-import', '_sorth_mcp_bundle',
+                  '--add-data', ((Join-Path $PSScriptRoot 'build/identity/mcp-component.json') + ';.'),
+                  '--add-data', ((Join-Path $PSScriptRoot 'build/optional/mcp-component.zip') + ';optional')) + $baseArgs
+}
 
 if ($IconPath -and (Test-Path $IconPath)) {
     $resolvedIcon = (Resolve-Path $IconPath).Path
