@@ -165,3 +165,11 @@ La distribución predeterminada para Windows es una carpeta con `SORTH.exe` y su
 ## Ejemplo incluido
 
 `data/input/Cursos_Ejemplo.xlsx` contiene 8 aulas ficticias y 12 cursos de demostración. Sus 36 grupos producen 42 sesiones al dividir los proyectos largos. Todos los datos son sintéticos; no corresponden a una institución. La procedencia se describe en `data/input/PROVENANCE.md` (rutas relativas a `project_root`).
+
+## Calidad y exportación local
+
+La GUI incluye [indicadores explicables de cobertura, preferencias y uso de recursos](project_root/QUALITY_METRICS.md), sin nota global ni promesa de optimalidad, y [exportación PDF en español o inglés](project_root/PDF_EXPORT_NOTES.md). Estas funciones son locales y no requieren MCP ni un proveedor de IA.
+
+## Integración MCP opcional
+
+Un cliente MCP elegido por el usuario puede solicitar validar datos y generar una propuesta local mediante el [adaptador stdio opcional](project_root/MCP_OPTIONAL.md). Está desactivado por defecto y separado de la GUI/instalador: no requiere un modelo, claves ni pagos para usar SORTH. El MVP no guarda, aplica ni exporta propuestas y conserva LAB estricto. Revisa [privacidad](PRIVACY.md) antes de compartir datos con un host o proveedor externo.
