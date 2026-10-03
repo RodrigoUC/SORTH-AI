@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
 import zipfile
@@ -55,6 +56,42 @@ def test_payload_has_release_bound_inventory_and_compilable_trust_anchor(payload
     assert create(payload) == manifest
     assert archive.read_bytes() == before
     assert mcp_payload.verify_payload(archive, output, 'a' * 40) == manifest
+
+
+def test_payload_api_accepts_paths_relative_to_build_directory(payload, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    relative = tuple(path.relative_to(tmp_path) for path in payload)
+    manifest = create(relative)
+    assert mcp_payload.verify_payload(relative[1], relative[2], 'a' * 40) == manifest
+
+
+@pytest.mark.parametrize('explicit_paths', [False, True])
+def test_payload_cli_create_and_verify_with_relative_build_paths(payload, tmp_path, explicit_paths):
+    # build_mcp.ps1 and build_exe.ps1 run these commands with relative defaults.
+    # Exercise the real CLI and consumer validation, not mocked context paths.
+    working = tmp_path / 'build workspace'
+    working.mkdir()
+    if explicit_paths:
+        app = Path('custom dist/SORTH-MCP')
+        archive = Path('custom build/optional/mcp-component.zip')
+        output = Path('custom build/identity')
+        options = ['--app-dir', str(app), '--archive', str(archive), '--output', str(output)]
+    else:
+        app = Path('dist/mcp/SORTH-MCP')
+        archive = Path('build/optional/mcp-component.zip')
+        output = Path('build/identity')
+        options = []
+    shutil.copytree(payload[0], working / app)
+    for command in ('create', 'verify'):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / 'tools/mcp_payload.py'), command,
+             '--commit', 'a' * 40, *options],
+            cwd=working, capture_output=True, text=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert f'Companion {command} verification passed.' in result.stdout
+    manifest = mcp_payload.verify_payload(working / archive, working / output, 'a' * 40)
+    assert manifest['archive_sha256'] == hashlib.sha256((working / archive).read_bytes()).hexdigest()
+    assert (working / output / '_sorth_mcp_bundle.py').is_file()
 
 
 def test_payload_rejects_modified_archive_and_compiled_anchor(payload):

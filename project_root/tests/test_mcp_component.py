@@ -62,6 +62,16 @@ def test_prepare_is_offline_verified_and_idempotent(bundle, tmp_path):
     assert result['command'][1:] == ['--serve']
 
 
+@pytest.mark.parametrize('field', ['bundle_dir', 'components_root'])
+def test_consumer_rejects_relative_context_paths(bundle, field):
+    paths = {'bundle_dir': bundle.bundle_dir, 'components_root': bundle.components_root}
+    paths[field] = Path('relative')
+    context = component.ComponentContext(bundle.manifest, **paths)
+    with pytest.raises(component.ComponentError, match='invalid_manifest'):
+        component.bundle_info(context=context)
+    assert not bundle.components_root.exists()
+
+
 @pytest.mark.parametrize('state', ['verifying', 'extracting', 'checking', 'committing'])
 def test_cancel_rolls_back_only_own_stage(bundle, state):
     retained = bundle.components_root / '2.0.0-previous'

@@ -84,7 +84,9 @@ def verify_notices(notices, lock=ROOT / 'requirements-mcp-windows.lock'):
 
 
 def create_payload(app_dir, archive, output, commit):
-    app_dir, archive, output = map(Path, (app_dir, archive, output))
+    # CLI defaults are relative to the build directory; the runtime consumer
+    # deliberately requires absolute context paths, including output not yet made.
+    app_dir, archive, output = (Path(path).resolve() for path in (app_dir, archive, output))
     info = identity(commit)
     if not (app_dir / 'SORTH-MCP.exe').is_file():
         raise ValueError('Build the Windows companion first')
@@ -143,7 +145,7 @@ def create_payload(app_dir, archive, output, commit):
 
 def verify_payload(archive, output, commit):
     """Validate packaging inputs without importing or launching the companion."""
-    archive, output = map(Path, (archive, output))
+    archive, output = (Path(path).resolve() for path in (archive, output))
     manifest = json.loads((output / 'mcp-component.json').read_text(encoding='utf-8'))
     # Treat a generated Python anchor strictly as data, not executable code.
     module = ast.parse((output / '_sorth_mcp_bundle.py').read_text(encoding='utf-8'))
