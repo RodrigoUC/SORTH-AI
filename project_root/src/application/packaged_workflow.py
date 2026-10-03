@@ -162,7 +162,8 @@ def _theme_restart(output, phase, frozen):
         raise RuntimeError(f'Theme {phase} restart failed; inspect its JSON/log evidence.')
     report = json.loads(report_path.read_text(encoding='utf-8'))
     if (not report.get('ok') or report.get('frozen') != frozen
-            or report.get('pid') == os.getpid() or report.get('phase') != phase):
+            or report.get('pid') == os.getpid() or report.get('phase') != phase
+            or report.get('text_rendering', {}).get('ok') is not True):
         raise RuntimeError('Invalid or mismatched fresh-process theme evidence.')
     return report
 

@@ -81,6 +81,9 @@ try {
         Run-Checked "$destination/SORTH.exe" @('--smoke-test', '--smoke-output', "`"$smokeDir`"")
         $report = Get-Content "$smokeDir/smoke-result.json" -Raw | ConvertFrom-Json
         if (-not $report.ok -or -not $report.frozen) { throw 'Installed workflow failed.' }
+        foreach ($phase in @('startup', 'es', 'en')) {
+            if (-not $report.text_rendering.$phase.ok) { throw "Missing installed readable text evidence: $phase." }
+        }
     } finally {
         $env:PATH = $oldPath
         $env:PYTHONHOME = $oldPythonHome
