@@ -51,7 +51,17 @@ Controles nativos y nombres accesibles en ES/EN; Escape y Cancelar conservan la
 sesión. Cancelar es la opción predeterminada del resumen. El contenido es texto
 seleccionable y desplazable; nunca depende solo de colores. La preferencia
 Reducir animaciones mantiene un indicador estático. F6 permite leer el estado
-completo si la barra de estado es demasiado estrecha. Las capturas Qt offscreen
+completo si la barra de estado es demasiado estrecha. Durante la operación,
+**Archivo en importación** muestra por separado el nombre del candidato en un
+campo de solo lectura: Tab permite enfocarlo, recorrer un nombre largo y copiarlo.
+**Archivo Excel** sigue identificando la sesión aceptada hasta confirmar la
+transacción. El estado identifica el archivo y la fase real (espera, lectura y
+validación, revisión, comprobación o guardado), sin porcentajes inventados.
+Cancelar, rechazar o fallar retira el candidato activo; el último resultado queda
+en la barra y en F6. Un fallo nunca conserva un mensaje anterior de éxito. Los diálogos de avisos y
+revisión de recursos también identifican el archivo por su nombre. Tab permite
+abrir **Mostrar detalles**, entrar al texto completo para seleccionarlo y volver
+a los botones; no necesita usar F6 detrás de un diálogo modal. Las capturas Qt offscreen
 no prueban anuncios de lectores de pantalla ni apariencia nativa de Windows.
 
 ## Medición reproducible y limitación conocida

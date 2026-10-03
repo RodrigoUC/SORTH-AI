@@ -13,6 +13,7 @@
 - **Exportar filtrado (N)** es una acción adicional para Excel y CSV. N cuenta las sesiones asignadas que cumplen Buscar, Aula, Día y Estado. La pestaña activa y el selector local del aula de la cuadrícula no restringen esta exportación; use el filtro compartido Aula para exportar un aula.
 - El diálogo de guardado y el mensaje final indican alcance y cantidad. Si no hay coincidencias asignadas, la acción filtrada está desactivada. Sin asignar no produce filas de horario ficticias.
 - Generar o invalidar un horario desactiva ambas acciones. Cancelar el guardado no modifica filtros ni datos.
+- Si la exportación falla, el error permanece en la barra y en **Leer estado (F6)** después de cerrar el diálogo. Identifica el último destino por su nombre, sin añadir su ruta al estado. Un nuevo resultado sustituye este mensaje; cancelar el selector conserva el último resultado.
 
 ## Compatibilidad y seguridad
 

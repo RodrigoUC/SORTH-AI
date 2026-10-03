@@ -1,7 +1,9 @@
 """Latest-request-wins import coordinator. All GUI access occurs on Qt's thread."""
 from dataclasses import replace
+from pathlib import Path
 from ..scheduling.teaching_resources import SchedulingResources
 from PyQt6.QtCore import QObject, QTimer, Qt
+from PyQt6.QtWidgets import QTextEdit
 from .import_worker import ImportWorker
 from .import_preview_dialog import ImportPreviewDialog
 from .i18n import msg, join_messages
@@ -17,6 +19,7 @@ class ImportController(QObject):
         self.worker = None
         self.pending = None
         self.active = False
+        self.candidate_name = None
         self.closing = False
         self.review = None
         self.retained_pins = set()
@@ -27,9 +30,15 @@ class ImportController(QObject):
             return
         self.cancel(announce=False, restore_controls=False)
         self.active = True
+        self.candidate_name = Path(path).name
+        self.window._set_import_candidate(self.candidate_name)
         self.window._set_import_busy(True)
-        self.window.status_bar.showMessage(msg('Leyendo y validando Excel… La sesión actual se conserva.'))
+        if self.worker is not None:
+            self._show_stage('Esperando para leer {filename}… La sesión actual se conserva.')
         self._enqueue(path)
+
+    def _show_stage(self, source):
+        self.window.status_bar.showMessage(msg(source, filename=self.candidate_name))
 
     def _enqueue(self, path, previous=None):
         self.pending = (self.token, path, previous)
@@ -41,6 +50,9 @@ class ImportController(QObject):
             return
         token, path, previous = self.pending
         self.pending = None
+        self._show_stage(
+            'Comprobando que {filename} no cambió… La sesión actual se conserva.' if previous is not None
+            else 'Leyendo y validando {filename}… La sesión actual se conserva.')
         worker = self.worker = ImportWorker(token, path, previous, self)
         worker.result_ready.connect(self._result)
         worker.failed.connect(self._error)
@@ -60,6 +72,9 @@ class ImportController(QObject):
         self.token += 1
         self.pending = None
         self.active = False
+        cancelled_name = self.candidate_name
+        self.candidate_name = None
+        self.window._set_import_candidate(None)
         if self.worker is not None:
             self.worker.requestInterruption()
         if self.review is not None:
@@ -67,7 +82,9 @@ class ImportController(QObject):
         if restore_controls:
             self.window._set_import_busy(False)
         if announce:
-            self.window.status_bar.showMessage(msg('Importación cancelada. La sesión anterior se conserva.'))
+            self.window.status_bar.showMessage(
+                msg('Importación de {filename} cancelada. La sesión anterior se conserva.', filename=cancelled_name)
+                if cancelled_name else msg('Importación cancelada. La sesión anterior se conserva.'))
 
     def _current(self, token):
         return self.active and not self.closing and token == self.token
@@ -76,36 +93,54 @@ class ImportController(QObject):
         if not self._current(token):
             return
         if verified:
+            self._show_stage('Guardando {filename}…')
             try:
                 self.window._commit_import(candidate, self.retained_pins, self.retained_resources)
             except Exception as error:
                 self._error(token, error)
                 return
             self.active = False
+            self.candidate_name = None
+            self.window._set_import_candidate(None)
             self.window._set_import_busy(False)
             return
         # Changed files enter the complete review flow again, never a silent merge.
         if self.worker.previous is not None:
-            self.window.status_bar.showMessage(msg('El archivo cambió. Revise la nueva versión validada antes de importar.'))
+            self._show_stage('El archivo {filename} cambió. Revise la nueva versión validada antes de importar.')
+        else:
+            self._show_stage('Revisando {filename}… La sesión actual se conserva.')
         if not self._review_candidate(token, candidate):
             if self._current(token):
                 self.cancel()
             return
         if self._current(token):
-            self.window.status_bar.showMessage(msg('Comprobando que el archivo no cambió…'))
             self._enqueue(candidate.path, candidate)
+
+    @staticmethod
+    def _set_review_details(review, details):
+        review.setDetailedText(details)
+        # Qt's built-in details editor defaults to NoFocus. Let keyboard users
+        # reach, select and scroll the full filename and warnings, then Tab out.
+        field = review.findChild(QTextEdit)
+        if field is not None:
+            field.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            field.setTabChangesFocus(True)
+            field.setAccessibleName(msg('Revisar importación'))
 
     def _review_candidate(self, token, candidate):
         window = self.window
         imported = candidate.imported
+        identity = msg('Archivo: {name}', name=Path(candidate.path).name)
+        selectable = Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
         if imported.warnings:
             review = self.review = QMessageBox(window)
             review.setWindowTitle(msg('Revisar importación'))
             review.setIcon(QMessageBox.Icon.Warning)
             review.setTextFormat(Qt.TextFormat.PlainText)
+            review.setTextInteractionFlags(selectable)
             review.setText(msg('Avisos del archivo: {count}', count=len(imported.warnings)))
-            review.setInformativeText(join_messages('\n', (item.render(msg) for item in imported.warnings[:3])) + msg('\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.'))
-            review.setDetailedText(join_messages('\n', (item.render(msg) for item in imported.warnings)))
+            review.setInformativeText(identity + '\n\n' + join_messages('\n', (item.render(msg) for item in imported.warnings[:3])) + msg('\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.'))
+            self._set_review_details(review, identity + '\n\n' + join_messages('\n', (item.render(msg) for item in imported.warnings)))
             review.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             review.setDefaultButton(QMessageBox.StandardButton.Cancel)
             review.setButtonText(QMessageBox.StandardButton.Ok, msg('Importar con avisos'))
@@ -124,8 +159,10 @@ class ImportController(QObject):
             review = self.review = QMessageBox(window)
             review.setWindowTitle(msg('Recursos por revisar'))
             review.setTextFormat(Qt.TextFormat.PlainText)
+            review.setTextInteractionFlags(selectable)
+            review.setInformativeText(identity)
             review.setText(msg('Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?', count=len(orphaned)))
-            review.setDetailedText('\n'.join(sorted(orphaned)))
+            self._set_review_details(review, identity + '\n\n' + '\n'.join(sorted(orphaned)))
             review.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
             review.setDefaultButton(QMessageBox.StandardButton.Cancel)
             accepted = review.exec() == QMessageBox.StandardButton.Yes
@@ -158,15 +195,20 @@ class ImportController(QObject):
     def _error(self, token, error):
         if not self._current(token):
             return
+        failed_name = self.candidate_name
         self.cancel(announce=False)
         failed_token = self.token
+        failure = msg('No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.',
+                      filename=failed_name)
+        # Replace any rolled-back presentation before the modal can enter a
+        # nested event loop. Keep the accepted import's atomic boundary intact.
+        self.window.status_bar.showMessage(failure)
         QMessageBox.critical(self.window, msg('Error'), msg('Error al cargar archivo Excel:\n{p1}',
                              p1=error.render(msg) if isinstance(error, ExcelImportError) else str(error)))
-        if self.window._restore_failed:
+        if self.token == failed_token and not self.closing and self.window._restore_failed:
             self.window._block_for_recovery()
-            self.window.status_bar.showMessage(msg('La sesión guardada se conserva. La vista requiere recuperación antes de continuar.'))
-        elif self.token == failed_token and not self.closing:
-            self.window.status_bar.showMessage(msg('No se cargó el archivo. La sesión anterior se conserva.'))
+            self.window.status_bar.showMessage(join_messages(' ', (failure,
+                msg('La sesión guardada se conserva. La vista requiere recuperación antes de continuar.'))))
 
     def prepare_close(self):
         self.closing = True
