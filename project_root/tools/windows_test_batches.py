@@ -13,13 +13,24 @@ import json
 from pathlib import Path
 
 
-BATCHES = ("gui", "theme-runtime", "remaining")
+BATCHES = ("gui", "gui-layout", "theme-runtime", "remaining")
+
+# Measured Windows real-font runs spend over 200 seconds in these layout and
+# palette matrices alone. Keep their full modules together in a fresh serial
+# process rather than letting an expanding GUI batch hit its eight-minute cap.
+GUI_LAYOUT_FILES = frozenset({
+    "tests/test_gui/test_appearance_dialog.py",
+    "tests/test_gui/test_compact_optional_controls.py",
+    "tests/test_gui/test_settings_design.py",
+})
 
 
 def batch_for_nodeid(nodeid: str) -> str:
     test_file = nodeid.split("::", 1)[0]
     if test_file == "tests/test_gui/test_theme_runtime.py":
         return "theme-runtime"
+    if test_file in GUI_LAYOUT_FILES:
+        return "gui-layout"
     return "gui" if test_file.startswith("tests/test_gui/") else "remaining"
 
 
