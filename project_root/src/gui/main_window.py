@@ -696,8 +696,11 @@ class MainWindow(QMainWindow):
 
             from ..application.scenario_comparison import ALGORITHM_VERSION
             self._algorithm_version = ALGORITHM_VERSION
-            self._history.reset(self._capture_edit_state(), 'generation')
             try:
+                # Invalidate commands before fingerprinting the committed result;
+                # even a failed snapshot must not leave earlier commands usable.
+                self._history.reset(reason='generation')
+                self._history.observe(self._capture_edit_state())
                 already_showing_results = self.tabs.currentIndex() == 1
                 self.tabs.setCurrentIndex(1)
                 if already_showing_results:

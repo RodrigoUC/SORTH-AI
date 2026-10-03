@@ -140,3 +140,26 @@ def test_actual_worker_renderer_failure_does_not_escape_qt_slot(window, monkeypa
     assert window._worker is None and not window._busy
     assert fingerprint(window._capture_edit_state()) == before
     assert window._history.can_undo
+
+
+@pytest.mark.parametrize('failure', ['capture', 'reset'])
+def test_postcommit_history_failure_is_guarded_and_never_reverts_saved_result(window, monkeypatch, failure):
+    if failure == 'capture':
+        original = window._capture_edit_state
+        calls = []
+        def capture():
+            calls.append(1)
+            if len(calls) == 3:
+                raise RuntimeError('postcommit capture failed')
+            return original()
+        monkeypatch.setattr(window, '_capture_edit_state', capture)
+    else:
+        monkeypatch.setattr(window._history, 'reset', lambda *a, **k:
+            (_ for _ in ()).throw(RuntimeError('postcommit reset failed')))
+    generate(window)
+    assert window.current_schedule == window._repo.load_session()['assignments'] == {'BIO-G1': ('R', 1, 600, 660)}
+    assert window._restore_failed and window._busy and not window._unsaved
+    assert 'se guardó' in window._save_state_label.text()
+    assert not window._travel_history(True)
+    if failure == 'capture':
+        assert not window._history.can_undo
