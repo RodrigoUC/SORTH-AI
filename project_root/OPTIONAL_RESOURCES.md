@@ -57,3 +57,18 @@ interfaz durante su carga; las pruebas actuales no certifican capacidad a esa
 escala. No se truncan registros silenciosamente. No se añadió un límite
 institucional arbitrario sin mediciones representativas. MCP rechaza estos campos
 y no ofrece una ruta externa para cargar catálogos de recursos.
+
+## Integridad de parámetros y preferencias
+
+Las activaciones de docentes/grupos/personas pertenecen únicamente a la sesión
+SQLite aceptada; los valores correspondientes en el JSON de herramientas son
+una copia de presentación, nunca activan un proyecto nuevo. Restaurar una sesión
+recupera siempre sus reglas efectivas. Ediciones de recursos y calendario usan la
+misma transacción con reversión de presentación e historial.
+
+El JSON de herramientas y SQLite son archivos separados: no se afirma una
+transacción ACID entre ambos. Si falla guardar la sesión y también restaurar el
+JSON previo, se conservan la sesión, sus entidades y activaciones; se informa que
+algunas preferencias de herramientas ya se guardaron, se bloquea la edición y se
+pide recuperar la configuración. Un fallo visual después de confirmar ambos
+guardados se identifica como cambio guardado pendiente de recuperar la vista.

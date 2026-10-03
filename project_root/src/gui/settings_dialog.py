@@ -110,12 +110,25 @@ class SettingsDialog(QDialog):
         try:
             self.window._features.save(values)
             if not self.window._apply_resource_parameters(values):
-                self.window._features.save(previous)
+                try:
+                    self.window._features.save(previous)
+                except (OSError, ValueError) as error:
+                    detail = msg('La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}', detail=str(error))
+                    self.window._features.load_error = str(detail)
+                    self.window._view_recovery_failure(detail, committed=False)
+                    self.recovery_label.show()
+                    self.recover_button.show()
+                    QMessageBox.warning(self, msg('Configuración'), detail)
                 return
         except (OSError, ValueError):
             self.recovery_label.setVisible(bool(self.window._features.load_error))
             self.recover_button.setVisible(bool(self.window._features.load_error))
             QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
             return
-        self.window._apply_feature_preferences()
+        try:
+            self.window._apply_feature_preferences()
+        except Exception as error:
+            # Preferences (and any resource transaction) are already accepted.
+            # A late widget failure is recovery, never a failed-save claim.
+            self.window._committed_view_failure(error)
         super().accept()

@@ -56,6 +56,7 @@ def test_parameter_off_cancel_then_confirm_preserves_data_and_clears_result(wind
 
 
 def test_failed_disable_restores_configuration_and_live_schedule(window,monkeypatch):
+    monkeypatch.setattr(QMessageBox,'warning',lambda *a,**k:QMessageBox.StandardButton.Ok)
     activate(window,'teacher');before=window.resources;schedule=dict(window.current_schedule)
     monkeypatch.setattr(QMessageBox,'question',lambda *a,**k:QMessageBox.StandardButton.Yes)
     def fail(**kwargs):raise OSError('Synthetic save failure')
@@ -194,3 +195,84 @@ def test_removing_unpinned_course_does_not_unpin_valid_resource_session(window,m
     assert window._confirm_course_inputs(window.course_manager.get_courses()[:1])
     assert window.pinned_group_ids=={first}
     assert not warnings
+
+
+@pytest.mark.parametrize('kind', RESOURCE_KINDS)
+def test_failed_resource_parameter_presentation_preserves_session_preferences_and_history(window, monkeypatch, kind):
+    from pathlib import Path
+    from src.application.edit_history import encoded
+    activate(window, kind)
+    window._features.save({**window._features.values(), 'undo_redo': True})
+    before = encoded(window._capture_edit_state())
+    history = encoded(vars(window._history))
+    database = Path(window._repo._db_path).read_bytes()
+    preferences = window._features.path.read_bytes()
+    original = window._display_edit_state
+    calls = []
+    def fail_once(state):
+        original(state)
+        if not calls:
+            calls.append(True)
+            raise RuntimeError('resource presentation failed')
+    monkeypatch.setattr(window, '_display_edit_state', fail_once)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    dialog = SettingsDialog(window)
+    dialog.controls[kind].setChecked(False)
+    dialog.accept()
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert encoded(window._capture_edit_state()) == before
+    assert encoded(vars(window._history)) == history
+    assert Path(window._repo._db_path).read_bytes() == database
+    assert window._features.path.read_bytes() == preferences
+    assert window.resources.catalog(kind).enabled and not window._restore_failed
+
+
+def test_preference_rollback_failure_locks_but_session_flags_remain_authoritative(window, monkeypatch):
+    from pathlib import Path
+    activate(window, 'teacher')
+    original_resources = window.resources
+    database = Path(window._repo._db_path).read_bytes()
+    save_preferences = window._features.save
+    calls = []
+    def preference_failure(values):
+        calls.append(True)
+        if len(calls) == 2:
+            raise OSError('rollback preferences unavailable')
+        return save_preferences(values)
+    monkeypatch.setattr(window._features, 'save', preference_failure)
+    monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: (_ for _ in ()).throw(OSError('session unavailable')))
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args, **kwargs: warnings.append(str(args[2])) or QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    dialog = SettingsDialog(window)
+    dialog.controls['teacher'].setChecked(False)
+    dialog.accept()
+    assert window._restore_failed and window._busy and window._features.load_error
+    assert window.resources == original_resources
+    assert Path(window._repo._db_path).read_bytes() == database
+    assert any('preferencias' in text or 'preferences' in text for text in warnings)
+    # The cached JSON flag is stale, but cannot silently turn the saved rules off.
+    assert not window._features.enabled('teacher')
+    reopened = MainWindow(SessionRepository(window._repo._db_path), restore_session=False,
+                          feature_settings=window._features.settings)
+    assert not reopened.resources.catalog('teacher').enabled
+    reopened._restore_session_if_exists(confirm=False, show_status=False)
+    assert reopened.resources == original_resources
+    assert not reopened._restore_failed
+    reopened._unsaved = False
+    reopened.close()
+
+
+def test_postcommit_settings_presentation_failure_is_locked_and_truthful(window, monkeypatch):
+    activate(window, 'teacher')
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(window, '_apply_feature_preferences', lambda: (_ for _ in ()).throw(RuntimeError('late settings view')))
+    dialog = SettingsDialog(window)
+    dialog.controls['teacher'].setChecked(False)
+    dialog.accept()
+    assert dialog.result() == QDialog.DialogCode.Accepted
+    assert window._restore_failed and window._busy
+    assert not window._repo.load_session()['resources'].catalog('teacher').enabled
+    assert not window.resources.catalog('teacher').enabled
+    assert 'se guardó' in window.status_bar.currentMessage() or 'saved' in window.status_bar.currentMessage()

@@ -1,6 +1,8 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}': 'The session and its resource parameters did not change. Some tool preferences were saved and could not be restored. Recover settings before continuing. {detail}',
+    'Actualizar recursos': 'Update resources',
     'compact_assigned_count': {'one': '{n} assigned', 'other': '{n} assigned'},
     'compact_pending_count': {'one': '{n} pending', 'other': '{n} pending'},
     'Parámetros activos: {count}': 'Active parameters: {count}',

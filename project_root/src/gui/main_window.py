@@ -80,8 +80,8 @@ class MainWindow(QMainWindow):
                 self._restore_failed = True
 
         self._features = FeaturePreferences(feature_settings)
-        for kind in RESOURCE_KINDS:
-            self.resources = self.resources.with_catalog(replace(self.resources.catalog(kind), enabled=self._features.enabled(kind)))
+        # Resource activation belongs exclusively to the accepted SQLite
+        # session. Cached UI preference flags never activate a fresh project.
         self._motion = MotionController(self)
         self._init_ui()
         self._import = ImportController(self)
@@ -1176,20 +1176,14 @@ class MainWindow(QMainWindow):
         return self._commit_resource_change(proposed, clear_schedule=True)
 
     def _commit_resource_change(self, proposed, clear_schedule=False):
-        old = (self.resources, self.current_schedule, self.current_groups, self.pinned_group_ids)
-        self.resources = proposed
+        # Resource catalogs and activation flags use the same validated,
+        # rollback-safe unit of work as calendar edits and manual placements.
+        candidate = self._capture_edit_state()
+        candidate['resources'] = proposed
         if clear_schedule:
-            self.current_schedule, self.current_groups, self.pinned_group_ids = None, None, set()
-        if not self._save_session():
-            self.resources, self.current_schedule, self.current_groups, self.pinned_group_ids = old
-            self._update_feature_notice()
-            return False
-        if clear_schedule:
-            self.schedule_viewer.display_schedule({}, TimeModel.from_calendar(self.calendar), [], classrooms=self._classrooms)
-            self._update_export_actions()
-            self.status_bar.showMessage(msg('Parámetros actualizados. Genere un nuevo horario; los recursos registrados se conservan.'))
-        self._update_feature_notice()
-        return True
+            candidate.update(assignments=None, schedule_present=False,
+                             pinned_group_ids=set(), lab_overrides=set(), group_feedback={})
+        return self._commit_edit(candidate, 'Actualizar recursos')
 
     def _show_projects(self):
         if not self._features.enabled('project_scenarios') or self._busy or self._restore_failed:

@@ -194,3 +194,31 @@ def test_sunday_manual_save_export_and_undo_preserve_weekdays(window,tmp_path):
         else:exporter.to_excel(restored['assignments'],str(path))
         table=pd.read_csv(path) if suffix=='csv' else pd.read_excel(path,sheet_name='Asignaciones')
         assert table.iloc[0]['Día']=='Domingo'
+
+
+@pytest.mark.parametrize('after', [False, True])
+def test_calendar_presentation_failure_preserves_exact_session_and_history(window, monkeypatch, after):
+    from pathlib import Path
+    from src.application.edit_history import encoded
+    window.current_groups = None
+    assert window._save_session()
+    original = window._display_edit_state
+    calls = []
+    def fail_once(state):
+        if after or calls:
+            original(state)
+        if not calls:
+            calls.append(True)
+            raise RuntimeError('calendar renderer failed')
+    monkeypatch.setattr(window, '_display_edit_state', fail_once)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    before = encoded(window._capture_edit_state())
+    history = encoded(vars(window._history))
+    disk = Path(window._repo._db_path).read_bytes()
+    calendar = ProjectCalendar(('Martes', 'Domingo'), 0, 1440, ())
+    preview = preview_calendar_change(window.calendar, calendar, {}, [], {})
+    assert not window._apply_calendar(calendar, preview)
+    assert encoded(window._capture_edit_state()) == before
+    assert encoded(vars(window._history)) == history
+    assert Path(window._repo._db_path).read_bytes() == disk
+    assert not window._restore_failed
