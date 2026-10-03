@@ -98,7 +98,11 @@ aceptaciones por separado. No hay publicación ni firma automática.
 `Windows review build` ejecuta el commit exacto del PR en Windows x64, con permisos de lectura y acciones fijadas a SHA. Instala el lock base con verificación de hashes, ejecuta la suite, genera el PDF y prepara el compañero en un entorno aislado con su propio lock. Compila la GUI con `-McpPrepared`, ejecuta los controles del compañero y abre la GUI en Qt offscreen. La prueba importa el Excel incluido, genera en QThread, exporta Excel/CSV, verifica SQLite y captura la ventana, usando una sesión temporal separada.
 
 La misma prueba usa un perfil sintético separado para apariencia, QSettings y
-preferencias opcionales; nunca escribe preferencias normales del usuario. Comprueba
+preferencias opcionales; nunca escribe preferencias normales del usuario. Idioma,
+movimiento y lectura de preferencias heredadas reciben un QSettings con archivo
+INI explícito y fallbacks desactivados; no dependen del formato predeterminado de
+Qt ni del registro de Windows. El informe registra las rutas efectivas de cada
+consumidor dentro del perfil sintético. Comprueba
 los temas integrados con Vista previa/Cancelar/Aplicar, importa un tema JSON local,
 rechaza contenido no permitido y conserva los bytes de la sesión, permisos MCP,
 idioma y reducción de movimiento. Después inicia dos procesos nuevos del mismo

@@ -11,7 +11,6 @@ from pathlib import Path
 
 from PyQt6.QtCore import QSettings, QTimer
 
-from ..gui.main_window import MainWindow
 from ..gui.i18n import language_manager
 from ..gui.locales import LANGUAGES
 from ..infrastructure.excel_reader import ExcelReader
@@ -20,12 +19,20 @@ from ..infrastructure.session_repository import SessionRepository
 from ..scheduling.time_model import TimeModel
 
 
-def configure_smoke_profile(output_dir, *, create):
-    """Redirect every default preference store before constructing any UI.
+def smoke_settings(output_dir):
+    """Explicit INI adapter: named QSettings constructors ignore defaultFormat."""
+    path = Path(output_dir).resolve() / 'smoke-profile' / 'interface.ini'
+    settings = QSettings(str(path), QSettings.Format.IniFormat)
+    settings.setFallbacksEnabled(False)
+    return settings
 
-    This is process-local, opt-in diagnostic setup, never a normal-app setting.
-    Both QSettings scopes are redirected so registry/system fallbacks cannot leak
-    into the synthetic fixture. Refuse an unexpected path before the first write.
+
+def configure_smoke_profile(output_dir, *, create):
+    """Isolate JSON stores and explicit INI settings before constructing any UI.
+
+    Never depend on setDefaultFormat/setPath for QSettings('SORTH', 'SORTH'):
+    Qt documents that overload as NativeFormat, including the Windows registry.
+    All smoke UI consumers receive the explicit adapter with fallbacks disabled.
     """
     profile = Path(output_dir).resolve() / 'smoke-profile'
     if create:
@@ -36,16 +43,14 @@ def configure_smoke_profile(output_dir, *, create):
                         ('LOCALAPPDATA', 'config'), ('APPDATA', 'config'),
                         ('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data')):
         os.environ[key] = str(profile / folder)
-    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
-    for scope, folder in ((QSettings.Scope.UserScope, 'qt-user'),
-                          (QSettings.Scope.SystemScope, 'qt-system')):
-        QSettings.setPath(QSettings.Format.IniFormat, scope, str(profile / folder))
-    settings = QSettings('SORTH', 'SORTH')
+    settings = smoke_settings(output_dir)
     from ..gui.theme_preferences import default_theme_path
     from .mcp_preferences import default_path
     paths = (Path(settings.fileName()), default_path(), default_theme_path())
     if not all(path.resolve().is_relative_to(profile) for path in paths):
         raise RuntimeError('Smoke preferences escaped the isolated profile.')
+    if settings.format() != QSettings.Format.IniFormat or settings.fallbacksEnabled():
+        raise RuntimeError('Smoke settings must use explicit INI format without fallbacks.')
     if create:
         settings.setValue('interface/language', 'es')
         settings.setValue('interface/reduced_motion', True)
@@ -57,6 +62,60 @@ def configure_smoke_profile(output_dir, *, create):
             'mcp_server': False, 'import_diff_preview': True},
             'mcp_generation': '0' * 32}), encoding='utf-8')
     return paths
+
+
+def create_smoke_window(output_dir, *, restore_session=True):
+    """Inject only diagnostic constructors through existing settings adapters.
+
+    MainWindow's production defaults stay unchanged. Its two constructor-local
+    factories are replaced only while this synchronous smoke window is built;
+    every reopened window and fresh-process probe uses the same explicit stores.
+    """
+    from ..gui import i18n, main_window
+    from ..gui.features import FeaturePreferences
+    from ..gui.motion import MotionController
+    from .mcp_preferences import default_path
+    configure_smoke_profile(output_dir, create=False)
+    settings = smoke_settings(output_dir)
+    if i18n._manager is None:
+        i18n._manager = i18n.LanguageManager(settings=settings)
+    elif Path(i18n._manager.settings.fileName()).resolve() != Path(settings.fileName()).resolve():
+        raise RuntimeError('Smoke language manager already uses another preference store.')
+
+    def motion(parent):
+        return MotionController(parent, settings=settings)
+
+    def features(unused=None):
+        if unused is not None:
+            raise RuntimeError('Unexpected smoke feature settings override.')
+        return FeaturePreferences(settings=settings, path=default_path())
+
+    original_motion, original_features = main_window.MotionController, main_window.FeaturePreferences
+    try:
+        main_window.MotionController, main_window.FeaturePreferences = motion, features
+        return main_window.MainWindow(
+            repo=SessionRepository(str(Path(output_dir) / 'smoke-session.db')),
+            restore_session=restore_session)
+    finally:
+        main_window.MotionController, main_window.FeaturePreferences = original_motion, original_features
+
+
+def smoke_preference_paths(window, output_dir):
+    """Check the actual live consumers, not only the profile setup helper."""
+    from ..gui.theme import theme_manager
+    profile = Path(output_dir).resolve() / 'smoke-profile'
+    stores = {'language': language_manager().settings,
+              'motion': window._motion.settings,
+              'feature_legacy': window._features.settings}
+    paths = {name: Path(store.fileName()).resolve() for name, store in stores.items()}
+    paths.update(features=window._features.path.resolve(),
+                 appearance=theme_manager().preferences.path.resolve())
+    if not all(path.is_relative_to(profile) for path in paths.values()):
+        raise RuntimeError('Live smoke preferences escaped the isolated profile.')
+    if any(store.format() != QSettings.Format.IniFormat or store.fallbacksEnabled()
+           for store in stores.values()):
+        raise RuntimeError('Live smoke settings must use explicit INI format without fallbacks.')
+    return {name: str(path.relative_to(Path(output_dir).resolve())) for name, path in paths.items()}
 
 
 def run_theme_probe(app, output_dir, phase):
@@ -79,7 +138,8 @@ def run_theme_probe(app, output_dir, phase):
             if isinstance(dialog, QDialog):
                 dialog.accept()
         QTimer.singleShot(0, accept_restore)
-        window = MainWindow(repo=SessionRepository(str(output_dir / 'smoke-session.db')))
+        window = create_smoke_window(output_dir)
+        report['preference_paths'] = smoke_preference_paths(window, output_dir)
         if fingerprint(window._capture_edit_state()) != expected['domain']:
             raise RuntimeError('Fresh-process restore changed the saved schedule or inputs.')
         window.show()
@@ -130,8 +190,9 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
     result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': []}
     if result['frozen']:
         result['build_identity'] = json.loads((source_root / 'build-identity.json').read_text(encoding='utf-8'))
-    repo = SessionRepository(str(output_dir / 'smoke-session.db'))
-    window = MainWindow(repo=repo, restore_session=False)
+    window = create_smoke_window(output_dir, restore_session=False)
+    repo = window._repo
+    result['preference_paths'] = smoke_preference_paths(window, output_dir)
     window.show()
     completed = False
 

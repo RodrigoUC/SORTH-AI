@@ -6,10 +6,8 @@ from time import monotonic
 from openpyxl import Workbook, load_workbook
 from PyQt6.QtCore import QTimer, QEventLoop
 from PyQt6.QtWidgets import QApplication, QDialog
-from ..gui.main_window import MainWindow
 from ..gui.i18n import language_manager
 from ..infrastructure.excel_reader import ExcelReader, ExcelImportError
-from ..infrastructure.session_repository import SessionRepository
 from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..scheduling.time_model import TimeModel
 from .scheduling_service import SchedulingService
@@ -51,7 +49,8 @@ def verify_workflow(window, output, result):
         if isinstance(dialog, QDialog):
             dialog.accept()
     QTimer.singleShot(0, accept_restore)
-    reopened = MainWindow(repo=SessionRepository(str(output / 'smoke-session.db')))
+    from .packaged_smoke import create_smoke_window
+    reopened = create_smoke_window(output)
     try:
         if not (reopened.course_manager.get_courses()[0].name == edited_name):
             raise RuntimeError('Packaged workflow verification failed: reopened.course_manager.get_courses()[0].name == edited_name')
@@ -127,10 +126,10 @@ def verify_workflow(window, output, result):
 
 def smoke_preserved_files(output):
     """Fingerprint schedule and unrelated preferences, including MCP permission."""
-    from PyQt6.QtCore import QSettings
+    from .packaged_smoke import smoke_settings
     from .mcp_preferences import default_path
     paths = (output / 'smoke-session.db', default_path(),
-             Path(QSettings('SORTH', 'SORTH').fileName()))
+             Path(smoke_settings(output).fileName()))
     return {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in paths}
 
