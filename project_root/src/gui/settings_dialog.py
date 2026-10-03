@@ -1,5 +1,5 @@
 """Transactional preferences plus a separately confirmed local MCP preparation."""
-from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame, QSizePolicy
+from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame, QSizePolicy, QApplication
 from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox, QComboBox
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
@@ -146,6 +146,7 @@ class SettingsDialog(QDialog):
         self.save_state.setObjectName('settingsSaveState')
         self.save_state.setWordWrap(True)
         self.save_state.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.save_state.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.save_state.setAccessibleName(msg('Estado de los cambios de configuración'))
         self.save_state.setToolTip(msg('Guardar aplica las preferencias de todas las secciones en este equipo. Cancelar descarta los cambios de preferencias.'))
         outer.addWidget(self.save_state)
@@ -176,7 +177,17 @@ class SettingsDialog(QDialog):
                    self.buttons.button(QDialogButtonBox.StandardButton.Cancel)]
         for previous, following in zip(ordered, ordered[1:]):
             self.setTabOrder(previous, following)
+        QApplication.instance().focusChanged.connect(self._scroll_to_focus)
         self.section_selector.setFocus(Qt.FocusReason.TabFocusReason)
+
+    def _scroll_to_focus(self, previous, focused):
+        # Nested section widgets are not direct children of the scroller. Native
+        # tab traversal alone may leave their focused control outside the reading
+        # viewport. Follow the settled focus change for keyboard and programmatic
+        # focus (including the visible cancel action of an MCP operation).
+        if (self.isVisible() and focused is not None
+                and self.scroll.widget().isAncestorOf(focused)):
+            self.scroll.ensureWidgetVisible(focused, 0, 12)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -230,6 +241,7 @@ class SettingsDialog(QDialog):
         self.mcp_status_label.setWordWrap(True)
         self.mcp_status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.mcp_status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.mcp_status_label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.mcp_status_label.setAccessibleName(msg('Estado del complemento MCP'))
         layout.addWidget(self.mcp_status_label)
         self.mcp_check_button = QPushButton(msg('Verificar disponibilidad local de MCP'))
@@ -252,6 +264,7 @@ class SettingsDialog(QDialog):
         self.mcp_permission_label = QLabel()
         self.mcp_permission_label.setWordWrap(True)
         self.mcp_permission_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.mcp_permission_label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout.addWidget(self.mcp_permission_label)
         control.toggled.connect(self._refresh_mcp_permission)
         control.toggled.connect(lambda checked: self._check_mcp() if checked else None)

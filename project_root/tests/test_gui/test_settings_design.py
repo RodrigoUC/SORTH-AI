@@ -141,3 +141,57 @@ def test_saved_summary_resets_on_reopen(window):
     assert dialog.controls['pinned_sessions'].isChecked()
     assert dialog.save_state.property('pending') is False
     dialog.reject()
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('backwards', [False, True], ids=['Tab', 'Shift-Tab'])
+def test_keyboard_navigation_scrolls_every_section_control_into_view(window, locale, style_name, backwards):
+    app = QApplication.instance()
+    original_style = app.style().objectName()
+    manager = language_manager()
+    original_language = manager.language
+    if style_name not in QStyleFactory.keys():
+        pytest.skip(f'{style_name} is unavailable')
+    app.setStyle(style_name)
+    manager.set_language(locale, persist=False)
+    dialog = SettingsDialog(window)
+    try:
+        dialog.setStyleSheet('QPushButton, QCheckBox, QLabel, QComboBox { font-size: 20pt; }')
+        dialog.resize(460, 420)
+        dialog.show()
+        for section, feature_keys in dialog.section_features.items():
+            dialog.select_section(section)
+            settle_settings_layout(dialog)
+            dialog.section_selector.setFocus()
+            seen = []
+            modifiers = Qt.KeyboardModifier.ShiftModifier if backwards else Qt.KeyboardModifier.NoModifier
+            for _ in range(35):
+                QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Tab, modifiers)
+                settle_settings_layout(dialog)
+                focused = QApplication.focusWidget()
+                assert focused is not None and focused.isVisible()
+                if focused is dialog.section_selector:
+                    break
+                seen.append(focused)
+                if dialog.scroll.widget().isAncestorOf(focused):
+                    # No test-side ensureWidgetVisible: actual Tab/Shift+Tab must
+                    # make a focused action readable without mouse scrolling.
+                    assert dialog.scroll.viewport().rect().contains(
+                        focused.mapTo(dialog.scroll.viewport(), focused.rect().center()))
+            else:
+                pytest.fail(f'Keyboard traversal never returned to the {section} selector')
+            expected = [dialog.controls[key] for key in feature_keys]
+            if section == 'mcp':
+                expected += [dialog.mcp_status_label, dialog.mcp_check_button,
+                             dialog.mcp_prepare_button, dialog.mcp_permission_label,
+                             dialog.mcp_help_button]
+            assert all(widget in seen for widget in expected)
+            assert dialog.save_state in seen
+            assert all(not panel.isAncestorOf(widget)
+                       for key, panel in dialog.sections.items() if key != section
+                       for widget in seen)
+    finally:
+        dialog.reject()
+        app.setStyle(original_style)
+        manager.set_language(original_language, persist=False)

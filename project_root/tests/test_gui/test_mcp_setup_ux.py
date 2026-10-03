@@ -129,6 +129,8 @@ def test_ready_state_avoids_redundant_preparation_but_can_recheck(window, englis
 
 def test_check_can_be_cancelled_without_closing_settings(window, monkeypatch, english):
     dialog = SettingsDialog(window)
+    dialog.setStyleSheet('QPushButton, QCheckBox, QLabel, QComboBox { font-size: 20pt; }')
+    dialog.resize(460, 420)
     dialog.show()
     original = dialog.mcp_probe.process.start
     monkeypatch.setattr(dialog.mcp_probe.process, 'start', lambda *args: original(sys.executable, ['-c', 'import time; time.sleep(10)']))
@@ -136,8 +138,13 @@ def test_check_can_be_cancelled_without_closing_settings(window, monkeypatch, en
     assert dialog.mcp_cancel_button.isVisible()
     assert dialog.section_selector.currentData() == 'mcp'
     assert not dialog.section_selector.isEnabled()
-    assert dialog.mcp_cancel_button.text() == 'Cancel MCP check'
-    dialog.mcp_cancel_button.click()
+    assert caption_preserved_across_soft_breaks(dialog.mcp_cancel_button.text(), 'Cancel MCP check')
+    settle_settings_layout(dialog)
+    dialog.mcp_cancel_button.setFocus()
+    QApplication.processEvents()
+    assert dialog.scroll.viewport().rect().contains(
+        dialog.mcp_cancel_button.mapTo(dialog.scroll.viewport(), dialog.mcp_cancel_button.rect().center()))
+    QTest.keyClick(dialog.mcp_cancel_button, Qt.Key.Key_Space)
     deadline = time.monotonic() + 2
     while dialog.mcp_probe.active and time.monotonic() < deadline:
         QApplication.processEvents()

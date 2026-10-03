@@ -233,3 +233,9 @@ new copy. Native Qt tests visit every section at 460×420 in Fusion/Windows styl
 with both standard fonts and 20pt controls/labels; verify zero horizontal overflow,
 complete footer bounds, accessible names and keyboard cancellation. Linux captures
 are development evidence, not packaged Windows or screen-reader certification.
+
+Settings follows focus changes inside the section body with native
+ensureWidgetVisible, so Tab, Shift+Tab and programmatic MCP-cancel focus reveal
+the focused control even when it is nested in a section. Selectable MCP status,
+permission and save-state labels explicitly participate in the native tab order.
+The keyboard regression traverses every section without test-side scrolling.
