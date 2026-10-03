@@ -11,7 +11,7 @@ Para ejecutar:
 import sys
 from pathlib import Path
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from src.gui.main_window import MainWindow
 
@@ -55,12 +55,26 @@ def main():
         args = parser.parse_args()
         sys.exit(run_smoke_test(app, args.smoke_output))
 
-    window = MainWindow()
-    if not icon.isNull():
-        window.setWindowIcon(icon)
-    window.show()
-    
-    sys.exit(app.exec())
+    # Ownership must precede all repository creation, migration and restore.
+    # Keep the lock alive through the event loop, including close-time saves.
+    from src.infrastructure.session_repository import SessionRepository
+    from src.infrastructure.gui_session_lock import acquire_gui_session_lock
+    from src.gui.i18n import msg
+    try:
+        session_lock = acquire_gui_session_lock(SessionRepository.default_path())
+    except (OSError, RuntimeError):
+        QMessageBox.warning(None, str(msg('Sesión no disponible')),
+            str(msg('No se pudo obtener acceso exclusivo a la sesión. Cierre la otra ventana de SORTH y vuelva a intentarlo. Si el problema continúa, revise los permisos de la carpeta de datos o solicite ayuda. No elimine archivos de bloqueo mientras SORTH esté abierto.')))
+        sys.exit(1)
+    try:
+        window = MainWindow()
+        if not icon.isNull():
+            window.setWindowIcon(icon)
+        window.show()
+        result = app.exec()
+    finally:
+        session_lock.unlock()
+    sys.exit(result)
 
 
 if __name__ == "__main__":

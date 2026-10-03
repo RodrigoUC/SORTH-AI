@@ -12,6 +12,31 @@ Si un guardado falla al cerrar, se ofrecen **Reintentar**, **Descartar** y **Can
 
 Las rutas explícitas usadas por pruebas siguen aisladas. No se transmite información de diagnóstico.
 
+## Una ventana de edición por sesión
+
+El inicio normal de la aplicación obtiene un bloqueo exclusivo antes de abrir o
+migrar la base. Una segunda ventana que use la misma ruta canónica se rechaza
+con un aviso; no abre la sesión ni puede reemplazar cambios de la primera. El
+bloqueo dura hasta finalizar la aplicación, incluidos los guardados al cerrar.
+No es una opción configurable. Las carpetas de datos realmente independientes
+pueden usarse por separado; no se añade un selector nuevo de carpeta.
+
+El archivo `sorth_session.db.gui.lock` usa `QLockFile` de Qt, sin vencimiento por
+antigüedad. Tras un cierre abrupto, Qt puede recuperar el bloqueo de un proceso
+local terminado. Un bloqueo desconocido, malformado o de otro equipo se conserva
+y el inicio falla de forma segura. Si aparece el aviso, cierre la otra ventana y
+reintente; si persiste, revise permisos o solicite ayuda. No elimine bloqueos de
+una aplicación abierta. No se ofrece desbloqueo forzado.
+
+Esta protección es cooperativa y se limita al inicio GUI de esta versión, en un
+sistema de archivos local. Versiones antiguas, herramientas externas y llamadas
+directas al repositorio no respetan necesariamente el bloqueo. No mezcle versiones
+abiertas ni use la carpeta de sesión en una unidad de red, sincronizada o compartida
+entre contenedores. Las herramientas de recuperación que sólo leen la fuente y
+crean un candidato independiente y el smoke-test aislado no toman el bloqueo de
+la sesión habitual. La sustitución manual y la vuelta a una versión anterior
+siguen exigiendo cerrar todas las instancias y preservar los archivos originales.
+
 ## Migración sin reemplazos
 
 Si la nueva ubicación no existe, se busca la ubicación anterior: `data/sorth_session.db` junto al ejecutable, o dentro de `project_root` al ejecutar el código fuente. Se crea una copia SQLite consistente, incluyendo datos confirmados en WAL, se verifica su integridad y se publica una segunda copia independiente sin sobrescribir el destino. La fuente original nunca se elimina ni modifica. Una copia `legacy-session-*.db` permanece en la carpeta de datos nueva.

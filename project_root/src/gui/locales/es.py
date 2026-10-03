@@ -1264,3 +1264,5 @@ MESSAGES['El historial se reinició por cambios realizados con Deshacer y rehace
 MESSAGES['No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'] = 'No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'
 
 MESSAGES['El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.'] = 'El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.'
+
+MESSAGES['No se pudo obtener acceso exclusivo a la sesión. Cierre la otra ventana de SORTH y vuelva a intentarlo. Si el problema continúa, revise los permisos de la carpeta de datos o solicite ayuda. No elimine archivos de bloqueo mientras SORTH esté abierto.'] = 'No se pudo obtener acceso exclusivo a la sesión. Cierre la otra ventana de SORTH y vuelva a intentarlo. Si el problema continúa, revise los permisos de la carpeta de datos o solicite ayuda. No elimine archivos de bloqueo mientras SORTH esté abierto.'
