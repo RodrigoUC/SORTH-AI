@@ -3,15 +3,20 @@
 from math import ceil
 from pathlib import Path
 from contextlib import contextmanager
+from io import BytesIO
 import os
 import re
 import tempfile
+from zipfile import ZIP_DEFLATED, ZipFile
 
-import pandas as pd
+from openpyxl import Workbook
+from openpyxl.drawing.spreadsheet_drawing import SpreadsheetDrawing
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet._writer import WorksheetWriter
 from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.pagebreak import Break
+from openpyxl.writer.excel import ExcelWriter
 from copy import copy
 
 from ..scheduling.course_style import GRID_TEXT_COLOR, course_style
@@ -25,6 +30,7 @@ _DETAIL_COLUMNS = [
 _CLASSROOM_COLUMNS = [
     "Aula", "Código Curso", "Nombre Curso", "Grupo", "Día", "Hora Inicio", "Hora Fin",
 ]
+_PENDING_COLUMNS = ["Código Curso", "Nombre Curso", "Sesión", "Motivo"]
 _HEADER_FILL = PatternFill("solid", fgColor="1967D2")
 _HEADER_FONT = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
 _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -40,6 +46,48 @@ _THIN_BORDER = Border(
 )
 
 
+class ExcelExportLimitError(ValueError):
+    """The serialized XLSX would exceed the caller's output-size limit."""
+
+
+class _BoundedBytesIO(BytesIO):
+    """Abort archive writes before exceeding an optional caller-owned limit."""
+
+    def __init__(self, max_bytes):
+        super().__init__()
+        if max_bytes is not None and (type(max_bytes) is not int or max_bytes <= 0):
+            raise ValueError("Maximum output size must be a positive integer.")
+        self.max_bytes = max_bytes
+
+    def write(self, data):
+        if self.max_bytes is not None and self.tell() + len(data) > self.max_bytes:
+            raise ExcelExportLimitError("Excel export exceeds the maximum output size.")
+        return super().write(data)
+
+
+class _MemoryExcelWriter(ExcelWriter):
+    """Keep worksheet XML in memory as well as the final XLSX archive.
+
+    Workbook.save(BytesIO()) still creates openpyxl worksheet temporary files.
+    This small serialization adapter uses the same openpyxl writer with an
+    explicit stream instead; it never patches process-wide library behavior.
+    """
+
+    def write_worksheet(self, ws):
+        ws._drawing = SpreadsheetDrawing()
+        ws._drawing.charts = ws._charts
+        ws._drawing.images = ws._images
+        with BytesIO() as stream:
+            writer = WorksheetWriter(ws, out=stream)
+            try:
+                writer.write()
+                ws._rels = writer._rels
+                self._archive.writestr(ws.path[1:], stream.getvalue())
+                self.manifest.append(ws)
+            finally:
+                writer.close()
+
+
 class ScheduleExporter:
     def __init__(self, time_model: TimeModel):
         self.time_model = time_model
@@ -50,14 +98,55 @@ class ScheduleExporter:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         name_map = self._build_name_map(assignments, groups, course_name_by_code)
         with self._atomic_output(output_path, ".xlsx") as temporary:
-            # Own the stream lifetime: pandas can raise during save before it
-            # closes its handles. Windows cannot unlink that open temporary.
+            # Own the stream lifetime even when serialization raises. Windows
+            # cannot unlink an open temporary file during failure cleanup.
             with temporary.open("w+b") as target:
-                with pd.ExcelWriter(target, engine="openpyxl") as writer:
-                    if include_grid:
-                        self._write_grid_sheets(writer, assignments, name_map)
-                    self._write_detail_sheet(writer, assignments, name_map)
-                    self._write_by_classroom_sheet(writer, assignments, name_map)
+                self._build_workbook(assignments, name_map, include_grid).save(target)
+
+    def to_excel_bytes(self, assignments: dict, groups=None,
+                       course_name_by_code: dict = None, include_grid: bool = True,
+                       *, pending=None, status: str | None = None, notes=None,
+                       max_output_bytes: int | None = None) -> bytes:
+        """Return an XLSX without touching disk or importing CSV dependencies.
+
+        ``pending`` is a sequence of ``{"group_id": str, "reason": str}``
+        records. Supplying it (including an empty list) or a result ``status``
+        adds explicit completion counts and a pending-session sheet. A result
+        status must be ``complete`` or ``partial`` and agree with the records;
+        omitting both leaves completeness unspecified, as in legacy exports.
+        Optional text ``notes`` appear with the result metadata. A positive
+        ``max_output_bytes`` bounds the archive buffer during serialization.
+        """
+        if notes is not None and pending is None and status is None:
+            raise ValueError("Result notes require status or pending metadata.")
+        if isinstance(notes, str):
+            raise ValueError("Result notes must be a sequence of text values.")
+        notes = list(notes or [])
+        if any(not isinstance(note, str) for note in notes):
+            raise ValueError("Result notes must be text.")
+        name_map = self._build_name_map(assignments, groups, course_name_by_code)
+        book = self._build_workbook(assignments, name_map, include_grid)
+        if pending is not None or status is not None:
+            pending, status = self._result_metadata(assignments, pending, status)
+            for item in pending:
+                gid = item["group_id"]
+                if gid not in name_map:
+                    code = self._group_parts(gid)[0]
+                    name_map[gid] = (course_name_by_code or {}).get(code, "")
+            self._write_result_sheets(book, assignments, name_map, pending, status, notes)
+        with _BoundedBytesIO(max_output_bytes) as target:
+            with ZipFile(target, "w", ZIP_DEFLATED, allowZip64=True) as archive:
+                _MemoryExcelWriter(book, archive).write_data()
+            return target.getvalue()
+
+    def _build_workbook(self, assignments, name_map, include_grid):
+        book = Workbook()
+        book.remove(book.active)
+        if include_grid:
+            self._write_grid_sheets(book, assignments, name_map)
+        self._write_detail_sheet(book, assignments, name_map)
+        self._write_by_classroom_sheet(book, assignments, name_map)
+        return book
 
     def to_csv(self, assignments: dict, output_path: str,
                groups=None, course_name_by_code: dict = None) -> None:
@@ -104,7 +193,10 @@ class ScheduleExporter:
 
     # The seven column names/order and minute strings are kept for downstream
     # consumers. Explicit columns also make an empty export a usable template.
-    def _detail_dataframe(self, assignments: dict, name_map: dict) -> pd.DataFrame:
+    def _detail_dataframe(self, assignments: dict, name_map: dict):
+        # CSV retains its existing pandas contract. In-memory MCP exports need
+        # only openpyxl and the headless scheduling domain.
+        import pandas as pd
         return pd.DataFrame(
             [self._detail_row(gid, value, name_map)
              for gid, value in sorted(assignments.items(), key=self._detail_sort_key)],
@@ -125,27 +217,71 @@ class ScheduleExporter:
         }
         return {key: self._safe_text(value) for key, value in row.items()}
 
-    def _write_detail_sheet(self, writer, assignments: dict, name_map: dict):
-        self._detail_dataframe(assignments, name_map).to_excel(
-            writer, sheet_name="Asignaciones", index=False,
-        )
-        codes = [self._group_parts(gid)[0] for gid, _ in
-                 sorted(assignments.items(), key=self._detail_sort_key)]
-        self._style_table(writer.sheets["Asignaciones"], [18, 44, 20, 18, 16, 14, 14], codes)
+    def _write_detail_sheet(self, book, assignments: dict, name_map: dict):
+        ordered = sorted(assignments.items(), key=self._detail_sort_key)
+        self._write_assignment_table(book, "Asignaciones", ordered, name_map,
+                                     _DETAIL_COLUMNS, [18, 44, 20, 18, 16, 14, 14])
 
-    def _write_by_classroom_sheet(self, writer, assignments: dict, name_map: dict):
+    def _write_by_classroom_sheet(self, book, assignments: dict, name_map: dict):
         # Numeric day indices follow the TimeModel, unlike alphabetical labels.
         ordered = sorted(assignments.items(), key=lambda item: (
             self._natural_key(item[1][0]), item[1][1], item[1][2], item[1][3],
             self._natural_key(item[0]), str(item[1][0]), item[0],
         ))
-        df = pd.DataFrame(
-            [self._detail_row(gid, value, name_map) for gid, value in ordered],
-            columns=_CLASSROOM_COLUMNS,
-        )
-        df.to_excel(writer, sheet_name="Por Aula", index=False)
+        self._write_assignment_table(book, "Por Aula", ordered, name_map,
+                                     _CLASSROOM_COLUMNS, [18, 18, 44, 20, 16, 14, 14])
+
+    def _write_assignment_table(self, book, title, ordered, name_map, columns, widths):
+        ws = book.create_sheet(title)
+        ws.append(columns)
+        for gid, value in ordered:
+            row = self._detail_row(gid, value, name_map)
+            ws.append([row[column] for column in columns])
         codes = [self._group_parts(gid)[0] for gid, _ in ordered]
-        self._style_table(writer.sheets["Por Aula"], [18, 18, 44, 20, 16, 14, 14], codes)
+        self._style_table(ws, widths, codes)
+
+    @staticmethod
+    def _result_metadata(assignments, pending, status):
+        pending = list(pending or [])
+        seen = set()
+        for item in pending:
+            if (not isinstance(item, dict) or not isinstance(item.get("group_id"), str)
+                    or not isinstance(item.get("reason"), str)):
+                raise ValueError("Pending sessions require a group_id and reason.")
+            gid = item["group_id"]
+            if gid in assignments or gid in seen:
+                raise ValueError("Assigned and pending sessions must be distinct.")
+            seen.add(gid)
+        expected_status = "partial" if pending else "complete"
+        if status is not None and status != expected_status:
+            raise ValueError("Result status must agree with the pending sessions.")
+        return pending, expected_status
+
+    def _write_result_sheets(self, book, assignments, name_map, pending, status, notes):
+        ws = book.create_sheet("Estado", 0)
+        ws.append(["Resultado", "Valor"])
+        ws.append(["Estado", status])
+        ws.append(["Sesiones asignadas", len(assignments)])
+        ws.append(["Sesiones pendientes", len(pending)])
+        ws.append(["Sesiones totales", len(assignments) + len(pending)])
+        for note in notes:
+            ws.append(["Nota", self._safe_text(note)])
+        self._style_table(ws, [28, 80], [""] * (4 + len(notes)))
+        for row in range(3, 6):
+            ws.cell(row, 2).number_format = "0"
+
+        ws = book.create_sheet("Pendientes")
+        ws.append(_PENDING_COLUMNS)
+        ordered = sorted(pending, key=lambda item: (self._natural_key(item["group_id"]),
+                                                   item["group_id"]))
+        codes = []
+        for item in ordered:
+            gid = item["group_id"]
+            code = self._group_parts(gid)[0]
+            codes.append(code)
+            ws.append([self._safe_text(value) for value in
+                       [code, name_map.get(gid, ""), gid, item["reason"]]])
+        self._style_table(ws, [18, 44, 24, 72], codes)
 
     def _style_table(self, ws, widths, course_codes):
         ws.sheet_view.showGridLines = False
@@ -177,7 +313,7 @@ class ScheduleExporter:
         self._configure_print(ws, "1:1")
 
     # One visual sheet per classroom, with exact-minute row boundaries.
-    def _write_grid_sheets(self, writer, assignments: dict, name_map: dict):
+    def _write_grid_sheets(self, book, assignments: dict, name_map: dict):
         by_classroom: dict[str, list] = {}
         for gid, (classroom, day, start, end) in assignments.items():
             by_classroom.setdefault(classroom, []).append((gid, day, start, end))
@@ -187,10 +323,10 @@ class ScheduleExporter:
             sheet_name = self._safe_sheet_name(room_label, used)
             used.add(sheet_name)
             self._write_single_grid(
-                writer, sheet_name, classroom, by_classroom[classroom], name_map,
+                book, sheet_name, classroom, by_classroom[classroom], name_map,
             )
 
-    def _write_single_grid(self, writer, sheet_name, classroom,
+    def _write_single_grid(self, book, sheet_name, classroom,
                            entries, name_map):
         days = self.time_model.days
         # Print only the occupied time range; exact sessions use the same
@@ -198,7 +334,7 @@ class ScheduleExporter:
         grid = build_schedule_grid(
             entries, min(entry[2] for entry in entries), max(entry[3] for entry in entries),
         )
-        ws = writer.book.create_sheet(sheet_name)
+        ws = book.create_sheet(sheet_name)
         n_cols = len(days) + 1
         header_row = 2
         first_data_row = header_row + 1
