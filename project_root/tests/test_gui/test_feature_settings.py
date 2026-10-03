@@ -62,8 +62,8 @@ def test_cancel_and_escape_do_not_write(window):
 
 def test_save_shows_features_then_restart_restores(window, tmp_path):
     dialog = SettingsDialog(window)
-    for control in dialog.controls.values():
-        control.setChecked(True)
+    for key, control in dialog.controls.items():
+        control.setChecked(key != 'mcp_server')
     dialog.accept()
     assert not window.btn_projects.isHidden()
     assert all(not control.isHidden() for control in window.schedule_viewer._pin_controls)

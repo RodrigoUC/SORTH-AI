@@ -1,6 +1,25 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.': 'MCP permission changed outside this dialog. Its checkbox has been refreshed; review the changes before saving.',
+    'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.': 'Wait for the operation to finish or recover the session before saving settings.',
+    'Guarda primero los cambios de recursos y después activa MCP. No se han guardado cambios.': 'Save resource changes first, then enable MCP. No changes have been saved.',
+
+    'Permitir servidor MCP local': 'Allow local MCP server',
+    'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.': 'Allow a client to start the stdio server. This does not start processes, connect models or install components.',
+    'Disponibilidad MCP sin verificar en este entorno.': 'MCP availability has not been checked in this environment.',
+    'Verificar disponibilidad local de MCP': 'Check local MCP availability',
+    'Verificando componentes locales de MCP…': 'Checking local MCP components…',
+    'MCP disponible en este entorno. El cliente inicia el servidor; Guardar no lo inicia.': 'MCP is available in this environment. The client starts the server; Save does not start it.',
+    'Falta el SDK MCP opcional en este entorno. No se ha instalado nada.': 'The optional MCP SDK is missing in this environment. Nothing has been installed.',
+    'Versión MCP incompatible. Se requiere mcp 1.30.0; no se ha cambiado nada.': 'Incompatible MCP version. mcp 1.30.0 is required; nothing has been changed.',
+    'Este EXE no incluye el servidor MCP opcional. Usa el código fuente y un entorno Python separado según MCP_OPTIONAL.md.': 'This EXE does not include the optional MCP server. Use the source code and a separate Python environment as described in MCP_OPTIONAL.md.',
+    'No se pudieron cargar los componentes MCP. Revisa el entorno siguiendo MCP_OPTIONAL.md.': 'MCP components could not be loaded. Check the environment using MCP_OPTIONAL.md.',
+    'La verificación MCP agotó el tiempo. Puedes volver a intentarlo.': 'The MCP check timed out. You can try again.',
+    'Verificación MCP cancelada.': 'MCP check cancelled.',
+    'Verifica que MCP esté disponible antes de activarlo. No se han guardado cambios.': 'Check that MCP is available before enabling it. No changes have been saved.',
+    'Desactivar MCP bloquea nuevos inicios y solicitudes y descarta resultados pendientes. El cliente cierra el proceso stdio; una tarea en curso puede tardar hasta 10 segundos. La verificación solo comprueba este entorno; el EXE estándar no incluye MCP. Consulta MCP_OPTIONAL.md para un entorno Python separado.': 'Disabling MCP blocks new starts and requests and discards pending results. The client closes the stdio process; an in-flight task may take up to 10 seconds. The check only tests this environment; the standard EXE does not include MCP. See MCP_OPTIONAL.md for a separate Python environment.',
+
     'La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}': 'The session and its resource parameters did not change. Some tool preferences were saved and could not be restored. Recover settings before continuing. {detail}',
     'Actualizar recursos': 'Update resources',
     'compact_assigned_count': {'one': '{n} assigned', 'other': '{n} assigned'},
