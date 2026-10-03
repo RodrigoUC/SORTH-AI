@@ -280,3 +280,80 @@ def test_reader_limits_remain_enforced(tmp_path, monkeypatch):
     path = workbook(tmp_path/'input.xlsx', count=101)
     monkeypatch.setattr(ExcelReader, 'MAX_DATA_ROWS', 100)
     with pytest.raises(ExcelImportError, match='límite'): read_candidate(path, lambda: False)
+
+
+def test_file_changed_during_read_is_rejected(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from src.infrastructure import import_candidate
+    path = workbook(tmp_path/'input.xlsx')
+    original = import_candidate.os.stat
+    def changed(path, *args, **kwargs):
+        result = original(path, *args, **kwargs)
+        return SimpleNamespace(st_dev=result.st_dev, st_ino=result.st_ino, st_size=result.st_size,
+                               st_mtime_ns=result.st_mtime_ns+1, st_ctime_ns=result.st_ctime_ns)
+    monkeypatch.setattr(import_candidate.os, 'stat', changed)
+    with pytest.raises(ExcelImportError, match='cambió mientras'):
+        read_candidate(path, lambda: False)
+
+
+def test_close_inside_preview_never_applies_accepted_late_result(window, tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx')
+    before = session(window)
+    enable_preview(window)
+    def review(dialog):
+        window.close()
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(ImportPreviewDialog, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    assert session(window) == before
+    assert window._import.closing
+
+
+def test_reduced_motion_uses_static_import_progress(window, tmp_path):
+    path = workbook(tmp_path/'input.xlsx')
+    window._set_reduced_motion(True)
+    window._import.start(path)
+    assert window._progress.maximum() == 1
+    assert window._progress.accessibleName()
+    window._import.cancel()
+    wait_for_import(window)
+    assert not window._progress.isVisible()
+
+
+def test_opening_new_picker_invalidates_old_candidate_before_nested_events(window, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QFileDialog
+    path = workbook(tmp_path/'input.xlsx')
+    candidate = read_candidate(path, lambda: False)
+    before = session(window)
+    window._import.start(path)
+    old_token = window._import.token
+    def picker(*args):
+        window._import._result(old_token, candidate, True)
+        return '', ''
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', picker)
+    window._load_excel()
+    wait_for_import(window)
+    assert session(window) == before
+
+
+@pytest.mark.parametrize('accept', [False, True])
+def test_real_warning_dialog_nested_event_loop_and_thread_cleanup(window, tmp_path, monkeypatch, accept):
+    path = workbook(tmp_path/'warnings.xlsx')
+    # A harmless missing preference generates the normal import warning.
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': ['R'], 'CAPACIDAD': [30]}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': ['BIO'], 'Aula': ['MISSING']}).to_excel(writer, sheet_name='Cursos', index=False)
+    original_exec = QMessageBox.exec
+    before = session(window)
+    def review(dialog):
+        QTimer.singleShot(20, lambda: dialog.done(int(QMessageBox.StandardButton.Ok if accept else QMessageBox.StandardButton.Cancel)))
+        return original_exec(dialog)
+    monkeypatch.setattr(QMessageBox, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    if accept:
+        assert window.excel_path == path
+        assert window.pinned_group_ids == {'BIO-G1'}
+    else:
+        assert session(window) == before

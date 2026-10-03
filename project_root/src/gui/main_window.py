@@ -345,6 +345,8 @@ class MainWindow(QMainWindow):
     def _load_excel(self):
         if (self._busy and not self._import.active) or self._import.closing:
             return
+        if self._import.active:
+            self._import.cancel()
         file_path, _ = QFileDialog.getOpenFileName(
             self, msg('Seleccionar archivo Excel'), "", msg('Libro de Excel (*.xlsx)'))
         if file_path:

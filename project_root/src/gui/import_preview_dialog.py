@@ -10,10 +10,30 @@ FIELD_LABELS = {
     'name': 'Nombre', 'number_of_groups': 'Grupos', 'duration_min': 'Duración (minutos)',
     'required_room_type': 'Tipo de aula requerido', 'size': 'Estudiantes',
     'suggested_classroom': 'Aula sugerida', 'preferred_day': 'Día preferido',
-    'preferred_start_min': 'Inicio preferido (minutos)', 'group_suggestions': 'Preferencias por grupo',
+    'preferred_start_min': 'Hora preferida', 'group_suggestions': 'Preferencias por grupo',
     'force_split': 'División de sesiones', 'capacity': 'Capacidad', 'room_type': 'Tipo de aula',
     'description': 'Descripción', 'campus': 'Campus',
 }
+
+
+def display_value(field, value):
+    if value is None:
+        return msg('Sin valor')
+    if isinstance(value, bool):
+        return msg('Sí') if value else msg('No')
+    if field == 'preferred_start_min':
+        return TimeModel.minutes_to_hhmm(value)
+    if field == 'preferred_day':
+        return msg(value)
+    if field == 'group_suggestions':
+        if not value:
+            return msg('Sin valor')
+        return '\n      '.join(str(msg('Grupo {number}: aula {room}, día {day}, hora {time}',
+                                  number=index, room=display_value('suggested_classroom', group.get('aula')),
+                                  day=display_value('preferred_day', group.get('preferred_day')),
+                                  time=display_value('preferred_start_min', group.get('preferred_start_min'))))
+                               for index, group in enumerate(value, 1))
+    return str(value)
 
 
 class ImportPreviewDialog(QDialog):
@@ -63,7 +83,8 @@ class ImportPreviewDialog(QDialog):
                         for field in change.changed[key]:
                             sections.append(str(msg('    {field}: {before} → {after}',
                                                     field=msg(FIELD_LABELS[field]),
-                                                    before=getattr(old[key], field), after=getattr(new[key], field))))
+                                                    before=display_value(field, getattr(old[key], field)),
+                                                    after=display_value(field, getattr(new[key], field)))))
         restrictions = window.classroom_restrictions
         sections.append(str(msg('Restricciones que se borrarán: {count}', count=len(restrictions))))
         sections.extend('  ' + room + ': ' + ', '.join(sorted(codes)) for room, codes in sorted(restrictions.items()))

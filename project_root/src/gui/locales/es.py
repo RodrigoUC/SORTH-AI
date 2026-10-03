@@ -1,6 +1,9 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Sin valor': 'Sin valor',
+    'Grupo {number}: aula {room}, día {day}, hora {time}': 'Grupo {number}: aula {room}, día {day}, hora {time}',
+
     'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.',
     'Herramientas de sesiones fijadas': 'Herramientas de sesiones fijadas',
     'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.',

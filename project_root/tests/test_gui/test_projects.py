@@ -139,7 +139,7 @@ def test_unrenderable_seed_preserves_disk_and_gui(window, monkeypatch):
 
 
 def test_open_scenario_restores_pins_and_explicit_lab_exceptions(window, monkeypatch):
-    window._features.save({'pinned_sessions': True, 'project_scenarios': True})
+    window._features.save({**window._features.values(), 'pinned_sessions': True, 'project_scenarios': True})
     window._apply_feature_preferences()
     window.course_manager.load_courses_from_excel([Course('LAB', 1, 60, 'LAB')])
     groups = window.course_manager.get_courses()[0].generate_groups()

@@ -4,13 +4,13 @@ import pytest
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMessageBox
 from src.gui import features
-from src.gui.features import FeaturePreferences
+from src.gui.features import FeaturePreferences, FEATURES
 from src.gui.settings_dialog import SettingsDialog
 from src.gui.main_window import MainWindow
 from src.infrastructure.session_repository import SessionRepository
 
-OFF = {'pinned_sessions': False, 'project_scenarios': False}
-ON = {'pinned_sessions': True, 'project_scenarios': True}
+OFF = {feature.key: False for feature in FEATURES}
+ON = {feature.key: True for feature in FEATURES}
 
 
 def preferences(tmp_path):
@@ -53,7 +53,7 @@ def test_corrupt_future_json_requires_explicit_recovery(tmp_path, raw):
 @pytest.mark.parametrize('failure', ['open', 'write', 'commit'])
 def test_atomic_io_failure_keeps_exact_bytes_and_committed_flags(tmp_path, monkeypatch, failure):
     prefs = preferences(tmp_path)
-    prefs.save({'pinned_sessions': True, 'project_scenarios': False})
+    prefs.save({**prefs.values(), 'pinned_sessions': True, 'project_scenarios': False})
     original, committed = prefs.path.read_bytes(), prefs.values()
     real = features.QSaveFile
     class FailedSave:
