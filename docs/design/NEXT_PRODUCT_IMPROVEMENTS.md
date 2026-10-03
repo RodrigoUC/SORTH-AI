@@ -10,9 +10,11 @@ sesiones y escenarios, que ya tienen trabajo específico.
 
 ### 1. Cancelar generación con seguridad
 
-El `SchedulerWorker.run()` sólo emite resultado/error; `MainWindow` espera su
-finalización. Añadir Cancelar y estado «Cancelando», comprobaciones cooperativas
-en bucles de dominios/grupos y un resultado cancelado diferente de error.
+La integración de sesiones fijadas ya añade Cancelar y estado «Cancelando»:
+descarta el resultado y espera a que el trabajador termine, conservando el horario
+anterior. La mejora pendiente es interrumpir el cálculo de forma cooperativa
+mediante comprobaciones en bucles de dominios/grupos y un resultado cancelado
+diferente de error.
 El horario anterior no cambia hasta aceptar un resultado completo y validado.
 No usar terminación forzada del hilo.
 
