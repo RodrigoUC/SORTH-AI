@@ -14,3 +14,15 @@ from PyQt6.QtWidgets import QApplication
 def _qt_application_lifetime():
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+@pytest.fixture(autouse=True)
+def _qt_test_widget_lifetime(_qt_application_lifetime):
+    from tests.qt_lifecycle import dispose_test_widgets
+
+    app = _qt_application_lifetime
+    # Module/session fixtures have already been constructed. Retain their
+    # wrappers too, so incidental GC cannot destroy an existing fixture owner.
+    previous_widgets = set(app.topLevelWidgets())
+    yield
+    dispose_test_widgets(app, previous_widgets)
