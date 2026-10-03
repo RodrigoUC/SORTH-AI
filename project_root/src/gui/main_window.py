@@ -265,7 +265,7 @@ class MainWindow(QMainWindow):
         text.setPlainText('\n\n'.join(filter(None, (
             self.status_bar.currentMessage(), self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
-            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._save_error))))
+            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(), self._save_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
@@ -1667,10 +1667,13 @@ class MainWindow(QMainWindow):
             self._compact_resource_actions[kind].setEnabled(not self._busy and not self._restore_failed)
         self._compact_summary_action.setEnabled(viewer._btn_summary.isEnabled())
         self._compact_clear_action.setEnabled(viewer._btn_clear_schedule.isEnabled() and not self._busy)
-        self._compact_summary.setText(join_messages(' · ', (
-            msg('{assigned} asignadas, {pending} pendientes', assigned=len(self.current_schedule or {}),
-                pending=max(0, len(self.current_groups or [])-len(self.current_schedule or {}))),
-            msg('Recursos activos: {count}', count=sum(c.enabled for c in self.resources.catalogs)))))
+        summary = [join_messages(', ', (
+            plural('compact_assigned_count', len(self.current_schedule or {})),
+            plural('compact_pending_count', max(0, len(self.current_groups or [])-len(self.current_schedule or {}))))),
+            msg('Parámetros activos: {count}', count=sum(c.enabled for c in self.resources.catalogs))]
+        if self.calendar != ProjectCalendar():
+            summary.append(msg('Calendario personalizado'))
+        self._compact_summary.setText(join_messages(' · ', summary))
         self._compact_summary.setToolTip(self._feature_notice.text())
         self._compact_summary.setAccessibleDescription(self._feature_notice.text())
 

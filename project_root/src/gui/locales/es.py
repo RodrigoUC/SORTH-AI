@@ -1,9 +1,12 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'compact_assigned_count': {'one': '{n} asignada', 'other': '{n} asignadas'},
+    'compact_pending_count': {'one': '{n} pendiente', 'other': '{n} pendientes'},
+    'Parámetros activos: {count}': 'Parámetros activos: {count}',
+    'Calendario personalizado': 'Calendario personalizado',
+
     'Herramientas del horario (F7)': 'Herramientas del horario (F7)',
-    '{assigned} asignadas, {pending} pendientes': '{assigned} asignadas, {pending} pendientes',
-    'Recursos activos: {count}': 'Recursos activos: {count}',
 
     '{name}: {state} ({count})': '{name}: {state} ({count})',
     'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.',

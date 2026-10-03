@@ -29,7 +29,9 @@ def test_compact_schedule_retains_four_readable_rows_and_actions(window, languag
         assert table.viewport().height() >= 4 * table.rowHeight(0)
         assert window.overview_label.isHidden()
         assert not window._compact_tools.isHidden()
-        assert window._compact_summary.text()
+        assert ('Calendario personalizado' if language == 'es' else 'Custom calendar') in window._compact_summary.text()
+        assert ('Parámetros activos: 3' if language == 'es' else 'Active parameters: 3') in window._compact_summary.text()
+        assert ('1 asignada' if language == 'es' else '1 assigned') in window._compact_summary.text()
         menu = window._compact_tools_button.menu()
         observed = []
         def inspect_menu():
