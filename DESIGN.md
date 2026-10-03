@@ -46,3 +46,15 @@ automatic detection of the operating system's reduced-motion setting.
 Motion QA uses real Qt event-loop tests, recorded Qt frames, and screenshots at
 1200×800 and 960×640; screenshots alone cannot establish animation behavior.
 Native Windows timing and screen-reader announcement behavior require platform QA.
+
+## Keyboard and assistive-technology support
+Tables use arrow keys for cell navigation and Tab/Shift+Tab to leave; sortable
+columns support Ctrl+Shift+Up/Down. Selection follows course/session identity
+through supported row refreshes. Form labels supply accessible names; compound
+inputs and checkable restriction lists have explicit ES/EN names. Focus rings
+also cover tables, lists, time fields, checkboxes and selectable feedback.
+The status-bar **Leer estado (F6)** action opens a keyboard-readable snapshot of
+progress, save state, totals and errors, with focus returned on close. This is
+an explicit fallback, not a claim of live screen-reader announcement support.
+See `project_root/ACCESSIBILITY.md` for inventory, shortcuts and outstanding
+Windows acceptance; do not declare issue #11 complete from offscreen tests.
