@@ -180,3 +180,16 @@ def test_missing_course_code_with_alias_values_is_rejected(tmp_path):
     path = workbook(tmp_path, courses={'Curso': ['BIO', ''], 'Horas sugeridas': ['', '0800-0900']})
     with pytest.raises(ExcelImportError, match='fila 3: falta Curso'):
         ExcelReader(str(path)).load_validated()
+
+
+@pytest.mark.parametrize('room', ['nan', 'NaN', 'NAN'])
+def test_literal_nan_room_identifier_keeps_preferences_and_restrictions(tmp_path, room):
+    path = workbook(tmp_path, rooms={'# DE AULA': [room], 'CAPACIDAD': [30]},
+                    courses={'Curso': ['BIO'], 'Aula': [room]})
+    result = ExcelReader(str(path)).load_validated()
+    course, = result.courses
+    assert course.suggested_classroom == room
+    assert course.group_suggestions[0]['aula'] == room
+    assert course.generate_groups()[0].suggested_classroom == room
+    assert result.classroom_course_map == {room: ['BIO']}
+    assert not result.warnings

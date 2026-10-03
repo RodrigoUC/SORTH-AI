@@ -495,7 +495,7 @@ class ExcelReader:
 
             aula_raw = self._get(row, col_map, "aula")
             aula = self._identifier(aula_raw) if aula_raw is not None else None
-            if aula and aula.lower() in ("nan", "-", ""):
+            if aula == "-":
                 aula = None
             # Ignore aula references that don't exist in the classrooms sheet
             if aula and aula not in known_classrooms:
@@ -579,7 +579,7 @@ class ExcelReader:
             code = str(code_raw).strip()
             aula = self._identifier(aula_raw)
 
-            if not code or not aula or aula.lower() in ("nan", "-", ""):
+            if not code or not aula or aula == "-":
                 continue
             if aula not in known_classrooms:
                 continue
