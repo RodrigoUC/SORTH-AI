@@ -1,5 +1,6 @@
 """Overwrite consent must cover the resolved destination, not just picker input."""
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QTimer
@@ -128,7 +129,7 @@ def test_real_qt_picker_suffixless_collision_preserves_bytes(
         QTimer.singleShot(0, picker.accept)
         assert picker.exec() == QDialog.DialogCode.Accepted
         assert picker.defaultSuffix() == ''
-        assert picker.selectedFiles() == [str(tmp_path / 'report')]
+        assert [Path(path) for path in picker.selectedFiles()] == [tmp_path / 'report']
         return picker.selectedFiles()[0], picker.selectedNameFilter()
     prompts = []
     def decline(dialog):
@@ -209,6 +210,7 @@ def test_resolved_symlink_destination_needs_consent(
         target.symlink_to(referent)
     except (OSError, NotImplementedError):
         pytest.skip('Creating symlinks is unavailable on this host')
+    original_link = target.readlink()
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
                         lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
     prompts = []
@@ -222,7 +224,7 @@ def test_resolved_symlink_destination_needs_consent(
     if approve:
         assert not target.is_symlink() and target.stat().st_size
     else:
-        assert target.is_symlink() and target.readlink() == referent
+        assert target.is_symlink() and target.readlink() == original_link
     assert referent.exists() is not dangling
     if not dangling:
         assert referent.read_bytes() == b'linked original'
