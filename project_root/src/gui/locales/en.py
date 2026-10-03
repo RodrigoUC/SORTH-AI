@@ -1031,3 +1031,146 @@ MESSAGES.update({'Domingo': 'Sunday'})
 MESSAGES['Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'] = 'The original file will be preserved and optional tools will be reset. Session resource parameters, timetables, pins and scenarios will not change. Continue?'
 
 MESSAGES["Curso"] = 'Course'
+MESSAGES.update({'Deshacer': 'Undo',
+ 'Rehacer': 'Redo',
+ 'Deshacer y rehacer': 'Undo and redo',
+ 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.': 'Revert '
+                                                                                                                     'local '
+                                                                                                                     'changes '
+                                                                                                                     'in '
+                                                                                                                     'this '
+                                                                                                                     'session. '
+                                                                                                                     'Up '
+                                                                                                                     'to '
+                                                                                                                     '50 '
+                                                                                                                     'changes '
+                                                                                                                     'or '
+                                                                                                                     '16 '
+                                                                                                                     'MiB; '
+                                                                                                                     'importing '
+                                                                                                                     'or '
+                                                                                                                     'restoring '
+                                                                                                                     'resets '
+                                                                                                                     'history.',
+ 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.': 'Undo the last '
+                                                                                              'change '
+                                                                                              '(Ctrl+Z). '
+                                                                                              'Session '
+                                                                                              'history: up '
+                                                                                              'to 50 changes '
+                                                                                              'or 16 MiB.',
+ 'Rehacer el último cambio (Ctrl+Shift+Z).': 'Redo the last change (Ctrl+Shift+Z).',
+ 'Cambio no aplicado': 'Change not applied',
+ 'Se conservan los datos, el horario y el historial. {detail}': 'Data, schedule and history are preserved. '
+                                                                '{detail}',
+ 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.': 'The session has changed since review. '
+                                                                    'Review the change again.',
+ 'Cambio guardado.': 'Change saved.',
+ 'Cambio deshecho.': 'Change undone.',
+ 'Cambio rehecho.': 'Change redone.',
+ 'Historial reiniciado al importar o restaurar una sesión.': 'History reset after importing or restoring a '
+                                                             'session.',
+ 'El historial se reinició por cambios fuera del historial.': 'History reset because of changes outside '
+                                                              'history.',
+ 'No hay cambios disponibles en el historial.': 'No changes are available in history.',
+ 'El cambio supera el límite de memoria del historial. No se aplicó.': 'The change exceeds the history '
+                                                                       'memory limit. It was not applied.',
+ 'Los códigos de curso deben ser únicos y no estar vacíos.': 'Course codes must be unique and nonempty.',
+ 'Datos de curso no válidos: {code}.': 'Invalid course data: {code}.',
+ 'Las sesiones fijadas deben conservar una asignación válida.': 'Pinned sessions must retain a valid '
+                                                                'assignment.',
+ 'Las excepciones LAB deben corresponder a sesiones asignadas.': 'LAB exceptions must belong to assigned '
+                                                                 'sessions.',
+ 'El cambio no es válido. Revise las asignaciones y las restricciones.': 'The change is invalid. Review '
+                                                                         'assignments and restrictions.',
+ 'Desfije las sesiones afectadas antes de editar los cursos.': 'Unpin affected sessions before editing '
+                                                               'courses.',
+ '¿Eliminar todos los cursos de la lista?': 'Remove all courses from the list?'})
+
+MESSAGES.update({'Edición de cursos en lote': 'Bulk course editing',
+ 'Cambiar campos seleccionados con revisión previa. Requiere activar Deshacer y rehacer.': 'Change selected '
+                                                                                           'fields after '
+                                                                                           'preview. '
+                                                                                           'Requires Undo '
+                                                                                           'and redo to be '
+                                                                                           'enabled.',
+ 'Editar en lote': 'Bulk edit',
+ 'Editar cursos en lote': 'Edit courses in bulk',
+ 'Seleccione cursos y active Deshacer y rehacer en Configuración.': 'Select courses and enable Undo and redo '
+                                                                    'in Settings.',
+ 'Seleccione al menos un curso; no repita identificadores.': 'Select at least one course; do not repeat '
+                                                             'identifiers.',
+ 'Marque los campos que desea cambiar. Los códigos no se pueden editar en lote.': 'Select the fields to '
+                                                                                  'change. Course codes '
+                                                                                  'cannot be edited in bulk.',
+ 'El tamaño debe ser un entero entre 0 y 100000.': 'Size must be a whole number between 0 and 100000.',
+ 'Seleccione un tipo de aula válido.': 'Select a valid room type.',
+ 'Seleccione un día válido o borre la preferencia explícitamente.': 'Select a valid day or explicitly clear '
+                                                                    'the preference.',
+ 'La selección cambió. Cierre y vuelva a seleccionar los cursos.': 'The selection changed. Close and select '
+                                                                   'the courses again.',
+ 'Los valores elegidos no cambian ningún curso.': 'The selected values do not change any course.',
+ 'Active Deshacer y rehacer en Configuración antes de editar en lote.': 'Enable Undo and redo in Settings '
+                                                                        'before editing in bulk.',
+ 'La sesión o selección cambió desde la revisión. Vuelva a revisar el lote.': 'The session or selection '
+                                                                              'changed since review. Review '
+                                                                              'the batch again.',
+ 'Tipo de aula': 'Room type',
+ 'Tamaño': 'Size',
+ 'Día preferido': 'Preferred day',
+ 'Cursos seleccionados: {count}. Identificadores: {codes}': 'Selected courses: {count}. IDs: {codes}',
+ 'Marque solo los campos que desea cambiar. Sin marcar conserva el valor de cada curso.': 'Check only the '
+                                                                                          'fields to change. '
+                                                                                          'Unchecked fields '
+                                                                                          'keep each '
+                                                                                          'course’s current '
+                                                                                          'value.',
+ 'Borrar preferencia': 'Clear preference',
+ 'Valores mezclados': 'Mixed values',
+ 'Conservar valor': 'Keep value',
+ 'Vista previa de cambios por código': 'Changes preview by code',
+ 'Campo': 'Field',
+ 'Antes': 'Before',
+ 'Después': 'After',
+ 'Revise el lote antes de aplicarlo.': 'Review the batch before applying it.',
+ 'Impacto en horario y restricciones': 'Impact on schedule and constraints',
+ 'Error de edición en lote': 'Bulk edit error',
+ 'Revisar cambios': 'Review changes',
+ 'Aplicar lote': 'Apply batch',
+ 'Sin preferencia': 'No preference',
+ 'Se dejarán pendientes {pending} asignaciones no fijadas. Se conservan {pins} sesiones fijadas y todas las restricciones. Las preferencias por grupo se conservan y pueden prevalecer sobre el día del curso.': '{pending} '
+                                                                                                                                                                                                                 'unpinned '
+                                                                                                                                                                                                                 'assignments '
+                                                                                                                                                                                                                 'will '
+                                                                                                                                                                                                                 'become '
+                                                                                                                                                                                                                 'pending. '
+                                                                                                                                                                                                                 '{pins} '
+                                                                                                                                                                                                                 'pinned '
+                                                                                                                                                                                                                 'sessions '
+                                                                                                                                                                                                                 'and '
+                                                                                                                                                                                                                 'all '
+                                                                                                                                                                                                                 'constraints '
+                                                                                                                                                                                                                 'are '
+                                                                                                                                                                                                                 'preserved. '
+                                                                                                                                                                                                                 'Per-group '
+                                                                                                                                                                                                                 'preferences '
+                                                                                                                                                                                                                 'are '
+                                                                                                                                                                                                                 'kept '
+                                                                                                                                                                                                                 'and '
+                                                                                                                                                                                                                 'may '
+                                                                                                                                                                                                                 'override '
+                                                                                                                                                                                                                 'the '
+                                                                                                                                                                                                                 'course '
+                                                                                                                                                                                                                 'day.',
+ 'La herramienta no está disponible. Cierre el diálogo y revise Configuración.': 'This tool is unavailable. '
+                                                                                 'Close the dialog and check '
+                                                                                 'Settings.',
+ 'No se pudo guardar el lote. Se conservan todos los datos. {detail}': 'The batch could not be saved. All '
+                                                                       'data is preserved. {detail}',
+ 'Lote guardado. Puede deshacerlo en una sola operación.': 'Batch saved. You can undo it in one operation.'})
+
+MESSAGES['Cursos seleccionados'] = 'Selected courses'
+
+MESSAGES['El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'] = 'History was reset by changes made while Undo and redo was disabled.'
+
+MESSAGES['No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'] = 'The view could not be restored. Data was preserved; retry session recovery. {detail}'

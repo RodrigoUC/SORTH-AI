@@ -200,6 +200,10 @@ class MainWindow(QMainWindow):
         self.btn_redo.clicked.connect(lambda: self._travel_history(False))
         self.course_manager.edit_actions.insertWidget(3, self.btn_undo)
         self.course_manager.edit_actions.insertWidget(4, self.btn_redo)
+        self.btn_bulk = QPushButton(msg('Editar en lote'))
+        self.btn_bulk.clicked.connect(self._show_bulk_edit)
+        self.course_manager.edit_actions.insertWidget(5, self.btn_bulk)
+        self.course_manager.table.itemSelectionChanged.connect(self._update_history_actions)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
         self._status_action = QAction(msg('Leer estado (F6)'), self)
         self._status_action.setShortcut('F6')
@@ -783,6 +787,20 @@ class MainWindow(QMainWindow):
         self._redo_action.setEnabled(active and self._history.can_redo)
         self.btn_undo.setEnabled(self._undo_action.isEnabled())
         self.btn_redo.setEnabled(self._redo_action.isEnabled())
+        if hasattr(self, 'btn_bulk'):
+            bulk = self._features.enabled('bulk_operations')
+            self.btn_bulk.setVisible(bulk)
+            self.btn_bulk.setEnabled(bulk and active and bool(self.course_manager.selected_course_codes()))
+            self.btn_bulk.setToolTip(msg('Seleccione cursos y active Deshacer y rehacer en Configuración.'))
+            table = self.course_manager.table
+            table.setSelectionMode(table.SelectionMode.ExtendedSelection if bulk else table.SelectionMode.SingleSelection)
+
+    def _show_bulk_edit(self):
+        if (not self._features.enabled('bulk_operations') or not self._features.enabled('undo_redo')
+                or self._busy or self._restore_failed):
+            return
+        from .bulk_course_dialog import BulkCourseDialog
+        BulkCourseDialog(self).exec()
 
     def _capture_edit_state(self):
         return deepcopy(dict(
@@ -801,15 +819,71 @@ class MainWindow(QMainWindow):
     def _persist_edit_state(self, state):
         if self._repo is None or self._restore_failed:
             raise OSError(msg('Sesión no disponible'))
+        before = self._capture_edit_state()
+        courses, assignments, groups = (self.course_manager.courses,
+                                        self.current_schedule, self.current_groups)
+        group_values = [(group, deepcopy(vars(group))) for group in (groups or [])]
+        model_references = {key: getattr(self, key) for key in (
+            '_classrooms', 'classroom_restrictions', 'excel_path', '_classroom_course_map',
+            'resources', 'calendar') if hasattr(self, key)}
+        bookkeeping = {key: getattr(self, key) for key in (
+            '_unsaved', '_save_error', '_scenario_dirty', '_preserve_previous', '_loading')}
+        materialized = False
+
+        def restore_references():
+            self.course_manager.courses = courses
+            self.current_schedule = assignments
+            self.current_groups = groups
+            self.pinned_group_ids = set(before['pinned_group_ids'])
+            for key, value in model_references.items():
+                setattr(self, key, value)
+            for group, values in group_values:
+                vars(group).clear()
+                vars(group).update(deepcopy(values))
+            for key, value in bookkeeping.items():
+                setattr(self, key, value)
+
+        def materialize():
+            nonlocal materialized
+            materialized = True
+            # Synchronous, no dialogs/event loops. _loading suppresses autosaves.
+            self._display_edit_state(state)
+
         if self._preserve_previous or state['calendar'] != self.calendar:
             self._repo.backup_session()
-        self._repo.save_session(**{key: state[key] for key in (
-            'excel_path', 'seed', 'classrooms', 'courses', 'restrictions',
-            'assignments', 'lab_overrides', 'pinned_group_ids', 'calendar', 'resources')})
+        try:
+            self._repo.save_session(**{key: state[key] for key in (
+                'excel_path', 'seed', 'classrooms', 'courses', 'restrictions',
+                'assignments', 'lab_overrides', 'pinned_group_ids', 'calendar', 'resources')}, before_commit=materialize)
+        except Exception:
+            if materialized:
+                restore_references()
+                try:
+                    self._display_edit_state(before)
+                except Exception as recovery_error:
+                    # The database transaction has rolled back. Preserve model
+                    # references and lock the UI when its renderer cannot recover.
+                    restore_references()
+                    self._restore_failed = True
+                    self._record_save_error(msg('No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}',
+                        detail=str(recovery_error)))
+                    self._block_for_recovery()
+                else:
+                    restore_references()
+                    self._update_save_state()
+                    self._update_history_actions()
+            raise
+
+    def _finish_edit_commit(self):
+        # Materialization happened inside the transaction; history stacks move
+        # only after commit. Do not render twice after a successful transaction.
+        self._update_save_state()
+        self._update_history_actions()
 
     def _display_edit_state(self, state):
         self._loading = True
         previous_calendar = self.calendar
+        previous_groups = {g.group_id: g for g in (self.current_groups or [])}
         filters = [(control, control.currentData()) for control in (
             self.schedule_viewer._room_filter, self.schedule_viewer._day_filter)]
         selections = [(table, self.schedule_viewer._selected_gid(table), max(0, table.currentColumn()))
@@ -823,11 +897,22 @@ class MainWindow(QMainWindow):
             self.pinned_group_ids = set(state['pinned_group_ids'])
             self.current_groups = None
             if state['schedule_present']:
-                self.current_groups = [g for c in state['courses'] for g in c.generate_groups()]
+                generated = [g for c in state['courses'] for g in c.generate_groups()]
+                dynamic = {'assignment', 'pinned', 'lab_override', 'unassigned_reason', 'domain'}
+                self.current_groups = []
+                for group in generated:
+                    previous = previous_groups.get(group.group_id)
+                    if previous is not None and all(getattr(previous, key, None) == value
+                            for key, value in vars(group).items() if key not in dynamic):
+                        # Preserve existing viewer references only after durable
+                        # acceptance, when the underlying session identity matches.
+                        group = previous
+                    self.current_groups.append(group)
                 for group in self.current_groups:
                     group.assignment = (self.current_schedule or {}).get(group.group_id)
                     group.pinned = group.group_id in self.pinned_group_ids
                     group.lab_override = group.group_id in state['lab_overrides']
+                    group.unassigned_reason = ''
                     if not group.assignment:
                         group.unassigned_reason = state.get('group_feedback', {}).get(group.group_id,
                             unassigned_reason(group, validation_rooms(state), TimeModel.from_calendar(self.calendar)))
@@ -860,6 +945,12 @@ class MainWindow(QMainWindow):
         finally:
             self._loading = False
 
+    def _edit_status(self, message):
+        if self.current_groups is not None:
+            self._show_schedule_status()
+            message = join_messages(' ', (self.status_bar.currentMessage(), message))
+        self.status_bar.showMessage(message)
+
     def _edit_failed(self, error):
         detail = error.render(msg) if isinstance(error, EditError) else str(error)
         QMessageBox.warning(self, msg('Cambio no aplicado'),
@@ -880,11 +971,8 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self._edit_failed(error)
             return False
-        self._display_edit_state(accepted)
-        if self.current_groups is not None:
-            self._show_schedule_status()
-        else:
-            self.status_bar.showMessage(msg('Cambio guardado.'))
+        self._finish_edit_commit()
+        self._edit_status(msg('Cambio guardado.'))
         return True
 
     def _commit_course_edit(self, courses, label):
@@ -934,8 +1022,8 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self._edit_failed(error)
             return False
-        self._display_edit_state(accepted)
-        self.status_bar.showMessage(msg('Cambio deshecho.') if undo else msg('Cambio rehecho.'))
+        self._finish_edit_commit()
+        self._edit_status(msg('Cambio deshecho.') if undo else msg('Cambio rehecho.'))
         return True
 
     def _reset_edit_history(self, reason='session'):
@@ -957,6 +1045,10 @@ class MainWindow(QMainWindow):
                 notices.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state,
                     count=len({r for _g, ids in catalog.memberships for r in ids or ()})))
+        if self._features.enabled('undo_redo') and self._history.reset_reason == 'feature_disabled_change':
+            notices.append(msg('El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'))
+        if self._features.enabled('bulk_operations') and not self._features.enabled('undo_redo'):
+            notices.append(msg('Active Deshacer y rehacer en Configuración antes de editar en lote.'))
         if self.pinned_group_ids and not self._features.enabled('pinned_sessions'):
             notices.append(msg('Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.'))
         catalog_path = getattr(self._repo, '_db_path', None)
@@ -1090,8 +1182,9 @@ class MainWindow(QMainWindow):
         if self._loading:
             return True
         had_history = self._history.can_undo or self._history.can_redo
-        if self._history.observe(self._capture_edit_state()) and had_history and self._features.enabled('undo_redo'):
-            self.status_bar.showMessage(msg('El historial se reinició por cambios fuera del historial.'))
+        if self._history.observe(self._capture_edit_state()) and had_history:
+            self.status_bar.showMessage(join_messages(' ', (self.status_bar.currentMessage(),
+                msg('El historial se reinició por cambios fuera del historial.'))))
         self._update_history_actions()
         self._unsaved = True
         self._scenario_dirty = bool(self._scenario_name)

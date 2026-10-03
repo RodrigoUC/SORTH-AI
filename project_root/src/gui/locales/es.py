@@ -1085,3 +1085,159 @@ MESSAGES.update({'Domingo': 'Domingo'})
 MESSAGES['Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'] = 'Se conservará el archivo original y se restablecerán las herramientas opcionales. Los parámetros de recursos de la sesión, horarios, fijaciones y escenarios no cambian. ¿Continuar?'
 
 MESSAGES["Curso"] = 'Curso'
+MESSAGES.update({'Deshacer': 'Deshacer',
+ 'Rehacer': 'Rehacer',
+ 'Deshacer y rehacer': 'Deshacer y rehacer',
+ 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.': 'Revertir '
+                                                                                                                     'cambios '
+                                                                                                                     'locales '
+                                                                                                                     'de '
+                                                                                                                     'esta '
+                                                                                                                     'sesión. '
+                                                                                                                     'Máximo '
+                                                                                                                     '50 '
+                                                                                                                     'cambios '
+                                                                                                                     'o '
+                                                                                                                     '16 '
+                                                                                                                     'MiB; '
+                                                                                                                     'importar '
+                                                                                                                     'o '
+                                                                                                                     'restaurar '
+                                                                                                                     'reinicia '
+                                                                                                                     'el '
+                                                                                                                     'historial.',
+ 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.': 'Deshacer el '
+                                                                                              'último cambio '
+                                                                                              '(Ctrl+Z). '
+                                                                                              'Historial de '
+                                                                                              'esta sesión: '
+                                                                                              'máximo 50 '
+                                                                                              'cambios o 16 '
+                                                                                              'MiB.',
+ 'Rehacer el último cambio (Ctrl+Shift+Z).': 'Rehacer el último cambio (Ctrl+Shift+Z).',
+ 'Cambio no aplicado': 'Cambio no aplicado',
+ 'Se conservan los datos, el horario y el historial. {detail}': 'Se conservan los datos, el horario y el '
+                                                                'historial. {detail}',
+ 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.': 'La sesión cambió desde la revisión. '
+                                                                    'Vuelva a revisar el cambio.',
+ 'Cambio guardado.': 'Cambio guardado.',
+ 'Cambio deshecho.': 'Cambio deshecho.',
+ 'Cambio rehecho.': 'Cambio rehecho.',
+ 'Historial reiniciado al importar o restaurar una sesión.': 'Historial reiniciado al importar o restaurar '
+                                                             'una sesión.',
+ 'El historial se reinició por cambios fuera del historial.': 'El historial se reinició por cambios fuera '
+                                                              'del historial.',
+ 'No hay cambios disponibles en el historial.': 'No hay cambios disponibles en el historial.',
+ 'El cambio supera el límite de memoria del historial. No se aplicó.': 'El cambio supera el límite de '
+                                                                       'memoria del historial. No se aplicó.',
+ 'Los códigos de curso deben ser únicos y no estar vacíos.': 'Los códigos de curso deben ser únicos y no '
+                                                             'estar vacíos.',
+ 'Datos de curso no válidos: {code}.': 'Datos de curso no válidos: {code}.',
+ 'Las sesiones fijadas deben conservar una asignación válida.': 'Las sesiones fijadas deben conservar una '
+                                                                'asignación válida.',
+ 'Las excepciones LAB deben corresponder a sesiones asignadas.': 'Las excepciones LAB deben corresponder a '
+                                                                 'sesiones asignadas.',
+ 'El cambio no es válido. Revise las asignaciones y las restricciones.': 'El cambio no es válido. Revise las '
+                                                                         'asignaciones y las restricciones.',
+ 'Desfije las sesiones afectadas antes de editar los cursos.': 'Desfije las sesiones afectadas antes de '
+                                                               'editar los cursos.',
+ '¿Eliminar todos los cursos de la lista?': '¿Eliminar todos los cursos de la lista?'})
+
+MESSAGES.update({'Edición de cursos en lote': 'Edición de cursos en lote',
+ 'Cambiar campos seleccionados con revisión previa. Requiere activar Deshacer y rehacer.': 'Cambiar campos '
+                                                                                           'seleccionados '
+                                                                                           'con revisión '
+                                                                                           'previa. Requiere '
+                                                                                           'activar Deshacer '
+                                                                                           'y rehacer.',
+ 'Editar en lote': 'Editar en lote',
+ 'Editar cursos en lote': 'Editar cursos en lote',
+ 'Seleccione cursos y active Deshacer y rehacer en Configuración.': 'Seleccione cursos y active Deshacer y '
+                                                                    'rehacer en Configuración.',
+ 'Seleccione al menos un curso; no repita identificadores.': 'Seleccione al menos un curso; no repita '
+                                                             'identificadores.',
+ 'Marque los campos que desea cambiar. Los códigos no se pueden editar en lote.': 'Marque los campos que '
+                                                                                  'desea cambiar. Los '
+                                                                                  'códigos no se pueden '
+                                                                                  'editar en lote.',
+ 'El tamaño debe ser un entero entre 0 y 100000.': 'El tamaño debe ser un entero entre 0 y 100000.',
+ 'Seleccione un tipo de aula válido.': 'Seleccione un tipo de aula válido.',
+ 'Seleccione un día válido o borre la preferencia explícitamente.': 'Seleccione un día válido o borre la '
+                                                                    'preferencia explícitamente.',
+ 'La selección cambió. Cierre y vuelva a seleccionar los cursos.': 'La selección cambió. Cierre y vuelva a '
+                                                                   'seleccionar los cursos.',
+ 'Los valores elegidos no cambian ningún curso.': 'Los valores elegidos no cambian ningún curso.',
+ 'Active Deshacer y rehacer en Configuración antes de editar en lote.': 'Active Deshacer y rehacer en '
+                                                                        'Configuración antes de editar en '
+                                                                        'lote.',
+ 'La sesión o selección cambió desde la revisión. Vuelva a revisar el lote.': 'La sesión o selección cambió '
+                                                                              'desde la revisión. Vuelva a '
+                                                                              'revisar el lote.',
+ 'Tipo de aula': 'Tipo de aula',
+ 'Tamaño': 'Tamaño',
+ 'Día preferido': 'Día preferido',
+ 'Cursos seleccionados: {count}. Identificadores: {codes}': 'Cursos seleccionados: {count}. Identificadores: '
+                                                            '{codes}',
+ 'Marque solo los campos que desea cambiar. Sin marcar conserva el valor de cada curso.': 'Marque solo los '
+                                                                                          'campos que desea '
+                                                                                          'cambiar. Sin '
+                                                                                          'marcar conserva '
+                                                                                          'el valor de cada '
+                                                                                          'curso.',
+ 'Borrar preferencia': 'Borrar preferencia',
+ 'Valores mezclados': 'Valores mezclados',
+ 'Conservar valor': 'Conservar valor',
+ 'Vista previa de cambios por código': 'Vista previa de cambios por código',
+ 'Campo': 'Campo',
+ 'Antes': 'Antes',
+ 'Después': 'Después',
+ 'Revise el lote antes de aplicarlo.': 'Revise el lote antes de aplicarlo.',
+ 'Impacto en horario y restricciones': 'Impacto en horario y restricciones',
+ 'Error de edición en lote': 'Error de edición en lote',
+ 'Revisar cambios': 'Revisar cambios',
+ 'Aplicar lote': 'Aplicar lote',
+ 'Sin preferencia': 'Sin preferencia',
+ 'Se dejarán pendientes {pending} asignaciones no fijadas. Se conservan {pins} sesiones fijadas y todas las restricciones. Las preferencias por grupo se conservan y pueden prevalecer sobre el día del curso.': 'Se '
+                                                                                                                                                                                                                 'dejarán '
+                                                                                                                                                                                                                 'pendientes '
+                                                                                                                                                                                                                 '{pending} '
+                                                                                                                                                                                                                 'asignaciones '
+                                                                                                                                                                                                                 'no '
+                                                                                                                                                                                                                 'fijadas. '
+                                                                                                                                                                                                                 'Se '
+                                                                                                                                                                                                                 'conservan '
+                                                                                                                                                                                                                 '{pins} '
+                                                                                                                                                                                                                 'sesiones '
+                                                                                                                                                                                                                 'fijadas '
+                                                                                                                                                                                                                 'y '
+                                                                                                                                                                                                                 'todas '
+                                                                                                                                                                                                                 'las '
+                                                                                                                                                                                                                 'restricciones. '
+                                                                                                                                                                                                                 'Las '
+                                                                                                                                                                                                                 'preferencias '
+                                                                                                                                                                                                                 'por '
+                                                                                                                                                                                                                 'grupo '
+                                                                                                                                                                                                                 'se '
+                                                                                                                                                                                                                 'conservan '
+                                                                                                                                                                                                                 'y '
+                                                                                                                                                                                                                 'pueden '
+                                                                                                                                                                                                                 'prevalecer '
+                                                                                                                                                                                                                 'sobre '
+                                                                                                                                                                                                                 'el '
+                                                                                                                                                                                                                 'día '
+                                                                                                                                                                                                                 'del '
+                                                                                                                                                                                                                 'curso.',
+ 'La herramienta no está disponible. Cierre el diálogo y revise Configuración.': 'La herramienta no está '
+                                                                                 'disponible. Cierre el '
+                                                                                 'diálogo y revise '
+                                                                                 'Configuración.',
+ 'No se pudo guardar el lote. Se conservan todos los datos. {detail}': 'No se pudo guardar el lote. Se '
+                                                                       'conservan todos los datos. {detail}',
+ 'Lote guardado. Puede deshacerlo en una sola operación.': 'Lote guardado. Puede deshacerlo en una sola '
+                                                           'operación.'})
+
+MESSAGES['Cursos seleccionados'] = 'Cursos seleccionados'
+
+MESSAGES['El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'] = 'El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'
+
+MESSAGES['No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'] = 'No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'

@@ -120,3 +120,90 @@ def test_viewer_remove_failure_and_restore_reset(window, monkeypatch):
     window._restore_session_if_exists(confirm=False, show_status=False)
     assert not window._history.can_undo
     assert window._history.reset_reason == 'restore'
+
+
+def test_keyboard_undo_redo_and_busy_availability(window):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QApplication
+    before = fingerprint(window._capture_edit_state())
+    window._commit_course_edit([], 'delete')
+    window.show()
+    window.activateWindow()
+    window.course_manager.table.setFocus()
+    QApplication.processEvents()
+    QTest.keyClick(window, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+    assert fingerprint(window._capture_edit_state()) == before
+    QTest.keyClick(window, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+    assert not window.course_manager.courses
+    window._set_busy(True)
+    assert not window._undo_action.isEnabled() and not window.btn_undo.isEnabled()
+    assert not window._travel_history(True)
+    window._set_busy(False)
+    assert window._undo_action.isEnabled()
+
+
+def test_render_failure_rolls_back_database_model_history_and_references(window, monkeypatch):
+    before = fingerprint(window._capture_edit_state())
+    before_db = fingerprint(window._repo.load_session())
+    courses, groups, schedule = window.course_manager.courses, window.current_groups, window.current_schedule
+    original = window.course_manager._refresh_table
+    calls = []
+    def fail_once():
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError('injected renderer failure')
+        return original()
+    monkeypatch.setattr(window.course_manager, '_refresh_table', fail_once)
+    assert not window._commit_course_edit([], 'delete')
+    assert len(calls) == 2
+    assert fingerprint(window._capture_edit_state()) == before
+    assert fingerprint(window._repo.load_session()) == before_db
+    assert window.course_manager.courses is courses
+    assert window.current_groups is groups and window.current_schedule is schedule
+    assert not window._history.can_undo and not window._restore_failed
+
+
+def test_database_commit_failure_after_materialization_restores_accepted_state(window, monkeypatch):
+    from contextlib import contextmanager
+    before = fingerprint(window._capture_edit_state())
+    before_db = fingerprint(window._repo.load_session())
+    original = window._repo._connect
+    @contextmanager
+    def fail_commit():
+        with original() as con:
+            yield con
+            raise OSError('injected commit failure')
+    with monkeypatch.context() as patch:
+        patch.setattr(window._repo, '_connect', fail_commit)
+        assert not window._commit_course_edit([], 'delete')
+    assert fingerprint(window._capture_edit_state()) == before
+    assert fingerprint(window._repo.load_session()) == before_db
+    assert not window._history.can_undo and not window._restore_failed
+
+
+def test_permanent_renderer_failure_preserves_data_and_locks_recovery(window, monkeypatch):
+    before = fingerprint(window._capture_edit_state())
+    before_db = fingerprint(window._repo.load_session())
+    monkeypatch.setattr(window, '_display_edit_state', lambda _: (_ for _ in ()).throw(RuntimeError('renderer unavailable')))
+    assert not window._commit_course_edit([], 'delete')
+    assert fingerprint(window._capture_edit_state()) == before
+    assert fingerprint(window._repo.load_session()) == before_db
+    assert window._restore_failed and window._busy
+    assert not window._history.can_undo
+
+
+def test_undo_render_failure_does_not_consume_command(window, monkeypatch):
+    assert window._commit_course_edit([], 'delete')
+    before = fingerprint(window._capture_edit_state())
+    original = window._display_edit_state
+    calls = []
+    def fail_once(state):
+        calls.append(1)
+        original(state)
+        if len(calls) == 1:
+            raise RuntimeError('injected post-render failure')
+    monkeypatch.setattr(window, '_display_edit_state', fail_once)
+    assert not window._travel_history(True)
+    assert fingerprint(window._capture_edit_state()) == before
+    assert window._history.can_undo and not window._history.can_redo

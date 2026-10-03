@@ -27,6 +27,8 @@ FEATURES = (
     Feature('teacher', 'Docentes', 'Asignar docentes por sesión y evitar cruces de horario.'),
     Feature('student_group', 'Grupos de estudiantes', 'Asignar grupos compartidos y evitar cruces de horario.'),
     Feature('student', 'Estudiantes individuales', 'Asignar personas explícitas con alias locales y evitar cruces.'),
+    Feature('bulk_operations', 'Edición de cursos en lote',
+            'Cambiar campos seleccionados con revisión previa. Requiere activar Deshacer y rehacer.'),
     Feature('undo_redo', 'Deshacer y rehacer',
             'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.'),
 )

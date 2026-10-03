@@ -115,3 +115,33 @@ def test_pin_lab_split_and_metadata_preserved():
         course_change(original, modified)
     with pytest.raises(EditError):
         course_change(original, [])
+
+
+def test_redo_validation_failure_does_not_consume_command():
+    h = EditHistory()
+    original = state()
+    after = h.execute(original, course_change(original, []), lambda _: None, 'delete')
+    restored = h.undo(after, lambda _: None)
+    def reject(_):
+        raise EditError('El cambio no es válido. Revise las asignaciones y las restricciones.')
+    h.validator = reject
+    with pytest.raises(EditError):
+        h.redo(restored, lambda _: pytest.fail('Must not save invalid target'))
+    assert h.can_redo and not h.can_undo
+
+
+def test_byte_limit_evicts_oldest_commands_without_exceeding_bound():
+    from src.application.edit_history import encoded
+    original = state()
+    target = deepcopy(original)
+    target['courses'][0].name = 'First'
+    cost = len(encoded(original)) + len(encoded(target))
+    h = EditHistory(max_bytes=cost + 100)
+    current = h.execute(original, target, lambda _: None, 'one')
+    target = deepcopy(current)
+    target['courses'][0].name = 'Second'
+    current = h.execute(current, target, lambda _: None, 'two')
+    assert len(h._undo) == 1 and h.bytes_used <= h.max_bytes
+    current = h.undo(current, lambda _: None)
+    assert current['courses'][0].name == 'First'
+    assert not h.can_undo and h.can_redo

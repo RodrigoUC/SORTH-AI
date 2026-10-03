@@ -3,7 +3,7 @@
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QHeaderView
 )
-from PyQt6.QtCore import Qt, QTime, pyqtSignal
+from PyQt6.QtCore import Qt, QTime, pyqtSignal, QItemSelectionModel
 from copy import deepcopy
 from PyQt6.QtWidgets import (
     QCompleter
@@ -437,6 +437,12 @@ class CourseManagerWidget(QWidget):
                 return
             self._commit_courses([*self.courses, course], 'Agregar curso')
 
+    def selected_course_codes(self):
+        # Hidden rows never participate; stable codes, not sorted visual indices.
+        return tuple(sorted(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            for row in {index.row() for index in self.table.selectionModel().selectedRows()}
+            if not self.table.isRowHidden(row)))
+
     def _selected_course_index(self):
         item = self.table.item(self.table.currentRow(), 0)
         if item is None:
@@ -477,6 +483,7 @@ class CourseManagerWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _refresh_table(self):
+        selected_codes = self.selected_course_codes()
         current = self.table.item(self.table.currentRow(), 0)
         selected_code = current.data(Qt.ItemDataRole.UserRole) if current else None
         column = max(0, self.table.currentColumn())
@@ -510,6 +517,12 @@ class CourseManagerWidget(QWidget):
                     and not self.table.isRowHidden(row)):
                 self.table.setCurrentCell(row, column)
                 break
+        if self.table.selectionMode() == self.table.SelectionMode.ExtendedSelection:
+            for row in range(self.table.rowCount()):
+                if (not self.table.isRowHidden(row) and
+                        self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) in selected_codes):
+                    self.table.selectionModel().select(self.table.model().index(row, 0),
+                        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
 
     def _filter_table(self, text: str):
         text = text.strip().lower()

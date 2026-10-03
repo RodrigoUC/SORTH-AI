@@ -104,3 +104,15 @@ IDs and defaults confirmation to Cancel. Invalid edits remain available to corre
 rejected persistence never replaces the live state. Custom calendar presence is
 visible even when its editing controls are hidden. The editor follows the existing
 navy table header, violet focus outline and semantic control boundaries.
+## Reversible course changes and bulk review
+
+The native course toolbar adds optional Undo/Redo and Bulk edit actions, hidden
+initially. Bulk selection is native extended row selection, resolved by stable
+course code and excluding filtered rows. A protected-focus review dialog uses
+existing palette, controls, typography and localized text. Every optional field
+has an explicit check box; mixed values and Clear preference are distinct from
+Keep value. A read-only, scrollable selection summary and differences table make
+large batches inspectable. Changing inputs invalidates the preview. Apply remains
+disabled until review and rechecks stale session/selection before one transaction.
+Errors remain inline, Cancel writes nothing, and one undo reverses the whole batch.
+Native controls, shared i18n wrappers and theme.py remain canonical owners.
