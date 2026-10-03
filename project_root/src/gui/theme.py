@@ -24,6 +24,19 @@ QLabel#subtitle { color: $on_navy_muted; padding-left: 12px; background: transpa
 QLabel#overview { padding: 10px 12px; color: $navy; background: $primary_soft; border-radius: 6px; font-size: 11pt; }
 QLabel#helpText { background: $accent_soft; color: $text; padding: 12px; border-radius: 6px; }
 QLabel#mutedText { color: $muted; }
+QFrame#settingsHeader { background: $navy; border-radius: 7px; }
+QLabel#settingsTitle { color: $on_navy; background: transparent; font-size: 14pt; font-weight: 700; }
+QLabel#settingsSubtitle { color: $on_navy_muted; background: transparent; }
+QWidget#settingsContent { background: $surface; border-radius: 7px; }
+QWidget#settingsContent QCheckBox { border: 2px solid transparent; }
+QWidget#settingsContent QCheckBox:focus { border-color: $focus; }
+QLabel#settingsSectionTitle { color: $navy; font-size: 12pt; font-weight: 700; }
+QLabel#settingsStepTitle { color: $navy; font-weight: 600; }
+QFrame#settingsDivider { background: $divider; border: 0; }
+QLabel#settingsNotice { color: $muted; background: $surface_alt; padding: 10px; border-radius: 5px; }
+QLabel#settingsSaveState { color: $muted; }
+QLabel#settingsSaveState[pending="true"] { color: $warning; }
+
 QPushButton { background: $surface; border: 1px solid $border; border-radius: 5px; padding: 8px 14px; }
 QPushButton:hover { background: $primary_soft; border-color: $primary; }
 QPushButton:pressed, QPushButton:checked { background: $accent_soft; border-color: $accent; }

@@ -5,20 +5,10 @@ to the usual half-hour ticks so even short, adjacent sessions remain visible.
 """
 
 from dataclasses import dataclass
-from zlib import crc32
 from typing import Iterable
 
-
-COURSE_COLORS = (
-    "E2EFDA", "DDEBF7", "FCE4D6", "E4DFEC", "F4CCCC",
-    "DDEFEA", "F4DCE8", "E0E5F5", "FCE6DC", "E9E0F2",
-)
-GRID_TEXT_COLOR = "182536"
-
-
-def course_color(code: str) -> str:
-    """A stable color shared by every view, even after filtering/removal."""
-    return COURSE_COLORS[crc32(code.encode("utf-8")) % len(COURSE_COLORS)]
+# Compatibility exports; every presentation surface uses the same owner.
+from .course_style import COURSE_COLORS, GRID_TEXT_COLOR, course_color
 
 
 GridEntry = tuple[str, int, int, int]

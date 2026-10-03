@@ -13,6 +13,10 @@ from PyQt6.QtGui import (
 )
 
 from .theme import COLORS
+from .schedule_grid_delegate import (
+    COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard, ScheduleGridDelegate,
+)
+from ..scheduling.course_style import course_style
 from ..scheduling.time_model import TimeModel
 from ..scheduling.quality import QualitySnapshot, analyze_quality
 from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE_COLORS, GRID_TEXT_COLOR
@@ -161,6 +165,7 @@ class ScheduleViewerWidget(QWidget):
         self.grid_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.grid_table.verticalHeader().setVisible(False)
         self.grid_table.setWordWrap(True)
+        self.grid_table.setItemDelegate(ScheduleGridDelegate(self.grid_table))
         grid_layout.addWidget(self.grid_table, 1)
         self.tabs.addTab(grid_widget, msg('Cuadrícula por aula'))
 
@@ -466,6 +471,8 @@ class ScheduleViewerWidget(QWidget):
                    if entry[0] in self._matching_gids]
         grid = build_schedule_grid(entries, tm.day_start, tm.day_end)
         table = self.grid_table
+        selected_block = (table.currentItem().data(GRID_BLOCK_ROLE)
+                          if table.currentItem() and table.selectedItems() else None)
         table.clearSpans()
         table.clear()
         table.setRowCount(len(grid.boundaries) - 1)
@@ -483,26 +490,44 @@ class ScheduleViewerWidget(QWidget):
             if block.day not in tm.index_to_day:
                 continue
             parts = []
+            sections = []
             for gid, day, start, end in block.entries:
                 display_gid = msg("Fijada · {state}", state=gid) if getattr(self._groups.get(gid), "pinned", False) else gid
+                times = f"{TimeModel.minutes_to_hhmm(start)}–{TimeModel.minutes_to_hhmm(end)}"
+                name = self._name_map.get(gid, '')
+                sections.append((str(display_gid), times, name))
                 parts.append(f"{display_gid}\n"
-                             f"{TimeModel.minutes_to_hhmm(start)}–{TimeModel.minutes_to_hhmm(end)}\n"
-                             f"{self._name_map.get(gid, '')}")
+                             f"{times}\n{name}")
             conflict = len(block.entries) > 1
             text = (msg('Conflicto de aula\n') if conflict else "") + "\n\n".join(parts)
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             item.setData(Qt.ItemDataRole.UserRole, tuple(entry[0] for entry in block.entries))
+            # One session can appear on both sides of an overlapping session.
+            # IDs alone would select the last matching segment after a redraw.
+            block_identity = (block.day, grid.boundaries[block.row],
+                              grid.boundaries[block.row + block.span],
+                              tuple(entry[0] for entry in block.entries))
+            item.setData(GRID_BLOCK_ROLE, block_identity)
+            item.setData(Qt.ItemDataRole.AccessibleTextRole, text)
+            item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
+            item.setData(COURSE_CARD_ROLE, CourseCard(
+                course_style(self._code(block.entries[0][0])), tuple(sections),
+                str(msg('Conflicto de aula\n')).strip() if conflict else ""))
             item.setBackground(QColor(COLORS["danger_soft"]) if conflict else
                                self._course_colors[self._code(block.entries[0][0])])
             item.setForeground(QColor(COLORS["danger"]) if conflict else QColor("#" + GRID_TEXT_COLOR))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             col = tm.days.index(tm.to_day_name(block.day)) + 1
             table.setItem(block.row, col, item)
+            if selected_block is not None and block_identity == selected_block:
+                table.setCurrentItem(item)
             if block.span > 1:
                 table.setSpan(block.row, col, block.span, 1)
             # Short sessions still need room for their exact time and course label.
-            minimum = min(180, 66 * len(block.entries))
+            line_height = table.fontMetrics().height()
+            minimum = min(280, (4 * line_height + 25) * len(block.entries)
+                          + (line_height + 6 if conflict else 0))
             height = sum(table.rowHeight(r) for r in range(block.row, block.row + block.span))
             if height < minimum:
                 table.setRowHeight(block.row, table.rowHeight(block.row) + minimum - height)

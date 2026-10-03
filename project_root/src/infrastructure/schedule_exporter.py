@@ -14,9 +14,8 @@ from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.pagebreak import Break
 from copy import copy
 
-from ..scheduling.schedule_grid import (
-    COURSE_COLORS, GRID_TEXT_COLOR, build_schedule_grid, course_color,
-)
+from ..scheduling.course_style import GRID_TEXT_COLOR, course_style
+from ..scheduling.schedule_grid import build_schedule_grid
 from ..scheduling.time_model import TimeModel
 
 
@@ -26,14 +25,13 @@ _DETAIL_COLUMNS = [
 _CLASSROOM_COLUMNS = [
     "Aula", "Código Curso", "Nombre Curso", "Grupo", "Día", "Hora Inicio", "Hora Fin",
 ]
-_COLOR_PALETTE = COURSE_COLORS
 _HEADER_FILL = PatternFill("solid", fgColor="1967D2")
 _HEADER_FONT = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
 _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
 _HOUR_FILL = PatternFill("solid", fgColor="EDF2F7")
 _EMPTY_FILL = PatternFill("solid", fgColor="FAFCFE")
-_STRIPE_FILL = PatternFill("solid", fgColor="F2F6FB")
 _CONFLICT_FILL = PatternFill("solid", fgColor="FCE4D6")
+_COURSE_EDGE_STYLES = ("medium", "mediumDashed", "dotted", "double")
 _THIN_BORDER = Border(
     left=Side(style="thin", color="D7E0E9"),
     right=Side(style="thin", color="D7E0E9"),
@@ -131,7 +129,9 @@ class ScheduleExporter:
         self._detail_dataframe(assignments, name_map).to_excel(
             writer, sheet_name="Asignaciones", index=False,
         )
-        self._style_table(writer.sheets["Asignaciones"], [18, 44, 20, 18, 16, 14, 14])
+        codes = [self._group_parts(gid)[0] for gid, _ in
+                 sorted(assignments.items(), key=self._detail_sort_key)]
+        self._style_table(writer.sheets["Asignaciones"], [18, 44, 20, 18, 16, 14, 14], codes)
 
     def _write_by_classroom_sheet(self, writer, assignments: dict, name_map: dict):
         # Numeric day indices follow the TimeModel, unlike alphabetical labels.
@@ -144,9 +144,10 @@ class ScheduleExporter:
             columns=_CLASSROOM_COLUMNS,
         )
         df.to_excel(writer, sheet_name="Por Aula", index=False)
-        self._style_table(writer.sheets["Por Aula"], [18, 18, 44, 20, 16, 14, 14])
+        codes = [self._group_parts(gid)[0] for gid, _ in ordered]
+        self._style_table(writer.sheets["Por Aula"], [18, 18, 44, 20, 16, 14, 14], codes)
 
-    def _style_table(self, ws, widths):
+    def _style_table(self, ws, widths, course_codes):
         ws.sheet_view.showGridLines = False
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
@@ -155,15 +156,23 @@ class ScheduleExporter:
         ws.row_dimensions[1].height = 30
         for column, width in enumerate(widths, 1):
             ws.column_dimensions[get_column_letter(column)].width = width
-        for row in ws.iter_rows(min_row=2):
+        # Hash the original course code, never its formula-safe display value.
+        # A filtered export and every sheet therefore retain the viewer style.
+        for row, code in zip(ws.iter_rows(min_row=2), course_codes):
+            style = course_style(code)
+            fill = PatternFill("solid", fgColor=style.fill)
             max_lines = 1
             for cell, width in zip(row, widths):
                 cell.font = Font(name="Calibri", size=11, color=GRID_TEXT_COLOR)
                 cell.alignment = Alignment(vertical="center", wrap_text=True)
                 cell.number_format = "@"
-                if cell.row % 2 == 0:
-                    cell.fill = _STRIPE_FILL
+                cell.fill = fill
+                cell.border = Border(bottom=Side(style="thin", color="D7E0E9"))
                 max_lines = max(max_lines, self._line_count(cell.value, width - 2))
+            row[0].border = Border(
+                left=Side(style=_COURSE_EDGE_STYLES[style.marker], color=style.accent),
+                bottom=Side(style="thin", color="D7E0E9"),
+            )
             ws.row_dimensions[row[0].row].height = min(409, max(27, max_lines * 15 + 10))
         self._configure_print(ws, "1:1")
 
@@ -172,21 +181,17 @@ class ScheduleExporter:
         by_classroom: dict[str, list] = {}
         for gid, (classroom, day, start, end) in assignments.items():
             by_classroom.setdefault(classroom, []).append((gid, day, start, end))
-        course_codes = sorted({self._group_parts(gid)[0] for gid in assignments})
-        course_colors = {
-            code: course_color(code) for code in course_codes
-        }
         used = {"Asignaciones", "Por Aula"}
         for classroom in sorted(by_classroom, key=lambda room: (self._natural_key(room), str(room))):
             room_label = str(classroom) if str(classroom).casefold().startswith("aula ") else f"Aula {classroom}"
             sheet_name = self._safe_sheet_name(room_label, used)
             used.add(sheet_name)
             self._write_single_grid(
-                writer, sheet_name, classroom, by_classroom[classroom], name_map, course_colors,
+                writer, sheet_name, classroom, by_classroom[classroom], name_map,
             )
 
     def _write_single_grid(self, writer, sheet_name, classroom,
-                           entries, name_map, course_colors):
+                           entries, name_map):
         days = self.time_model.days
         # Print only the occupied time range; exact sessions use the same
         # projection as the viewer without pages of leading/trailing blanks.
@@ -195,10 +200,10 @@ class ScheduleExporter:
         )
         ws = writer.book.create_sheet(sheet_name)
         n_cols = len(days) + 1
-        header_row = 3
+        header_row = 2
         first_data_row = header_row + 1
         ws.sheet_view.showGridLines = False
-        ws.freeze_panes = "B4"
+        ws.freeze_panes = "B3"
         ws.sheet_properties.tabColor = "1967D2"
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
         room_label = str(classroom) if str(classroom).casefold().startswith("aula ") else f"Aula {classroom}"
@@ -206,11 +211,6 @@ class ScheduleExporter:
         ws.cell(1, 1).font = Font(name="Calibri", size=16, bold=True, color=GRID_TEXT_COLOR)
         ws.cell(1, 1).alignment = Alignment(vertical="center", wrap_text=True)
         ws.row_dimensions[1].height = max(34, self._line_count(classroom, 100) * 20)
-        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
-        ws.cell(2, 1, "Horas exactas · Un color por curso · CONFLICTO indica sesiones simultáneas")
-        ws.cell(2, 1).font = Font(name="Calibri", size=10, color="526577")
-        ws.cell(2, 1).alignment = Alignment(vertical="center", wrap_text=True)
-        ws.row_dimensions[2].height = 30
         for column, label in enumerate(["Hora"] + days, 1):
             cell = ws.cell(header_row, column, self._safe_text(label))
             self._style_header(cell)
@@ -240,11 +240,20 @@ class ScheduleExporter:
             if conflict:
                 text = f"CONFLICTO: {len(block.entries)} sesiones\n\n{text}"
             code = self._group_parts(block.entries[0][0])[0]
+            style = course_style(code)
             fill = _CONFLICT_FILL if conflict else PatternFill(
-                "solid", fgColor=course_colors.get(code, COURSE_COLORS[0]),
+                "solid", fgColor=style.fill,
+            )
+            accent = "9C2F21" if conflict else style.accent
+            edge = Side(style="thin", color=accent)
+            border = Border(
+                left=Side(style="medium" if conflict else _COURSE_EDGE_STYLES[style.marker],
+                          color=accent),
+                right=edge, top=edge, bottom=edge,
             )
             for block_row in range(row, row + block.span):
                 ws.cell(block_row, column).fill = fill
+                ws.cell(block_row, column).border = border
             cell = ws.cell(row, column, self._safe_text(text))
             cell.font = Font(name="Calibri", bold=True, size=10,
                              color="9C2F21" if conflict else GRID_TEXT_COLOR)
@@ -264,7 +273,7 @@ class ScheduleExporter:
         ws.column_dimensions["A"].width = 10
         for column in range(2, n_cols + 1):
             ws.column_dimensions[get_column_letter(column)].width = 27
-        self._configure_print(ws, "1:3")
+        self._configure_print(ws, "1:2")
 
     @staticmethod
     def _paginate_grid(ws, blocks, first_row):
@@ -303,6 +312,8 @@ class ScheduleExporter:
                     target.value = source.value
                     target.font = copy(source.font)
                     target.alignment = copy(source.alignment)
+                    target.fill = copy(source.fill)
+                    target.border = copy(source.border)
                 if hi > lo:
                     ws.merge_cells(start_row=lo, start_column=column,
                                    end_row=hi, end_column=column)

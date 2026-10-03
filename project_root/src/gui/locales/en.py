@@ -1,6 +1,28 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Avanzado': 'Advanced',
+    'MCP': 'MCP',
+    'Sin guardar: {count}': 'Unsaved: {count}',
+    'Sin cambios': 'No changes',
+    'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.': 'Turning off a resource keeps its records. Its constraints are removed after confirmation and timetable regeneration.',
+    'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.': 'Turning off a tool hides its controls. Saved scenarios, pins and calendar settings are kept.',
+    'Sin cambios por guardar': 'No unsaved changes',
+    'Activa solo las herramientas que necesites. Las funciones opcionales empiezan desactivadas.': 'Enable only the tools you need. Optional features start turned off.',
+    'Sección de configuración': 'Settings section',
+    'Elige General, Recursos académicos, Herramientas avanzadas o Conexión MCP. Los cambios se conservan al cambiar de sección.': 'Choose General, Academic resources, Advanced tools or MCP connection. Switching sections keeps your unsaved choices.',
+    'General': 'General',
+    'Recursos académicos': 'Academic resources',
+    'Herramientas avanzadas': 'Advanced tools',
+    'Conexión MCP': 'MCP connection',
+    'Revisa cambios y organiza las sesiones del horario.': 'Review changes and organize timetable sessions.',
+    'Define qué recursos deben evitar cruces de horario.': 'Choose which resources must avoid timetable conflicts.',
+    'Organiza escenarios, sesiones y parámetros del calendario.': 'Manage scenarios, sessions and calendar settings.',
+    'Prepara el complemento, guarda el permiso local y configura tu cliente.': 'Prepare the add-on, save local permission and set up your client.',
+    'Estado de los cambios de configuración': 'Settings change status',
+    'Guardar aplica las preferencias de todas las secciones en este equipo. Cancelar descarta los cambios de preferencias.': 'Save applies preferences from every section on this device. Cancel discards preference changes.',
+    'Cambios sin guardar: {count}': 'Unsaved changes: {count}',
+
     'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.': 'MCP permission changed outside this dialog. Its checkbox has been refreshed; review the changes before saving.',
     'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.': 'Wait for the operation to finish or recover the session before saving settings.',
     'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.': 'Save resource changes and the MCP permission separately. No changes have been saved.',

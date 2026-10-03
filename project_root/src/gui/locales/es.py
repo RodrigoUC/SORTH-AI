@@ -1,6 +1,28 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Avanzado': 'Avanzado',
+    'MCP': 'MCP',
+    'Sin guardar: {count}': 'Sin guardar: {count}',
+    'Sin cambios': 'Sin cambios',
+    'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.': 'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.',
+    'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.': 'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.',
+    'Sin cambios por guardar': 'Sin cambios por guardar',
+    'Activa solo las herramientas que necesites. Las funciones opcionales empiezan desactivadas.': 'Activa solo las herramientas que necesites. Las funciones opcionales empiezan desactivadas.',
+    'Sección de configuración': 'Sección de configuración',
+    'Elige General, Recursos académicos, Herramientas avanzadas o Conexión MCP. Los cambios se conservan al cambiar de sección.': 'Elige General, Recursos académicos, Herramientas avanzadas o Conexión MCP. Los cambios se conservan al cambiar de sección.',
+    'General': 'General',
+    'Recursos académicos': 'Recursos académicos',
+    'Herramientas avanzadas': 'Herramientas avanzadas',
+    'Conexión MCP': 'Conexión MCP',
+    'Revisa cambios y organiza las sesiones del horario.': 'Revisa cambios y organiza las sesiones del horario.',
+    'Define qué recursos deben evitar cruces de horario.': 'Define qué recursos deben evitar cruces de horario.',
+    'Organiza escenarios, sesiones y parámetros del calendario.': 'Organiza escenarios, sesiones y parámetros del calendario.',
+    'Prepara el complemento, guarda el permiso local y configura tu cliente.': 'Prepara el complemento, guarda el permiso local y configura tu cliente.',
+    'Estado de los cambios de configuración': 'Estado de los cambios de configuración',
+    'Guardar aplica las preferencias de todas las secciones en este equipo. Cancelar descarta los cambios de preferencias.': 'Guardar aplica las preferencias de todas las secciones en este equipo. Cancelar descarta los cambios de preferencias.',
+    'Cambios sin guardar: {count}': 'Cambios sin guardar: {count}',
+
     'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.': 'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.',
     'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.': 'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.',
     'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.': 'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.',

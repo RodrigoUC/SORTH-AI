@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from src.gui.theme import COLORS, STYLESHEET
 from src.scheduling.schedule_grid import COURSE_COLORS, GRID_TEXT_COLOR
+from src.scheduling.course_style import COURSE_STYLES
 
 
 def contrast(a, b):
@@ -17,7 +18,8 @@ def contrast(a, b):
 
 @pytest.mark.parametrize('foreground,background', [
     ('text', 'surface'), ('text', 'surface_alt'), ('muted', 'surface'),
-    ('muted', 'canvas'), ('muted', 'accent_soft'), ('navy', 'primary_soft'),
+    ('muted', 'canvas'), ('muted', 'surface_alt'), ('warning', 'canvas'),
+    ('navy', 'surface'), ('muted', 'accent_soft'), ('navy', 'primary_soft'),
     ('on_primary', 'primary'), ('on_primary', 'primary_hover'),
     ('on_primary', 'primary_pressed'), ('on_navy', 'navy'),
     ('on_navy_muted', 'navy'), ('on_navy', 'navy_hover'),
@@ -38,6 +40,13 @@ def test_controls_and_focus_contrast(foreground, background):
 
 def test_course_palette_keeps_readable_labels():
     assert all(contrast(GRID_TEXT_COLOR, color) >= 4.5 for color in COURSE_COLORS)
+
+
+def test_course_edges_keep_non_text_contrast_against_fill_and_gutter():
+    for style in COURSE_STYLES:
+        assert contrast(style.accent, style.fill) >= 3
+        assert contrast(style.accent, COLORS['surface']) >= 3
+        assert style.fill not in (COLORS['danger_soft'][1:], COLORS['warning_soft'][1:])
 
 
 def test_qss_resolved_and_sort_icons_exist():

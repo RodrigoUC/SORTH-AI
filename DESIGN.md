@@ -178,3 +178,91 @@ zero timers only coalesce later layout/style work. Save/Cancel use a native
 vertical button box when their horizontal minimum cannot fit, including width-only
 font changes. Qt layout tests wait for bounded, stable native geometry and retain
 zero-overflow, exact-window-size and complete-action-visibility assertions.
+
+## Distinct course blocks
+
+`src/scheduling/course_style.py` is the Qt-free source for course fills, accents
+and markers shared with printable schedules. Sixteen muted blue, teal, violet,
+sage and neutral pairs extend the established identity. CRC32 of the literal
+course code chooses a permanent pair and an independent solid, dashed, dotted or
+double marker; rooms, sort order, filters, language and process restarts cannot
+reassign it. A finite palette can repeat: the code/name, marker and physical
+boundaries identify courses without relying only on color. Red remains reserved
+for room conflicts; pinned-session wording remains explicit.
+
+The classroom grid uses one native item delegate, never per-cell child widgets.
+Each session span has a 3px white inset, contrasting 1px outline and course edge.
+Bold session code, exact time and course name are left aligned for scanning;
+long names wrap to two lines and elide only in paint. Full plain text remains in
+the model, tooltip and accessible text, and the detailed list stays available.
+Selection uses a violet ring with a white separator without erasing course color.
+Native keyboard navigation, exact minute boundaries and schedule data are retained.
+Runtime-font-derived minimum heights keep short sessions readable. Text contrast
+is at least 4.5:1; accents against fill and white gutters are at least 3:1.
+
+Real Qt paint tests cover gutters, repeated fills with different markers,
+selection, conflicts, filtering, multiple rooms, restart identity and ES/EN.
+Synthetic Fusion/offscreen captures cover 1440×1060, 1200×900 and 960×720 plus
+empty/filtered/short-session states. This remains development evidence rather
+than native Windows or screen-reader acceptance.
+
+### Settings section navigation
+Settings uses one native section selector and one body scroll area, with General,
+Academic resources, Advanced tools and MCP connection presented independently.
+A single-column native combo remains usable at 460×420 and with enlarged fonts;
+its keyboard arrow keys select sections, retaining every unsaved checkbox value.
+The selector and Save/Cancel remain outside the body scroller. Below 520px tall,
+the duplicate header gives way to the native window title and visible section
+heading. Compact shell insets and gaps preserve reading space without reducing
+fonts. Section navigation uses concise names (General, Resources, Advanced, MCP);
+the body keeps full headings. The compact save status keeps its full meaning in
+its accessible description, including the exact unsaved-change count. The application
+navy header, white reading surface, teal Save and violet focus use existing
+semantic tokens in theme.py. No new palette, dependencies or web components.
+
+The persistent footer counts unsaved preference changes across all four sections;
+returning a checkbox to its saved value removes that change. Reopening reads the
+committed preferences. The count reads MCP permission without replacing its
+expected save generation. Separately confirmed MCP preparation remains immediate
+and is not included in the preference count. During an owned MCP operation the
+MCP section stays visible so its progress and cancel action remain discoverable.
+General opens initially; optional features still begin OFF. Native Save/Cancel,
+resource confirmation, recovery, conflict checks and MCP safeguards are unchanged.
+
+Section containers have zero horizontal insets inside the established scroll
+content margins. ResponsiveActionLabels and ResponsiveDialogButtonBox remain the
+canonical owners of label wrapping and footer stacking. ES/EN catalogs own all
+new copy. Native Qt tests visit every section at 460×420 in Fusion/Windows styles,
+with both standard fonts and 20pt controls/labels; verify zero horizontal overflow,
+complete footer bounds, accessible names and keyboard cancellation. Linux captures
+are development evidence, not packaged Windows or screen-reader certification.
+
+Settings follows focus changes inside the section body with native
+ensureWidgetVisible, so Tab, Shift+Tab and programmatic MCP-cancel focus reveal
+the focused control even when it is nested in a section. Selectable MCP status,
+permission and save-state labels explicitly participate in the native tab order.
+The keyboard regression traverses every section without test-side scrolling.
+
+
+### Native settings metric safeguards
+Action wrapping uses each widget as the QTextLayout paint device and checks the
+resulting native minimum-size hint. If native chrome changes after wrapping, it
+reduces only the text-wrap budget, preserving the original Message, full text,
+accessible name and font. A strictly decreasing budget bounds this correction.
+Changed nested section layouts refresh before the outer content minimum is read;
+no scrollbar is hidden to conceal overflow. Short-window mode uses 8px shell
+insets, 6px gaps and 12px body insets. It updates only when crossing the height
+threshold, not on every width change.
+
+Geometry regressions visit each active section rather than trusting stale hidden
+Qt widget rectangles. CI writes untruncated settings-geometry JSON reports with
+section, visible child hints, actual font DPI, viewport and fixed-chrome sizes.
+A larger logical-DPI144/20pt stress run is additional evidence, not a substitute
+for the native Windows run.
+
+Settings checkboxes reserve a transparent 2px border in their resting state;
+focus changes only its color. This keeps Qt's Fusion native/style-sheet sizing
+paths consistent during retranslation and focus changes without fixed heights.
+The regression compares fresh native CT_CheckBox sizing and text-content height
+as well as cached minimumSizeHint, because the latter can hide a stale focus-state
+size on some platforms. Other application checkboxes retain their existing chrome.
