@@ -70,6 +70,12 @@ class CourseDialog(QDialog):
         self.setModal(True)
         self.resize(460, 420)
         self._init_ui()
+        # An untouched restored literal must retain its exact representation.
+        self._initial_text = {
+            'code': self.code_edit.text(),
+            'name': self.name_edit.text(),
+            'suggested_classroom': self.classroom_edit.text(),
+        }
 
     def _init_ui(self):
         layout = QFormLayout()
@@ -181,6 +187,13 @@ class CourseDialog(QDialog):
 
         # Load existing data if editing
         if self.course:
+            # Qt limits text by UTF-16 units; accepted Excel/session values can
+            # be longer than the default. Keep them fully visible and editable.
+            for editor, value in ((self.code_edit, self.course.code),
+                                  (self.name_edit, self.course.name),
+                                  (self.classroom_edit, self.course.suggested_classroom)):
+                units = len((value or '').encode('utf-16-le')) // 2
+                editor.setMaxLength(max(editor.maxLength(), units))
             self.code_edit.setText(self.course.code)
             self.name_edit.setText(self.course.name or "")
             self.groups_spin.setValue(self.course.number_of_groups)
@@ -242,7 +255,14 @@ class CourseDialog(QDialog):
         super().accept()
 
     def get_course(self) -> Course | None:
-        code = self.code_edit.text().strip()
+        text_values = {}
+        for field, editor in (('code', self.code_edit), ('name', self.name_edit),
+                              ('suggested_classroom', self.classroom_edit)):
+            text = editor.text()
+            text_values[field] = (getattr(self.course, field)
+                if self.course is not None and text == self._initial_text[field]
+                else text.strip() or None)
+        code = text_values['code']
         if not code:
             return None
 
@@ -260,7 +280,7 @@ class CourseDialog(QDialog):
             t = self.pref_time_edit.time()
             preferred_start_min = t.hour() * 60 + t.minute()
 
-        suggested = self.classroom_edit.text().strip() or None
+        suggested = text_values['suggested_classroom']
 
         idx = self.split_combo.currentIndex()
         force_split = None if idx == 0 else (True if idx == 1 else False)
@@ -269,7 +289,7 @@ class CourseDialog(QDialog):
             room_type = self.course.required_room_type
         course = Course(
             code=code,
-            name=self.name_edit.text().strip() or None,
+            name=text_values['name'],
             number_of_groups=self.groups_spin.value(),
             duration_min=duration_min,
             required_room_type=room_type,

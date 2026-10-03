@@ -14,6 +14,8 @@ settings implementation, not the legacy INI writer).
   An individual command exceeding 16 MiB is rejected before saving.
 - Course additions, edits/deletions, manual placement/removal, clear schedule,
   and explicit pin/unpin transitions save first and become one command each.
+- Accepting a course editor without changing its data preserves the schedule,
+  pending feedback and both history branches, without saving a new command.
 - Snapshots preserve courses, sizes, per-group suggestions, all classroom
   constraints, assignments, explicit LAB exceptions, pins and pending feedback.
 - Candidate and travel targets are independently validated; one SQLite

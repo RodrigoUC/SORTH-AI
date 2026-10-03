@@ -230,6 +230,11 @@ def course_change(state, courses):
     """
     candidate = deepcopy(state)
     candidate['courses'] = deepcopy(courses)
+    # Opening an editor and accepting unchanged fields is not an input edit.
+    # Preserve placements (and the redo branch) before invalidating anything.
+    if encoded(state['courses']) == encoded(courses):
+        validate_edit(candidate)
+        return candidate
     pins = set(candidate.get('pinned_group_ids', ()))
     candidate['assignments'] = {gid: value for gid, value in (state['assignments'] or {}).items() if gid in pins} or None
     candidate['lab_overrides'] = set(candidate.get('lab_overrides', ())) & pins
