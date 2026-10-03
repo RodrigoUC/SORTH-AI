@@ -98,6 +98,7 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 | DEM111L | Laboratorio de modelos (ejemplo)  | —                  | 0700-0930 | L-DEMO-1 | I    |
 
 - **Cada fila = un grupo sugerido**. Dos filas con el mismo código → 2 grupos de ese curso, cada uno con su propia sugerencia de aula/día/hora
+- Los valores predeterminados del curso usan el valor más frecuente; si hay empate, se conserva el primero según el orden de las filas. Esto también estabiliza el tipo de aula inferido al volver a importar el mismo archivo.
 - `Horas`: formato `HHMM-HHMM` (ej: `0800-1055`). Vacío o `-` = sin preferencia
 - `Días`: `L`=Lunes, `I`=Martes, `M`=Miércoles, `J`=Jueves, `V`=Viernes, `S`=Sábado. Puede ser múltiple: `L,M`
 - `Aula` y `Días` son opcionales — vacío = sin preferencia
