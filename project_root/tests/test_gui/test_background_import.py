@@ -429,3 +429,28 @@ def test_import_rollback_render_failure_locks_preserved_domain(window, tmp_path,
     window._import.cancel(announce=False)
     assert window._busy and not window.course_manager.isEnabled()
     window._unsaved = False
+
+
+def test_import_failure_preserves_consultation_state(window, tmp_path, monkeypatch):
+    view = window.schedule_viewer
+    view._list_search.setText('BIO')
+    view._day_filter.setCurrentIndex(2)
+    window.course_manager._search.setText('BIO')
+    window.course_manager.table.setCurrentCell(0, 1)
+    before = (view._list_search.text(), view._day_filter.currentData(),
+              window.course_manager._search.text(), window.course_manager.table.currentRow(),
+              window.course_manager.table.currentColumn())
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    original = window._refresh_overview
+    calls = []
+    def once():
+        if not calls:
+            calls.append(True)
+            raise RuntimeError('late presentation failure')
+        original()
+    monkeypatch.setattr(window, '_refresh_overview', once)
+    with pytest.raises(RuntimeError):
+        window._commit_import(candidate, set())
+    assert (view._list_search.text(), view._day_filter.currentData(),
+            window.course_manager._search.text(), window.course_manager.table.currentRow(),
+            window.course_manager.table.currentColumn()) == before

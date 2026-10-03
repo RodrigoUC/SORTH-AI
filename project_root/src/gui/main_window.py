@@ -399,6 +399,10 @@ class MainWindow(QMainWindow):
         previous_filters = (viewer._list_search.text(), viewer._room_filter.currentData(),
                             viewer._day_filter.currentData(), viewer._status_filter.currentData(),
                             viewer.classroom_selector.currentText(), viewer.tabs.currentIndex())
+        previous_tables = [(table, table.currentRow(), table.currentColumn(),
+                            [(item.row(), item.column()) for item in table.selectedItems()],
+                            table.verticalScrollBar().value(), table.horizontalScrollBar().value())
+                           for table in (self.course_manager.table, viewer.list_table, viewer.classroom_table)]
         if self._preserve_previous:
             self._repo.backup_session()
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
@@ -451,6 +455,15 @@ class MainWindow(QMainWindow):
                     combo.setCurrentIndex(max(0, combo.findData(value)))
                 viewer.classroom_selector.setCurrentText(previous_filters[4])
                 viewer.tabs.setCurrentIndex(previous_filters[5])
+                for table, row, column, selected, vertical, horizontal in previous_tables:
+                    table.setCurrentCell(row, column)
+                    table.clearSelection()
+                    for selected_row, selected_column in selected:
+                        item = table.item(selected_row, selected_column)
+                        if item is not None:
+                            item.setSelected(True)
+                    table.verticalScrollBar().setValue(vertical)
+                    table.horizontalScrollBar().setValue(horizontal)
                 self._refresh_overview()
                 self._update_save_state()
                 self.status_bar.showMessage(previous_status)
