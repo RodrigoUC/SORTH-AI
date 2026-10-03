@@ -354,3 +354,13 @@ explicit names. A generated name follows Message or literal caption replacements
 and drops obsolete translation bindings; an explicitly assigned name remains
 independent through wrapping, text changes and locale changes. The helper still
 uses already-rendered canonical text and never translates during native fitting.
+
+### Readable session-identity headers
+Both schedule lists reserve the native header-size hint for their **Grupo / sesión**
+column, including the current font, section padding and sort-indicator allowance.
+The section remains interactively resizable above that content-derived floor;
+wider user choices survive view-state restoration and language changes. Only this
+identity column gains the floor. The course-name stretch column, all other widths,
+row heights, captions and sorting behavior remain unchanged. Narrow windows retain
+native horizontal scrolling. Font/style changes refit through the ordinary Qt
+layout-request queue, without timers or nested event-loop processing.
