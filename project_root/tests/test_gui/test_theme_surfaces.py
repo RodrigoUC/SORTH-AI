@@ -16,7 +16,8 @@ from src.gui.schedule_grid_delegate import (
     ScheduleGridDelegate,
 )
 from src.gui.schedule_viewer_widget import ScheduleViewerWidget, SummaryDialog
-from src.gui.theme_contract import COURSE_GUTTER, load_theme_file
+from src.gui.theme_contract import load_theme_file
+from src.gui.course_presentation import course_presentation
 from src.gui.theme import ThemeManager, builtin_themes, current_theme
 from src.gui.theme_preferences import ThemePreferences
 from src.scheduling.course_style import course_style
@@ -147,11 +148,14 @@ def test_refresh_recolors_pending_and_time_cells_without_domain_or_view_changes(
         assert viewer.summary_data == old_summary
         assert {group.group_id: vars(group) for group in groups} == old_groups
         assert viewer._course_colors is old_cache
-        assert viewer._course_colors == old_colors
+        assert viewer._course_colors == {
+            code: QColor(course_presentation(course_style(code), theme.colors["surface"]).fill)
+            for code in old_colors
+        }
         assert all(not spy for spy in signals)
 
 
-def test_courses_conflicts_and_white_separators_are_fixed_across_interface_themes(viewer, monkeypatch):
+def test_courses_conflicts_and_separators_follow_interface_themes(viewer, monkeypatch):
     _populate(viewer)
     cards = [item for item in _items(viewer.grid_table) if item and item.data(COURSE_CARD_ROLE)]
     ordinary = next(item for item in cards if not item.data(COURSE_CARD_ROLE).conflict_label)
@@ -162,15 +166,15 @@ def test_courses_conflicts_and_white_separators_are_fixed_across_interface_theme
         monkeypatch.setattr(schedule_grid_delegate, 'COLORS', theme.colors)
         viewer.refresh_theme()
         for item in (ordinary, conflict):
-            assert _paint(viewer, item) == images[item.text()]
+            assert (_paint(viewer, item) == images[item.text()]) == (theme is LIGHT)
             selected = _paint(viewer, item, selected=True)
-            assert selected.pixelColor(1, 75).name() == COURSE_GUTTER.lower()
-            assert selected.pixelColor(110, 4).name() == COURSE_GUTTER.lower()
+            assert selected.pixelColor(1, 75).name() == theme.colors["surface"].lower()
+            assert selected.pixelColor(110, 4).name() == theme.colors["surface"].lower()
             assert selected.pixelColor(110, 3).name() == theme.colors['focus'].lower()
-        assert ordinary.background().color().name() == '#' + course_style('BIO').fill.lower()
-        assert conflict.background().color().name() == COURSE_CONFLICT_FILL.lower()
-        assert conflict.foreground().color().name() == COURSE_CONFLICT_ACCENT.lower()
-        assert _paint(viewer, conflict).pixelColor(190, 130).name() == COURSE_CONFLICT_FILL.lower()
+        assert ordinary.background().color().name() == course_presentation(course_style('BIO'), theme.colors['surface']).fill.lower()
+        assert conflict.background().color().name() == theme.colors["danger_soft"].lower()
+        assert conflict.foreground().color().name() == theme.colors["danger"].lower()
+        assert _paint(viewer, conflict).pixelColor(190, 130).name() == theme.colors["danger_soft"].lower()
 
 
 def test_delegate_candidate_palette_is_isolated_from_live_theme(viewer, monkeypatch):
@@ -183,7 +187,9 @@ def test_delegate_candidate_palette_is_isolated_from_live_theme(viewer, monkeypa
     live = _paint(viewer, item, selected=True)
     assert candidate.pixelColor(110, 3).name() == DARK.colors['focus'].lower()
     assert live.pixelColor(110, 3).name() == LIGHT.colors['focus'].lower()
-    assert candidate.pixelColor(190, 130) == live.pixelColor(190, 130)
+    assert candidate.pixelColor(190, 130) != live.pixelColor(190, 130)
+    assert candidate.pixelColor(1, 75).name() == DARK.colors["surface"].lower()
+    assert live.pixelColor(1, 75).name() == LIGHT.colors["surface"].lower()
 
 
 def test_status_labels_and_summary_cards_use_canonical_selectors(viewer):
@@ -306,3 +312,20 @@ def test_application_switch_updates_open_dialogs_without_touching_editor_drafts(
         for widget in reversed(widgets):
             widget.close()
         manager._apply(previous)
+
+
+def test_dark_course_fill_changes_without_replacing_identity(viewer, monkeypatch):
+    _populate(viewer)
+    item = next(item for item in _items(viewer.grid_table)
+                if item and item.data(COURSE_CARD_ROLE) and not item.data(COURSE_CARD_ROLE).conflict_label)
+    card = item.data(COURSE_CARD_ROLE)
+    before = _paint(viewer, item).pixelColor(190, 130)
+    viewer.grid_table.setCurrentItem(item)
+    monkeypatch.setattr(schedule_viewer_widget, 'COLORS', DARK.colors)
+    monkeypatch.setattr(schedule_grid_delegate, 'COLORS', DARK.colors)
+    viewer.refresh_theme()
+    after = _paint(viewer, item).pixelColor(190, 130)
+    assert after != before, 'Dark theme must adapt the session fill to its background'
+    assert viewer.grid_table.currentItem() is item
+    assert item.data(COURSE_CARD_ROLE) == card
+    assert item.background().color() == after
