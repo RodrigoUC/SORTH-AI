@@ -1,5 +1,5 @@
 """Explicit manual placement; no automatic relaxation of laboratory requirements."""
-from PyQt6.QtCore import QTime
+from PyQt6.QtCore import QTime, Qt
 from .i18n_widgets import (QDialog, QFormLayout, QLabel, QComboBox, QTimeEdit,
                              QDialogButtonBox, QMessageBox)
 from ..scheduling.validation import validate_schedule
@@ -36,6 +36,8 @@ class ManualAssignmentDialog(QDialog):
         layout.addRow(msg('Inicio'), self.start)
         self.error = QLabel("")
         self.error.setWordWrap(True)
+        self.error.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.error.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
         self.error.setAccessibleName(msg('Resultado de validación'))
         layout.addRow(self.error)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -49,7 +51,10 @@ class ManualAssignmentDialog(QDialog):
         room = self.room.currentData()
         if room is None:
             self.error.setText(msg('Seleccione un aula.'))
+            self.room.setAccessibleDescription(msg('Seleccione un aula.'))
+            self.room.setFocus()
             return
+        self.room.setAccessibleDescription('')
         start = self.start.time().hour() * 60 + self.start.time().minute()
         placement = (room, self.day.currentData(), start, start + self.group.duration_min)
         override = self.group.required_room_type == 'LAB' and self.classrooms[room].room_type != 'LAB'
@@ -63,6 +68,7 @@ class ManualAssignmentDialog(QDialog):
         errors = validate_schedule(proposed, self.groups, self.classrooms, self.time_model, overrides)
         if errors:
             self.error.setText(join_messages('\n', (error.render(msg) for error in errors)))
+            self.error.setFocus()
             return
         if override and QMessageBox.question(
                 self, msg('Confirmar excepción de laboratorio'),

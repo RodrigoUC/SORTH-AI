@@ -33,6 +33,9 @@ def _set_windows_app_id() -> None:
 
 
 def main():
+    if "--recover-session" in sys.argv:
+        from src.application.recovery_command import run
+        sys.exit(run(sys.argv[1:]))
     _set_windows_app_id()
     app = QApplication(sys.argv)
     app.setApplicationName("SORTH")

@@ -1,6 +1,121 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'The saved session is preserved. The view requires recovery before continuing.',
+    'Sin valor': 'No value',
+    'Grupo {number}: aula {room}, día {day}, hora {time}': 'Group {number}: room {room}, day {day}, time {time}',
+
+    'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'Optional settings could not be read. Open Settings to preserve and recover them.',
+    'Herramientas de sesiones fijadas': 'Pinned session tools',
+    'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Show pin/unpin controls. Saved pins are always enforced.',
+    'Herramientas de proyectos y escenarios': 'Project and scenario tools',
+    'Mostrar controles para guardar, abrir y comparar copias independientes.': 'Show controls to save, open and compare independent snapshots.',
+    'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.': 'Optional settings cannot be read. You can preserve the original file and reset only these tools.',
+    'Conservar original y restablecer herramientas': 'Preserve original and reset tools',
+    'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?': 'The original file will be preserved and optional tools turned off. Schedules, pins and scenarios will not change. Continue?',
+    'Duración (minutos)': 'Duration (minutes)',
+    'Tipo de aula requerido': 'Required room type',
+    'Estudiantes': 'Students',
+    'Aula sugerida': 'Suggested room',
+    'Inicio preferido (minutos)': 'Preferred start (minutes)',
+    'Preferencias por grupo': 'Per-group preferences',
+    'División de sesiones': 'Session splitting',
+    'Capacidad': 'Capacity',
+    'Tipo de aula': 'Room type',
+    'Descripción': 'Description',
+    'Campus': 'Campus',
+    '    {field}: {before} → {after}': '    {field}: {before} → {after}',
+
+    'Cancelar importación': 'Cancel import',
+    'Progreso de importación': 'Import progress',
+    'Leyendo y validando Excel… La sesión actual se conserva.': 'Reading and validating Excel… Your current session is preserved.',
+    'Importación cancelada. La sesión anterior se conserva.': 'Import cancelled. Your previous session is preserved.',
+    'El archivo cambió. Revise la nueva versión validada antes de importar.': 'The file changed. Review the newly validated version before importing.',
+    'Comprobando que el archivo no cambió…': 'Checking that the file has not changed…',
+    'Cancelando importación antes de cerrar…': 'Cancelling import before closing…',
+    'El archivo cambió mientras se leía. Selecciónelo nuevamente.': 'The file changed while it was being read. Select it again.',
+    'Revisar cambios del Excel': 'Review Excel changes',
+    'Se reemplazarán los cursos y aulas. Se borrarán las restricciones y las asignaciones no conservadas. Cancelar mantiene la sesión actual.': 'Courses and rooms will be replaced. Restrictions and assignments that are not retained will be cleared. Cancel keeps your current session.',
+    'Cambios de importación': 'Import changes',
+    'Reemplazar con este Excel': 'Replace with this Excel file',
+    'Archivo: {name}': 'File: {name}',
+    'Añadidos': 'Added',
+    'Modificados': 'Changed',
+    'Eliminados': 'Deleted',
+    '{label}: {count}': '{label}: {count}',
+    'Restricciones que se borrarán: {count}': 'Restrictions to be cleared: {count}',
+    'Asignaciones que se borrarán': 'Assignments to be cleared',
+    'Sesiones fijadas que se conservarán': 'Pinned sessions to be retained',
+    'Vista previa de cambios del Excel': 'Excel change preview',
+    'Revisar cursos, aulas, restricciones y asignaciones antes de reemplazar la sesión.': 'Review courses, rooms, restrictions and assignments before replacing the session.',
+
+    'Cancelar generación': 'Cancel generation',
+    'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelling generation; the schedule and pinned sessions will be preserved.',
+
+    'La generación cambió sesiones fijadas. Se conserva el horario anterior.': 'Generation changed pinned sessions. The previous schedule is preserved.',
+    'La sesión fijada {gid} requiere confirmar una excepción LAB.': 'Pinned session {gid} requires confirmation of a LAB exception.',
+    'Sesión fijada': 'Pinned session',
+    'Desfije la sesión antes de cambiar su asignación.': 'Unpin the session before changing its assignment.',
+    'La estructura dividida de {gid} cambió.': 'The split structure of {gid} changed.',
+    'Sesiones fijadas en conflicto': 'Conflicting pinned sessions',
+    'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.': 'This change invalidates pinned sessions:\n{details}\n\nUnpin all sessions and apply the change? Cancel preserves the data and schedule.',
+    'Fijar sesión': 'Pin session',
+    'Conservar solo esta sesión al regenerar; no es una preferencia.': 'Keep only this session when regenerating; this is not a preference.',
+    'Desfijar sesión': 'Unpin session',
+    'Fijada · {state}': 'Pinned · {state}',
+    'Desfije las sesiones antes de limpiar el horario.': 'Unpin the sessions before clearing the schedule.',
+
+    'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.': 'The saved format, metrics or calendar are unsupported. Indicators were not recalculated with different rules.',
+    'Versión del formato': 'Format version',
+    'Aula: preferencias pendientes / desconocidas': 'Room: pending / unknown preferences',
+    'Hora: preferencias pendientes / desconocidas': 'Time: pending / unknown preferences',
+    'Día: preferencias pendientes / desconocidas': 'Day: pending / unknown preferences',
+    'Valores diferentes (izquierda / derecha)': 'Different values (left / right)',
+    'Nombre (1–120 caracteres)': 'Name (1–120 characters)',
+    'Proyectos y escenarios': 'Projects and scenarios',
+    'Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.': 'Each scenario is an independent copy. Save as never overwrites. Select two rows to compare.',
+    'Proyecto': 'Project',
+    'Escenario': 'Scenario',
+    'Guardado (UTC)': 'Saved (UTC)',
+    'Escenarios guardados': 'Saved scenarios',
+    'Crear proyecto desde la sesión': 'Create project from session',
+    'Guardar como escenario': 'Save as scenario',
+    'Abrir escenario': 'Open scenario',
+    'Duplicar': 'Duplicate',
+    'Renombrar': 'Rename',
+    'Comparar': 'Compare',
+    'Ese nombre ya existe. Usa otro nombre; no se reemplazó ningún escenario.': 'That name already exists. Use another name; no scenario was replaced.',
+    'No se pudo completar la operación. El escenario guardado se conserva. {detail}': 'The operation could not be completed. The saved scenario is preserved. {detail}',
+    'Escenario guardado. Las ediciones posteriores no cambian esta copia.': 'Scenario saved. Further edits do not change this copy.',
+    'Se guardará una copia de recuperación de la sesión actual antes de abrir {name}. ¿Continuar?': 'A recovery copy of the current session will be saved before opening {name}. Continue?',
+    'Comparar escenarios': 'Compare scenarios',
+    'Indicadores descriptivos, sin ganador ni puntuación global.': 'Descriptive indicators, with no winner or overall score.',
+    'No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.': 'Not directly comparable: inputs, rules or versions differ, or the algorithm version is unknown.',
+    'Cursos': 'Courses',
+    'Aulas': 'Classrooms',
+    'Restricciones': 'Restrictions',
+    'Sesiones fijas': 'Pinned sessions',
+    'Semilla': 'Seed',
+    'Calendario': 'Calendar',
+    'Versión del algoritmo': 'Algorithm version',
+    'Versión de métricas': 'Metrics version',
+    'Diferencias: {details}': 'Differences: {details}',
+    'Ninguna': 'None',
+    'Indicador': 'Indicator',
+    'El calendario guardado no es compatible. No se recalcularon indicadores con reglas diferentes.': 'The saved calendar is unsupported. Indicators were not recalculated with different rules.',
+    'Sesiones asignadas / total': 'Assigned sessions / total',
+    'Sesiones pendientes': 'Pending sessions',
+    'Preferencia de día: satisfechas / evaluadas': 'Day preference: satisfied / evaluated',
+    'Preferencia de hora: satisfechas / evaluadas': 'Time preference: satisfied / evaluated',
+    'Preferencia de aula: satisfechas / evaluadas': 'Room preference: satisfied / evaluated',
+    'Ocupación: minutos-aula / disponibles': 'Occupancy: room-minutes / available',
+    'Excepciones activas': 'Active exceptions',
+    'Docencia, día {day} (min)': 'Teaching, day {day} (min)',
+    'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}': 'The catalog could not be opened. The current session is preserved. {detail}',
+    'Cambios posteriores a la copia': 'Changes since snapshot',
+    'Copia guardada': 'Saved snapshot',
+    '{name} · {state} · {save}': '{name} · {state} · {save}',
+    'Ningún archivo seleccionado': 'No file selected',
     'El PDF filtrado requiere el total global de asignaciones.': 'A filtered PDF requires the global assignment count.',
     'El alcance y el total de asignaciones no coinciden.': 'The scope and assignment count do not match.',
     'El número de sesiones pendientes no puede ser negativo.': 'The pending session count cannot be negative.',
@@ -530,3 +645,157 @@ MESSAGES.update({'No aplica': 'Not applicable',
                                                                                                                                                                                             'Inactive '
                                                                                                                                                                                             'records: '
                                                                                                                                                                                             '{inactive}.'})
+
+# Keyboard and assistive-technology labels.
+MESSAGES.update({'Use flechas para recorrer celdas y Tab para salir. En tablas ordenables, Ctrl+Mayús+Arriba o Abajo ordena la columna actual.': 'Use '
+                                                                                                                                 'arrow '
+                                                                                                                                 'keys '
+                                                                                                                                 'to '
+                                                                                                                                 'explore '
+                                                                                                                                 'cells '
+                                                                                                                                 'and '
+                                                                                                                                 'Tab '
+                                                                                                                                 'to '
+                                                                                                                                 'leave. '
+                                                                                                                                 'In '
+                                                                                                                                 'sortable '
+                                                                                                                                 'tables, '
+                                                                                                                                 'Ctrl+Shift+Up '
+                                                                                                                                 'or '
+                                                                                                                                 'Down '
+                                                                                                                                 'sorts '
+                                                                                                                                 'the '
+                                                                                                                                 'current '
+                                                                                                                                 'column.',
+ 'Aulas con restricciones': 'Restricted classrooms',
+ 'Use flechas para seleccionar y Espacio para marcar o desmarcar.': 'Use arrow keys to select and Space to '
+                                                                    'check or uncheck.',
+ 'Cursos permitidos en el aula seleccionada': 'Allowed courses in the selected classroom',
+ 'Duración en horas': 'Duration in hours',
+ 'Duración en minutos': 'Duration in minutes',
+ 'Hora de inicio preferida': 'Preferred start time',
+ 'Semilla fija': 'Fixed seed',
+ 'Progreso de generación': 'Schedule generation progress',
+ 'Leer estado (F6)': 'Read status (F6)',
+ 'Estado actual': 'Current status',
+ 'Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.': 'Use '
+                                                                                                                                             'arrow '
+                                                                                                                                             'keys '
+                                                                                                                                             'to '
+                                                                                                                                             'explore '
+                                                                                                                                             'the '
+                                                                                                                                             'grid '
+                                                                                                                                             'and '
+                                                                                                                                             'Tab '
+                                                                                                                                             'to '
+                                                                                                                                             'leave. '
+                                                                                                                                             'The '
+                                                                                                                                             'Detailed '
+                                                                                                                                             'list '
+                                                                                                                                             'offers '
+                                                                                                                                             'the '
+                                                                                                                                             'same '
+                                                                                                                                             'sessions '
+                                                                                                                                             'in '
+                                                                                                                                             'rows, '
+                                                                                                                                             'with '
+                                                                                                                                             'status '
+                                                                                                                                             'and '
+                                                                                                                                             'actions.'})
+
+# Optional feature settings
+MESSAGES.update({'Configuración': 'Settings',
+ 'Sesiones fijadas': 'Pinned sessions',
+ 'Fijar o desfijar sesiones para conservar su ubicación al regenerar.': 'Pin or unpin sessions to '
+                                                                        'preserve their placement when '
+                                                                        'regenerating.',
+ 'Guardar copias independientes, abrir escenarios y compararlos.': 'Save independent copies, open '
+                                                                   'scenarios and compare them.',
+ 'Las funciones opcionales empiezan desactivadas. Los cambios se guardan en este equipo.': 'Optional '
+                                                                                           'features '
+                                                                                           'start '
+                                                                                           'disabled. '
+                                                                                           'Changes are '
+                                                                                           'saved on '
+                                                                                           'this '
+                                                                                           'computer.',
+ 'Desactivar oculta los controles, sin borrar datos. Las sesiones ya fijadas siguen protegidas. Las validaciones de seguridad siempre están activas.': 'Disabling '
+                                                                                                                                                       'hides '
+                                                                                                                                                       'controls '
+                                                                                                                                                       'without '
+                                                                                                                                                       'deleting '
+                                                                                                                                                       'data. '
+                                                                                                                                                       'Existing '
+                                                                                                                                                       'pinned '
+                                                                                                                                                       'sessions '
+                                                                                                                                                       'stay '
+                                                                                                                                                       'protected. '
+                                                                                                                                                       'Safety '
+                                                                                                                                                       'validations '
+                                                                                                                                                       'are '
+                                                                                                                                                       'always '
+                                                                                                                                                       'active.',
+ 'MCP se instala y se inicia por separado; esta configuración no activa servicios externos.': 'MCP is '
+                                                                                              'installed '
+                                                                                              'and '
+                                                                                              'started '
+                                                                                              'separately; '
+                                                                                              'these '
+                                                                                              'settings '
+                                                                                              'do not '
+                                                                                              'activate '
+                                                                                              'external '
+                                                                                              'services.',
+ 'Se ocultarán los controles para fijar sesiones. Las sesiones ya fijadas seguirán condicionando la generación. Para cambiarlas, vuelve a activar esta función. ¿Guardar configuración?': 'Pin '
+                                                                                                                                                                                          'controls '
+                                                                                                                                                                                          'will '
+                                                                                                                                                                                          'be '
+                                                                                                                                                                                          'hidden. '
+                                                                                                                                                                                          'Existing '
+                                                                                                                                                                                          'pinned '
+                                                                                                                                                                                          'sessions '
+                                                                                                                                                                                          'will '
+                                                                                                                                                                                          'still '
+                                                                                                                                                                                          'constrain '
+                                                                                                                                                                                          'generation. '
+                                                                                                                                                                                          'Enable '
+                                                                                                                                                                                          'this '
+                                                                                                                                                                                          'feature '
+                                                                                                                                                                                          'again '
+                                                                                                                                                                                          'to '
+                                                                                                                                                                                          'change '
+                                                                                                                                                                                          'them. '
+                                                                                                                                                                                          'Save '
+                                                                                                                                                                                          'settings?',
+ 'No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.': 'Settings could not '
+                                                                                   'be saved. Check '
+                                                                                   'permissions and try '
+                                                                                   'again.',
+ 'Datos de funciones desactivadas': 'Disabled-feature data',
+ 'Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.': 'Pinned '
+                                                                                                         'sessions '
+                                                                                                         'are '
+                                                                                                         'still '
+                                                                                                         'protected. '
+                                                                                                         'Enable '
+                                                                                                         'Pinned '
+                                                                                                         'sessions '
+                                                                                                         'in '
+                                                                                                         'Settings '
+                                                                                                         'to '
+                                                                                                         'change '
+                                                                                                         'them.',
+ 'Hay datos de escenarios conservados. Activa Proyectos y escenarios en Configuración para acceder.': 'Saved '
+                                                                                                      'scenario '
+                                                                                                      'data '
+                                                                                                      'is '
+                                                                                                      'preserved. '
+                                                                                                      'Enable '
+                                                                                                      'Projects '
+                                                                                                      'and '
+                                                                                                      'scenarios '
+                                                                                                      'in '
+                                                                                                      'Settings '
+                                                                                                      'to '
+                                                                                                      'access '
+                                                                                                      'it.'})

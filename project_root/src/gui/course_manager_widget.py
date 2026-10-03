@@ -108,10 +108,12 @@ class CourseDialog(QDialog):
         # Duration — hours + minutes
         dur_layout = QHBoxLayout()
         self.dur_hours = QSpinBox()
+        self.dur_hours.setAccessibleName(msg('Duración en horas'))
         self.dur_hours.setRange(0, 14)
         self.dur_hours.setValue(1)
         self.dur_hours.setSuffix(" h")
         self.dur_mins = QSpinBox()
+        self.dur_mins.setAccessibleName(msg('Duración en minutos'))
         self.dur_mins.setRange(0, 55)
         self.dur_mins.setSingleStep(5)
         self.dur_mins.setValue(30)
@@ -140,6 +142,7 @@ class CourseDialog(QDialog):
         self.chk_pref_time = QCheckBox(msg('Activar hora preferida'))
         self.chk_pref_time.toggled.connect(self._toggle_pref_time)
         self.pref_time_edit = QTimeEdit()
+        self.pref_time_edit.setAccessibleName(msg('Hora de inicio preferida'))
         self.pref_time_edit.setDisplayFormat("HH:mm")
         self.pref_time_edit.setTime(QTime(8, 0))
         self.pref_time_edit.setMinimumTime(QTime(7, 0))
@@ -222,6 +225,13 @@ class CourseDialog(QDialog):
     def _toggle_pref_time(self, enabled: bool):
         self.pref_time_edit.setEnabled(enabled)
 
+    def accept(self):
+        if not self.code_edit.text().strip():
+            QMessageBox.warning(self, msg('Advertencia'), msg('El código del curso es obligatorio.'))
+            self.code_edit.setFocus()
+            return
+        super().accept()
+
     def get_course(self) -> Course | None:
         code = self.code_edit.text().strip()
         if not code:
@@ -292,6 +302,7 @@ class CourseManagerWidget(QWidget):
         layout.addLayout(search_row)
 
         self.table = QTableWidget()
+        self.table.setAccessibleName(msg('Cursos a programar'))
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
             msg('Código'), msg('Nombre'), msg('Grupos'), msg('Duración'), msg('Aula Sugerida'),
@@ -300,6 +311,7 @@ class CourseManagerWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(True)
         self.table.setAlternatingRowColors(True)
@@ -337,8 +349,23 @@ class CourseManagerWidget(QWidget):
 
     def load_courses_from_excel(self, courses: list[Course]):
         """Load courses imported from Excel, replacing current list."""
+        if not self._accept_courses(courses):
+            return False
         self.courses = list(courses)
         self._search.clear()
+        self._refresh_table()
+        self.courses_changed.emit()
+
+    def _accept_courses(self, courses):
+        guard = getattr(self, "change_guard", None)
+        return guard is None or guard(list(courses))
+
+    def _replace_course(self, index, course):
+        proposed = list(self.courses)
+        proposed[index] = course
+        if not self._accept_courses(proposed):
+            return
+        self.courses = proposed
         self._refresh_table()
         self.courses_changed.emit()
 
@@ -354,9 +381,7 @@ class CourseManagerWidget(QWidget):
                 if dialog.exec():
                     course = dialog.get_course()
                     if course:
-                        self.courses[i] = course
-                        self._refresh_table()
-                        self.courses_changed.emit()
+                        self._replace_course(i, course)
                 return
         QMessageBox.information(self, msg('Info'),
                                 msg('El curso {p1} no se encuentra en la lista de cursos.', p1=code))
@@ -389,9 +414,9 @@ class CourseManagerWidget(QWidget):
                     if edit_dlg.exec():
                         updated = edit_dlg.get_course()
                         if updated:
-                            self.courses[existing] = updated
-                            self._refresh_table()
-                            self.courses_changed.emit()
+                            self._replace_course(existing, updated)
+                return
+            if not self._accept_courses([*self.courses, course]):
                 return
             self.courses.append(course)
             self._refresh_table()
@@ -415,9 +440,7 @@ class CourseManagerWidget(QWidget):
             if not course:
                 QMessageBox.warning(self, msg('Advertencia'), msg('El código del curso es obligatorio.'))
                 return
-            self.courses[row] = course
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._replace_course(row, course)
 
     def _delete_course(self):
         row = self._selected_course_index()
@@ -426,6 +449,8 @@ class CourseManagerWidget(QWidget):
             return
         if _confirm(self, msg('Confirmar eliminación'),
                     msg('¿Eliminar el curso {p1}?', p1=self.courses[row].code)):
+            if not self._accept_courses(self.courses[:row] + self.courses[row + 1:]):
+                return
             del self.courses[row]
             self._refresh_table()
             self.courses_changed.emit()
@@ -434,6 +459,8 @@ class CourseManagerWidget(QWidget):
         if not self.courses:
             return
         if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?\nEsta acción no se puede deshacer.')):
+            if not self._accept_courses([]):
+                return
             self.courses.clear()
             self._refresh_table()
             self.courses_changed.emit()
@@ -443,6 +470,9 @@ class CourseManagerWidget(QWidget):
     # ------------------------------------------------------------------
 
     def _refresh_table(self):
+        current = self.table.item(self.table.currentRow(), 0)
+        selected_code = current.data(Qt.ItemDataRole.UserRole) if current else None
+        column = max(0, self.table.currentColumn())
         self._empty_label.setVisible(not self.courses)
         self.table.setSortingEnabled(False)
         self.table.setRowCount(len(self.courses))
@@ -466,6 +496,13 @@ class CourseManagerWidget(QWidget):
 
         self.table.setSortingEnabled(True)
         self._filter_table(self._search.text())
+        self.table.clearSelection()
+        self.table.setCurrentItem(None)
+        for row in range(self.table.rowCount()):
+            if (self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) == selected_code
+                    and not self.table.isRowHidden(row)):
+                self.table.setCurrentCell(row, column)
+                break
 
     def _filter_table(self, text: str):
         text = text.strip().lower()
@@ -477,3 +514,6 @@ class CourseManagerWidget(QWidget):
                 (name and text in name.text().lower())
             )
             self.table.setRowHidden(row, not match if text else False)
+        if self.table.currentRow() >= 0 and self.table.isRowHidden(self.table.currentRow()):
+            self.table.clearSelection()
+            self.table.setCurrentItem(None)

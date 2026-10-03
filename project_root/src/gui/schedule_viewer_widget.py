@@ -50,13 +50,18 @@ class ScheduleViewerWidget(QWidget):
     edit_course_requested = pyqtSignal(str)
     manual_assignment_requested = pyqtSignal(str)
     group_removed = pyqtSignal(str)
+    pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
     filters_changed = pyqtSignal()
     _COLOR_PALETTE = [QColor("#" + color) for color in COURSE_COLORS]
 
     def __init__(self):
         super().__init__()
+        self._pin_controls = []
         self._assignments = {}
+        self._search_keys = {}
+        self._matching_gids = set()
+        self._grid_dirty = True
         self._known_gids = set()
         self._groups = {}
         self._name_map = {}
@@ -70,6 +75,7 @@ class ScheduleViewerWidget(QWidget):
         self._refreshing = False
         self._init_ui()
         self._clear()
+        language_manager().changed.connect(self._request_grid_render)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -134,7 +140,7 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_selector.setMinimumContentsLength(12)
         self.classroom_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         grid_label.setBuddy(self.classroom_selector)
-        self.classroom_selector.currentTextChanged.connect(self._render_grid)
+        self.classroom_selector.currentTextChanged.connect(self._request_grid_render)
         grid_row.addWidget(grid_label)
         grid_row.addWidget(self.classroom_selector)
         self._grid_hint = QLabel()
@@ -143,6 +149,7 @@ class ScheduleViewerWidget(QWidget):
         grid_layout.addLayout(grid_row)
         self.grid_table = QTableWidget()
         self.grid_table.setAccessibleName(msg('Cuadrícula semanal por aula'))
+        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.'))
         self.grid_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.grid_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.grid_table.verticalHeader().setVisible(False)
@@ -153,7 +160,7 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_table, self._btn_edit_cls, self._btn_remove_cls = self._make_list_tab(
             msg('Por aula'), [msg('Aula'), msg('Grupo / sesión'), msg('Nombre del curso'), msg('Día'), msg('Inicio'), msg('Fin')],
             msg('Asignaciones ordenadas por aula'))
-        self.tabs.currentChanged.connect(self._update_result_label)
+        self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
         scope = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
@@ -202,6 +209,17 @@ class ScheduleViewerWidget(QWidget):
         assign.setEnabled(False)
         assign.clicked.connect(lambda: self.manual_assignment_requested.emit(self._selected_gid(table)))
         table.itemSelectionChanged.connect(lambda: assign.setEnabled(self._selected_gid(table) is not None))
+        pin = QPushButton(msg('Fijar sesión'))
+        self._pin_controls.append(pin)
+        pin.setEnabled(False)
+        pin.setToolTip(msg('Conservar solo esta sesión al regenerar; no es una preferencia.'))
+        pin.clicked.connect(lambda: self.pin_requested.emit(self._selected_gid(table)))
+        def update_pin():
+            gid = self._selected_gid(table)
+            pin.setEnabled(gid in self._assignments)
+            pin.setText(msg('Desfijar sesión') if getattr(self._groups.get(gid), 'pinned', False) else msg('Fijar sesión'))
+        table.itemSelectionChanged.connect(update_pin)
+        actions.addWidget(pin)
         actions.addWidget(assign)
         actions.addWidget(edit)
         actions.addWidget(remove)
@@ -213,6 +231,8 @@ class ScheduleViewerWidget(QWidget):
         layout.addLayout(actions)
         details = QLabel("")
         details.setWordWrap(True)
+        details.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
         details.setVisible(False)
         details.setAccessibleName(msg('Motivo y excepciones de la sesión seleccionada'))
         layout.addWidget(details)
@@ -230,6 +250,9 @@ class ScheduleViewerWidget(QWidget):
     def _clear(self):
         self._refreshing = True
         self._assignments = {}
+        self._search_keys = {}
+        self._matching_gids = set()
+        self._grid_dirty = True
         self._known_gids = set()
         self._groups = {}
         self._name_map = {}
@@ -293,11 +316,20 @@ class ScheduleViewerWidget(QWidget):
         return gid.rsplit("-G", 1)[0]
 
     def _refresh_assignments(self):
+        # Domain text only: independent of language and pinned presentation marks.
+        # Rebuild when schedule/name/room data changes, never per keystroke.
+        self._search_keys = {
+            gid: _search_key(" ".join((gid, self._name_map.get(gid, ""),
+                                      self._assignments.get(gid, ("",))[0])))
+            for gid in self._known_gids
+        }
         self._classroom_assignments = {}
         for gid, (room, day, start, end) in self._assignments.items():
             self._classroom_assignments.setdefault(room, []).append((gid, day, start, end))
 
     def _set_table_rows(self, table, rows, name_col, widths):
+        selected_gid = self._selected_gid(table)
+        selected_column = max(0, table.currentColumn())
         sort_col = table.horizontalHeader().sortIndicatorSection()
         sort_order = table.horizontalHeader().sortIndicatorOrder()
         table.setSortingEnabled(False)
@@ -308,6 +340,11 @@ class ScheduleViewerWidget(QWidget):
                 item = _SortableItem(value, sort_key)
                 item.setData(Qt.ItemDataRole.UserRole, gid)
                 item.setToolTip(value)
+                group = self._groups.get(gid)
+                if group and group.lab_override:
+                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, msg('Excepción manual confirmada: laboratorio en aula regular.'))
+                elif group and gid not in self._assignments and group.unassigned_reason:
+                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, msg(group.unassigned_reason))
                 if gid not in self._assignments:
                     item.setBackground(QColor(COLORS["danger_soft"]))
                     item.setForeground(QColor(COLORS["danger"]))
@@ -321,6 +358,10 @@ class ScheduleViewerWidget(QWidget):
         table.sortItems(max(0, sort_col), sort_order)
         table.clearSelection()
         table.setCurrentItem(None)
+        for row in range(table.rowCount()):
+            if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == selected_gid:
+                table.setCurrentCell(row, selected_column)
+                break
 
     def _display_list(self, assignments, tm, unassigned_groups=None, course_name_by_code=None):
         rows = []
@@ -332,6 +373,8 @@ class ScheduleViewerWidget(QWidget):
                       TimeModel.minutes_to_hhmm(start) if assigned else "—",
                       TimeModel.minutes_to_hhmm(end) if assigned else "—",
                       (msg('Excepción manual LAB') if getattr(self._groups.get(gid), 'lab_override', False) else msg('Asignado')) if assigned else msg('Sin asignar')]
+            if getattr(self._groups.get(gid), "pinned", False):
+                values[-1] = msg("Fijada · {state}", state=values[-1])
             keys = [_natural_key(v) for v in values]
             keys[4:7] = [day if assigned else 999, start if assigned else 9999, end if assigned else 9999]
             rows.append((gid, values, keys))
@@ -345,6 +388,8 @@ class ScheduleViewerWidget(QWidget):
             values = [room, gid, self._name_map.get(gid, ""), msg(tm.to_day_name(day)),
                       TimeModel.minutes_to_hhmm(start), TimeModel.minutes_to_hhmm(end)]
             keys = [_natural_key(v) for v in values]
+            if getattr(self._groups.get(gid), "pinned", False):
+                values[2] = msg("Fijada · {state}", state=values[2])
             # Secondary ordering remains chronological within a classroom.
             keys[0] = (_natural_key(room), day, start, _natural_key(gid))
             keys[3:] = [day, start, end]
@@ -366,14 +411,25 @@ class ScheduleViewerWidget(QWidget):
         if current in classrooms:
             self.classroom_selector.setCurrentText(current)
         self.classroom_selector.blockSignals(False)
-        self._render_grid(self.classroom_selector.currentText())
+        self._grid_dirty = True
+
+    def _request_grid_render(self, *_):
+        self._grid_dirty = True
+        if self.tabs.currentIndex() == 1:
+            self._render_grid(self.classroom_selector.currentText())
+
+    def _on_view_changed(self, *_):
+        if self.tabs.currentIndex() == 1 and self._grid_dirty:
+            self._render_grid(self.classroom_selector.currentText())
+        self._update_result_label()
 
     def _render_grid(self, classroom):
         if self._refreshing or self._time_model is None:
             return
+        self._grid_dirty = False
         tm = self._time_model
         entries = [entry for entry in self._classroom_assignments.get(classroom, [])
-                   if self._matches_gid(entry[0])]
+                   if entry[0] in self._matching_gids]
         grid = build_schedule_grid(entries, tm.day_start, tm.day_end)
         table = self.grid_table
         table.clearSpans()
@@ -394,7 +450,8 @@ class ScheduleViewerWidget(QWidget):
                 continue
             parts = []
             for gid, day, start, end in block.entries:
-                parts.append(f"{gid}\n"
+                display_gid = msg("Fijada · {state}", state=gid) if getattr(self._groups.get(gid), "pinned", False) else gid
+                parts.append(f"{display_gid}\n"
                              f"{TimeModel.minutes_to_hhmm(start)}–{TimeModel.minutes_to_hhmm(end)}\n"
                              f"{self._name_map.get(gid, '')}")
             conflict = len(block.entries) > 1
@@ -431,29 +488,35 @@ class ScheduleViewerWidget(QWidget):
             self._grid_hint.setText(msg('Sin sesiones para esta aula y estos filtros.'))
         self._update_result_label()
 
-    def _matches_gid(self, gid):
+    def _filter_spec(self):
+        return (self._status_filter.currentData(), self._room_filter.currentData(),
+                self._day_filter.currentData(),
+                tuple(_search_key(self._list_search.text().strip()).split()))
+
+    def _matches_gid(self, gid, spec=None):
+        status, room, day, words = self._filter_spec() if spec is None else spec
         assignment = self._assignments.get(gid)
-        status = self._status_filter.currentData()
         if status == "assigned" and assignment is None:
             return False
         if status == "unassigned" and assignment is not None:
             return False
-        room, day = self._room_filter.currentData(), self._day_filter.currentData()
         if room is not None and (assignment is None or assignment[0] != room):
             return False
         if day is not None and (assignment is None or assignment[1] != day):
             return False
-        query = _search_key(self._list_search.text().strip())
-        searchable = " ".join((gid, self._name_map.get(gid, ""), assignment[0] if assignment else ""))
-        return all(word in _search_key(searchable) for word in query.split())
+        return all(word in self._search_keys.get(gid, "") for word in words)
 
     def _apply_filters(self, *_):
         if self._refreshing or not hasattr(self, "classroom_table"):
             return
+        spec = self._filter_spec()
+        self._matching_gids = {gid for gid in self._known_gids if self._matches_gid(gid, spec)}
         for table in (self.list_table, self.classroom_table):
             for row in range(table.rowCount()):
                 item = table.item(row, 0)
-                table.setRowHidden(row, not self._matches_gid(item.data(Qt.ItemDataRole.UserRole)))
+                hidden = item.data(Qt.ItemDataRole.UserRole) not in self._matching_gids
+                if table.isRowHidden(row) != hidden:
+                    table.setRowHidden(row, hidden)
             if table.currentRow() >= 0 and table.isRowHidden(table.currentRow()):
                 table.clearSelection()
                 table.setCurrentItem(None)
@@ -463,7 +526,7 @@ class ScheduleViewerWidget(QWidget):
             self.classroom_selector.blockSignals(True)
             self.classroom_selector.setCurrentText(room)
             self.classroom_selector.blockSignals(False)
-        self._render_grid(self.classroom_selector.currentText())
+        self._request_grid_render()
         self._btn_reset_filters.setEnabled(bool(self._list_search.text()) or
                                            any(combo.currentIndex() > 0 for combo in
                                                (self._room_filter, self._day_filter, self._status_filter)))
@@ -488,12 +551,15 @@ class ScheduleViewerWidget(QWidget):
         The grid's local classroom selector and current tab do not narrow this
         scope. Use the shared Aula filter when exporting a single classroom.
         """
+        spec = self._filter_spec()
         return {gid: value for gid, value in self._assignments.items()
-                if self._matches_gid(gid)}
+                if self._matches_gid(gid, spec)}
 
     def _filter_list(self, text):
-        self._list_search.setText(text)
-        self._apply_filters()
+        if self._list_search.text() == text:
+            self._apply_filters()
+        else:
+            self._list_search.setText(text)
 
     def _filter_cls(self, text):
         self._filter_list(text)
@@ -513,7 +579,7 @@ class ScheduleViewerWidget(QWidget):
         index = self.tabs.currentIndex()
         if index == 1:
             room = self.classroom_selector.currentText()
-            visible = sum(self._matches_gid(gid) and data[0] == room for gid, data in self._assignments.items())
+            visible = sum(gid in self._matching_gids and data[0] == room for gid, data in self._assignments.items())
             total = len(self._assignments)
         else:
             table = self.list_table if index == 0 else self.classroom_table
@@ -571,7 +637,25 @@ class ScheduleViewerWidget(QWidget):
         if gid in self._assignments:
             self._confirm_remove_group(gid)
 
+    def set_pin_controls_visible(self, visible):
+        for control in self._pin_controls:
+            control.setVisible(visible)
+
+    def refresh_pin_marks(self):
+        selected = [self._selected_gid(table) for table in (self.list_table, self.classroom_table)]
+        self._display_list(self._assignments, self._time_model)
+        self._display_classroom_view(self._assignments, self._time_model)
+        for table, gid in zip((self.list_table, self.classroom_table), selected):
+            for row in range(table.rowCount()):
+                if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == gid:
+                    table.setCurrentCell(row, 0)
+                    break
+        self._apply_filters()
+
     def _confirm_remove_group(self, gid):
+        if getattr(self._groups.get(gid), 'pinned', False):
+            QMessageBox.information(self, msg('Sesión fijada'), msg('Desfije la sesión antes de cambiar su asignación.'))
+            return
         answer = QMessageBox.question(self, msg('Quitar sesión del horario'),
                                       msg('¿Quitar {p1} del horario?\nLa sesión quedará sin asignar y no se exportará.', p1=gid),
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -593,6 +677,9 @@ class ScheduleViewerWidget(QWidget):
 
     def _clear_schedule(self):
         if not self._known_gids:
+            return
+        if any(getattr(g, "pinned", False) for g in self._groups.values()):
+            QMessageBox.information(self, msg("Sesión fijada"), msg("Desfije las sesiones antes de limpiar el horario."))
             return
         answer = QMessageBox.question(self, msg('Limpiar horario'),
                                       msg('¿Eliminar todas las asignaciones del horario actual?\nSe conservarán los cursos y las aulas para generar un horario nuevo.'),

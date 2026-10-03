@@ -21,3 +21,11 @@ Este inventario abarca el entorno de construcción, no sólo el ejecutable. Por 
 La metadata LGPLv3 del wheel PyQt6-Qt6 no identifica por sí sola todas las licencias de código incorporado en sus DLL. Antes de una release, la [lista oficial de terceros de la versión de Qt](https://doc.qt.io/qt-6/licenses-used-in-qt.html) debe contrastarse con los módulos distribuidos y conservar los avisos aplicables. No basta con el LICENSE del wheel.
 
 Consulta [la revisión de licencias](../docs/LICENSING_REVIEW.md) y [la entrega de fuentes](../docs/SOURCE_AVAILABILITY.md). Los iconos y datos de ejemplo de esta edición son originales/sintéticos; los antiguos documentos académicos no se incluyen.
+
+## Suplemento nativo verificado
+
+[Native source evidence](NATIVE_SOURCE_EVIDENCE.md) conserva avisos originales y
+hashes de fuentes Qt/Mesa/LLVM, la lista pública de sufijos editable con cadena
+verificada hasta Qt6Network.dll y recursos de versión de los nueve runtimes
+Microsoft. Es evidencia complementaria; las obligaciones y bloqueos de entrega
+de fuentes/configuración y permisos siguen indicados explícitamente.

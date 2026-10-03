@@ -79,3 +79,28 @@ network updater, or public release is configured.
   patches/build configuration and durable source availability review. See
   SOURCE_AVAILABILITY.md. File hashes and wheel notices do not close this gate.
 - Maintainer approval before any release publication; CI artifacts expire.
+
+## Narrow Qt PDF perimeter reduction
+
+The supported onedir build now removes only the unused `imageformats/qpdf.dll`
+and `Qt6Pdf.dll`, after parsing normal and delay-load PE imports of every retained
+EXE/DLL/PYD. Unexpected locations, QtPdf Python bindings, unreadable PE files or
+retained dependencies fail the build. QtNetwork, Mesa and all other plugins stay.
+The report is `build/reports/qt-pdf-pruning.json`; use fresh build/evidence output
+when rebuilding. `package_windows.py` rejects a candidate still containing either
+PDF DLL. Legacy direct-spec and optional onefile builds are not this reviewed
+release path and do not receive this onedir pruning.
+
+This removes Qt PDF/PDFium from a newly validated package, not retroactively from
+older artifacts. The final source/notice review remains required for retained
+Qt modules and other native dependencies. PE import inspection cannot establish
+absence of dynamic loading, so packaged/installed smoke also decodes ICO/SVG/PNG
+and exports PDF in Spanish and English, as well as the existing user workflow.
+
+The reusable `tools/verify_cross_version_recovery.py` exercises two distinct
+source implementations and a genuine schema increase in isolated subprocesses:
+old creates → new migrates/saves → old rejects newer data unchanged → old opens
+pre-update copy, with current data retained separately. Its report identifies
+source file hashes and does not claim a Windows binary or installer rollback.
+Rerun against the final candidate source and retain a separate real two-build
+Windows acceptance record from [the template](WINDOWS_ACCEPTANCE_RECORD.md).

@@ -1,13 +1,13 @@
 """Focused dialogs for classroom setup and scheduling feedback."""
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem
+    QVBoxLayout, QHBoxLayout, QListWidgetItem
 )
 from PyQt6.QtCore import Qt
 from ..scheduling.classroom import Classroom
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QWidget
+    QListWidget, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QWidget
 )
 
 
@@ -51,6 +51,8 @@ class ClassroomRestrictionsDialog(QDialog):
         left = QVBoxLayout()
         left.addWidget(QLabel(msg('Aulas:')))
         self.cls_list = QListWidget()
+        self.cls_list.setAccessibleName(msg('Aulas con restricciones'))
+        self.cls_list.setAccessibleDescription(msg('Use flechas para seleccionar y Espacio para marcar o desmarcar.'))
         self.cls_list.setMaximumWidth(200)
         for classroom in sorted(self._map):
             item = QListWidgetItem(classroom)
@@ -69,6 +71,8 @@ class ClassroomRestrictionsDialog(QDialog):
         self._course_label.setStyleSheet("font-weight: bold;")
         right.addWidget(self._course_label)
         self.course_list = QListWidget()
+        self.course_list.setAccessibleName(msg('Cursos permitidos en el aula seleccionada'))
+        self.course_list.setAccessibleDescription(msg('Use flechas para seleccionar y Espacio para marcar o desmarcar.'))
         self.course_list.itemChanged.connect(self._on_course_toggled)
         right.addWidget(self.course_list)
 
@@ -185,7 +189,7 @@ class AddClassroomDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(msg('Agregar Aula'))
         self.setModal(True)
-        self.setFixedWidth(360)
+        self.resize(420, 360)
         self._init_ui()
 
     def _init_ui(self):
@@ -233,6 +237,7 @@ class AddClassroomDialog(QDialog):
     def _on_accept(self):
         if not self.inp_code.text().strip():
             QMessageBox.warning(self, msg('Error'), msg('El código del aula es obligatorio.'))
+            self.inp_code.setFocus()
             return
         self.accept()
 

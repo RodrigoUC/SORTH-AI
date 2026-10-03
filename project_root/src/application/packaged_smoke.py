@@ -12,6 +12,7 @@ from PyQt6.QtCore import QTimer
 
 from ..gui.main_window import MainWindow
 from ..gui.i18n import language_manager
+from ..gui.locales import LANGUAGES
 from ..infrastructure.excel_reader import ExcelReader
 from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..infrastructure.session_repository import SessionRepository
@@ -82,6 +83,11 @@ def run_smoke_test(app, output_dir: Path) -> int:
             try:
                 for language, label in [('es', 'Generar horario'), ('en', 'Generate schedule')]:
                     manager.set_language(language, persist=False)
+                    localized_pdf = output_dir / f'schedule-{language}.pdf'
+                    exporter.to_pdf(assignments, str(localized_pdf), groups=groups,
+                                    total_assigned=len(assignments), pending_count=0, labels=LANGUAGES[language].messages)
+                    if not localized_pdf.read_bytes().startswith(b'%PDF-'):
+                        raise RuntimeError('Localized PDF export failed.')
                     if window.btn_generate.text() != label or window.current_schedule != assignments:
                         raise RuntimeError('Language switching changed data or failed to translate controls.')
                     if not window.grab().save(str(output_dir / f'schedule-{language}.png')):
@@ -100,6 +106,15 @@ def run_smoke_test(app, output_dir: Path) -> int:
 
     def start():
         try:
+            from PyQt6.QtGui import QImage, QIcon
+            if QIcon(str(source_root / 'assets/sorth.ico')).pixmap(32, 32).isNull():
+                raise RuntimeError('Bundled application icon could not be decoded.')
+            svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="red"/></svg>'
+            decoded = QImage.fromData(svg, b'SVG')
+            png_path = output_dir / 'plugin-check.png'
+            if decoded.isNull() or not decoded.save(str(png_path)) or QImage(str(png_path)).isNull():
+                raise RuntimeError('SVG/PNG image plugins failed.')
+            result['stages'].append('icon_svg_png_decode')
             sample = source_root / 'data/input/Cursos_Ejemplo.xlsx'
             reader = ExcelReader(str(sample))
             window._classrooms = reader.load_classrooms()

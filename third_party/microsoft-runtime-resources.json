@@ -1,0 +1,128 @@
+[
+  {
+    "path": "_internal/VCRUNTIME140_1.dll",
+    "sha256": "6a99bc0128e0c7d6cbbf615fcc26909565e17d4ca3451b97f8987f9c6acbc6c8",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.42.34438.0",
+      "InternalName": "vcruntime140_1.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "vcruntime140_1.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.42.34438.0"
+    }
+  },
+  {
+    "path": "_internal/VCRUNTIME140.dll",
+    "sha256": "052ad6a20d375957e82aa6a3c441ea548d89be0981516ca7eb306e063d5027f4",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.42.34438.0",
+      "InternalName": "vcruntime140.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "vcruntime140.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.42.34438.0"
+    }
+  },
+  {
+    "path": "_internal/pandas.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
+    "sha256": "a4c2229bdc2a2a630acdc095b4d86008e5c3e3bc7773174354f3da4f5beb9cde",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.40.33810.0",
+      "InternalName": "msvcp140.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "msvcp140.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.40.33810.0"
+    }
+  },
+  {
+    "path": "_internal/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
+    "sha256": "a4c2229bdc2a2a630acdc095b4d86008e5c3e3bc7773174354f3da4f5beb9cde",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.40.33810.0",
+      "InternalName": "msvcp140.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "msvcp140.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.40.33810.0"
+    }
+  },
+  {
+    "path": "_internal/PyQt6/Qt6/bin/VCRUNTIME140_1.dll",
+    "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.44.35211.0",
+      "InternalName": "vcruntime140_1.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "vcruntime140_1.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.44.35211.0"
+    }
+  },
+  {
+    "path": "_internal/PyQt6/Qt6/bin/VCRUNTIME140.dll",
+    "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.44.35211.0",
+      "InternalName": "vcruntime140.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "vcruntime140.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.44.35211.0"
+    }
+  },
+  {
+    "path": "_internal/PyQt6/Qt6/bin/MSVCP140_2.dll",
+    "sha256": "3ea06f0ee098b4823cb79599df3780e7f23cce52c19aac31d2a0d47efe33a5e9",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library _2",
+      "FileVersion": "14.44.35211.0",
+      "InternalName": "msvcp140_2.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "msvcp140_2.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.44.35211.0"
+    }
+  },
+  {
+    "path": "_internal/PyQt6/Qt6/bin/MSVCP140_1.dll",
+    "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library _1",
+      "FileVersion": "14.44.35211.0",
+      "InternalName": "msvcp140_1.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "msvcp140_1.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.44.35211.0"
+    }
+  },
+  {
+    "path": "_internal/PyQt6/Qt6/bin/MSVCP140.dll",
+    "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9",
+    "version_resource": {
+      "CompanyName": "Microsoft Corporation",
+      "FileDescription": "Microsoft\u00ae C Runtime Library",
+      "FileVersion": "14.44.35211.0",
+      "InternalName": "msvcp140.dll",
+      "LegalCopyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "OriginalFilename": "msvcp140.dll",
+      "ProductName": "Microsoft\u00ae Visual Studio\u00ae",
+      "ProductVersion": "14.44.35211.0"
+    }
+  }
+]

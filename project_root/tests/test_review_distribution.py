@@ -76,16 +76,29 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
     pdf = PdfReader(output / 'schedule.pdf')
     assert len(pdf.pages) > 0
     assert 'Horario completo: 0 pendientes' in pdf.pages[0].extract_text()
-    assert set(report['stages']) == {'bundled_excel_import', 'background_schedule',
+    assert set(report['stages']) == {'icon_svg_png_decode', 'bundled_excel_import', 'background_schedule',
                                      'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
                                      'course_dialog_edit_save', 'new_window_restore',
                                      'reopened_export_content', 'invalid_input_preserves_session',
                                      'large_workbook_schedule_export'}
     assert (output / 'schedule.png').is_file()
+    assert (output / 'plugin-check.png').is_file()
+    for language, text in [('es', 'Horario completo'), ('en', 'Complete schedule')]:
+        localized = PdfReader(output / f'schedule-{language}.pdf')
+        assert text in localized.pages[0].extract_text()
 
 
 def test_archive_rejects_mismatched_frozen_identity(inputs):
     app, manual, out = inputs
     with pytest.raises(ValueError, match="does not match"):
         package(app, manual, out, 'b' * 40)
+    assert not out.exists()
+
+
+@pytest.mark.parametrize('name', ['qpdf.dll', 'Qt6Pdf.dll'])
+def test_archive_rejects_unpruned_qt_pdf(inputs, name):
+    app, manual, out = inputs
+    (app / '_internal' / name).write_bytes(b'MZ-test')
+    with pytest.raises(ValueError, match='Qt PDF native'):
+        package(app, manual, out, 'a' * 40)
     assert not out.exists()

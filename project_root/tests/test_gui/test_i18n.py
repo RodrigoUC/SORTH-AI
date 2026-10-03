@@ -229,6 +229,7 @@ def test_days_status_summary_and_conflicts_translate(manager, window):
     viewer.display_schedule(assignments, TimeModel.default(), window.current_groups)
     summary = SummaryDialog(window, viewer.summary_data)
     manager.set_language('en', persist=False)
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.horizontalHeaderItem(1).text() == 'Monday'
     assert any('Classroom conflict' in viewer.grid_table.item(r, 1).text()
                for r in range(viewer.grid_table.rowCount()) if viewer.grid_table.item(r, 1))
@@ -399,6 +400,8 @@ def test_import_error_boundary_uses_active_language_and_keeps_data(manager, wind
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: ('missing.xlsx', ''))
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: messages.append(a))
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert 'The file was not found. Select it again.' in str(messages[-1][2])
     assert window.current_schedule == original
 

@@ -1,6 +1,121 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.',
+    'Sin valor': 'Sin valor',
+    'Grupo {number}: aula {room}, día {day}, hora {time}': 'Grupo {number}: aula {room}, día {day}, hora {time}',
+
+    'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.',
+    'Herramientas de sesiones fijadas': 'Herramientas de sesiones fijadas',
+    'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.',
+    'Herramientas de proyectos y escenarios': 'Herramientas de proyectos y escenarios',
+    'Mostrar controles para guardar, abrir y comparar copias independientes.': 'Mostrar controles para guardar, abrir y comparar copias independientes.',
+    'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.': 'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.',
+    'Conservar original y restablecer herramientas': 'Conservar original y restablecer herramientas',
+    'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?': 'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?',
+    'Duración (minutos)': 'Duración (minutos)',
+    'Tipo de aula requerido': 'Tipo de aula requerido',
+    'Estudiantes': 'Estudiantes',
+    'Aula sugerida': 'Aula sugerida',
+    'Inicio preferido (minutos)': 'Inicio preferido (minutos)',
+    'Preferencias por grupo': 'Preferencias por grupo',
+    'División de sesiones': 'División de sesiones',
+    'Capacidad': 'Capacidad',
+    'Tipo de aula': 'Tipo de aula',
+    'Descripción': 'Descripción',
+    'Campus': 'Campus',
+    '    {field}: {before} → {after}': '    {field}: {before} → {after}',
+
+    'Cancelar importación': 'Cancelar importación',
+    'Progreso de importación': 'Progreso de importación',
+    'Leyendo y validando Excel… La sesión actual se conserva.': 'Leyendo y validando Excel… La sesión actual se conserva.',
+    'Importación cancelada. La sesión anterior se conserva.': 'Importación cancelada. La sesión anterior se conserva.',
+    'El archivo cambió. Revise la nueva versión validada antes de importar.': 'El archivo cambió. Revise la nueva versión validada antes de importar.',
+    'Comprobando que el archivo no cambió…': 'Comprobando que el archivo no cambió…',
+    'Cancelando importación antes de cerrar…': 'Cancelando importación antes de cerrar…',
+    'El archivo cambió mientras se leía. Selecciónelo nuevamente.': 'El archivo cambió mientras se leía. Selecciónelo nuevamente.',
+    'Revisar cambios del Excel': 'Revisar cambios del Excel',
+    'Se reemplazarán los cursos y aulas. Se borrarán las restricciones y las asignaciones no conservadas. Cancelar mantiene la sesión actual.': 'Se reemplazarán los cursos y aulas. Se borrarán las restricciones y las asignaciones no conservadas. Cancelar mantiene la sesión actual.',
+    'Cambios de importación': 'Cambios de importación',
+    'Reemplazar con este Excel': 'Reemplazar con este Excel',
+    'Archivo: {name}': 'Archivo: {name}',
+    'Añadidos': 'Añadidos',
+    'Modificados': 'Modificados',
+    'Eliminados': 'Eliminados',
+    '{label}: {count}': '{label}: {count}',
+    'Restricciones que se borrarán: {count}': 'Restricciones que se borrarán: {count}',
+    'Asignaciones que se borrarán': 'Asignaciones que se borrarán',
+    'Sesiones fijadas que se conservarán': 'Sesiones fijadas que se conservarán',
+    'Vista previa de cambios del Excel': 'Vista previa de cambios del Excel',
+    'Revisar cursos, aulas, restricciones y asignaciones antes de reemplazar la sesión.': 'Revisar cursos, aulas, restricciones y asignaciones antes de reemplazar la sesión.',
+
+    'Cancelar generación': 'Cancelar generación',
+    'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelando generación; se conservarán el horario y las sesiones fijadas.',
+
+    'La generación cambió sesiones fijadas. Se conserva el horario anterior.': 'La generación cambió sesiones fijadas. Se conserva el horario anterior.',
+    'La sesión fijada {gid} requiere confirmar una excepción LAB.': 'La sesión fijada {gid} requiere confirmar una excepción LAB.',
+    'Sesión fijada': 'Sesión fijada',
+    'Desfije la sesión antes de cambiar su asignación.': 'Desfije la sesión antes de cambiar su asignación.',
+    'La estructura dividida de {gid} cambió.': 'La estructura dividida de {gid} cambió.',
+    'Sesiones fijadas en conflicto': 'Sesiones fijadas en conflicto',
+    'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.': 'Este cambio invalida sesiones fijadas:\n{details}\n\n¿Desfijar todas las sesiones y aplicar el cambio? Cancelar conserva los datos y el horario.',
+    'Fijar sesión': 'Fijar sesión',
+    'Conservar solo esta sesión al regenerar; no es una preferencia.': 'Conservar solo esta sesión al regenerar; no es una preferencia.',
+    'Desfijar sesión': 'Desfijar sesión',
+    'Fijada · {state}': 'Fijada · {state}',
+    'Desfije las sesiones antes de limpiar el horario.': 'Desfije las sesiones antes de limpiar el horario.',
+
+    'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.': 'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.',
+    'Versión del formato': 'Versión del formato',
+    'Aula: preferencias pendientes / desconocidas': 'Aula: preferencias pendientes / desconocidas',
+    'Hora: preferencias pendientes / desconocidas': 'Hora: preferencias pendientes / desconocidas',
+    'Día: preferencias pendientes / desconocidas': 'Día: preferencias pendientes / desconocidas',
+    'Valores diferentes (izquierda / derecha)': 'Valores diferentes (izquierda / derecha)',
+    'Nombre (1–120 caracteres)': 'Nombre (1–120 caracteres)',
+    'Proyectos y escenarios': 'Proyectos y escenarios',
+    'Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.': 'Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.',
+    'Proyecto': 'Proyecto',
+    'Escenario': 'Escenario',
+    'Guardado (UTC)': 'Guardado (UTC)',
+    'Escenarios guardados': 'Escenarios guardados',
+    'Crear proyecto desde la sesión': 'Crear proyecto desde la sesión',
+    'Guardar como escenario': 'Guardar como escenario',
+    'Abrir escenario': 'Abrir escenario',
+    'Duplicar': 'Duplicar',
+    'Renombrar': 'Renombrar',
+    'Comparar': 'Comparar',
+    'Ese nombre ya existe. Usa otro nombre; no se reemplazó ningún escenario.': 'Ese nombre ya existe. Usa otro nombre; no se reemplazó ningún escenario.',
+    'No se pudo completar la operación. El escenario guardado se conserva. {detail}': 'No se pudo completar la operación. El escenario guardado se conserva. {detail}',
+    'Escenario guardado. Las ediciones posteriores no cambian esta copia.': 'Escenario guardado. Las ediciones posteriores no cambian esta copia.',
+    'Se guardará una copia de recuperación de la sesión actual antes de abrir {name}. ¿Continuar?': 'Se guardará una copia de recuperación de la sesión actual antes de abrir {name}. ¿Continuar?',
+    'Comparar escenarios': 'Comparar escenarios',
+    'Indicadores descriptivos, sin ganador ni puntuación global.': 'Indicadores descriptivos, sin ganador ni puntuación global.',
+    'No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.': 'No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.',
+    'Cursos': 'Cursos',
+    'Aulas': 'Aulas',
+    'Restricciones': 'Restricciones',
+    'Sesiones fijas': 'Sesiones fijas',
+    'Semilla': 'Semilla',
+    'Calendario': 'Calendario',
+    'Versión del algoritmo': 'Versión del algoritmo',
+    'Versión de métricas': 'Versión de métricas',
+    'Diferencias: {details}': 'Diferencias: {details}',
+    'Ninguna': 'Ninguna',
+    'Indicador': 'Indicador',
+    'El calendario guardado no es compatible. No se recalcularon indicadores con reglas diferentes.': 'El calendario guardado no es compatible. No se recalcularon indicadores con reglas diferentes.',
+    'Sesiones asignadas / total': 'Sesiones asignadas / total',
+    'Sesiones pendientes': 'Sesiones pendientes',
+    'Preferencia de día: satisfechas / evaluadas': 'Preferencia de día: satisfechas / evaluadas',
+    'Preferencia de hora: satisfechas / evaluadas': 'Preferencia de hora: satisfechas / evaluadas',
+    'Preferencia de aula: satisfechas / evaluadas': 'Preferencia de aula: satisfechas / evaluadas',
+    'Ocupación: minutos-aula / disponibles': 'Ocupación: minutos-aula / disponibles',
+    'Excepciones activas': 'Excepciones activas',
+    'Docencia, día {day} (min)': 'Docencia, día {day} (min)',
+    'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}': 'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}',
+    'Cambios posteriores a la copia': 'Cambios posteriores a la copia',
+    'Copia guardada': 'Copia guardada',
+    '{name} · {state} · {save}': '{name} · {state} · {save}',
+    'Ningún archivo seleccionado': 'Ningún archivo seleccionado',
     'El PDF filtrado requiere el total global de asignaciones.': 'El PDF filtrado requiere el total global de asignaciones.',
     'El alcance y el total de asignaciones no coinciden.': 'El alcance y el total de asignaciones no coinciden.',
     'El número de sesiones pendientes no puede ser negativo.': 'El número de sesiones pendientes no puede ser negativo.',
@@ -371,6 +486,12 @@ MESSAGES = {
 }
 
 QT_MESSAGES = {
+    'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.': 'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.',
+    'Versión del formato': 'Versión del formato',
+    'Aula: preferencias pendientes / desconocidas': 'Aula: preferencias pendientes / desconocidas',
+    'Hora: preferencias pendientes / desconocidas': 'Hora: preferencias pendientes / desconocidas',
+    'Día: preferencias pendientes / desconocidas': 'Día: preferencias pendientes / desconocidas',
+    'Valores diferentes (izquierda / derecha)': 'Valores diferentes (izquierda / derecha)',
     "&Cancel": "&Cancelar",
     "&Close": "&Cerrar",
     "&Copy": "&Copiar",
@@ -569,3 +690,163 @@ MESSAGES.update({'No aplica': 'No aplica',
                                                                                                                                                                                             'Registros '
                                                                                                                                                                                             'inactivos: '
                                                                                                                                                                                             '{inactive}.'})
+
+# Keyboard and assistive-technology labels.
+MESSAGES.update({'Use flechas para recorrer celdas y Tab para salir. En tablas ordenables, Ctrl+Mayús+Arriba o Abajo ordena la columna actual.': 'Use '
+                                                                                                                                 'flechas '
+                                                                                                                                 'para '
+                                                                                                                                 'recorrer '
+                                                                                                                                 'celdas '
+                                                                                                                                 'y '
+                                                                                                                                 'Tab '
+                                                                                                                                 'para '
+                                                                                                                                 'salir. '
+                                                                                                                                 'En '
+                                                                                                                                 'tablas '
+                                                                                                                                 'ordenables, '
+                                                                                                                                 'Ctrl+Mayús+Arriba '
+                                                                                                                                 'o '
+                                                                                                                                 'Abajo '
+                                                                                                                                 'ordena '
+                                                                                                                                 'la '
+                                                                                                                                 'columna '
+                                                                                                                                 'actual.',
+ 'Aulas con restricciones': 'Aulas con restricciones',
+ 'Use flechas para seleccionar y Espacio para marcar o desmarcar.': 'Use flechas para seleccionar y Espacio '
+                                                                    'para marcar o desmarcar.',
+ 'Cursos permitidos en el aula seleccionada': 'Cursos permitidos en el aula seleccionada',
+ 'Duración en horas': 'Duración en horas',
+ 'Duración en minutos': 'Duración en minutos',
+ 'Hora de inicio preferida': 'Hora de inicio preferida',
+ 'Semilla fija': 'Semilla fija',
+ 'Progreso de generación': 'Progreso de generación',
+ 'Leer estado (F6)': 'Leer estado (F6)',
+ 'Estado actual': 'Estado actual',
+ 'Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.': 'Use '
+                                                                                                                                             'flechas '
+                                                                                                                                             'para '
+                                                                                                                                             'recorrer '
+                                                                                                                                             'la '
+                                                                                                                                             'cuadrícula '
+                                                                                                                                             'y '
+                                                                                                                                             'Tab '
+                                                                                                                                             'para '
+                                                                                                                                             'salir. '
+                                                                                                                                             'La '
+                                                                                                                                             'Lista '
+                                                                                                                                             'detallada '
+                                                                                                                                             'ofrece '
+                                                                                                                                             'las '
+                                                                                                                                             'mismas '
+                                                                                                                                             'sesiones '
+                                                                                                                                             'en '
+                                                                                                                                             'filas, '
+                                                                                                                                             'con '
+                                                                                                                                             'estado '
+                                                                                                                                             'y '
+                                                                                                                                             'acciones.'})
+
+# Optional feature settings
+MESSAGES.update({'Configuración': 'Configuración',
+ 'Sesiones fijadas': 'Sesiones fijadas',
+ 'Fijar o desfijar sesiones para conservar su ubicación al regenerar.': 'Fijar o desfijar sesiones para '
+                                                                        'conservar su ubicación al '
+                                                                        'regenerar.',
+ 'Guardar copias independientes, abrir escenarios y compararlos.': 'Guardar copias independientes, '
+                                                                   'abrir escenarios y compararlos.',
+ 'Las funciones opcionales empiezan desactivadas. Los cambios se guardan en este equipo.': 'Las '
+                                                                                           'funciones '
+                                                                                           'opcionales '
+                                                                                           'empiezan '
+                                                                                           'desactivadas. '
+                                                                                           'Los cambios '
+                                                                                           'se guardan '
+                                                                                           'en este '
+                                                                                           'equipo.',
+ 'Desactivar oculta los controles, sin borrar datos. Las sesiones ya fijadas siguen protegidas. Las validaciones de seguridad siempre están activas.': 'Desactivar '
+                                                                                                                                                       'oculta '
+                                                                                                                                                       'los '
+                                                                                                                                                       'controles, '
+                                                                                                                                                       'sin '
+                                                                                                                                                       'borrar '
+                                                                                                                                                       'datos. '
+                                                                                                                                                       'Las '
+                                                                                                                                                       'sesiones '
+                                                                                                                                                       'ya '
+                                                                                                                                                       'fijadas '
+                                                                                                                                                       'siguen '
+                                                                                                                                                       'protegidas. '
+                                                                                                                                                       'Las '
+                                                                                                                                                       'validaciones '
+                                                                                                                                                       'de '
+                                                                                                                                                       'seguridad '
+                                                                                                                                                       'siempre '
+                                                                                                                                                       'están '
+                                                                                                                                                       'activas.',
+ 'MCP se instala y se inicia por separado; esta configuración no activa servicios externos.': 'MCP se '
+                                                                                              'instala '
+                                                                                              'y se '
+                                                                                              'inicia '
+                                                                                              'por '
+                                                                                              'separado; '
+                                                                                              'esta '
+                                                                                              'configuración '
+                                                                                              'no '
+                                                                                              'activa '
+                                                                                              'servicios '
+                                                                                              'externos.',
+ 'Se ocultarán los controles para fijar sesiones. Las sesiones ya fijadas seguirán condicionando la generación. Para cambiarlas, vuelve a activar esta función. ¿Guardar configuración?': 'Se '
+                                                                                                                                                                                          'ocultarán '
+                                                                                                                                                                                          'los '
+                                                                                                                                                                                          'controles '
+                                                                                                                                                                                          'para '
+                                                                                                                                                                                          'fijar '
+                                                                                                                                                                                          'sesiones. '
+                                                                                                                                                                                          'Las '
+                                                                                                                                                                                          'sesiones '
+                                                                                                                                                                                          'ya '
+                                                                                                                                                                                          'fijadas '
+                                                                                                                                                                                          'seguirán '
+                                                                                                                                                                                          'condicionando '
+                                                                                                                                                                                          'la '
+                                                                                                                                                                                          'generación. '
+                                                                                                                                                                                          'Para '
+                                                                                                                                                                                          'cambiarlas, '
+                                                                                                                                                                                          'vuelve '
+                                                                                                                                                                                          'a '
+                                                                                                                                                                                          'activar '
+                                                                                                                                                                                          'esta '
+                                                                                                                                                                                          'función. '
+                                                                                                                                                                                          '¿Guardar '
+                                                                                                                                                                                          'configuración?',
+ 'No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.': 'No se pudo guardar '
+                                                                                   'la configuración. '
+                                                                                   'Revisa los permisos '
+                                                                                   'e inténtalo de '
+                                                                                   'nuevo.',
+ 'Datos de funciones desactivadas': 'Datos de funciones desactivadas',
+ 'Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.': 'Hay '
+                                                                                                         'sesiones '
+                                                                                                         'fijadas: '
+                                                                                                         'siguen '
+                                                                                                         'protegidas. '
+                                                                                                         'Activa '
+                                                                                                         'Sesiones '
+                                                                                                         'fijadas '
+                                                                                                         'en '
+                                                                                                         'Configuración '
+                                                                                                         'para '
+                                                                                                         'modificarlas.',
+ 'Hay datos de escenarios conservados. Activa Proyectos y escenarios en Configuración para acceder.': 'Hay '
+                                                                                                      'datos '
+                                                                                                      'de '
+                                                                                                      'escenarios '
+                                                                                                      'conservados. '
+                                                                                                      'Activa '
+                                                                                                      'Proyectos '
+                                                                                                      'y '
+                                                                                                      'escenarios '
+                                                                                                      'en '
+                                                                                                      'Configuración '
+                                                                                                      'para '
+                                                                                                      'acceder.'})

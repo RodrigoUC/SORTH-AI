@@ -182,5 +182,21 @@
     "count": 1,
     "reviewed_on": "2026-10-02",
     "reason": "Only this interpreter and fixed local tooling arguments are executed; no shell or user-supplied command. security_review.execute is internal and accepts only commands built by main."
+  },
+  {
+    "file": "tools/verify_cross_version_recovery.py",
+    "test_id": "B404",
+    "code_sha256": "c7485d26909de0225d52aa000b520b075d402cead3a69f341ade5fa50339fd4e",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Bounded developer-only source compatibility test: runs this interpreter with -I, a fixed checked-in worker program and argument-array paths/actions; no shell or network. Caller must supply trusted reviewed source checkouts because their modules are intentionally executed. Generates synthetic databases only in a new output directory; 60-second subprocess timeout. This does not permit arbitrary external commands or user database inputs."
+  },
+  {
+    "file": "tools/verify_cross_version_recovery.py",
+    "test_id": "B603",
+    "code_sha256": "356dcd0982ad471cf313daa212c227952daff46ecf1afbfa79629e0d46f09f32",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Bounded developer-only source compatibility test: runs this interpreter with -I, a fixed checked-in worker program and argument-array paths/actions; no shell or network. Caller must supply trusted reviewed source checkouts because their modules are intentionally executed. Generates synthetic databases only in a new output directory; 60-second subprocess timeout. This does not permit arbitrary external commands or user database inputs."
   }
 ]

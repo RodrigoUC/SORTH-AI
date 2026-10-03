@@ -46,3 +46,52 @@ automatic detection of the operating system's reduced-motion setting.
 Motion QA uses real Qt event-loop tests, recorded Qt frames, and screenshots at
 1200×800 and 960×640; screenshots alone cannot establish animation behavior.
 Native Windows timing and screen-reader announcement behavior require platform QA.
+
+## Keyboard and assistive-technology support
+Tables use arrow keys for cell navigation and Tab/Shift+Tab to leave; sortable
+columns support Ctrl+Shift+Up/Down. Selection follows course/session identity
+through supported row refreshes. Form labels supply accessible names; compound
+inputs and checkable restriction lists have explicit ES/EN names. Focus rings
+also cover tables, lists, time fields, checkboxes and selectable feedback.
+The status-bar **Leer estado (F6)** action opens a keyboard-readable snapshot of
+progress, save state, totals and errors, with focus returned on close. This is
+an explicit fallback, not a claim of live screen-reader announcement support.
+See `project_root/ACCESSIBILITY.md` for inventory, shortcuts and outstanding
+Windows acceptance; do not declare issue #11 complete from offscreen tests.
+## Named projects and scenario comparison
+
+The status bar opens a native project dialog using existing localized Qt controls
+and theme tokens. Scenario rows have native multi-selection and internal scrolling;
+create/save/open are separated from duplicate/rename/compare in two action rows.
+The comparison uses a wider metric-label column, explicit numerators/denominators,
+and an incompatibility warning above the scrollable metrics. Close remains outside
+the scroll area. User names remain literal, not translation keys or file paths.
+Opening another scenario explicitly confirms and preserves a recovery copy. Naming
+cancellation performs no write; duplicate names show an inline error and never
+replace data. Shared i18n widgets own labels/buttons/tables, `ProjectRepository`
+owns uniqueness and transactions, and quality v1 owns all descriptive measures.
+
+## Optional feature preferences
+The masthead Settings button opens a native Save/Cancel dialog using the existing
+palette, typography, localized controls and keyboard focus. Only implemented
+advanced tools appear, all disabled initially. Disabling changes entry-point
+visibility and never deletes project data or relaxes constraints. A main-window
+text notice (also included in F6 status) explains retained pins/scenario data and
+where to reactivate controls. See `project_root/OPTIONAL_FEATURES.md`.
+
+Optional-tool preferences use one versioned atomic JSON record, separate from
+QSettings language/motion preferences. Failed saves keep committed flags and
+original bytes. Malformed/future settings require an explicit preserve-and-reset
+action; the native recovery message explains that schedule data never changes.
+
+## Staged Excel import
+
+A native status-bar cancel action accompanies the existing busy indicator; a new
+Load Excel request supersedes the previous reader. Input editing stays disabled
+until the candidate is accepted or canceled. Optional change review uses one
+780×560 native dialog, a keyboard-selectable scrolling text summary, explicit
+replacement wording, and default Cancel. Changes show previous/new field values;
+restrictions and assignments describe exactly what will be cleared or retained.
+No silent merge or partially editable model replacement. The indicator respects
+reduced motion; F6 exposes full status when the compact bar elides text. See
+`project_root/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.

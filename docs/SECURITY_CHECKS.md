@@ -150,3 +150,11 @@ privados. El control se limita al código público y metadatos públicos de paqu
 - [pip-audit en PyPI](https://pypi.org/project/pip-audit/2.10.1/)
 - [Dependabot: opciones](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
 - [GitHub: endurecimiento de Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions)
+
+`tools/verify_cross_version_recovery.py` is a developer-only compatibility test.
+Its two subprocess findings (B404/B603) are reviewed individually by exact code
+fingerprint. It executes the current Python interpreter with isolated mode, a
+fixed checked-in worker, argument-array paths and a 60-second timeout; no shell
+or network. Supply only trusted reviewed source checkouts, whose modules are
+intentionally executed. It creates synthetic databases in a new directory and
+has no user-database argument. Its checks raise explicit errors even with `-O`.

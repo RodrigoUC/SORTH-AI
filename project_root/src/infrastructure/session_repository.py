@@ -22,7 +22,7 @@ class SessionRepository:
     The database lives in the current user's SORTH application-data directory.
     """
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     @staticmethod
     def default_path() -> Path:
@@ -179,6 +179,8 @@ class SessionRepository:
                 con.execute(
                     "ALTER TABLE assignments ADD COLUMN lab_override INTEGER NOT NULL DEFAULT 0"
                 )
+            if "pinned" not in assignment_columns:
+                con.execute("ALTER TABLE assignments ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))")
             con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
@@ -199,7 +201,11 @@ class SessionRepository:
                      classrooms: dict[str, Classroom],
                      courses: list[Course],
                      restrictions: dict[str, set[str]],
-                     assignments: dict | None, lab_overrides=()):
+                     assignments: dict | None, lab_overrides=(), pinned_group_ids=(),
+                     *, before_commit=None):
+        pinned_group_ids = frozenset(pinned_group_ids)
+        if not pinned_group_ids.issubset(assignments or {}):
+            raise ValueError("Pinned sessions must have assignments")
         with self._connect() as con:
             # Session metadata
             con.execute("""
@@ -254,10 +260,15 @@ class SessionRepository:
             if assignments:
                 con.executemany("""
                     INSERT INTO assignments
-                        (group_id, classroom_name, day, start_min, end_min, lab_override)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, [(gid, cls, day, s, e, int(gid in lab_overrides))
+                        (group_id, classroom_name, day, start_min, end_min, lab_override, pinned)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, [(gid, cls, day, s, e, int(gid in lab_overrides), int(gid in pinned_group_ids))
                       for gid, (cls, day, s, e) in assignments.items()])
+
+            # Application unit-of-work hook: no event pumping or nested writes.
+            # An exception rolls back all SQL, including a late commit failure.
+            if before_commit is not None:
+                before_commit()
 
     # ------------------------------------------------------------------
     # Load
@@ -321,7 +332,10 @@ class SessionRepository:
             # Assignments
             assignments = {}
             lab_overrides = set()
+            pinned_group_ids = set()
             for r in con.execute("SELECT * FROM assignments"):
+                if r["pinned"]:
+                    pinned_group_ids.add(r["group_id"])
                 if r["lab_override"]:
                     lab_overrides.add(r["group_id"])
                 assignments[r["group_id"]] = (
@@ -336,6 +350,7 @@ class SessionRepository:
                 "restrictions": restrictions,
                 "assignments":  assignments if assignments else None,
                 "lab_overrides": lab_overrides,
+                "pinned_group_ids": pinned_group_ids,
             }
 
     def has_session(self) -> bool:

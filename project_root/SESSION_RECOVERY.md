@@ -51,3 +51,24 @@ No hay selector gráfico de copias todavía; la herramienta requiere el entorno 
 Se rechazan libros de más de 25 MiB comprimidos, 100 MiB de contenido ZIP expandido, 1.000 entradas ZIP o 10.000 filas de datos por hoja. Estos límites se comprueban antes de reemplazar la sesión; no se truncan datos. Divida libros mayores y verifique cada importación. Los límites reducen consumo accidental, pero no convierten el lector en un entorno aislado para archivos hostiles.
 
 `test_data_resilience.py` verifica disco lleno real mediante el límite de páginas SQLite, errores tardíos de escritura, terminación de un proceso con una transacción sin confirmar, borrado transaccional, copias completas, migración fallida/idempotente y rechazo de esquemas nuevos. `test_import_state_safety.py` compara datos, restricciones, horario, excepciones, estado de guardado y bytes de la base antes/después de cancelar o fallar una importación. Las pruebas existentes cubren sólo lectura, WAL, prioridad del destino y cierre con reintento/cancelación/descarte. Una caída abrupta del sistema, interrupción real de alimentación y permisos ACL de Windows requieren pruebas manuales sobre datos descartables; no están certificados por estas simulaciones.
+
+## Candidato de recuperación sin instalar Python
+
+La aplicación empaquetada admite un comando de asistencia, sin abrir la sesión
+predeterminada ni activar automáticamente una copia. Cierre SORTH y conserve
+la carpeta completa original. Con el ejecutable de la versión adecuada, use
+rutas explícitas y una carpeta de salida nueva:
+
+```powershell
+$p = Start-Process -FilePath 'C:\SORTH\SORTH.exe' -ArgumentList @('--recover-session', '--source', '"D:\Resguardo\copia.db"', '--output', '"D:\Candidato\sorth_session.db"', '--report', '"D:\Candidato\resultado.json"') -PassThru -Wait
+$p.ExitCode
+Get-Content -LiteralPath 'D:\Candidato\resultado.json'
+```
+
+Cree antes `D:\Candidato`; la herramienta exige archivos de salida/informe nuevos.
+`ok: true` y código 0 indican un candidato SQLite verificable, no su activación ni
+una prueba visual de su contenido. `ok: false` exige investigar el error y mantener
+los originales. El EXE de ventana escribe JSON porque no dispone de consola fiable.
+Una versión reciente puede migrar el candidato a su esquema: **no** lo use para
+producir una copia para un ejecutable anterior. La vuelta atrás utiliza el resguardo
+previo y su versión compatible, conservando por separado los cambios recientes.
