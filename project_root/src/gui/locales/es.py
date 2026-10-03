@@ -617,8 +617,8 @@ MESSAGES = {
 
 # Grid scope and native session details.
 MESSAGES.update({
-    'Filtros globales: {assigned} asignadas exportables · {pending} pendientes · {visible} de {total} sesiones': 'Filtros globales: {assigned} asignadas exportables · {pending} pendientes · {visible} de {total} sesiones',
-    '{room}: {count} sesiones': '{room}: {count} sesiones',
+    'Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}': 'Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}',
+    'Sesiones en esta aula: {count}': 'Sesiones en esta aula: {count}',
     'El aula de la cuadrícula no cambia la exportación filtrada.': 'El aula de la cuadrícula no cambia la exportación filtrada.',
     'Ver detalles': 'Ver detalles',
     'Detalles de la sesión': 'Detalles de la sesión',
