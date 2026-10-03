@@ -118,3 +118,75 @@ def test_collection_inside_native_translation_is_bounded_and_preserves_labels(tm
                             capture_output=True, text=True, timeout=12)
     assert result.returncode == 0, result.stderr
     assert 'translation lifecycle passed' in result.stdout
+
+
+
+OWNER_LIFETIME_SCRIPT = r'''
+import gc, sys, weakref
+from PyQt6 import sip
+from PyQt6.QtWidgets import QApplication, QWidget
+from src.gui.i18n import msg, language_manager
+from src.gui import i18n_widgets
+
+mode = sys.argv[1]
+app = QApplication([])
+manager = language_manager()
+manager.set_language('es', persist=False)
+gc.disable()
+def make_child():
+    owner = QWidget()
+    owner.cycle = owner
+    return i18n_widgets.QLabel(msg('Código'), owner), weakref.ref(owner)
+label, owner_ref = make_child()
+other = i18n_widgets.QLabel(msg('Nombre'))
+original_render = i18n_widgets._render
+observed = []
+def render(value):
+    result = original_render(value)
+    if not observed:
+        observed.append(True)
+        if mode == 'gc-owner':
+            gc.collect()
+            assert owner_ref() is not None and not sip.isdeleted(label)
+        elif mode == 'explicit-owner-delete':
+            sip.delete(label.parent())
+            assert sip.isdeleted(label)
+        elif mode == 'render-error-deleted':
+            sip.delete(label)
+            raise RuntimeError('translation failure sentinel')
+        elif mode == 'render-error':
+            raise RuntimeError('translation failure sentinel')
+    return result
+i18n_widgets._render = render
+try:
+    manager.set_language('en', persist=False)
+except RuntimeError as error:
+    assert mode in {'render-error', 'render-error-deleted'}, (mode, repr(error))
+    assert str(error) == 'translation failure sentinel'
+else:
+    assert mode in {'gc-owner', 'explicit-owner-delete'}, mode
+    assert other.text() == 'Name'
+    assert not other.signalsBlocked()
+    if mode == 'gc-owner':
+        assert label.text() == 'Code' and not label.signalsBlocked()
+        # Retention ends with the batch; it must not keep retired windows alive.
+        gc.collect()
+        assert owner_ref() is None and sip.isdeleted(label)
+    else:
+        assert sip.isdeleted(label)
+assert observed
+if not sip.isdeleted(label):
+    assert not label.signalsBlocked()
+gc.enable()
+print('translation owner lifecycle passed', flush=True)
+'''
+
+
+@pytest.mark.parametrize('mode', ['gc-owner', 'explicit-owner-delete', 'render-error', 'render-error-deleted'])
+def test_widget_owners_survive_translation_and_deleted_blockers_are_dismissed(mode):
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run([sys.executable, '-B', '-c', OWNER_LIFETIME_SCRIPT, mode],
+                            cwd=root, env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen'},
+                            capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stderr
+    assert 'translation owner lifecycle passed' in result.stdout

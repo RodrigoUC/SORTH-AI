@@ -10,6 +10,7 @@ import weakref
 
 from PyQt6.QtCore import QObject, QSettings, QSignalBlocker, QTranslator, QCoreApplication, QLocale, Qt, pyqtSignal
 from PyQt6 import sip
+from PyQt6.QtWidgets import QApplication
 
 from .locales import DEFAULT_LANGUAGE, LANGUAGES
 
@@ -168,7 +169,7 @@ class LanguageManager(QObject):
     def _set_widget_locale(self, obj):
         if hasattr(obj, 'setLocale'):
             obj.setLocale(self.locale)
-        if hasattr(obj, 'setLayoutDirection'):
+        if hasattr(obj, 'setLayoutDirection') and not sip.isdeleted(obj):
             obj.setLayoutDirection(Qt.LayoutDirection.RightToLeft
                                    if LANGUAGES[self.language].direction == 'rtl'
                                    else Qt.LayoutDirection.LeftToRight)
@@ -195,6 +196,10 @@ class LanguageManager(QObject):
             return
         self.language = language
         app = QCoreApplication.instance()
+        # A retained child wrapper does not retain its C++ QWidget owner.
+        # Keep top-level owners alive while rendering can run Python GC, until
+        # every child signal blocker has been released. This is batch-local.
+        owners = QApplication.topLevelWidgets() if isinstance(app, QApplication) else []
         if app is not None:
             self._install_translator()
             # Qt sends LanguageChange to its own standard dialogs/controls.
@@ -210,10 +215,16 @@ class LanguageManager(QObject):
             blocker = QSignalBlocker(obj) if isinstance(obj, QObject) else None
             try:
                 self._set_widget_locale(obj)
-                obj.retranslate()
+                if not sip.isdeleted(obj):
+                    obj.retranslate()
             finally:
+                if blocker is not None and sip.isdeleted(obj):
+                    # Explicit Qt deletion can still happen during a callback;
+                    # the blocker must not restore signals through a dead pointer.
+                    blocker.dismiss()
                 del blocker
         self.changed.emit(language)
+        del owners
 
 
 _manager = None

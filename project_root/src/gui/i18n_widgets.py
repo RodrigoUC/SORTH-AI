@@ -29,7 +29,12 @@ class _Localized:
 
     def retranslate(self):
         for method, arguments in list(self._messages.values()):
-            getattr(super(), method)(*[_render(value) for value in arguments])
+            rendered = [_render(value) for value in arguments]
+            # Rendering may run callbacks or GC. A Python wrapper can outlive
+            # its Qt object, so check after rendering and before the native call.
+            if sip.isdeleted(self):
+                return
+            getattr(super(), method)(*rendered)
 
 
 def _localized_setter(method):
