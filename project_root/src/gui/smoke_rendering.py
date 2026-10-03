@@ -5,7 +5,7 @@ import os
 import string
 from pathlib import Path
 
-from PyQt6.QtCore import QCoreApplication, QEvent, Qt, qVersion
+from PyQt6.QtCore import QCoreApplication, QEvent, QSize, Qt, qVersion
 from PyQt6.QtGui import QFontDatabase, QFontInfo, QFontMetrics, QImage, QPainter
 from PyQt6.QtWidgets import QApplication, QPushButton, QStyle, QStyleOptionButton, QWidget
 
@@ -53,11 +53,27 @@ def _action_geometry(window):
         contents = button.style().subElementRect(
             QStyle.SubElement.SE_PushButtonContents, option, button)
         text = button.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, button.text())
+        # SE_PushButtonContents still includes the icon/menu allocation. Match
+        # QPushButton's native sizing inputs afresh, rather than trusting its
+        # cached sizeHint or treating that whole rectangle as text-only.
+        # Qt 6.11: src/widgets/widgets/qpushbutton.cpp, QPushButton::sizeHint.
+        content = QSize(text)
+        if not option.icon.isNull():
+            content.setWidth(content.width() + option.iconSize.width() + 4)
+            content.setHeight(max(content.height(), option.iconSize.height()))
+        option.rect.setSize(content)
+        if option.features & QStyleOptionButton.ButtonFeature.HasMenu:
+            content.setWidth(content.width() + button.style().pixelMetric(
+                QStyle.PixelMetric.PM_MenuButtonIndicator, option, button))
+        required = button.style().sizeFromContents(
+            QStyle.ContentsType.CT_PushButton, option, content, button)
         entries.append({'text': button.text(), 'geometry': list(button.geometry().getRect()),
                         'content_size': [contents.width(), contents.height()],
                         'text_size': [text.width(), text.height()],
+                        'required_native_size': [required.width(), required.height()],
                         'font': button.font().toString(), 'logical_dpi': button.logicalDpiX(),
-                        'fits': contents.width() >= text.width() and contents.height() >= text.height()})
+                        'fits': (contents.width() >= text.width() and contents.height() >= text.height()
+                                 and button.width() >= required.width() and button.height() >= required.height())})
     return entries
 
 
