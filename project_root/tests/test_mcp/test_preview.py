@@ -141,9 +141,12 @@ assert not any(n.startswith(('PyQt', 'mcp', 'pandas', 'sqlite3', 'openpyxl')) fo
     assert list(tmp_path.iterdir()) == []
 
 
-def test_missing_sdk_has_actionable_exit_without_affecting_core():
+def test_missing_sdk_has_actionable_exit_without_affecting_core(tmp_path):
+    from src.application.mcp_preferences import set_enabled
+    path = tmp_path / 'prefs.json'
+    set_enabled(path, True)
     root = Path(__file__).resolve().parents[2]
-    result = subprocess.run([sys.executable, "-B", "-S", "-m", "src.mcp_adapter.server"],
+    result = subprocess.run([sys.executable, "-B", "-S", "-m", "src.mcp_adapter.server", "--preferences", str(path)],
                             cwd=root, capture_output=True, text=True, timeout=10)
     assert result.returncode == 2
     assert result.stdout == ""
@@ -167,7 +170,11 @@ def test_core_dependency_manifests_and_entrypoints_do_not_enable_mcp():
     root = Path(__file__).resolve().parents[2]
     for filename in ("requirements.txt", "requirements-dev.txt", "requirements-windows.lock",
                      "SORTH.spec", "gui_app.py"):
-        assert "mcp" not in (root / filename).read_text().lower()
+        content = (root / filename).read_text().lower()
+        # Packaging the human-readable instructions does not package the SDK.
+        if filename == "SORTH.spec":
+            content = content.replace("mcp_optional.md", "optional-help.md")
+        assert "mcp" not in content
 
 
 @pytest.mark.parametrize("change", ["drop", "size", "duration_min", "required_room_type"])

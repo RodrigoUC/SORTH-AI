@@ -1,4 +1,5 @@
 """Explicit opt-in entrypoint: python -B -m src.mcp_adapter.server."""
+import argparse
 import asyncio
 import json
 import logging
@@ -8,7 +9,8 @@ from ..application.preview_contract import INPUT_SCHEMA, TOOL_OUTPUT_SCHEMA, Con
 from ..application.schedule_preview import validate_configuration
 
 
-def build_server():
+def build_server(preferences_path=None):
+    from ..application.mcp_preferences import enabled
     # Delayed optional imports keep all normal app/import paths SDK independent.
     import mcp.types as types
     from mcp.server.lowlevel import Server
@@ -32,10 +34,14 @@ def build_server():
     @server.call_tool(validate_input=False)
     async def call_tool(name, arguments):
         try:
+            if not enabled(preferences_path):
+                raise ContractError("MCP_DISABLED", "server", "MCP is disabled or preferences are unreadable.")
             if name not in descriptions:
                 raise ContractError("UNKNOWN_TOOL", "tool", "Use validate_configuration or generate_preview.")
             validated = validate_configuration(arguments)
             result = validated if name == "validate_configuration" else await executor.generate(validated["normalized"])
+            if not enabled(preferences_path):
+                raise ContractError("MCP_DISABLED", "server", "MCP was disabled; the pending result was discarded.")
             return result
         except ContractError as exc:
             error = {"error": exc.as_dict()}
@@ -51,18 +57,32 @@ def build_server():
     return server
 
 
-async def run():
+async def run(preferences_path=None):
     from .transport import bounded_stdio
-    server = build_server()
+    server = build_server(preferences_path)
     async with bounded_stdio() as (read, write):
         await server.run(read, write, server.create_initialization_options())
 
 
-def main():
+def main(argv=None):
+    from ..application.mcp_preferences import default_path, enabled
+    parser = argparse.ArgumentParser(description="SORTH optional local stdio server")
+    parser.add_argument("--preferences", default=str(default_path()))
+    args = parser.parse_args(argv)
+    if not enabled(args.preferences):
+        print("SORTH MCP disabled or preferences unreadable. Enable explicitly in Settings or src.application.mcp_preferences.", file=sys.stderr)
+        return 3
+    # Keep optional import diagnostics away from the protocol.
+    logging.disable(logging.CRITICAL)
+    from .availability import check
+    status = check()
+    if status != "available":
+        print("SORTH MCP unavailable: " + status + ". See MCP_OPTIONAL.md and requirements-mcp.txt.", file=sys.stderr)
+        return 2
     # stdout belongs exclusively to JSON-RPC; third-party logs must not echo data.
     logging.disable(logging.CRITICAL)
     try:
-        asyncio.run(run())
+        asyncio.run(run(args.preferences))
     except ModuleNotFoundError:
         print("Optional MCP dependencies unavailable. From project_root, install requirements-mcp.txt in a separate environment.", file=sys.stderr)
         return 2
