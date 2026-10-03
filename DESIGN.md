@@ -379,3 +379,19 @@ Main-tab navigation completes its synchronous native chrome/layout update before
 the existing 150ms reveal starts. It does not pump events or queue user input.
 This prevents a responsive resize from canceling the new reveal; actual external
 resize, hide, close and reduced-motion preferences retain their cancellation rules.
+
+
+### Native schedule whitespace reserve
+The minimum schedule window reserves room for the taller installed Segoe UI
+metrics observed in correctly fonted Windows offscreen checks. Dense shell gaps
+are 2px, outer vertical insets total 8px, and consultation pages use a 2px top
+inset. Spacious shell gaps are 8px. This recovers whitespace at every existing
+mode boundary without changing fonts, normal table rows, action targets, notices
+or visible export scope. Content thresholds stay at 760/802/920px and never
+read the current viewport. Native layout still settles before page reveal.
+
+A portable regression increases native table-header size requirements by 4px
+and crosses each boundary in both directions with focused tables. It preserves
+font and row sizes and the strict four-normal-row reading budget. Windows
+geometry artifacts include font line height, header height and active whitespace
+metrics so platform differences can be diagnosed without relaxing assertions.

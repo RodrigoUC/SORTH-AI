@@ -144,6 +144,13 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
                         'scope_visible': viewer._export_scope_hint.isVisible(),
                         'compact_tools': reopened._compact_tools.isVisible(),
                         'table_focused': table.hasFocus(),
+                        'font_line_height': table.fontMetrics().height(),
+                        'header_height': table.horizontalHeader().height(),
+                        'main_spacing': reopened._main_layout.spacing(),
+                        'main_vertical_margins': (
+                            reopened._main_layout.contentsMargins().top()
+                            + reopened._main_layout.contentsMargins().bottom()),
+                        'page_top_margin': viewer.tabs.widget(index).layout().contentsMargins().top(),
                     }
                     snapshots.append(snapshot)
                     report.write_text(json.dumps(snapshots, indent=2), encoding='utf-8')
@@ -172,5 +179,65 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
         if reopened is not None:
             reopened.close()
         appearance._apply(previous_theme)
+        app.setStyle(previous_style)
+        locale.set_language(previous_language, persist=False)
+
+
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('language', ['es', 'en'])
+def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name):
+    """A small native header metric change must not consume the fourth row.
+
+    Native Segoe UI exposed a height deficit that Linux font metrics concealed.
+    Keep real widget fonts and rows, and give every header a four-pixel larger
+    native size requirement so tight platform-specific seams fail locally too.
+    """
+    app = QApplication.instance()
+    locale = language_manager()
+    previous_language = locale.language
+    previous_style = app.style().objectName()
+    try:
+        app.setStyle(style_name)
+        locale.set_language(language, persist=False)
+        window.resources = SchedulingResources(tuple(ResourceCatalog(kind, True) for kind in RESOURCE_KINDS))
+        window.calendar = ProjectCalendar(('Lunes', 'Domingo'), 0, 1440, ())
+        window._features.save({key: True for key in window._features.values()})
+        window._apply_feature_preferences()
+        viewer = window.schedule_viewer
+        tables = (viewer.list_table, viewer.grid_table, viewer.classroom_table)
+        window.resize(960, 640)
+        window.tabs.setCurrentIndex(1)
+        window.show()
+        window.activateWindow()
+        app.processEvents()
+        # The grid renders lazily, so materialize each native table before
+        # recording its normal font, rows and header metrics.
+        for index in range(len(tables)):
+            viewer.tabs.setCurrentIndex(index)
+            app.processEvents()
+        fonts = [table.font().toString() for table in tables]
+        rows = [table.rowHeight(0) for table in tables]
+        for table in tables:
+            header = table.horizontalHeader()
+            header.setMinimumHeight(header.sizeHint().height() + 4)
+        heights = (640, 760, 761, 802, 803, 804, 920, 921, 922,
+                   921, 920, 804, 803, 802, 761, 760, 640)
+        for height in heights:
+            window.resize(960, height)
+            app.processEvents()
+            for index, table in enumerate(tables):
+                viewer.tabs.setCurrentIndex(index)
+                table.setCurrentCell(0, 0)
+                table.setFocus()
+                app.processEvents()
+                assert window.size() == QSize(960, height)
+                assert table.hasFocus()
+                assert table.font().toString() == fonts[index]
+                assert table.rowHeight(0) == rows[index]
+                assert table.viewport().height() >= 4 * rows[0], (style_name, language, height, index)
+                assert viewer._export_scope_hint.isVisible()
+                assert viewer._export_scope_hint.height() >= viewer._export_scope_hint.heightForWidth(viewer._export_scope_hint.width())
+                assert all(control.height() >= 30 for control in viewer._pin_controls + viewer._suggestion_controls)
+    finally:
         app.setStyle(previous_style)
         locale.set_language(previous_language, persist=False)
