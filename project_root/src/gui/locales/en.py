@@ -1,6 +1,41 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El PDF filtrado requiere el total global de asignaciones.': 'A filtered PDF requires the global assignment count.',
+    'El alcance y el total de asignaciones no coinciden.': 'The scope and assignment count do not match.',
+    'El número de sesiones pendientes no puede ser negativo.': 'The pending session count cannot be negative.',
+    'El PDF no admite algunos caracteres o escrituras de los datos. Use Excel/CSV para conservarlos.': 'The PDF does not support some characters or scripts in the data. Use Excel/CSV to preserve them.',
+    'Vista filtrada': 'Filtered view',
+    'Todas las asignaciones': 'All assignments',
+    'Estado global: pendientes no informados': 'Global status: pending count not provided',
+    'Horario PARCIAL: {pending} pendientes': 'PARTIAL schedule: {pending} pending',
+    'Horario completo: 0 pendientes': 'Complete schedule: 0 pending',
+    '{scope} | {count} exportadas de {total} asignadas | {state}': '{scope} | {count} exported of {total} assigned | {state}',
+    'SORTH - Horario por aula': 'SORTH - Classroom timetable',
+    'SORTH {version} | Horario por aula': 'SORTH {version} | Classroom timetable',
+    'Horas exactas HH:mm | Texto seleccionable | SORTH': 'Exact times HH:mm | Selectable text | SORTH',
+    'Página {page}': 'Page {page}',
+    'Un texto es demasiado largo para la página PDF.': 'Text is too long for the PDF page.',
+    'No aplicados (se exportan todas las asignaciones).': 'Not applied (all assignments are exported).',
+    'Filtros no informados por el solicitante.': 'Filters not provided by the caller.',
+    'Alcance y leyenda': 'Scope and legend',
+    'Filtros: {filters}': 'Filters: {filters}',
+    'Un color por curso; los nombres completos aparecen en cada fila. CONFLICTO identifica sesiones simultáneas. EXCEPCIÓN LAB identifica una autorización de aula registrada. Continuación repite día, horas y grupo cuando un nombre ocupa varias páginas. Los pendientes corresponden al horario global, no sólo a esta vista.': 'One color per course; full names appear in every row. CONFLICT identifies simultaneous sessions. LAB EXCEPTION identifies a recorded classroom authorization. Continued repeats day, times and group when a name spans pages. Pending counts describe the global schedule, not only this view.',
+    'Día no válido para {group}.': 'Invalid day for {group}.',
+    'Sin sesiones asignadas en este alcance.': 'No assigned sessions in this scope.',
+    'Aula: {room} | Sesiones: {count}': 'Classroom: {room} | Sessions: {count}',
+    'El nombre del aula es demasiado largo para el encabezado PDF.': 'The classroom name is too long for the PDF header.',
+    'Inicio - Fin': 'Start - End',
+    'Nombre completo del curso': 'Full course name',
+    'Avisos': 'Notices',
+    'CONFLICTO': 'CONFLICT',
+    'EXCEPCIÓN LAB': 'LAB EXCEPTION',
+    '(Sin nombre de curso)': '(No course name)',
+    'Continuación': 'Continued',
+    'Buscar': 'Search',
+    '(sin búsqueda)': '(no search)',
+    'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.': 'Save the generated schedule as Excel (.xlsx), CSV or PDF.\nExcel includes a visual grid; PDF has printable classroom tables.',
+    "Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)": 'Excel files (*.xlsx);;CSV files (*.csv);;PDF documents (*.pdf)',
     'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'The workbook exceeds the import limit. Split it into smaller files.',
     '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Partial schedule: {p1}/{p3} groups; {pending} pending',
     'Sin resultado': 'No result',
@@ -336,3 +371,162 @@ MESSAGES = {
 }
 
 QT_MESSAGES = {}
+
+# Explainable schedule quality indicators.
+MESSAGES.update({'No aplica': 'Not applicable',
+ 'Calidad del horario completo': 'Whole-schedule quality',
+ 'Los filtros no cambian estos indicadores. Son descriptivos: no validan restricciones ni demuestran un óptimo.': 'Filters '
+                                                                                                                  'do '
+                                                                                                                  'not '
+                                                                                                                  'change '
+                                                                                                                  'these '
+                                                                                                                  'indicators. '
+                                                                                                                  'They '
+                                                                                                                  'are '
+                                                                                                                  'descriptive: '
+                                                                                                                  'they '
+                                                                                                                  'do '
+                                                                                                                  'not '
+                                                                                                                  'validate '
+                                                                                                                  'constraints '
+                                                                                                                  'or '
+                                                                                                                  'prove '
+                                                                                                                  'optimality.',
+ 'Grupos originales: {complete} completos, {partial} parciales, {pending} pendientes y {unknown} desconocidos, de {total}. Las preferencias cuentan cada sesión dividida por separado.': 'Original '
+                                                                                                                                                                                         'groups: '
+                                                                                                                                                                                         '{complete} '
+                                                                                                                                                                                         'complete, '
+                                                                                                                                                                                         '{partial} '
+                                                                                                                                                                                         'partial, '
+                                                                                                                                                                                         '{pending} '
+                                                                                                                                                                                         'pending '
+                                                                                                                                                                                         'and '
+                                                                                                                                                                                         '{unknown} '
+                                                                                                                                                                                         'unknown, '
+                                                                                                                                                                                         'out '
+                                                                                                                                                                                         'of '
+                                                                                                                                                                                         '{total}. '
+                                                                                                                                                                                         'Preferences '
+                                                                                                                                                                                         'count '
+                                                                                                                                                                                         'each '
+                                                                                                                                                                                         'split '
+                                                                                                                                                                                         'session '
+                                                                                                                                                                                         'separately.',
+ 'Día preferido': 'Preferred day',
+ 'Hora preferida': 'Preferred time',
+ 'Aula preferida': 'Preferred room',
+ 'Preferencia': 'Preference',
+ 'Pendientes': 'Pending',
+ 'Desconocidas': 'Unknown',
+ 'Sin preferencia': 'No preference',
+ 'Coincidencia exacta de día, hora de inicio y aula. El denominador incluye sólo preferencias asignadas y conocidas; pendientes, desconocidas y ausentes se muestran aparte. Sin denominador: no aplica.': 'Exact '
+                                                                                                                                                                                                           'match '
+                                                                                                                                                                                                           'for '
+                                                                                                                                                                                                           'day, '
+                                                                                                                                                                                                           'start '
+                                                                                                                                                                                                           'time '
+                                                                                                                                                                                                           'and '
+                                                                                                                                                                                                           'room. '
+                                                                                                                                                                                                           'The '
+                                                                                                                                                                                                           'denominator '
+                                                                                                                                                                                                           'includes '
+                                                                                                                                                                                                           'only '
+                                                                                                                                                                                                           'assigned, '
+                                                                                                                                                                                                           'known '
+                                                                                                                                                                                                           'preferences; '
+                                                                                                                                                                                                           'pending, '
+                                                                                                                                                                                                           'unknown '
+                                                                                                                                                                                                           'and '
+                                                                                                                                                                                                           'absent '
+                                                                                                                                                                                                           'preferences '
+                                                                                                                                                                                                           'are '
+                                                                                                                                                                                                           'shown '
+                                                                                                                                                                                                           'separately. '
+                                                                                                                                                                                                           'No '
+                                                                                                                                                                                                           'denominator: '
+                                                                                                                                                                                                           'not '
+                                                                                                                                                                                                           'applicable.',
+ 'Distribución de carga por día': 'Load distribution by day',
+ 'Minutos de docencia': 'Teaching minutes',
+ 'Se suman minutos de cada sesión, incluso si son simultáneas. Se incluyen días sin carga; no se presupone que una distribución uniforme sea mejor.': 'Minutes '
+                                                                                                                                                      'are '
+                                                                                                                                                      'summed '
+                                                                                                                                                      'for '
+                                                                                                                                                      'every '
+                                                                                                                                                      'session, '
+                                                                                                                                                      'including '
+                                                                                                                                                      'simultaneous '
+                                                                                                                                                      'ones. '
+                                                                                                                                                      'Days '
+                                                                                                                                                      'with '
+                                                                                                                                                      'no '
+                                                                                                                                                      'load '
+                                                                                                                                                      'are '
+                                                                                                                                                      'included; '
+                                                                                                                                                      'an '
+                                                                                                                                                      'even '
+                                                                                                                                                      'distribution '
+                                                                                                                                                      'is '
+                                                                                                                                                      'not '
+                                                                                                                                                      'assumed '
+                                                                                                                                                      'to '
+                                                                                                                                                      'be '
+                                                                                                                                                      'better.',
+ 'Ocupación temporal de aulas': 'Room time occupancy',
+ 'Minutos ocupados únicos / minutos disponibles, descontando almuerzo y exclusiones. Incluye aulas sin uso; no mide asientos ocupados ni compatibilidad de cursos.': 'Unique '
+                                                                                                                                                                     'occupied '
+                                                                                                                                                                     'minutes '
+                                                                                                                                                                     '/ '
+                                                                                                                                                                     'available '
+                                                                                                                                                                     'minutes, '
+                                                                                                                                                                     'excluding '
+                                                                                                                                                                     'lunch '
+                                                                                                                                                                     'and '
+                                                                                                                                                                     'blocked '
+                                                                                                                                                                     'intervals. '
+                                                                                                                                                                     'Includes '
+                                                                                                                                                                     'unused '
+                                                                                                                                                                     'rooms; '
+                                                                                                                                                                     'does '
+                                                                                                                                                                     'not '
+                                                                                                                                                                     'measure '
+                                                                                                                                                                     'occupied '
+                                                                                                                                                                     'seats '
+                                                                                                                                                                     'or '
+                                                                                                                                                                     'course '
+                                                                                                                                                                     'eligibility.',
+ 'Minutos ocupados / disponibles': 'Occupied / available minutes',
+ 'Total': 'Total',
+ 'Ninguna': 'None',
+ 'Hay datos desconocidos o incompletos. Los indicadores no sustituyen la revisión de integridad.': 'Some '
+                                                                                                   'data '
+                                                                                                   'is '
+                                                                                                   'unknown '
+                                                                                                   'or '
+                                                                                                   'incomplete. '
+                                                                                                   'These '
+                                                                                                   'indicators '
+                                                                                                   'do '
+                                                                                                   'not '
+                                                                                                   'replace '
+                                                                                                   'integrity '
+                                                                                                   'checks.',
+ 'Cumplidas': 'Met',
+ 'Excepciones manuales activas de laboratorio / sesiones asignadas: {ratio}. Confirmadas: {ids}. Sin confirmar: {unconfirmed}. No evaluables: {unknown}. Registros inactivos: {inactive}.': 'Active '
+                                                                                                                                                                                            'manual '
+                                                                                                                                                                                            'lab '
+                                                                                                                                                                                            'exceptions '
+                                                                                                                                                                                            '/ '
+                                                                                                                                                                                            'assigned '
+                                                                                                                                                                                            'sessions: '
+                                                                                                                                                                                            '{ratio}. '
+                                                                                                                                                                                            'Confirmed: '
+                                                                                                                                                                                            '{ids}. '
+                                                                                                                                                                                            'Unconfirmed: '
+                                                                                                                                                                                            '{unconfirmed}. '
+                                                                                                                                                                                            'Not '
+                                                                                                                                                                                            'evaluable: '
+                                                                                                                                                                                            '{unknown}. '
+                                                                                                                                                                                            'Inactive '
+                                                                                                                                                                                            'records: '
+                                                                                                                                                                                            '{inactive}.'})

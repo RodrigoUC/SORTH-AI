@@ -345,9 +345,10 @@ class SessionRepository:
                 return True
             # An incomplete/corrupt logical session must not be mistaken for an
             # empty database and silently replaced on the next edit.
-            for table in ("classrooms", "courses", "course_group_suggestions",
-                          "restrictions", "assignments"):
-                if con.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+            for query in ("SELECT 1 FROM classrooms LIMIT 1", "SELECT 1 FROM courses LIMIT 1",
+                          "SELECT 1 FROM course_group_suggestions LIMIT 1",
+                          "SELECT 1 FROM restrictions LIMIT 1", "SELECT 1 FROM assignments LIMIT 1"):
+                if con.execute(query).fetchone():
                     raise sqlite3.DatabaseError("Session data exists without session metadata. Preserve the database and recover a backup.")
             return False
 
@@ -361,6 +362,7 @@ class SessionRepository:
         with self._connect() as con:
             # executescript commits implicitly; individual statements retain the
             # transaction so a late failure cannot leave a partially erased session.
-            for table in ("assignments", "restrictions", "course_group_suggestions",
-                          "courses", "classrooms", "session"):
-                con.execute(f"DELETE FROM {table}")
+            for query in ("DELETE FROM assignments", "DELETE FROM restrictions",
+                          "DELETE FROM course_group_suggestions", "DELETE FROM courses",
+                          "DELETE FROM classrooms", "DELETE FROM session"):
+                con.execute(query)

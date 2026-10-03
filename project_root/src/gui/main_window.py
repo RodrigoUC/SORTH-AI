@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
         self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
         self.btn_export.setShortcut("Ctrl+S")
         self.btn_export.setToolTip(
-            msg('Guardar el horario generado en formato Excel (.xlsx) o CSV.\nEl Excel incluye una grilla visual por aula.')
+            msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
         )
         self.btn_export.clicked.connect(lambda: self._export_schedule())
         self.btn_export.setEnabled(False)
@@ -427,7 +427,7 @@ class MainWindow(QMainWindow):
             course_name_map = {c.code: c.name for c in courses if c.name}
 
             self.schedule_viewer.display_schedule(
-                assignments, time_model, groups, course_name_map
+                assignments, time_model, groups, course_name_map, classrooms=self._classrooms
             )
             already_showing_results = self.tabs.currentIndex() == 1
             self.tabs.setCurrentIndex(1)
@@ -498,19 +498,26 @@ class MainWindow(QMainWindow):
         file_path, selected_format = QFileDialog.getSaveFileName(
             self, msg('Guardar horario {p1} · {p3} sesiones', p1=scope, p3=count),
             "horario_filtrado.xlsx" if filtered else "horario.xlsx",
-            "Excel Files (*.xlsx);;CSV Files (*.csv)"
+            msg('Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)')
         )
         if not file_path:
             return
         if not Path(file_path).suffix:
-            file_path += ".csv" if selected_format.startswith("CSV") else ".xlsx"
+            file_path += (".pdf" if "*.pdf" in selected_format else
+                          ".csv" if "*.csv" in selected_format else ".xlsx")
 
         try:
             time_model = TimeModel.default()
             exporter = ScheduleExporter(time_model)
             courses = self.course_manager.get_courses()
             course_name_map = {c.code: c.name for c in courses if c.name}
-            if file_path.lower().endswith(".csv"):
+            if file_path.lower().endswith(".pdf"):
+                exporter.to_pdf(assignments, file_path, groups=self.current_groups,
+                                course_name_by_code=course_name_map, filtered=filtered,
+                                total_assigned=len(self.current_schedule), pending_count=pending,
+                                filters=self.schedule_viewer.export_filter_description(),
+                                labels=LANGUAGES[language_manager().language].messages)
+            elif file_path.lower().endswith(".csv"):
                 exporter.to_csv(assignments, file_path, groups=self.current_groups,
                                 course_name_by_code=course_name_map)
             else:
@@ -701,7 +708,7 @@ class MainWindow(QMainWindow):
                     raise ValueError("\n".join(error.render(msg) for error in errors))
                 self.current_groups = groups
                 self.schedule_viewer.display_schedule(
-                    self.current_schedule, time_model, groups, course_name_map
+                    self.current_schedule, time_model, groups, course_name_map, classrooms=self._classrooms
                 )
                 self._update_export_actions()
 
@@ -742,7 +749,8 @@ class MainWindow(QMainWindow):
             self.current_schedule = {}
         self.current_schedule[gid] = group.assignment
         self._show_schedule_status()
-        self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups)
+        self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups,
+                                              classrooms=self._classrooms)
         self._update_export_actions()
         self._refresh_overview()
         self._save_session()

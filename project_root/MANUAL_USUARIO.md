@@ -163,6 +163,7 @@ Haz clic en **Ver Resumen** para ver:
 2. Elige el formato y la ubicación:
    - **Excel (`.xlsx`)**: incluye una hoja por aula con grilla visual, más hojas de lista detallada y por aula. Los colores de los cursos son consistentes con la GUI.
    - **CSV (`.csv`)**: lista detallada en formato plano.
+   - **PDF (`.pdf`)**: tablas cronológicas por aula listas para imprimir, con texto seleccionable, horas exactas, nombres completos, páginas y encabezados repetidos. No necesita Excel. El documento identifica el alcance, filtros aplicados, pendientes globales y excepciones LAB.
 3. Haz clic en **Guardar**.
 
 ---
@@ -177,9 +178,11 @@ La versión actual distingue **Exportar todas las asignaciones** y **Exportar fi
 - **Exportar filtrado (N)** incluye solo las sesiones asignadas que cumplen los filtros compartidos. N indica la cantidad; el diálogo de guardado y el mensaje final también muestran alcance y cantidad.
 - Las sesiones **Sin asignar** se consultan en Lista detallada y no se exportan como filas de horario. Sin coincidencias asignadas, la exportación filtrada no está disponible.
 - Cambiar de pestaña o elegir un aula en el selector local de la cuadrícula no restringe la exportación. Para exportar un aula, usa el filtro compartido **Aula**.
-- Ambas opciones permiten Excel o CSV. Durante la generación o cuando los datos cambian e invalidan el horario, no están disponibles. Cancelar el guardado conserva los filtros y el horario.
+- Ambas opciones permiten Excel, CSV o PDF. Durante la generación o cuando los datos cambian e invalidan el horario, no están disponibles. Cancelar el guardado conserva los filtros y el horario.
 
 ---
+
+El PDF conserva el total global de sesiones asignadas y pendientes incluso al exportar sólo una vista filtrada. Las etiquetas, días y leyenda del documento siguen el idioma seleccionado; los nombres e identificadores de los datos no se traducen. Los acentos, griego y cirílico se incluyen mediante una fuente incrustada; escrituras o glifos no compatibles se rechazan sin modificar un destino existente. En ese caso, usa Excel o CSV. El PDF se genera primero en memoria y reemplaza el destino sólo al terminar correctamente. Consulta [Notas de exportación PDF](PDF_EXPORT_NOTES.md) para los límites de impresión y Unicode.
 
 ## 5. Formato del Excel de entrada
 
@@ -268,7 +271,7 @@ Consulta **Estado: Sin asignar** en Lista detallada y lee el motivo. Puede falta
 - Cargar el Excel antes de agregar cursos manualmente para no perder los datos importados.
 - Usar semilla fija para resultados reproducibles; cambiar la semilla si el resultado no es satisfactorio.
 - Configurar las restricciones de aulas **antes** de generar el horario.
-- Exportar el resultado si se necesita compartirlo o archivarlo - el Excel exportado es el formato definitivo.
+- Exportar el resultado si se necesita compartirlo o archivarlo; elegir Excel, CSV o PDF según el uso.
 - Mantener una copia de respaldo del Excel original.
 
 ---

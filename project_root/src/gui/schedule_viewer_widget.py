@@ -1,10 +1,11 @@
 """Read-only schedule consultation with consistent filters and stable row identities."""
 
 import re
+from dataclasses import replace
 import unicodedata
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu
+    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import (
@@ -13,6 +14,7 @@ from PyQt6.QtGui import (
 
 from .theme import COLORS
 from ..scheduling.time_model import TimeModel
+from ..scheduling.quality import QualitySnapshot, analyze_quality
 from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE_COLORS, GRID_TEXT_COLOR
 
 from .i18n import msg, plural, language_manager
@@ -64,6 +66,7 @@ class ScheduleViewerWidget(QWidget):
         self._gid_by_cls_row = {}
         self._time_model = None
         self.summary_data = None
+        self._quality_snapshot = None
         self._refreshing = False
         self._init_ui()
         self._clear()
@@ -236,6 +239,7 @@ class ScheduleViewerWidget(QWidget):
         self._gid_by_cls_row.clear()
         self._time_model = None
         self.summary_data = None
+        self._quality_snapshot = None
         self.list_table.setRowCount(0)
         self.classroom_table.setRowCount(0)
         self.grid_table.clearSpans()
@@ -256,12 +260,13 @@ class ScheduleViewerWidget(QWidget):
         self._apply_filters()
 
     def display_schedule(self, assignments: dict, time_model: TimeModel,
-                         groups=None, course_name_by_code: dict = None):
+                         groups=None, course_name_by_code: dict = None, classrooms=None):
         self._clear()
         self._refreshing = True
         self._time_model = time_model
         self._assignments = dict(assignments or {})
         groups = list(groups or [])
+        self._quality_snapshot = QualitySnapshot.capture(assignments or {}, groups, time_model, classrooms)
         self._groups = {g.group_id: g for g in groups}
         self._known_gids = set(self._assignments) | {g.group_id for g in groups}
         course_name_by_code = course_name_by_code or {}
@@ -466,6 +471,17 @@ class ScheduleViewerWidget(QWidget):
         self._update_result_label()
         self.filters_changed.emit()
 
+    def export_filter_description(self):
+        """Localized PDF context; never translate data or include the grid selector."""
+        day = self._day_filter.currentData()
+        return {
+            str(msg('Buscar')): self._list_search.text() or str(msg('(sin búsqueda)')),
+            str(msg('Aula')): self._room_filter.currentData() or str(msg('Todas')),
+            str(msg('Día')): str(msg(self._time_model.to_day_name(day))) if day is not None else str(msg('Todos')),
+            str(msg('Estado')): str(msg({'all': 'Todos', 'assigned': 'Asignados',
+                       'unassigned': 'Sin asignar'}[self._status_filter.currentData()])),
+        }
+
     def filtered_assignments(self):
         """A copy of assigned sessions matching the shared consultation filters.
 
@@ -599,6 +615,11 @@ class ScheduleViewerWidget(QWidget):
             "cls_load": cls_load, "day_load": day_load,
             "unassigned_list": [(self._code(gid), self._name_map.get(gid, ""), gid)
                                  for gid in sorted(unassigned, key=_natural_key)]}
+        if self._quality_snapshot is not None:
+            # Reuse captured metadata after removals; filters never enter analysis.
+            snapshot = replace(self._quality_snapshot, assignments=tuple(
+                (gid, *slot) for gid, slot in sorted(assignments.items())))
+            self.summary_data["quality"] = analyze_quality(snapshot)
         self._summary_label.setText(msg('{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas', p0=len(assignments), p2=len(unassigned), p4=len(cls_load)))
         self._btn_summary.setEnabled(bool(self._known_gids))
         self._btn_clear_schedule.setEnabled(bool(self._known_gids))
@@ -614,7 +635,7 @@ class SummaryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(msg('Resumen del Horario'))
         self.setModal(True)
-        self.resize(520, 480)
+        self.resize(820, 680)
         self._data = data
         self._init_ui()
 
@@ -653,15 +674,19 @@ class SummaryDialog(QDialog):
             kpi_row.addWidget(card)
         layout.addLayout(kpi_row)
 
+        quality = self._data.get("quality")
+        if quality:
+            self._add_quality(layout, quality)
+
         # --- Load by day ---
-        if self._data.get("day_load"):
+        if not quality and self._data.get("day_load"):
             layout.addWidget(self._section_label(msg('Sesiones por día')))
             day_table = self._make_table([msg('Día'), msg('Sesiones asignadas')],
                                          [(msg(day), count) for day, count in sorted(self._data["day_load"].items(), key=lambda item: _DAY_ORDER.get(item[0], 99))])
             layout.addWidget(day_table)
 
         # --- Load by classroom ---
-        if self._data.get("cls_load"):
+        if not quality and self._data.get("cls_load"):
             layout.addWidget(self._section_label(msg('Sesiones por aula')))
             cls_table = self._make_table(
                 [msg('Aula'), msg('Sesiones asignadas')],
@@ -680,10 +705,62 @@ class SummaryDialog(QDialog):
             )
             layout.addWidget(ua_table)
 
+        content = QWidget()
+        content.setLayout(layout)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
+        outer = QVBoxLayout(self)
+        outer.addWidget(scroll)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-        self.setLayout(layout)
+        outer.addWidget(buttons)
+
+    @staticmethod
+    def _fraction(numerator, denominator):
+        return (f"{numerator} / {denominator} ({100 * numerator / denominator:.1f}%)"
+                if denominator else msg('No aplica'))
+
+    def _explanation(self, layout, text):
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setObjectName("mutedText")
+        layout.addWidget(label)
+
+    def _add_quality(self, layout, quality):
+        layout.addWidget(self._section_label(msg('Calidad del horario completo')))
+        self._explanation(layout, msg('Los filtros no cambian estos indicadores. Son descriptivos: no validan restricciones ni demuestran un óptimo.'))
+        original = quality['coverage']['original_groups']
+        self._explanation(layout, msg('Grupos originales: {complete} completos, {partial} parciales, {pending} pendientes y {unknown} desconocidos, de {total}. Las preferencias cuentan cada sesión dividida por separado.',
+                                      complete=original['fully_assigned'], partial=original['partially_assigned'],
+                                      pending=original['unassigned'], unknown=original['unknown'], total=original['total']))
+        rows = []
+        for key, label in [('day', msg('Día preferido')), ('time', msg('Hora preferida')), ('room', msg('Aula preferida'))]:
+            value = quality['preferences'][key]
+            rows.append((label, self._fraction(value['satisfied'], value['evaluated']),
+                         value['pending'], value['unknown'], value['absent']))
+        layout.addWidget(self._make_table(
+            [msg('Preferencia'), msg('Cumplidas'), msg('Pendientes'), msg('Desconocidas'), msg('Sin preferencia')], rows))
+        self._explanation(layout, msg('Coincidencia exacta de día, hora de inicio y aula. El denominador incluye sólo preferencias asignadas y conocidas; pendientes, desconocidas y ausentes se muestran aparte. Sin denominador: no aplica.'))
+        layout.addWidget(self._section_label(msg('Distribución de carga por día')))
+        layout.addWidget(self._make_table([msg('Día'), msg('Sesiones asignadas'), msg('Minutos de docencia')],
+            [(msg(row['name']), row['assigned_sessions'], row['teaching_minutes']) for row in quality['day_load']]))
+        self._explanation(layout, msg('Se suman minutos de cada sesión, incluso si son simultáneas. Se incluyen días sin carga; no se presupone que una distribución uniforme sea mejor.'))
+        occupancy = quality['occupancy']
+        layout.addWidget(self._section_label(msg('Ocupación temporal de aulas')))
+        self._explanation(layout, msg('Minutos ocupados únicos / minutos disponibles, descontando almuerzo y exclusiones. Incluye aulas sin uso; no mide asientos ocupados ni compatibilidad de cursos.'))
+        layout.addWidget(self._make_table([msg('Aula'), msg('Minutos ocupados / disponibles')],
+            [(row['room'], self._fraction(row['occupied_minutes'], row['available_minutes'])) for row in occupancy['rooms']]
+            + [(msg('Total'), self._fraction(occupancy['occupied_minutes'], occupancy['available_minutes']))]))
+        exceptions = quality['manual_exceptions']
+        self._explanation(layout, msg('Excepciones manuales activas de laboratorio / sesiones asignadas: {ratio}. Confirmadas: {ids}. Sin confirmar: {unconfirmed}. No evaluables: {unknown}. Registros inactivos: {inactive}.',
+            ratio=self._fraction(len(exceptions['active_ids']), exceptions['assigned_sessions']),
+            ids=', '.join(exceptions['active_ids']) or msg('Ninguna'),
+            unconfirmed=', '.join(exceptions['unconfirmed_ids']) or msg('Ninguna'),
+            unknown=', '.join(exceptions['unknown_ids']) or msg('Ninguna'),
+            inactive=', '.join(exceptions['inactive_ids']) or msg('Ninguna')))
+        if quality['data_issues']:
+            self._explanation(layout, msg('Hay datos desconocidos o incompletos. Los indicadores no sustituyen la revisión de integridad.'))
 
     def _section_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
@@ -691,14 +768,23 @@ class SummaryDialog(QDialog):
         return lbl
 
     def _make_table(self, headers: list, rows: list) -> QTableWidget:
-        t = QTableWidget(len(rows), len(headers))
+        t = QTableWidget(len(rows), len(headers), self)
         t.setHorizontalHeaderLabels(headers)
         t.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         t.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         t.verticalHeader().setVisible(False)
         t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        t.setMaximumHeight(min(len(rows) * 28 + 30, 160))
+        t.setWordWrap(False)
         for r, row in enumerate(rows):
             for c, val in enumerate(row):
-                t.setItem(r, c, QTableWidgetItem(val if isinstance(val, str) else str(val)))
+                item = QTableWidgetItem(val if isinstance(val, str) else str(val))
+                item.setToolTip(item.text())
+                t.setItem(r, c, item)
+        # A deterministic native header height avoids pre-show style size hints
+        # clipping the final row once the application's stylesheet is applied.
+        header_height = max(40, t.fontMetrics().height() + 24)
+        t.horizontalHeader().setFixedHeight(header_height)
+        height = min(sum(t.rowHeight(row) for row in range(len(rows)))
+                     + header_height + 2 * t.frameWidth() + 4, 260)
+        t.setFixedHeight(height)
         return t

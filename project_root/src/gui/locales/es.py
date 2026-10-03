@@ -1,6 +1,41 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El PDF filtrado requiere el total global de asignaciones.': 'El PDF filtrado requiere el total global de asignaciones.',
+    'El alcance y el total de asignaciones no coinciden.': 'El alcance y el total de asignaciones no coinciden.',
+    'El número de sesiones pendientes no puede ser negativo.': 'El número de sesiones pendientes no puede ser negativo.',
+    'El PDF no admite algunos caracteres o escrituras de los datos. Use Excel/CSV para conservarlos.': 'El PDF no admite algunos caracteres o escrituras de los datos. Use Excel/CSV para conservarlos.',
+    'Vista filtrada': 'Vista filtrada',
+    'Todas las asignaciones': 'Todas las asignaciones',
+    'Estado global: pendientes no informados': 'Estado global: pendientes no informados',
+    'Horario PARCIAL: {pending} pendientes': 'Horario PARCIAL: {pending} pendientes',
+    'Horario completo: 0 pendientes': 'Horario completo: 0 pendientes',
+    '{scope} | {count} exportadas de {total} asignadas | {state}': '{scope} | {count} exportadas de {total} asignadas | {state}',
+    'SORTH - Horario por aula': 'SORTH - Horario por aula',
+    'SORTH {version} | Horario por aula': 'SORTH {version} | Horario por aula',
+    'Horas exactas HH:mm | Texto seleccionable | SORTH': 'Horas exactas HH:mm | Texto seleccionable | SORTH',
+    'Página {page}': 'Página {page}',
+    'Un texto es demasiado largo para la página PDF.': 'Un texto es demasiado largo para la página PDF.',
+    'No aplicados (se exportan todas las asignaciones).': 'No aplicados (se exportan todas las asignaciones).',
+    'Filtros no informados por el solicitante.': 'Filtros no informados por el solicitante.',
+    'Alcance y leyenda': 'Alcance y leyenda',
+    'Filtros: {filters}': 'Filtros: {filters}',
+    'Un color por curso; los nombres completos aparecen en cada fila. CONFLICTO identifica sesiones simultáneas. EXCEPCIÓN LAB identifica una autorización de aula registrada. Continuación repite día, horas y grupo cuando un nombre ocupa varias páginas. Los pendientes corresponden al horario global, no sólo a esta vista.': 'Un color por curso; los nombres completos aparecen en cada fila. CONFLICTO identifica sesiones simultáneas. EXCEPCIÓN LAB identifica una autorización de aula registrada. Continuación repite día, horas y grupo cuando un nombre ocupa varias páginas. Los pendientes corresponden al horario global, no sólo a esta vista.',
+    'Día no válido para {group}.': 'Día no válido para {group}.',
+    'Sin sesiones asignadas en este alcance.': 'Sin sesiones asignadas en este alcance.',
+    'Aula: {room} | Sesiones: {count}': 'Aula: {room} | Sesiones: {count}',
+    'El nombre del aula es demasiado largo para el encabezado PDF.': 'El nombre del aula es demasiado largo para el encabezado PDF.',
+    'Inicio - Fin': 'Inicio - Fin',
+    'Nombre completo del curso': 'Nombre completo del curso',
+    'Avisos': 'Avisos',
+    'CONFLICTO': 'CONFLICTO',
+    'EXCEPCIÓN LAB': 'EXCEPCIÓN LAB',
+    '(Sin nombre de curso)': '(Sin nombre de curso)',
+    'Continuación': 'Continuación',
+    'Buscar': 'Buscar',
+    '(sin búsqueda)': '(sin búsqueda)',
+    'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.': 'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.',
+    "Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)": 'Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)',
     'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'El libro supera el límite de importación. Divídalo en archivos más pequeños.',
     '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes',
     'Sin resultado': 'Sin resultado',
@@ -373,3 +408,164 @@ QT_MESSAGES = {
     "Undo": "Deshacer",
     "Yes": "Sí"
 }
+
+# Explainable schedule quality indicators.
+MESSAGES.update({'No aplica': 'No aplica',
+ 'Calidad del horario completo': 'Calidad del horario completo',
+ 'Los filtros no cambian estos indicadores. Son descriptivos: no validan restricciones ni demuestran un óptimo.': 'Los '
+                                                                                                                  'filtros '
+                                                                                                                  'no '
+                                                                                                                  'cambian '
+                                                                                                                  'estos '
+                                                                                                                  'indicadores. '
+                                                                                                                  'Son '
+                                                                                                                  'descriptivos: '
+                                                                                                                  'no '
+                                                                                                                  'validan '
+                                                                                                                  'restricciones '
+                                                                                                                  'ni '
+                                                                                                                  'demuestran '
+                                                                                                                  'un '
+                                                                                                                  'óptimo.',
+ 'Grupos originales: {complete} completos, {partial} parciales, {pending} pendientes y {unknown} desconocidos, de {total}. Las preferencias cuentan cada sesión dividida por separado.': 'Grupos '
+                                                                                                                                                                                         'originales: '
+                                                                                                                                                                                         '{complete} '
+                                                                                                                                                                                         'completos, '
+                                                                                                                                                                                         '{partial} '
+                                                                                                                                                                                         'parciales, '
+                                                                                                                                                                                         '{pending} '
+                                                                                                                                                                                         'pendientes '
+                                                                                                                                                                                         'y '
+                                                                                                                                                                                         '{unknown} '
+                                                                                                                                                                                         'desconocidos, '
+                                                                                                                                                                                         'de '
+                                                                                                                                                                                         '{total}. '
+                                                                                                                                                                                         'Las '
+                                                                                                                                                                                         'preferencias '
+                                                                                                                                                                                         'cuentan '
+                                                                                                                                                                                         'cada '
+                                                                                                                                                                                         'sesión '
+                                                                                                                                                                                         'dividida '
+                                                                                                                                                                                         'por '
+                                                                                                                                                                                         'separado.',
+ 'Día preferido': 'Día preferido',
+ 'Hora preferida': 'Hora preferida',
+ 'Aula preferida': 'Aula preferida',
+ 'Preferencia': 'Preferencia',
+ 'Pendientes': 'Pendientes',
+ 'Desconocidas': 'Desconocidas',
+ 'Sin preferencia': 'Sin preferencia',
+ 'Coincidencia exacta de día, hora de inicio y aula. El denominador incluye sólo preferencias asignadas y conocidas; pendientes, desconocidas y ausentes se muestran aparte. Sin denominador: no aplica.': 'Coincidencia '
+                                                                                                                                                                                                           'exacta '
+                                                                                                                                                                                                           'de '
+                                                                                                                                                                                                           'día, '
+                                                                                                                                                                                                           'hora '
+                                                                                                                                                                                                           'de '
+                                                                                                                                                                                                           'inicio '
+                                                                                                                                                                                                           'y '
+                                                                                                                                                                                                           'aula. '
+                                                                                                                                                                                                           'El '
+                                                                                                                                                                                                           'denominador '
+                                                                                                                                                                                                           'incluye '
+                                                                                                                                                                                                           'sólo '
+                                                                                                                                                                                                           'preferencias '
+                                                                                                                                                                                                           'asignadas '
+                                                                                                                                                                                                           'y '
+                                                                                                                                                                                                           'conocidas; '
+                                                                                                                                                                                                           'pendientes, '
+                                                                                                                                                                                                           'desconocidas '
+                                                                                                                                                                                                           'y '
+                                                                                                                                                                                                           'ausentes '
+                                                                                                                                                                                                           'se '
+                                                                                                                                                                                                           'muestran '
+                                                                                                                                                                                                           'aparte. '
+                                                                                                                                                                                                           'Sin '
+                                                                                                                                                                                                           'denominador: '
+                                                                                                                                                                                                           'no '
+                                                                                                                                                                                                           'aplica.',
+ 'Distribución de carga por día': 'Distribución de carga por día',
+ 'Minutos de docencia': 'Minutos de docencia',
+ 'Se suman minutos de cada sesión, incluso si son simultáneas. Se incluyen días sin carga; no se presupone que una distribución uniforme sea mejor.': 'Se '
+                                                                                                                                                      'suman '
+                                                                                                                                                      'minutos '
+                                                                                                                                                      'de '
+                                                                                                                                                      'cada '
+                                                                                                                                                      'sesión, '
+                                                                                                                                                      'incluso '
+                                                                                                                                                      'si '
+                                                                                                                                                      'son '
+                                                                                                                                                      'simultáneas. '
+                                                                                                                                                      'Se '
+                                                                                                                                                      'incluyen '
+                                                                                                                                                      'días '
+                                                                                                                                                      'sin '
+                                                                                                                                                      'carga; '
+                                                                                                                                                      'no '
+                                                                                                                                                      'se '
+                                                                                                                                                      'presupone '
+                                                                                                                                                      'que '
+                                                                                                                                                      'una '
+                                                                                                                                                      'distribución '
+                                                                                                                                                      'uniforme '
+                                                                                                                                                      'sea '
+                                                                                                                                                      'mejor.',
+ 'Ocupación temporal de aulas': 'Ocupación temporal de aulas',
+ 'Minutos ocupados únicos / minutos disponibles, descontando almuerzo y exclusiones. Incluye aulas sin uso; no mide asientos ocupados ni compatibilidad de cursos.': 'Minutos '
+                                                                                                                                                                     'ocupados '
+                                                                                                                                                                     'únicos '
+                                                                                                                                                                     '/ '
+                                                                                                                                                                     'minutos '
+                                                                                                                                                                     'disponibles, '
+                                                                                                                                                                     'descontando '
+                                                                                                                                                                     'almuerzo '
+                                                                                                                                                                     'y '
+                                                                                                                                                                     'exclusiones. '
+                                                                                                                                                                     'Incluye '
+                                                                                                                                                                     'aulas '
+                                                                                                                                                                     'sin '
+                                                                                                                                                                     'uso; '
+                                                                                                                                                                     'no '
+                                                                                                                                                                     'mide '
+                                                                                                                                                                     'asientos '
+                                                                                                                                                                     'ocupados '
+                                                                                                                                                                     'ni '
+                                                                                                                                                                     'compatibilidad '
+                                                                                                                                                                     'de '
+                                                                                                                                                                     'cursos.',
+ 'Minutos ocupados / disponibles': 'Minutos ocupados / disponibles',
+ 'Total': 'Total',
+ 'Ninguna': 'Ninguna',
+ 'Hay datos desconocidos o incompletos. Los indicadores no sustituyen la revisión de integridad.': 'Hay '
+                                                                                                   'datos '
+                                                                                                   'desconocidos '
+                                                                                                   'o '
+                                                                                                   'incompletos. '
+                                                                                                   'Los '
+                                                                                                   'indicadores '
+                                                                                                   'no '
+                                                                                                   'sustituyen '
+                                                                                                   'la '
+                                                                                                   'revisión '
+                                                                                                   'de '
+                                                                                                   'integridad.',
+ 'Cumplidas': 'Cumplidas',
+ 'Excepciones manuales activas de laboratorio / sesiones asignadas: {ratio}. Confirmadas: {ids}. Sin confirmar: {unconfirmed}. No evaluables: {unknown}. Registros inactivos: {inactive}.': 'Excepciones '
+                                                                                                                                                                                            'manuales '
+                                                                                                                                                                                            'activas '
+                                                                                                                                                                                            'de '
+                                                                                                                                                                                            'laboratorio '
+                                                                                                                                                                                            '/ '
+                                                                                                                                                                                            'sesiones '
+                                                                                                                                                                                            'asignadas: '
+                                                                                                                                                                                            '{ratio}. '
+                                                                                                                                                                                            'Confirmadas: '
+                                                                                                                                                                                            '{ids}. '
+                                                                                                                                                                                            'Sin '
+                                                                                                                                                                                            'confirmar: '
+                                                                                                                                                                                            '{unconfirmed}. '
+                                                                                                                                                                                            'No '
+                                                                                                                                                                                            'evaluables: '
+                                                                                                                                                                                            '{unknown}. '
+                                                                                                                                                                                            'Registros '
+                                                                                                                                                                                            'inactivos: '
+                                                                                                                                                                                            '{inactive}.'})

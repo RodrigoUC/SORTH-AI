@@ -16,6 +16,8 @@ se documentan en `project_root/data/input/PROVENANCE.md`.
 - **PyQt6**: Framework GUI
 - **pandas**: Procesamiento de datos
 - **openpyxl**: Manipulación de archivos Excel
+- **ReportLab**: Exportación directa de horarios PDF (licencia BSD; versión ya incluida en el inventario Windows)
+- **DejaVu Sans**: Fuente incrustada en los horarios PDF, en `project_root/assets/fonts/`; licencia preservada junto al archivo y en `third_party/licenses/dejavu-font.txt`
 - **PyInstaller**: Compilación a ejecutable
 
 ## Textos de licencia preservados
