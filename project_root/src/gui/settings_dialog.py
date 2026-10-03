@@ -18,12 +18,13 @@ class SettingsDialog(QDialog):
         self.window = window
         window._features.refresh()
         self.setWindowTitle(msg('Configuración'))
+        self._compact_settings = False
         self.resize(680, 620)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
         outer.setSpacing(10)
 
-        header = QFrame()
+        self.header = header = QFrame()
         header.setObjectName('settingsHeader')
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(16, 12, 16, 12)
@@ -191,11 +192,32 @@ class SettingsDialog(QDialog):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, 'intro_label'):
-            # Reserve actual reading space at short heights without shrinking
-            # the user's text. The introduction remains in the title's native
-            # accessible description; every section retains its own guidance.
-            self.intro_label.setVisible(self.height() >= 520)
+        compact = self.height() < 520
+        changed = compact != getattr(self, '_compact_settings', None)
+        self._compact_settings = compact
+        if not changed or not hasattr(self, 'intro_label'):
+            return
+        # A short window already has a native window title and section heading.
+        # Spend its space on readable content, not duplicate identity chrome.
+        compact = self._compact_settings
+        self.header.setVisible(not compact)
+        self.intro_label.setVisible(not compact)
+        self.layout().setContentsMargins(*((8, 8, 8, 8) if compact else (16, 16, 16, 16)))
+        self.layout().setSpacing(6 if compact else 10)
+        if hasattr(self, 'scroll'):
+            self.scroll.widget().layout().setContentsMargins(
+                *((12, 10, 12, 10) if compact else (16, 14, 16, 14)))
+        if hasattr(self, 'section_selector'):
+            labels = {
+                'general': ('General', 'General'),
+                'resources': ('Recursos académicos', 'Recursos'),
+                'advanced': ('Herramientas avanzadas', 'Avanzado'),
+                'mcp': ('Conexión MCP', 'MCP'),
+            }
+            for index in range(self.section_selector.count()):
+                full, short = labels[self.section_selector.itemData(index)]
+                self.section_selector.setItemText(index, msg(short if compact else full))
+        self._refresh_save_state()
 
     def select_section(self, key):
         """Select a stable section key without discarding any pending choices."""
@@ -218,8 +240,12 @@ class SettingsDialog(QDialog):
         saved = dict(self._saved_values)
         saved['mcp_server'] = mcp_permission_enabled(self.window._features.path)
         count = sum(control.isChecked() != saved[key] for key, control in self.controls.items())
-        self.save_state.setText(msg('Cambios sin guardar: {count}', count=count) if count
-                                else msg('Sin cambios por guardar'))
+        full_status = (msg('Cambios sin guardar: {count}', count=count) if count
+                       else msg('Sin cambios por guardar'))
+        display = ((msg('Sin guardar: {count}', count=count) if count else msg('Sin cambios'))
+                   if self._compact_settings else full_status)
+        self.save_state.setText(display)
+        self.save_state.setAccessibleDescription(full_status)
         self.save_state.setProperty('pending', bool(count))
         self.save_state.style().unpolish(self.save_state)
         self.save_state.style().polish(self.save_state)

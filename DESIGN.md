@@ -212,8 +212,11 @@ Academic resources, Advanced tools and MCP connection presented independently.
 A single-column native combo remains usable at 460×420 and with enlarged fonts;
 its keyboard arrow keys select sections, retaining every unsaved checkbox value.
 The selector and Save/Cancel remain outside the body scroller. Below 520px tall,
-the header omits its introduction to preserve reading space without reducing font
-size; the same text remains in the title’s accessible description. The application
+the duplicate header gives way to the native window title and visible section
+heading. Compact shell insets and gaps preserve reading space without reducing
+fonts. Section navigation uses concise names (General, Resources, Advanced, MCP);
+the body keeps full headings. The compact save status keeps its full meaning in
+its accessible description, including the exact unsaved-change count. The application
 navy header, white reading surface, teal Save and violet focus use existing
 semantic tokens in theme.py. No new palette, dependencies or web components.
 
@@ -239,3 +242,20 @@ ensureWidgetVisible, so Tab, Shift+Tab and programmatic MCP-cancel focus reveal
 the focused control even when it is nested in a section. Selectable MCP status,
 permission and save-state labels explicitly participate in the native tab order.
 The keyboard regression traverses every section without test-side scrolling.
+
+
+### Native settings metric safeguards
+Action wrapping uses each widget as the QTextLayout paint device and checks the
+resulting native minimum-size hint. If native chrome changes after wrapping, it
+reduces only the text-wrap budget, preserving the original Message, full text,
+accessible name and font. A strictly decreasing budget bounds this correction.
+Changed nested section layouts refresh before the outer content minimum is read;
+no scrollbar is hidden to conceal overflow. Short-window mode uses 8px shell
+insets, 6px gaps and 12px body insets. It updates only when crossing the height
+threshold, not on every width change.
+
+Geometry regressions visit each active section rather than trusting stale hidden
+Qt widget rectangles. CI writes untruncated settings-geometry JSON reports with
+section, visible child hints, actual font DPI, viewport and fixed-chrome sizes.
+A larger logical-DPI144/20pt stress run is additional evidence, not a substitute
+for the native Windows run.

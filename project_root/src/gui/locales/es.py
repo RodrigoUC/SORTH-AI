@@ -1,6 +1,10 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Avanzado': 'Avanzado',
+    'MCP': 'MCP',
+    'Sin guardar: {count}': 'Sin guardar: {count}',
+    'Sin cambios': 'Sin cambios',
     'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.': 'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.',
     'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.': 'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.',
     'Sin cambios por guardar': 'Sin cambios por guardar',

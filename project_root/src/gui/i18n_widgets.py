@@ -66,38 +66,47 @@ class _ResponsiveButtonText:
         source = binding[1][0]
         full_text = str(_render(source))
         self.setAccessibleName(source)
+        self.ensurePolished()
         # Ask the current native style for its indicator, border and padding.
         # Use the current display width, including any previous line breaks.
         metrics = self.fontMetrics()
         current_text_width = metrics.size(Qt.TextFlag.TextShowMnemonic, self.text()).width()
         chrome = max(0, self.minimumSizeHint().width() - current_text_width)
         text_width = max(1, available_width - chrome - 4)
-        lines = []
-        for paragraph in full_text.split('\n'):
-            # QTextLine offsets count UTF-16 code units; Python slices count
-            # Unicode code points. Slice the same representation Qt measured.
-            utf16 = paragraph.encode('utf-16-le')
-            text_layout = QTextLayout(paragraph, self.font())
-            option = QTextOption()
-            option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-            text_layout.setTextOption(option)
-            text_layout.beginLayout()
-            while True:
-                line = text_layout.createLine()
-                if not line.isValid():
-                    break
-                line.setLineWidth(text_width)
-                start = line.textStart() * 2
-                end = start + line.textLength() * 2
-                lines.append(utf16[start:end].decode('utf-16-le').strip())
-            text_layout.endLayout()
-            if not paragraph:
-                lines.append('')
-        display = '\n'.join(lines)
-        if display != self.text():
-            # Bypass the localization setter deliberately: replacing the Message
-            # with this literal would lose live translation and accumulate wraps.
-            QtW.QAbstractButton.setText(self, display)
+        while True:
+            lines = []
+            for paragraph in full_text.split('\n'):
+                # QTextLine offsets count UTF-16 units, unlike Python slices.
+                utf16 = paragraph.encode('utf-16-le')
+                # Use the same paint device as native fontMetrics/sizeHint.
+                # Screen-default DPI is not necessarily this widget's DPI.
+                text_layout = QTextLayout(paragraph, self.font(), self)
+                option = QTextOption()
+                option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+                text_layout.setTextOption(option)
+                text_layout.beginLayout()
+                while True:
+                    line = text_layout.createLine()
+                    if not line.isValid():
+                        break
+                    line.setLineWidth(text_width)
+                    start = line.textStart() * 2
+                    end = start + line.textLength() * 2
+                    lines.append(utf16[start:end].decode('utf-16-le').strip())
+                text_layout.endLayout()
+                if not paragraph:
+                    lines.append('')
+            display = '\n'.join(lines)
+            if display != self.text():
+                # Keep the source Message and full accessible name unchanged.
+                QtW.QAbstractButton.setText(self, display)
+            excess = self.minimumSizeHint().width() - available_width
+            if excess <= 0 or text_width <= 1:
+                break
+            # Native styles can reserve more space than the initial estimate.
+            # Confirm the final native hint, then reduce only the wrap budget.
+            # A strictly decreasing integer budget guarantees termination.
+            text_width = max(1, text_width - max(4, excess))
 
 
 class QPushButton(_ResponsiveButtonText, _Localized, QtW.QPushButton):
@@ -151,9 +160,23 @@ class ResponsiveActionLabels(QObject):
             width = self.scroll.viewport().width() - margins.left() - margins.right()
             if width <= 0:
                 return
-            for control in self.controls:
-                control.wrapPresentationText(width)
             content = self.scroll.widget()
+            changed = False
+            for control in self.controls:
+                previous = control.text()
+                control.wrapPresentationText(width)
+                if control.text() != previous:
+                    changed = True
+                    # Section layouts can still cache the old unwrapped hint.
+                    # Update inner layouts before querying the outer minimum.
+                    parent = control.parentWidget()
+                    while parent is not None and parent is not content:
+                        if parent.layout() is not None:
+                            parent.layout().invalidate()
+                            parent.layout().activate()
+                        parent = parent.parentWidget()
+            if changed:
+                content.layout().invalidate()
             content.layout().activate()
             content.resize(max(self.scroll.viewport().width(), content.minimumSizeHint().width()),
                            content.height())

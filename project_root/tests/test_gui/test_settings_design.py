@@ -1,8 +1,11 @@
 """Native section navigation preserves one transaction and accessible geometry."""
+import json
+from pathlib import Path
+
 import pytest
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QScrollArea, QStyleFactory, QStyle, QStyleOptionComboBox
+from PyQt6.QtWidgets import QApplication, QScrollArea, QStyleFactory, QStyle, QStyleOptionComboBox, QWidget
 
 from src.gui.features import FEATURES
 from src.gui.i18n import language_manager
@@ -88,6 +91,29 @@ def test_each_section_fits_small_native_window_with_large_fonts(window, locale, 
         for section, feature_keys in dialog.section_features.items():
             dialog.select_section(section)
             snapshot = settle_settings_layout(dialog)
+            snapshot['section'] = section
+            snapshot['chrome'] = [
+                {'name': widget.objectName() or type(widget).__name__,
+                 'visible': widget.isVisible(), 'width': widget.width(), 'height': widget.height(),
+                 'minimum_width': widget.minimumSizeHint().width(),
+                 'minimum_height': widget.minimumSizeHint().height()}
+                for widget in (dialog.header, dialog.section_selector, dialog.scroll,
+                               dialog.save_state, dialog.buttons)]
+            snapshot['body_widgets'] = sorted([
+                {'name': widget.objectName() or type(widget).__name__,
+                 'text': widget.text() if hasattr(widget, 'text') else '',
+                 'width': widget.width(), 'height': widget.height(),
+                 'minimum_width': widget.minimumSizeHint().width(),
+                 'minimum_height': widget.minimumSizeHint().height(),
+                 'font_points': widget.font().pointSizeF(), 'logical_dpi': widget.logicalDpiX()}
+                for widget in dialog.scroll.widget().findChildren(QWidget) if widget.isVisible()],
+                key=lambda item: item['minimum_width'], reverse=True)
+            # Native CI retains this untruncated report even when pytest shortens
+            # an assertion's dictionary representation.
+            report_dir = Path(__file__).resolve().parents[2] / 'build' / 'reports'
+            report_dir.mkdir(parents=True, exist_ok=True)
+            report_path = report_dir / f'settings-geometry-{style_name}-{locale}-{expanded}-{section}.json'
+            report_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding='utf-8')
             assert dialog.size() == QSize(460, 420), snapshot
             assert dialog.scroll.horizontalScrollBar().maximum() == 0, snapshot
             assert dialog.scroll.viewport().height() > 100, snapshot
@@ -195,3 +221,36 @@ def test_keyboard_navigation_scrolls_every_section_control_into_view(window, loc
         dialog.reject()
         app.setStyle(original_style)
         manager.set_language(original_language, persist=False)
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+def test_short_shell_preserves_full_meanings_and_restores_wide_labels(window, locale):
+    manager = language_manager()
+    original = manager.language
+    manager.set_language(locale, persist=False)
+    dialog = SettingsDialog(window)
+    try:
+        dialog.resize(460, 420)
+        dialog.show()
+        settle_settings_layout(dialog)
+        assert dialog.header.isHidden()
+        assert dialog.intro_label.isHidden()
+        assert dialog.scroll.viewport().height() > 100
+        dialog.select_section('advanced')
+        assert dialog.section_selector.currentText() == ('Avanzado' if locale == 'es' else 'Advanced')
+        assert dialog.save_state.accessibleDescription() == ('Sin cambios por guardar' if locale == 'es' else 'No unsaved changes')
+        dialog.controls['undo_redo'].setChecked(True)
+        assert dialog.save_state.text() == ('Sin guardar: 1' if locale == 'es' else 'Unsaved: 1')
+        assert dialog.save_state.accessibleDescription() == ('Cambios sin guardar: 1' if locale == 'es' else 'Unsaved changes: 1')
+        dialog.resize(680, 620)
+        settle_settings_layout(dialog)
+        assert dialog.header.isVisible() and dialog.intro_label.isVisible()
+        assert dialog.section_selector.currentData() == 'advanced'
+        assert dialog.section_selector.currentText() == ('Herramientas avanzadas' if locale == 'es' else 'Advanced tools')
+        assert dialog.save_state.text() == dialog.save_state.accessibleDescription()
+        assert dialog.controls['undo_redo'].isChecked()
+        dialog.reject()
+        assert not window._features.path.exists()
+    finally:
+        dialog.reject()
+        manager.set_language(original, persist=False)

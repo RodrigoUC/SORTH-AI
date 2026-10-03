@@ -1,6 +1,10 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Avanzado': 'Advanced',
+    'MCP': 'MCP',
+    'Sin guardar: {count}': 'Unsaved: {count}',
+    'Sin cambios': 'No changes',
     'Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.': 'Turning off a resource keeps its records. Its constraints are removed after confirmation and timetable regeneration.',
     'Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.': 'Turning off a tool hides its controls. Saved scenarios, pins and calendar settings are kept.',
     'Sin cambios por guardar': 'No unsaved changes',

@@ -356,25 +356,35 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         controls = dialog._responsive_actions.controls
 
         def inspect_geometry():
-            snapshot = settle_settings_layout(dialog)
-            assert dialog.width() == 460 and dialog.height() == 420, snapshot
-            assert scroll.horizontalScrollBar().maximum() == 0, snapshot
-            for button in controls:
-                source = button._messages['setText'][1][0]
-                assert caption_preserved_across_soft_breaks(button.text(), source.render()), (button.text(), source.render())
-                assert button.accessibleName() == source.render()
-                assert button.width() >= button.minimumSizeHint().width()
-                assert button.height() >= button.minimumSizeHint().height()
-            for action in dialog.buttons.buttons():
-                assert action.width() >= action.minimumSizeHint().width(), snapshot
-                assert action.height() >= action.minimumSizeHint().height(), snapshot
-                assert dialog.rect().contains(action.mapTo(dialog, action.rect().topLeft())), snapshot
-                assert dialog.rect().contains(action.mapTo(dialog, action.rect().bottomRight())), snapshot
+            selected = dialog.section_selector.currentData()
+            # Geometry belongs to the active native section. Visit every section
+            # instead of relying on stale rectangles of hidden Qt widgets.
+            for section in dialog.sections:
+                dialog.select_section(section)
+                snapshot = settle_settings_layout(dialog)
+                assert dialog.width() == 460 and dialog.height() == 420, snapshot
+                assert scroll.horizontalScrollBar().maximum() == 0, snapshot
+                for button in controls:
+                    source = button._messages['setText'][1][0]
+                    assert caption_preserved_across_soft_breaks(button.text(), source.render()), (button.text(), source.render())
+                    assert button.accessibleName() == source.render()
+                    if button.isVisible():
+                        assert button.width() >= button.minimumSizeHint().width(), snapshot
+                        assert button.height() >= button.minimumSizeHint().height(), snapshot
+                for action in dialog.buttons.buttons():
+                    assert action.width() >= action.minimumSizeHint().width(), snapshot
+                    assert action.height() >= action.minimumSizeHint().height(), snapshot
+                    assert dialog.rect().contains(action.mapTo(dialog, action.rect().topLeft())), snapshot
+                    assert dialog.rect().contains(action.mapTo(dialog, action.rect().bottomRight())), snapshot
+            dialog.select_section(selected)
+            settle_settings_layout(dialog)
 
         inspect_geometry()
         if expanded_metrics:
             assert caption_preserved_across_soft_breaks(dialog.calendar_button.text(),
                                                         dialog.calendar_button._messages['setText'][1][0].render())
+        dialog.select_section('advanced')
+        settle_settings_layout(dialog)
         checkbox = dialog.controls['project_scenarios']
         checkbox.setFocus()
         QTest.keyClick(checkbox, Qt.Key.Key_Space)
@@ -382,8 +392,8 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         # Retranslation keeps the original Message, checked state and focus.
         manager.set_language('en' if locale == 'es' else 'es', persist=False)
         QApplication.processEvents()
-        inspect_geometry()
         assert checkbox.isChecked() and checkbox.hasFocus()
+        inspect_geometry()
         dialog.resize(900, 420)
         snapshot = settle_settings_layout(dialog)
         assert snapshot['horizontal_maximum'] == 0, snapshot
@@ -590,3 +600,38 @@ def test_footer_never_queries_native_metrics_during_global_style_replacement(win
 ])
 def test_caption_validation_distinguishes_soft_breaks_from_lost_content(display, source, valid):
     assert caption_preserved_across_soft_breaks(display, source) is valid
+
+
+@pytest.mark.parametrize('kind', ['QPushButton', 'QCheckBox'])
+def test_native_wrapping_confirms_result_after_chrome_changes(kind):
+    from PyQt6.QtCore import QSize
+    from src.gui import i18n_widgets
+    from src.gui.i18n import msg
+    base = getattr(i18n_widgets, kind)
+
+    class ChangingNativeChrome(base):
+        """Emulate a style recalculating its indicator after a multiline caption."""
+        changed_caption = False
+
+        def minimumSizeHint(self):
+            hint = super().minimumSizeHint()
+            if '\n' in self.text():
+                self.changed_caption = True
+            # The first estimate cannot know the extra chrome until native text
+            # layout has changed. The final measured-hint correction must fit it.
+            return hint + QSize(40 if self.changed_caption else 0, 0)
+
+    button = ChangingNativeChrome(msg('Preparar 🚀 conexión del cliente y verificar todos los componentes'))
+    button.setStyleSheet('font-size: 20pt;')
+    button.ensurePolished()
+    font_before = button.font()
+    button.wrapPresentationText(250)
+    assert button.changed_caption
+    assert button.minimumSizeHint().width() <= 250
+    assert button.font() == font_before
+    source = button._messages['setText'][1][0].render()
+    assert caption_preserved_across_soft_breaks(button.text(), source)
+    assert button.accessibleName() == source
+    button.wrapPresentationText(2000)
+    assert button.text() == source
+    button.deleteLater()
