@@ -124,7 +124,7 @@ def run_smoke_test(app, output_dir: Path) -> int:
             result['stages'].append('bundled_excel_import')
             window._generate_schedule()
             # Avoid interactive error dialogs in this explicitly automated mode.
-            window._worker.error.disconnect(window._on_schedule_error)
+            window._worker.error.disconnect()
             window._worker.error.connect(lambda message: finish(message))
             poll.start(25)
             deadline.start(60000)

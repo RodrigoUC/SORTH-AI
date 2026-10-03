@@ -116,3 +116,13 @@ large batches inspectable. Changing inputs invalidates the preview. Apply remain
 disabled until review and rechecks stale session/selection before one transaction.
 Errors remain inline, Cancel writes nothing, and one undo reverses the whole batch.
 Native controls, shared i18n wrappers and theme.py remain canonical owners.
+## Pending-session placement options
+`placement_suggestions` is disabled initially. When enabled, the existing native
+session action row exposes **Ver opciones** only for a selected pending session.
+The 640×480 review dialog reuses the localized table, focus rings and shared
+buttons. It states the current-schedule scope, 30-minute candidate grid and
+truncation; rows never move other sessions or create laboratory exceptions.
+Assignment requires an explicit selection, fresh-input fingerprint and independent
+validation. Changed inputs recalculate and clear selection. The accepted action
+uses the same persistence-first command path as manual assignment and supports undo.
+Closing, hiding the feature or failed persistence preserves schedule and pins.

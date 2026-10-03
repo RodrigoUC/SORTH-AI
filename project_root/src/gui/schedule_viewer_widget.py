@@ -49,6 +49,7 @@ class _SortableItem(QTableWidgetItem):
 class ScheduleViewerWidget(QWidget):
     edit_course_requested = pyqtSignal(str)
     manual_assignment_requested = pyqtSignal(str)
+    placement_options_requested = pyqtSignal(str)
     group_removed = pyqtSignal(str)
     pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
@@ -58,6 +59,7 @@ class ScheduleViewerWidget(QWidget):
     def __init__(self):
         super().__init__()
         self._pin_controls = []
+        self._suggestion_controls = []
         self._assignments = {}
         self._search_keys = {}
         self._matching_gids = set()
@@ -76,6 +78,10 @@ class ScheduleViewerWidget(QWidget):
         self._init_ui()
         self._clear()
         language_manager().changed.connect(self._request_grid_render)
+
+    def set_suggestion_controls_visible(self, visible):
+        for control in self._suggestion_controls:
+            control.setVisible(visible)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -205,6 +211,14 @@ class ScheduleViewerWidget(QWidget):
         remove.setObjectName("dangerAction")
         remove.setToolTip(msg('Dejar la sesión seleccionada sin asignar'))
         remove.clicked.connect(lambda: self._action_remove(table, {}))
+        options = QPushButton(msg('Ver opciones'))
+        options.setVisible(False)
+        options.setEnabled(False)
+        options.clicked.connect(lambda: self.placement_options_requested.emit(self._selected_gid(table)))
+        table.itemSelectionChanged.connect(lambda: options.setEnabled(
+            self._selected_gid(table) in self._groups and self._selected_gid(table) not in self._assignments))
+        self._suggestion_controls.append(options)
+        actions.addWidget(options)
         assign = QPushButton(msg('Asignar manualmente'))
         assign.setEnabled(False)
         assign.clicked.connect(lambda: self.manual_assignment_requested.emit(self._selected_gid(table)))

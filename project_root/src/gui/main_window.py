@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._worker = None
         self._generation_cancelled = False
+        self._close_after_generation = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
         self.current_groups: list | None = None
@@ -371,6 +372,7 @@ class MainWindow(QMainWindow):
         self.btn_export_filtered.clicked.connect(lambda: self._export_schedule(filtered=True))
         self.schedule_viewer.filters_changed.connect(self._update_export_actions)
         self.schedule_viewer.manual_assignment_requested.connect(self._manual_assignment)
+        self.schedule_viewer.placement_options_requested.connect(self._placement_options)
 
         layout.addStretch()
         layout.addWidget(seed_label)
@@ -575,6 +577,7 @@ class MainWindow(QMainWindow):
             self._generation_cancelled = True
             self._worker.requestInterruption()
             self._cancel_button.setEnabled(False)
+            self._cancel_button.setText(msg('Cancelando…'))
             self.status_bar.showMessage(msg('Cancelando generación; se conservarán el horario y las sesiones fijadas.'))
 
     def _generate_schedule(self):
@@ -605,13 +608,30 @@ class MainWindow(QMainWindow):
             pinned_assignments=self._pinned_assignments(),
             lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in self.pinned_group_ids},
         )
-        self._worker.result_ready.connect(self._on_schedule_done)
-        self._worker.finished.connect(lambda: self._set_busy(False))
-        self._worker.error.connect(self._on_schedule_error)
+        worker = self._worker
+        worker.result_ready.connect(lambda assignments, groups: self._on_schedule_done(assignments, groups)
+                                    if self._worker is worker else None)
+        worker.finished.connect(lambda: self._generation_finished(worker))
+        worker.error.connect(lambda message: self._on_schedule_error(message)
+                             if self._worker is worker else None)
+        worker.cancelled.connect(lambda: self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+                                 if self._worker is worker else None)
 
         self._set_busy(True)
         self.status_bar.showMessage(msg('⏳ Generando horario...'))
         self._worker.start()
+
+    def _generation_finished(self, worker):
+        if self._worker is not worker:
+            return
+        self._set_busy(False)
+        if self._generation_cancelled:
+            self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+        self._worker = None
+        worker.deleteLater()
+        if self._close_after_generation:
+            self._close_after_generation = False
+            self.close()
 
     def _on_schedule_done(self, assignments, groups):
         if self._generation_cancelled:
@@ -771,6 +791,7 @@ class MainWindow(QMainWindow):
         return self._commit_edit(candidate, 'Cambiar calendario', expected=expected)
 
     def _apply_feature_preferences(self):
+        self.schedule_viewer.set_suggestion_controls_visible(self._features.enabled('placement_suggestions'))
         self.schedule_viewer.set_pin_controls_visible(self._features.enabled('pinned_sessions'))
         self.btn_projects.setVisible(self._features.enabled('project_scenarios'))
         for kind, button in self.resource_buttons.items():
@@ -1378,6 +1399,38 @@ class MainWindow(QMainWindow):
             room.allowed_courses = self.classroom_restrictions.get(name)
         return rooms
 
+    def _placement_inputs(self):
+        if self._busy or self.current_groups is None or not self._features.enabled('placement_suggestions'):
+            return None
+        calendar = getattr(self, 'calendar', None)
+        time_model = TimeModel.from_calendar(calendar) if calendar is not None else TimeModel.default()
+        return dict(assignments=self.current_schedule or {}, groups=self.current_groups,
+                    classrooms=self._validation_classrooms(), time_model=time_model,
+                    lab_overrides={g.group_id for g in self.current_groups if g.lab_override},
+                    pinned=self.pinned_group_ids, resources=getattr(self, 'resources', None))
+
+    def _placement_options(self, gid):
+        from .placement_options_dialog import PlacementOptionsDialog
+        inputs = self._placement_inputs()
+        if inputs is None or gid in inputs['assignments'] or gid in self.pinned_group_ids:
+            return
+        PlacementOptionsDialog(gid, self._placement_inputs, self._apply_placement_option, self).exec()
+
+    def _apply_placement_option(self, options, placement):
+        from ..application.placement_suggestions import validate_choice
+        from ..application.edit_history import fingerprint
+        inputs = self._placement_inputs()
+        if inputs is None or validate_choice(options, placement, **inputs):
+            return False
+        before = self._capture_edit_state()
+        candidate = deepcopy(before)
+        candidate['assignments'] = dict(candidate['assignments'] or {})
+        candidate['assignments'][options.group_id] = placement
+        candidate['lab_overrides'].discard(options.group_id)
+        candidate['group_feedback'][options.group_id] = ''
+        candidate['schedule_present'] = True
+        return self._commit_edit(candidate, 'Asignar opción válida', expected=fingerprint(before))
+
     def _manual_assignment(self, gid):
         if self._busy or self.current_groups is None:
             return
@@ -1546,6 +1599,7 @@ class MainWindow(QMainWindow):
         self.btn_restrictions.setEnabled(not busy and bool(self._classroom_course_map))
         self.btn_generate.setEnabled(not busy and bool(self._classrooms and self.course_manager.get_courses()))
         self.btn_generate.setText(msg('Generando…') if busy else msg('Generar horario'))
+        self._cancel_button.setText(msg('Cancelando…') if self._generation_cancelled else msg('Cancelar generación'))
         self._cancel_button.setVisible(busy and self._worker is not None)
         self._cancel_button.setEnabled(busy and not self._generation_cancelled)
         self._update_export_actions()
@@ -1567,7 +1621,8 @@ class MainWindow(QMainWindow):
             return
         if self._worker is not None and self._worker.isRunning():
             self._import.closing = False
-            self.status_bar.showMessage(msg('Espere a que termine la generación antes de cerrar.'))
+            self._close_after_generation = True
+            self._cancel_generation()
             event.ignore()
             return
         self._motion.finish()

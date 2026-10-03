@@ -1,6 +1,7 @@
 # src/application/scheduling_service.py
 
 from copy import deepcopy
+from ..scheduling.cancellation import checkpoint
 
 from ..scheduling.time_model import TimeModel
 from ..scheduling.schedule_state import ScheduleState
@@ -18,7 +19,7 @@ class SchedulingService:
     def run(self, courses: list[Course] | None = None,
             classroom_restrictions: dict[str, set[str]] | None = None,
             classrooms: dict | None = None,
-            pinned_assignments: dict | None = None, lab_overrides=(), resources=None, calendar=None):
+            pinned_assignments: dict | None = None, lab_overrides=(), resources=None, calendar=None, cancelled=None):
         """
         Run the scheduling algorithm.
 
@@ -31,6 +32,7 @@ class SchedulingService:
         Returns:
             (assignments, groups) on success, (None, None) on failure.
         """
+        checkpoint(cancelled)
         # Optional file adapter is loaded only for the legacy Excel workflow.
         # Supplied-data callers need neither pandas, Qt nor filesystem access.
         if classrooms is None or courses is None:
@@ -75,11 +77,13 @@ class SchedulingService:
         # 6. Generate groups from courses
         groups = []
         for course in courses:
+            checkpoint(cancelled)
             groups.extend(course.generate_groups())
 
         # Validate the complete pin set before reserving anything. These copies
         # isolate failures from the last accepted UI/persisted schedule.
         pinned_assignments = dict(pinned_assignments or {})
+        checkpoint(cancelled)
         errors = validate_schedule(pinned_assignments, groups, classrooms, time_model, lab_overrides, resources)
         if errors:
             raise ValueError("; ".join(map(str, errors)))
@@ -91,12 +95,14 @@ class SchedulingService:
             group.pinned = True
 
         # 7. Run scheduler
-        scheduler = Scheduler(seed=self.seed)
+        scheduler = Scheduler(seed=self.seed, cancelled=cancelled)
         scheduler.schedule(state, groups)
 
         # Return schedule even if partial (greedy may leave some groups unassigned)
+        checkpoint(cancelled)
         errors = validate_schedule(state.assignments, groups, classrooms, time_model,
                                    {g.group_id for g in groups if g.lab_override}, resources)
         if errors:
             raise ValueError("; ".join(map(str, errors)))
+        checkpoint(cancelled)
         return state.assignments, groups

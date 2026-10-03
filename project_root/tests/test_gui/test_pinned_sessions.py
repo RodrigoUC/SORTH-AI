@@ -188,7 +188,7 @@ def test_real_worker_regenerates_with_confirmed_pinned_lab_exception(window):
     while window._busy and time.monotonic() < deadline:
         app.processEvents()
         time.sleep(.005)
-    assert window._worker.wait(1000)
+    assert window._worker is None or window._worker.wait(1000)
     app.processEvents()
     assert not window._busy
     assert window.current_schedule == {'BIO-G1':('R',1,480,540)}

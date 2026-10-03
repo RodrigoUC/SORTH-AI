@@ -2,10 +2,12 @@
 from copy import deepcopy
 from PyQt6.QtCore import QThread, pyqtSignal
 from ..application.scheduling_service import SchedulingService
+from ..scheduling.cancellation import SchedulingCancelled, checkpoint
 
 class SchedulerWorker(QThread):
     result_ready = pyqtSignal(object, object)   # assignments, groups
     error    = pyqtSignal(str)
+    cancelled = pyqtSignal()
 
     def __init__(self, excel_path, courses, classrooms, restrictions, seed, pinned_assignments=None, lab_overrides=(), resources=None, calendar=None):
         super().__init__()
@@ -21,8 +23,7 @@ class SchedulerWorker(QThread):
 
     def run(self):
         try:
-            if self.isInterruptionRequested():
-                return
+            checkpoint(self.isInterruptionRequested)
             service = SchedulingService(self._excel_path, seed=self._seed)
             assignments, groups = service.run(
                 courses=self._courses,
@@ -32,9 +33,14 @@ class SchedulerWorker(QThread):
                 pinned_assignments=self._pinned_assignments,
                 lab_overrides=self._lab_overrides,
                 calendar=self._calendar,
+                cancelled=self.isInterruptionRequested,
             )
-            if not self.isInterruptionRequested():
-                self.result_ready.emit(assignments, groups)
+            checkpoint(self.isInterruptionRequested)
+            self.result_ready.emit(assignments, groups)
+        except SchedulingCancelled:
+            self.cancelled.emit()
         except Exception as e:
-            if not self.isInterruptionRequested():
+            if self.isInterruptionRequested():
+                self.cancelled.emit()
+            else:
                 self.error.emit(str(e))

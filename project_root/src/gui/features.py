@@ -18,6 +18,7 @@ class Feature:
 FEATURES = (
     Feature('import_diff_preview', 'Vista previa de cambios del Excel',
             'Revisar cursos, aulas, restricciones y asignaciones antes de reemplazar la sesión.'),
+    Feature('placement_suggestions', 'Opciones de ubicación', 'Mostrar ubicaciones válidas para sesiones pendientes sin mover otras sesiones.'),
     Feature('pinned_sessions', 'Herramientas de sesiones fijadas',
             'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.'),
     Feature('project_scenarios', 'Herramientas de proyectos y escenarios',
