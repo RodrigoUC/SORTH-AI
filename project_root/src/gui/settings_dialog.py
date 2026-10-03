@@ -122,6 +122,8 @@ class SettingsDialog(QDialog):
 
     def _show_mcp_status(self, status):
         self.mcp_status = status
+        if status not in {'available', 'prepared'}:
+            self.mcp_command = None
         idle = not self.mcp_preparation.active and not self.mcp_probe.active
         self.mcp_check_button.setEnabled(idle)
         self.mcp_prepare_button.setEnabled(idle)

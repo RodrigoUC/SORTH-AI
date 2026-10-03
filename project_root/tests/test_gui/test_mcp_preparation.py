@@ -301,3 +301,15 @@ def test_repeated_preparation_remains_separate_from_permission(window, monkeypat
         assert not enabled(window._features.path)
     assert len(calls) == 2
     dialog.reject()
+
+
+def test_failed_recheck_clears_stale_copyable_command(window, monkeypatch, bundle):
+    dialog = SettingsDialog(window)
+    dialog.mcp_command = bundle['command']
+    dialog.mcp_status = 'available'
+    def missing():
+        raise mcp_component.ComponentError('missing_bundle')
+    monkeypatch.setattr(mcp_component, 'bundle_info', missing)
+    dialog._prepare_mcp()
+    assert dialog.mcp_status == 'missing_bundle' and dialog.mcp_command is None
+    dialog.reject()
