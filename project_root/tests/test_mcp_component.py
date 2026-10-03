@@ -264,7 +264,7 @@ def test_mutable_bundle_info_cannot_change_context(bundle):
 
 
 @pytest.mark.skipif(os.name == 'nt', reason='Synthetic shebang fixture; real EXE probe is Windows CI')
-@pytest.mark.parametrize('behavior', ['valid', 'mismatch', 'overflow', 'timeout', 'cancel', 'descendant'])
+@pytest.mark.parametrize('behavior', ['valid', 'mismatch', 'overflow', 'timeout', 'cancel', 'descendant', 'exit_race'])
 def test_probe_output_lifetime_and_cancellation_are_bounded(bundle, monkeypatch, tmp_path, behavior):
     directory = tmp_path / 'probe'
     directory.mkdir()
@@ -281,14 +281,27 @@ def test_probe_output_lifetime_and_cancellation_are_bounded(bundle, monkeypatch,
     elif behavior in ('timeout', 'cancel'):
         program += 'time.sleep(10)\n'
     else:
+        if behavior == 'exit_race':
+            program += 'time.sleep(0.02)\n'
         program += 'print(' + repr(json.dumps(report)) + ')\n'
     executable = directory / 'SORTH-MCP.exe'
     executable.write_text('#!' + sys.executable + '\n' + program)
     executable.chmod(0o700)
-    monkeypatch.setattr(component, 'PROBE_TIMEOUT', 0.15)
+    monkeypatch.setattr(component, 'PROBE_TIMEOUT', 2 if behavior in ('valid', 'mismatch', 'exit_race') else 0.15)
+    if behavior == 'exit_race':
+        read = component.read_available
+        paused = False
+        def read_during_exit(*args):
+            nonlocal paused
+            data = read(*args)
+            if not data and not paused:
+                paused = True
+                time.sleep(0.15)  # Child prints and exits after this empty read.
+            return data
+        monkeypatch.setattr(component, 'read_available', read_during_exit)
     started = time.monotonic()
     cancelled = lambda: behavior == 'cancel' and time.monotonic() - started > 0.06
-    if behavior == 'valid':
+    if behavior in ('valid', 'exit_race'):
         REAL_PROBE(directory, bundle.manifest, cancelled)
     else:
         with pytest.raises(component.ComponentError, match='cancelled' if behavior == 'cancel' else 'probe_failed'):

@@ -275,11 +275,12 @@ def _probe(directory, manifest, cancelled):
             _cancelled(cancelled)
             if time.monotonic() >= deadline:
                 raise ComponentError('probe_failed')
+            exited = process.poll() is not None
             chunk = read_available(process.stdout, PROBE_MAX_OUTPUT + 1 - len(output))
             output.extend(chunk)
             if len(output) > PROBE_MAX_OUTPUT:
                 raise ComponentError('probe_failed')
-            if process.poll() is not None and not chunk:
+            if exited and not chunk:
                 break
             time.sleep(0.02)
         _cancelled(cancelled)

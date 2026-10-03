@@ -2,6 +2,9 @@
 
 No pipe reader thread holds a buffered-I/O lock during cancellation. Windows
 uses a private kill-on-close job; POSIX uses only the probe's new process group.
+Windows assignment occurs immediately after creation; descendants created
+after assignment inherit its ownership. The verified --probe mode itself never
+spawns descendants; this is lifecycle isolation, not a hostile-binary sandbox.
 """
 import os
 import signal
