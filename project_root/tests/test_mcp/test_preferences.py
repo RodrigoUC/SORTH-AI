@@ -25,7 +25,8 @@ def test_default_off_and_atomic_change_preserves_foreign_fields(tmp_path, monkey
 
 @pytest.mark.parametrize('raw', ['broken', '{"version":1,"features":{"mcp_server":"true"}}',
     '{"version":1,"features":{"mcp_server":true,"pinned_sessions":"true"}}',
-    '{"version":1,"features":{"mcp_server":true,"mcp_server":false}}', 'x' * 65537])
+    '{"version":1,"features":{"mcp_server":true,"mcp_server":false}}', 'x' * 65537],
+    ids=['invalid-json', 'nonboolean-permission', 'nonboolean-feature', 'duplicate-permission', 'oversized'])
 def test_damaged_preferences_fail_closed_and_cannot_silently_repair(tmp_path, raw):
     path = tmp_path / 'settings.json'
     path.write_text(raw)
@@ -162,7 +163,7 @@ with preferences_lock(sys.argv[1]):
     process = subprocess.Popen([sys.executable, '-B', '-S', '-c', script, str(path)], cwd=root,
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        assert process.stdout.readline() == b'locked\n'
+        assert process.stdout.readline().rstrip(b'\r\n') == b'locked'
         os.utime(lock_path, (1, 1))  # Age must never be treated as an unlock signal.
         start = time.monotonic()
         with pytest.raises(OSError):

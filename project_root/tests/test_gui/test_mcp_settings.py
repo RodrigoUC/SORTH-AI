@@ -254,7 +254,7 @@ prefs.set_enabled(sys.argv[1], False)
     process = subprocess.Popen([sys.executable, '-B', '-S', '-c', script, str(window._features.path)],
                                cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        assert process.stdout.readline() == b'locked\n'
+        assert process.stdout.readline().rstrip(b'\r\n') == b'locked'
         with pytest.raises(OSError):
             window._features.save({**window._features.values(), 'placement_suggestions': True})
         with pytest.raises(OSError):
