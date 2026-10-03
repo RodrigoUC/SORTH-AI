@@ -125,8 +125,8 @@ def test_settings_localize_while_open(window):
     try:
         manager.set_language('en', persist=False)
         assert dialog.windowTitle() == 'Settings'
-        assert dialog.controls['pinned_sessions'].text() == 'Pinned sessions'
-        assert dialog.controls['pinned_sessions'].accessibleName() == 'Pinned sessions'
+        assert dialog.controls['pinned_sessions'].text() == 'Pinned session tools'
+        assert dialog.controls['pinned_sessions'].accessibleName() == 'Pinned session tools'
         manager.set_language('es', persist=False)
         assert dialog.windowTitle() == 'Configuración'
     finally:
