@@ -3,7 +3,7 @@
 Selection and import only change the candidate. Apply is the single persistence
 boundary; Settings' separate Save/Cancel transaction never owns a theme change.
 """
-from PyQt6.QtCore import Qt, QEvent, QSignalBlocker
+from PyQt6.QtCore import Qt, QEvent, QSignalBlocker, QTimer
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QFileDialog, QFrame, QGridLayout,
@@ -320,6 +320,11 @@ class AppearanceDialog(QDialog):
                    self.cancel_button, self.apply_button]
         for previous, following in zip(ordered, ordered[1:]):
             self.setTabOrder(previous, following)
+        self._focus_reveal_timer = QTimer(self)
+        self._focus_reveal_timer.setSingleShot(True)
+        self._focus_reveal_timer.timeout.connect(self._reveal_after_reflow)
+        for target in (self.scroll.viewport(), content, self.preview):
+            target.installEventFilter(self)
         QApplication.instance().focusChanged.connect(self._scroll_to_focus)
         language_manager().changed.connect(self._retranslate_details)
         self.selector.setFocus(Qt.FocusReason.TabFocusReason)
@@ -447,6 +452,31 @@ class AppearanceDialog(QDialog):
         if (self.isVisible() and focused is not None
                 and self.scroll.widget().isAncestorOf(focused)):
             self.scroll.ensureWidgetVisible(focused, 0, 12)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                            QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            # Native text wrapping, footer stacking and preview column changes
+            # may finish after the dialog's own resize event. Coalesce their
+            # settled geometry without changing the existing keyboard focus.
+            self._focus_reveal_timer.start(0)
+        return super().eventFilter(watched, event)
+
+    def _reveal_after_reflow(self):
+        focused = QApplication.focusWidget()
+        if (not self.isVisible() or focused is None or not focused.isVisible()
+                or not self.scroll.widget().isAncestorOf(focused)):
+            return
+        viewport = self.scroll.viewport()
+        rect = focused.rect().translated(focused.mapTo(viewport, focused.rect().topLeft()))
+        visible = viewport.rect()
+        if visible.contains(rect):
+            return
+        # A long selectable label/table may be taller than the viewport. Its
+        # visible center is the same usable target as ensureWidgetVisible uses.
+        if rect.height() > visible.height() and visible.contains(rect.center()):
+            return
+        self.scroll.ensureWidgetVisible(focused, 0, 12)
 
     def _retranslate_details(self, *_):
         self.details.setAccessibleName(str(msg('Detalles del error de tema')))

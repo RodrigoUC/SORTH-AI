@@ -415,3 +415,86 @@ def test_native_preparation_failure_on_apply_stays_open_without_commit(manager, 
     assert 'native resource preparation unavailable' in dialog.details.toPlainText()
     assert dialog.apply_button.isEnabled()
     dialog.reject()
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('expanded', [False, True])
+@pytest.mark.parametrize('style', ['Fusion', 'Windows'])
+def test_focused_input_stays_revealed_after_resize_and_reflow(manager, tmp_path, locale, expanded, style):
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    if style not in QStyleFactory.keys():
+        pytest.skip('native style is unavailable')
+    app.setStyle(style)
+    language = language_manager()
+    previous_language = language.language
+    language.set_language(locale, persist=False)
+    dialog = show(manager)
+    try:
+        data = theme.builtin_themes()[0].spec.to_dict()
+        data.update(name='Imported preview', description='A local theme for keyboard and resize testing.')
+        assert dialog.import_file(write_theme(tmp_path / 'imported.json', data))
+        if expanded:
+            fonts = 'QWidget { font-size: 20pt; }'
+            dialog.setStyleSheet(dialog.styleSheet() + fonts)
+            dialog.preview.setStyleSheet(dialog.preview.styleSheet() + fonts)
+        dialog.resize(820, 980)
+        settle_settings_layout(dialog)
+        dialog.selector.setFocus()
+        for _ in range(12):
+            QTest.keyClick(QApplication.focusWidget(), Qt.Key.Key_Tab)
+            if QApplication.focusWidget() is dialog.preview.input:
+                break
+        assert QApplication.focusWidget() is dialog.preview.input
+        QTest.keyClicks(dialog.preview.input, 'My sample timetable')
+        dialog.preview.input.setSelection(3, 6)
+        expected_cursor = dialog.preview.input.cursorPosition()
+        expected_selection = dialog.preview.input.selectedText()
+        for width, height in ((460, 420), (820, 980), (460, 420)):
+            dialog.resize(width, height)
+            settle_settings_layout(dialog)
+            assert QApplication.focusWidget() is dialog.preview.input
+            assert dialog.preview.input.text() == 'My sample timetable'
+            assert dialog.preview.input.cursorPosition() == expected_cursor
+            assert dialog.preview.input.selectedText() == expected_selection
+            viewport = dialog.scroll.viewport()
+            assert viewport.rect().contains(dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().topLeft()))
+            assert viewport.rect().contains(dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().bottomRight()))
+            assert dialog.scroll.horizontalScrollBar().maximum() == 0
+            for button in dialog.buttons.buttons():
+                assert dialog.rect().contains(button.mapTo(dialog, button.rect().topLeft()))
+                assert dialog.rect().contains(button.mapTo(dialog, button.rect().bottomRight()))
+        # Locale wrapping also reflows the same focused control in place.
+        language.set_language('en' if locale == 'es' else 'es', persist=False)
+        settle_settings_layout(dialog)
+        assert QApplication.focusWidget() is dialog.preview.input
+        assert viewport.rect().contains(dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().center()))
+        assert dialog.preview.input.selectedText() == expected_selection
+    finally:
+        dialog.reject()
+        language.set_language(previous_language, persist=False)
+        app.setStyle(previous_style)
+
+
+def test_reflow_does_not_scroll_for_footer_or_already_visible_focus(manager):
+    dialog = show(manager)
+    try:
+        dialog.resize(460, 420)
+        settle_settings_layout(dialog)
+        dialog.restore_button.setFocus()
+        scrollbar = dialog.scroll.verticalScrollBar()
+        scrollbar.setValue(min(80, scrollbar.maximum()))
+        before = scrollbar.value()
+        dialog.resize(480, 420)
+        settle_settings_layout(dialog)
+        assert QApplication.focusWidget() is dialog.restore_button
+        assert scrollbar.value() == before
+        dialog.selector.setFocus()
+        settle_settings_layout(dialog)
+        before = scrollbar.value()
+        dialog.resize(470, 420)
+        settle_settings_layout(dialog)
+        assert QApplication.focusWidget() is dialog.selector
+        assert scrollbar.value() == before
+    finally:
+        dialog.reject()
