@@ -334,3 +334,18 @@ filters/scroll and course identity, atomic failures, corruption/recovery, restar
 and deleted import sources. Fusion/offscreen captures are genuine Qt development
 evidence; packaged Windows/native chrome and screen-reader acceptance remain
 separate release checks.
+
+Appearance action wrapping also accounts for the preview frame, nested layout
+insets and allocated grid column; an old oversized content minimum cannot keep
+horizontal overflow alive. Native Resize/LayoutRequest notifications settle the
+same controls in place. The shared footer wraps any individually over-wide
+Message caption before choosing horizontal or vertical layout. It always starts
+from the complete localized source, preserves the full accessible name and font,
+and unwraps on widening. No scrollbar, action or text is hidden to meet width.
+Native-metric stress tests cover every built-in preview, ES/EN, Fusion/Windows
+styles, 20pt fonts, narrow/wide boundaries, selection/focus and idle timer state.
+CI retains Appearance control/font geometry JSON alongside strict assertions.
+Wrapping reuses the complete caption rendered by the existing localization
+boundary, never a previously wrapped display string. Native fitting therefore
+cannot re-enter translation callbacks during parent LanguageChange propagation;
+setText and locale changes still refresh both source text and accessible names.

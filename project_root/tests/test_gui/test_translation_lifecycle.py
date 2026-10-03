@@ -512,3 +512,122 @@ def test_language_event_during_render_preserves_previously_applied_custom_captio
         capture_output=True, text=True, timeout=12)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'reentrant custom caption passed' in result.stdout
+
+
+CUSTOM_FOOTER_LIFETIME_SCRIPT = r'''
+import gc, sys, time, weakref
+from PyQt6 import sip
+from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication, QWidget, QDialog
+from src.gui import i18n_widgets as iw
+from src.gui.i18n import msg
+app = QApplication([])
+entry, mode = sys.argv[1:]
+owner = QWidget()
+owner.cycle = owner
+parent = QDialog(owner)
+class ObservedButtonBox(iw.ResponsiveDialogButtonBox):
+    timeouts = 0
+    def _after_metric_change(self):
+        self.timeouts += 1
+        super()._after_metric_change()
+box = ObservedButtonBox(parent)
+button = iw.QPushButton(msg('Restaurar original'), box)
+sibling = iw.QPushButton(msg('Aplicar'), box)
+for action in (button, sibling):
+    font = action.font()
+    font.setPointSize(20)
+    action.setFont(font)
+box.addButton(button, box.ButtonRole.ResetRole)
+box.addButton(sibling, box.ButtonRole.ApplyRole)
+box.resize(130, 80)
+# Keep native construction/parent LanguageChange delivery in its own regression.
+# Timer and true render cases settle it first to isolate their stated boundary.
+if entry != 'native':
+    QTest.qWait(10)
+    app.processEvents()
+box._fit_actions()
+assert '\n' in button.text()
+owner_ref = weakref.ref(owner)
+parent_ref = weakref.ref(parent)
+holder = [owner]
+del owner, parent
+original = iw._render
+observed = []
+def render(value):
+    result = original(value)
+    if not observed:
+        observed.append(True)
+        holder.clear()
+        if mode == 'gc-owner':
+            gc.collect()
+            assert owner_ref() is not None
+        elif mode == 'delete-owner':
+            sip.delete(owner_ref())
+        elif mode == 'delete-button':
+            sip.delete(button)
+        elif mode == 'delete-sibling':
+            sip.delete(sibling)
+        else:
+            raise AssertionError(mode)
+    return result
+iw._render = render
+errors = []
+sys.excepthook = lambda kind, error, trace: errors.append((kind, str(error)))
+box._fit_signature = None
+if entry == 'setter':
+    button.setText(msg('Guardar'))
+elif entry == 'retranslate':
+    button.retranslate()
+elif entry == 'direct-fit':
+    box._fit_actions()
+elif entry == 'native':
+    # Reproduce both direct parent propagation and its queued child events.
+    QCoreApplication.sendEvent(parent_ref(), QEvent(QEvent.Type.LanguageChange))
+    QTest.qWait(30)
+else:
+    before = box.timeouts
+    box._metric_timer.start(0)
+    deadline = time.monotonic() + 2
+    while box.timeouts == before and not errors and time.monotonic() < deadline:
+        QTest.qWait(1)
+    assert box.timeouts > before, 'production metric timeout did not run'
+assert not errors, errors
+if entry in {'direct-fit', 'native', 'timer'}:
+    # No translation callback may be introduced by fitting within a native
+    # parent event. In particular, the injected deleter must never be entered.
+    assert not observed, 'fitting re-entered a translation callback'
+    assert not sip.isdeleted(button)
+    assert button.accessibleName() == 'Restaurar original'
+    assert button.minimumSizeHint().width() <= box.width()
+    holder.clear()
+else:
+    assert observed
+    if mode == 'gc-owner':
+        assert not sip.isdeleted(button)
+        button.wrapPresentationText(box.width())
+        assert button.accessibleName() == ('Guardar' if entry == 'setter' else 'Restaurar original')
+    elif mode == 'delete-owner':
+        assert sip.isdeleted(box)
+    elif mode == 'delete-button':
+        assert sip.isdeleted(button)
+    else:
+        assert sip.isdeleted(sibling)
+gc.collect()
+assert owner_ref() is None
+print('custom footer lifecycle passed')
+'''
+
+
+@pytest.mark.parametrize('entry', ['direct-fit', 'native', 'timer', 'setter', 'retranslate'])
+@pytest.mark.parametrize('mode', ['gc-owner', 'delete-owner', 'delete-button', 'delete-sibling'])
+def test_wrapped_custom_footer_uses_safe_canonical_render_boundaries(tmp_path, entry, mode):
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, '-B', '-X', 'faulthandler', '-c', CUSTOM_FOOTER_LIFETIME_SCRIPT,
+         entry, mode], cwd=root,
+        env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'XDG_CONFIG_HOME': str(tmp_path)},
+        capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'custom footer lifecycle passed' in result.stdout

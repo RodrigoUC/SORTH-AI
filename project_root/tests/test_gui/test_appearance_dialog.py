@@ -1,10 +1,11 @@
 """Native preview, local import, explicit commit and compact keyboard contracts."""
 import json
+from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent, QSettings, QSize, Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QDialog, QStyleFactory
+from PyQt6.QtWidgets import QApplication, QDialog, QStyleFactory, QWidget
 
 from src.gui import theme
 from src.gui.appearance_dialog import AppearanceDialog
@@ -47,6 +48,26 @@ def show(manager, parent=None):
     dialog.show()
     settle_settings_layout(dialog)
     return dialog
+
+
+def record_appearance_geometry(dialog, case):
+    """Retain untruncated native control/font diagnostics in CI artifacts."""
+    from tests.test_gui.test_mcp_setup_ux import settings_layout_snapshot
+    snapshot = settings_layout_snapshot(dialog)
+    snapshot['widgets'] = [
+        {'class': type(widget).__name__, 'name': widget.objectName(),
+         'text': widget.text() if hasattr(widget, 'text') else '',
+         'size': (widget.width(), widget.height()),
+         'minimum': (widget.minimumSizeHint().width(), widget.minimumSizeHint().height()),
+         'font': widget.font().toString(), 'dpi': widget.logicalDpiX(),
+         'accessible_name': widget.accessibleName()}
+        for widget in dialog.findChildren(QWidget) if widget.isVisible()
+    ]
+    report_dir = Path(__file__).resolve().parents[2] / 'build' / 'reports'
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / f'appearance-geometry-{case}.json').write_text(
+        json.dumps(snapshot, ensure_ascii=False, indent=2), encoding='utf-8')
+    return snapshot
 
 
 def select(dialog, key):
@@ -246,7 +267,8 @@ def test_compact_preview_footer_and_keyboard_reveal(manager, locale, style, expa
             dialog.setStyleSheet(dialog.styleSheet() + fonts)
             dialog.preview.setStyleSheet(dialog.preview.styleSheet() + fonts)
         dialog.resize(460, 420)
-        snapshot = settle_settings_layout(dialog)
+        settle_settings_layout(dialog)
+        snapshot = record_appearance_geometry(dialog, f'compact-{style}-{locale}-{expanded}')
         assert dialog.size() == QSize(460, 420), snapshot
         assert dialog.scroll.horizontalScrollBar().maximum() == 0, snapshot
         assert dialog.scroll.viewport().height() > 100, snapshot
@@ -498,3 +520,104 @@ def test_reflow_does_not_scroll_for_footer_or_already_visible_focus(manager):
         assert scrollbar.value() == before
     finally:
         dialog.reject()
+
+
+def _widen_caption_metrics(button, target_width):
+    """Exercise genuine native font metrics without changing the caption/font size."""
+    from PyQt6.QtGui import QFont
+    source = button._messages['setText'][1][0]
+    button.setText(source)
+    font = button.font()
+    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0)
+    button.setFont(font)
+    extra = max(0, target_width - button.minimumSizeHint().width())
+    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing,
+                          extra / max(1, len(button.text())) + 1)
+    button.setFont(font)
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('style', ['Fusion', 'Windows'])
+def test_nested_preview_and_single_footer_caption_fit_native_metrics(manager, locale, style, monkeypatch):
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    language = language_manager()
+    previous_language = language.language
+    if style not in QStyleFactory.keys():
+        pytest.skip('native style is unavailable')
+    app.setStyle(style)
+    language.set_language(locale, persist=False)
+    dialog = show(manager)
+    try:
+        for choice in theme.builtin_themes():
+            select(dialog, choice.key)
+            fonts = 'QWidget { font-size: 20pt; }'
+            dialog.setStyleSheet(dialog.styleSheet() + fonts)
+            dialog.preview.setStyleSheet(dialog.preview.styleSheet() + fonts)
+            dialog.resize(460, 420)
+            settle_settings_layout(dialog)
+            # Reproduce the two Windows limits even with smaller Linux fonts:
+            # a preview action fits the outer body but not its inset panel;
+            # Restore exceeds the entire footer, so stacking alone cannot help.
+            _widen_caption_metrics(dialog.preview.primary, 385)
+            _widen_caption_metrics(dialog.restore_button, 464)
+            dialog.preview.input.setText('Selected sample text')
+            dialog.preview.input.setSelection(2, 8)
+            dialog.preview.input.setFocus()
+            for width, height in ((460, 420), (461, 420), (820, 980), (460, 420)):
+                dialog.resize(width, height)
+                snapshot = settle_settings_layout(dialog)
+                assert dialog.size() == QSize(width, height), snapshot
+                assert dialog.scroll.horizontalScrollBar().maximum() == 0, snapshot
+                assert dialog.scroll.viewport().height() > 100, snapshot
+                assert app.focusWidget() is dialog.preview.input
+                assert dialog.preview.input.selectedText() == 'lected s'
+                viewport = dialog.scroll.viewport()
+                assert viewport.rect().contains(dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().topLeft()))
+                assert viewport.rect().contains(dialog.preview.input.mapTo(viewport, dialog.preview.input.rect().bottomRight()))
+                for button in (*dialog.buttons.buttons(), dialog.preview.primary):
+                    assert button.width() >= button.minimumSizeHint().width(), snapshot
+                    assert button.height() >= button.minimumSizeHint().height(), snapshot
+                from tests.test_gui.test_mcp_setup_ux import caption_preserved_across_soft_breaks
+                for button in (dialog.preview.primary, dialog.restore_button):
+                    source = button._messages['setText'][1][0].render()
+                    assert caption_preserved_across_soft_breaks(button.text(), source)
+                    assert button.accessibleName() == source
+                    assert button.font().pointSizeF() == 20
+                for button in dialog.buttons.buttons():
+                    assert dialog.rect().contains(button.mapTo(dialog, button.rect().topLeft()))
+                    assert dialog.rect().contains(button.mapTo(dialog, button.rect().bottomRight()))
+            language.set_language('en' if locale == 'es' else 'es', persist=False)
+            snapshot = settle_settings_layout(dialog)
+            assert dialog.scroll.horizontalScrollBar().maximum() == 0, snapshot
+            assert app.focusWidget() is dialog.preview.input
+            assert dialog.preview.input.selectedText() == 'lected s'
+            for button in (dialog.preview.primary, dialog.restore_button):
+                assert button.width() >= button.minimumSizeHint().width(), snapshot
+                source = button._messages['setText'][1][0].render()
+                assert caption_preserved_across_soft_breaks(button.text(), source)
+                assert button.accessibleName() == source
+            language.set_language(locale, persist=False)
+            # Width changes must restore the canonical one-line caption too.
+            dialog.resize(1600, 980)
+            settle_settings_layout(dialog)
+            for button in (dialog.preview.primary, dialog.restore_button):
+                assert button.text() == button._messages['setText'][1][0].render()
+        record_appearance_geometry(dialog, f'metrics-{style}-{locale}')
+        # Settled idle event turns must not keep rewrapping due to descendants'
+        # Resize/LayoutRequest notifications.
+        wrap_calls = []
+        for button in (*dialog._responsive_actions.controls, dialog.restore_button):
+            original = button.wrapPresentationText
+            def tracked(width, original=original):
+                wrap_calls.append(width)
+                return original(width)
+            monkeypatch.setattr(button, 'wrapPresentationText', tracked)
+        QTest.qWait(40)
+        assert not wrap_calls
+        assert not dialog._responsive_actions.timer.isActive()
+        assert not dialog.buttons._metric_timer.isActive()
+    finally:
+        dialog.reject()
+        language.set_language(previous_language, persist=False)
+        app.setStyle(previous_style)

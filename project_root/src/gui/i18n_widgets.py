@@ -90,6 +90,8 @@ class _Localized:
             self._messages.pop(key, None)
         rendered = [_render(value) for value in arguments]
         if not sip.isdeleted(self):
+            if method == 'setText' and isinstance(self, _ResponsiveButtonText):
+                self._presentation_text = str(rendered[0])
             return getattr(super(), method)(*rendered)
 
     @_keep_qt_owners_alive
@@ -100,6 +102,8 @@ class _Localized:
             # its Qt object, so check after rendering and before the native call.
             if sip.isdeleted(self):
                 return
+            if method == 'setText' and isinstance(self, _ResponsiveButtonText):
+                self._presentation_text = str(rendered[0])
             getattr(super(), method)(*rendered)
 
 
@@ -124,15 +128,26 @@ class QLabel(_Localized, QtW.QLabel):
 
 
 class _ResponsiveButtonText:
+    @_keep_qt_owners_alive
     def wrapPresentationText(self, available_width):
         """Wrap only the native display; keep the complete Message binding intact."""
+        if sip.isdeleted(self):
+            return
         binding = self._messages.get('setText')
         if binding is None:
             return
         source = binding[1][0]
-        full_text = str(_render(source))
-        self.setAccessibleName(source)
+        # Localization already rendered this canonical caption at setText or
+        # retranslate. Fitting can run within a native LanguageChange/resize
+        # event, so it must not call translation callbacks again from there.
+        full_text = self._presentation_text
+        self._messages['setAccessibleName'] = ('setAccessibleName', (source,))
+        QtW.QWidget.setAccessibleName(self, full_text)
+        if sip.isdeleted(self):
+            return
         self.ensurePolished()
+        if sip.isdeleted(self):
+            return
         # Ask the current native style for its indicator, border and padding.
         # Use the current display width, including any previous line breaks.
         metrics = self.fontMetrics()
@@ -166,6 +181,8 @@ class _ResponsiveButtonText:
             if display != self.text():
                 # Keep the source Message and full accessible name unchanged.
                 QtW.QAbstractButton.setText(self, display)
+                if sip.isdeleted(self):
+                    return
             excess = self.minimumSizeHint().width() - available_width
             if excess <= 0 or text_width <= 1:
                 break
@@ -197,6 +214,13 @@ class ResponsiveActionLabels(QObject):
         self.timer.timeout.connect(self._rewrap)
         scroll.viewport().installEventFilter(self)
         scroll.widget().installEventFilter(self)
+        # Nested preview panels may change their column layout independently of
+        # the viewport. Refit after their actual native allocation settles too.
+        for control in self.controls:
+            target = control
+            while target is not None and target is not self.content:
+                target.installEventFilter(self)
+                target = target.parentWidget()
         language_manager().changed.connect(self._rewrap)
         self._schedule()
 
@@ -209,8 +233,8 @@ class ResponsiveActionLabels(QObject):
             # A zero timer need not fire in the first processEvents pass on
             # Windows. First-show/resize must not depend on timer delivery.
             self._rewrap()
-        elif event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.FontChange,
-                              QEvent.Type.StyleChange):
+        elif event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                              QEvent.Type.FontChange, QEvent.Type.StyleChange):
             self._schedule()
         return super().eventFilter(watched, event)
 
@@ -229,8 +253,30 @@ class ResponsiveActionLabels(QObject):
             content = self.scroll.widget()
             changed = False
             for control in self.controls:
+                if sip.isdeleted(control):
+                    continue
                 previous = control.text()
-                control.wrapPresentationText(width)
+                available = width
+                parent = control.parentWidget()
+                while parent is not None and parent is not content:
+                    # Frame chrome and nested layout insets are not available
+                    # for text, even when the outer scroll body is wider.
+                    available -= parent.width() - parent.contentsRect().width()
+                    if parent.layout() is not None:
+                        inset = parent.layout().contentsMargins()
+                        available -= inset.left() + inset.right()
+                    parent = parent.parentWidget()
+                if control.isVisible():
+                    # Respect an allocated grid column as well as its insets.
+                    # Subtract existing overflow rather than letting the old
+                    # unwrapped minimum keep an oversized panel alive.
+                    overflow = max(0, content.width() - self.viewport.width())
+                    available = min(available, control.width() - overflow)
+                control.wrapPresentationText(max(1, available))
+                if sip.isdeleted(self.scroll) or sip.isdeleted(content):
+                    return
+                if sip.isdeleted(control):
+                    continue
                 if control.text() != previous:
                     changed = True
                     # Section layouts can still cache the old unwrapped hint.
@@ -467,13 +513,25 @@ class ResponsiveDialogButtonBox(QDialogButtonBox):
     def _fit_actions(self):
         if sip.isdeleted(self) or self._fitting or self._metric_change_pending:
             return
-        signature = (self.width(), tuple((button.text(), button.minimumSizeHint().width(),
-                                          button.minimumSizeHint().height()) for button in self.buttons()))
-        if signature == self._fit_signature:
-            return
-        self._fit_signature = signature
         self._fitting = True
         try:
+            margins = self.layout().contentsMargins()
+            available = max(1, self.width() - margins.left() - margins.right())
+            for button in self.buttons():
+                if sip.isdeleted(button):
+                    continue
+                if isinstance(button, _ResponsiveButtonText):
+                    # Stacking is insufficient if one complete caption is
+                    # wider than the footer. Wrap from its canonical Message,
+                    # retaining native controls, accessible names and font.
+                    button.wrapPresentationText(available)
+                    if sip.isdeleted(self):
+                        return
+            signature = (self.width(), tuple((button.text(), button.minimumSizeHint().width(),
+                                              button.minimumSizeHint().height()) for button in self.buttons()))
+            if signature == self._fit_signature:
+                return
+            self._fit_signature = signature
             self.setOrientation(Qt.Orientation.Horizontal)
             if self.minimumSizeHint().width() > self.width():
                 self.setOrientation(Qt.Orientation.Vertical)
