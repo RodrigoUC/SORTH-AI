@@ -15,7 +15,11 @@ from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6 import sip
 
-from .theme_contract import ThemeSpec, validate_theme
+from .theme_contract import ThemeSpec, ThemeValidationError, validate_theme
+
+
+class ThemePreparationError(OSError):
+    """No preference/live theme changed because native presentation could not stage."""
 
 
 @dataclass(frozen=True)
@@ -200,7 +204,7 @@ def _resource_svg(name, drawing, color, width=8, height=5):
         data = struct.pack('>I', len(svg)) + svg
         tree = struct.pack('>IHII', 0, 2, 1, 1) + struct.pack('>IHHHI', 0, 0, 0, 1, 0)
         if not qRegisterResourceData(1, tree, names, data):
-            raise RuntimeError('Could not prepare internal appearance icons')
+            raise ThemePreparationError('Could not prepare internal appearance icons')
         _resource_buffers.append((tree, names, data))
         _icon_cache[key] = ':/' + filename
     return _icon_cache[key]
@@ -260,6 +264,15 @@ def palette_for(spec: ThemeSpec) -> QPalette:
     return palette
 
 
+def _prepare_theme(spec):
+    try:
+        return stylesheet_for(spec), palette_for(spec)
+    except (ThemeValidationError, ThemePreparationError):
+        raise
+    except Exception as error:
+        raise ThemePreparationError(f'Could not prepare native appearance: {error}') from error
+
+
 # Compatibility constant: Original, not a mutable live stylesheet snapshot.
 STYLESHEET = stylesheet_for(_BUILTINS[0].spec)
 
@@ -267,7 +280,7 @@ STYLESHEET = stylesheet_for(_BUILTINS[0].spec)
 def preview_theme(widget: QWidget, spec: ThemeSpec):
     """Style only a dialog-owned sample subtree; no preferences/global state."""
     spec = validate_theme(spec.to_dict())
-    stylesheet, palette = stylesheet_for(spec), palette_for(spec)
+    stylesheet, palette = _prepare_theme(spec)
     widget.setProperty('sorthThemePreview', True)
     widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
     widget.setPalette(palette)
@@ -334,7 +347,7 @@ class ThemeManager(QObject):
 
     def _apply(self, spec, *, prepared=None):
         global _current
-        stylesheet, palette = prepared or (stylesheet_for(spec), palette_for(spec))
+        stylesheet, palette = prepared or _prepare_theme(spec)
         _current = self._current = spec
         issues = []
         for name, operation, value in (('palette', self.app.setPalette, palette),
@@ -370,7 +383,7 @@ class ThemeManager(QObject):
     def save_and_apply(self, spec: ThemeSpec, key='custom', *, recover=False):
         """Commit first; distinguish rejected save from incomplete live refresh."""
         spec = validate_theme(spec.to_dict())
-        prepared = stylesheet_for(spec), palette_for(spec)
+        prepared = _prepare_theme(spec)
         self.preferences.save(spec, key=key, recover=recover)
         self._current_key = self.preferences.current_key
         self.startup_issue = None

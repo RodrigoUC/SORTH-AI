@@ -327,3 +327,16 @@ def test_startup_preparation_failure_falls_back_without_rewriting_valid_record(m
     assert restarted.preferences.current_key == 'nocturno'
     assert manager.preferences.path.read_bytes() == original_bytes
     restarted.deleteLater()
+
+
+def test_resource_registration_failure_is_precommit_and_does_not_touch_live_theme(manager, monkeypatch):
+    data = theme.builtin_themes()[1].spec.to_dict()
+    data['name'] = 'Resource preparation failure'
+    data['colors']['on_header'] = '#F4F7FA'
+    spec = parse_theme(json.dumps(data))
+    before = manager.current, manager.current_key, QApplication.instance().styleSheet()
+    monkeypatch.setattr(theme, 'qRegisterResourceData', lambda *args: False)
+    with pytest.raises(theme.ThemePreparationError, match='internal appearance icons'):
+        manager.save_and_apply(spec)
+    assert before == (manager.current, manager.current_key, QApplication.instance().styleSheet())
+    assert not manager.preferences.path.exists()
