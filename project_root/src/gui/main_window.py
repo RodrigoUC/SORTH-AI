@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._worker = None
         self._generation_cancelled = False
+        self._generation_result_committed = False
         self._close_after_generation = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
@@ -611,6 +612,7 @@ class MainWindow(QMainWindow):
         if self._busy:
             return
         self._generation_cancelled = False
+        self._generation_result_committed = False
         if not self._classrooms:
             QMessageBox.warning(self, msg('Advertencia'),
                                 msg('Cargue un Excel o agregue al menos un aula primero.'))
@@ -651,23 +653,38 @@ class MainWindow(QMainWindow):
     def _generation_finished(self, worker):
         if self._worker is not worker:
             return
+        # Retire worker ownership before any fallible presentation. A subsequent
+        # close must never see a stale running thread, even if a widget fails.
         self._worker = None
-        worker.deleteLater()
-        # A failed rollback renderer locks recovery even after the worker exits.
-        self._set_busy(self._restore_failed)
+        try:
+            worker.deleteLater()
+            self._set_busy(self._restore_failed)
+            if self._restore_failed:
+                self._progress.setVisible(False)
+                self.btn_generate.setText(msg('Recuperación pendiente'))
+            elif self._generation_cancelled:
+                self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+        except Exception as error:
+            self._view_recovery_failure(error, committed=self._generation_result_committed)
+
+        close_requested = self._close_after_generation
+        self._close_after_generation = False
         if self._restore_failed:
-            self._progress.setVisible(False)
-            self.btn_generate.setText(msg('Recuperación pendiente'))
-        elif self._generation_cancelled:
-            self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
-        if self._close_after_generation:
-            self._close_after_generation = False
-            self.close()
+            # Do not hide a new recovery notice through an earlier deferred
+            # close request. An explicit later close remains available.
+            self._import.closing = False
+        elif close_requested:
+            try:
+                self.close()
+            except Exception as error:
+                self._import.closing = False
+                self._view_recovery_failure(error, committed=self._generation_result_committed)
 
     def _on_schedule_done(self, assignments, groups):
         if self._generation_cancelled:
             return
 
+        self._generation_result_committed = False
         if assignments is not None and groups is not None:
             errors = validate_schedule(assignments, groups, self._validation_classrooms(),
                                        TimeModel.from_calendar(self.calendar),
@@ -694,6 +711,7 @@ class MainWindow(QMainWindow):
                         self._view_recovery_failure(feedback_error, committed=False)
                 return
 
+            self._generation_result_committed = True
             from ..application.scenario_comparison import ALGORITHM_VERSION
             self._algorithm_version = ALGORITHM_VERSION
             try:
@@ -964,7 +982,10 @@ class MainWindow(QMainWindow):
         # if another presentation setter fails, no exception escapes a Qt slot.
         updates = [lambda: self._save_state_label.setText(message),
                    lambda: self._retry_save_button.setVisible(True),
-                   lambda: self.status_bar.showMessage(message)]
+                   lambda: self.status_bar.showMessage(message),
+                   lambda: self._progress.setVisible(False),
+                   lambda: self._cancel_button.setVisible(False),
+                   lambda: self.btn_generate.setText(msg('Recuperación pendiente'))]
         for control in (self.course_manager, self.schedule_viewer, self.btn_load,
                         self.btn_add_classroom, self.btn_generate, self.btn_restrictions,
                         self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):

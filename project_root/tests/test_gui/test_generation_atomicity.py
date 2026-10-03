@@ -27,6 +27,7 @@ def window(tmp_path, monkeypatch):
     assert w._history.can_undo
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Cancel)
     yield w
+    monkeypatch.undo()
     w._unsaved = False
     w.close()
 
@@ -163,3 +164,103 @@ def test_postcommit_history_failure_is_guarded_and_never_reverts_saved_result(wi
     assert not window._travel_history(True)
     if failure == 'capture':
         assert not window._history.can_undo
+
+
+def finish_worker(window, close_requested=False):
+    class Worker:
+        disposed = 0
+        def deleteLater(self): self.disposed += 1
+    worker = Worker()
+    window._worker = worker
+    window._close_after_generation = close_requested
+    window._generation_finished(worker)
+    assert worker.disposed == 1
+    assert window._worker is None
+    assert not window._close_after_generation
+    return worker
+
+
+def test_persistent_history_render_failure_is_guarded_through_worker_finish(window, monkeypatch):
+    before, disk = fingerprint(window._capture_edit_state()), fingerprint(window._repo.load_session())
+    monkeypatch.setattr(window, '_update_history_actions', lambda:
+        (_ for _ in ()).throw(RuntimeError('persistent history presentation failure')))
+    generate(window)
+    assert window._restore_failed and not window._generation_result_committed
+    closes = []
+    monkeypatch.setattr(window, 'close', lambda: closes.append(True))
+    window._import.closing = True
+    finish_worker(window, close_requested=True)
+    assert not closes and not window._import.closing
+    assert window._busy and window._restore_failed
+    assert fingerprint(window._capture_edit_state()) == before
+    assert fingerprint(window._repo.load_session()) == disk
+    assert 'Los datos se conservaron' in window._save_state_label.text()
+    assert not window._retry_save_button.isHidden()
+    assert window._progress.isHidden() and window._cancel_button.isHidden()
+    assert not window.btn_generate.isEnabled()
+
+
+def test_postcommit_finish_failure_retains_saved_wording_and_defers_close(window, monkeypatch):
+    generate(window)
+    assert window._generation_result_committed
+    monkeypatch.setattr(window, '_update_history_actions', lambda:
+        (_ for _ in ()).throw(RuntimeError('finish presentation failed')))
+    closes = []
+    monkeypatch.setattr(window, 'close', lambda: closes.append(True))
+    finish_worker(window, close_requested=True)
+    assert not closes
+    assert window._busy and window._restore_failed and not window._unsaved
+    assert window.current_schedule == window._repo.load_session()['assignments']
+    assert 'se guardó' in window._save_state_label.text()
+
+
+def test_normal_cancelled_worker_finish_disposes_and_honors_deferred_close(window, monkeypatch):
+    window._generation_cancelled = True
+    window._generation_result_committed = False
+    closes = []
+    monkeypatch.setattr(window, 'close', lambda: closes.append(True))
+    finish_worker(window, close_requested=True)
+    assert closes == [True]
+    assert not window._busy and not window._restore_failed
+
+
+def test_deferred_close_failure_enters_truthful_recovery(window, monkeypatch):
+    generate(window)
+    monkeypatch.setattr(window, 'close', lambda:
+        (_ for _ in ()).throw(RuntimeError('close presentation failed')))
+    finish_worker(window, close_requested=True)
+    assert window._restore_failed and window._busy and not window._import.closing
+    assert 'se guardó' in window._save_state_label.text()
+
+
+@pytest.mark.parametrize('control,method', [('_progress', 'setVisible'), ('btn_generate', 'setText')])
+def test_worker_finish_tolerates_persistent_recovery_widget_failure(window, monkeypatch, control, method):
+    generate(window)
+    window._committed_view_failure(RuntimeError('initial recovery'))
+    monkeypatch.setattr(getattr(window, control), method, lambda *a:
+        (_ for _ in ()).throw(RuntimeError('recovery widget failed')))
+    finish_worker(window)
+    assert window._restore_failed and window._busy
+    assert 'se guardó' in window._save_state_label.text()
+    assert 'recovery widget failed' in window._save_error
+    assert not window._retry_save_button.isHidden()
+
+
+def test_actual_worker_persistent_result_and_finish_failure_never_escape(window, monkeypatch):
+    import time
+    from PyQt6.QtWidgets import QApplication
+    from src.gui.scheduler_worker import SchedulingService
+    before = fingerprint(window._capture_edit_state())
+    monkeypatch.setattr(SchedulingService, 'run', lambda *a, **k:
+        ({'BIO-G1': ('R', 1, 600, 660)}, window.course_manager.courses[0].generate_groups()))
+    window._generate_schedule()
+    assert window._worker.wait(3000)
+    monkeypatch.setattr(window, '_update_history_actions', lambda:
+        (_ for _ in ()).throw(RuntimeError('persistent history failure')))
+    deadline = time.monotonic() + 3
+    while window._worker is not None and time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(.005)
+    assert window._worker is None
+    assert window._restore_failed and window._busy
+    assert fingerprint(window._capture_edit_state()) == before
