@@ -856,10 +856,17 @@ class MainWindow(QMainWindow):
             else:
                 exporter.to_excel(assignments, file_path, groups=self.current_groups,
                                   course_name_by_code=course_name_map, include_grid=True)
+        except Exception as e:
+            # Keep the latest attempt readable after its modal is dismissed.
+            # Only expose the basename here; technical error details stay in
+            # the existing error dialog rather than leaking into F6/status.
+            self.status_bar.showMessage(msg(
+                'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.',
+                filename=Path(file_path).name))
+            _InfoDialog(self, msg('Error'), msg('Error al exportar:\n{p1}', p1=e.render(msg) if isinstance(e, ExcelImportError) else str(e)), warning=True).exec()
+        else:
             self.status_bar.showMessage(msg('Horario {p1}: {p3} sesiones exportadas a {p5}', p1=scope, p3=count, p5=Path(file_path).name))
             _InfoDialog(self, msg('Éxito'), msg('Horario {p1}: {p3} sesiones exportadas a:\n{p5}', p1=scope, p3=count, p5=file_path)).exec()
-        except Exception as e:
-            _InfoDialog(self, msg('Error'), msg('Error al exportar:\n{p1}', p1=e.render(msg) if isinstance(e, ExcelImportError) else str(e)), warning=True).exec()
 
     # ------------------------------------------------------------------
     # Session persistence

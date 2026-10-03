@@ -1471,3 +1471,8 @@ MESSAGES.update({
     'Importación de {filename} cancelada. La sesión anterior se conserva.': 'Importación de {filename} cancelada. La sesión anterior se conserva.',
     'No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.': 'No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.',
 })
+
+# Keep the latest export failure readable after dismissing its dialog.
+MESSAGES.update({
+    'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.': 'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.',
+})
