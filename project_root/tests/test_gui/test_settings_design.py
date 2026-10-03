@@ -254,3 +254,70 @@ def test_short_shell_preserves_full_meanings_and_restores_wide_labels(window, lo
     finally:
         dialog.reject()
         manager.set_language(original, persist=False)
+
+
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('expanded', [False, True])
+def test_checkbox_focus_keeps_fresh_native_height_after_retranslation(window, style_name, locale, expanded):
+    from PyQt6.QtCore import QRect
+    from PyQt6.QtWidgets import QStyleOptionButton
+
+    app = QApplication.instance()
+    original_style = app.style().objectName()
+    manager = language_manager()
+    original_language = manager.language
+    if style_name not in QStyleFactory.keys():
+        pytest.skip(f'{style_name} is unavailable')
+    app.setStyle(style_name)
+    manager.set_language(locale, persist=False)
+    dialog = SettingsDialog(window)
+    try:
+        if expanded:
+            dialog.setStyleSheet('QPushButton, QCheckBox { font-size: 20pt; }')
+        dialog.resize(460, 420)
+        dialog.show()
+        dialog.select_section('advanced')
+        settle_settings_layout(dialog)
+        checkbox = dialog.controls['project_scenarios']
+        checkbox.setFocus()
+        QTest.keyClick(checkbox, Qt.Key.Key_Space)
+        font_before = checkbox.font()
+        manager.set_language('en' if locale == 'es' else 'es', persist=False)
+        settle_settings_layout(dialog)
+        assert checkbox.hasFocus() and checkbox.isChecked()
+        caption = checkbox.text()
+        required_heights = []
+        for target in (checkbox, dialog.section_selector, checkbox):
+            target.setFocus()
+            snapshot = settle_settings_layout(dialog)
+            option = QStyleOptionButton()
+            checkbox.initStyleOption(option)
+            style = checkbox.style()
+            text_size = style.itemTextRect(
+                checkbox.fontMetrics(), QRect(), Qt.TextFlag.TextShowMnemonic,
+                False, checkbox.text()).size()
+            # minimumSizeHint can retain the previous focused state's cache.
+            # Ask the current native style afresh so Linux cannot mask the same
+            # one-pixel focused/unfocused delta observed by Windows CI.
+            native_size = style.sizeFromContents(
+                QStyle.ContentsType.CT_CheckBox, option, text_size, checkbox)
+            contents = style.subElementRect(QStyle.SubElement.SE_CheckBoxContents, option, checkbox)
+            required_heights.append(native_size.height())
+            assert checkbox.height() >= native_size.height(), snapshot
+            assert checkbox.height() >= checkbox.minimumSizeHint().height(), snapshot
+            assert contents.height() >= text_size.height(), snapshot
+            assert checkbox.text() == caption and checkbox.font() == font_before
+            assert checkbox.isChecked()
+            assert dialog.size() == QSize(460, 420), snapshot
+            assert dialog.scroll.horizontalScrollBar().maximum() == 0, snapshot
+        assert len(set(required_heights)) == 1
+        source = checkbox._messages['setText'][1][0].render()
+        assert caption_preserved_across_soft_breaks(caption, source)
+        assert checkbox.accessibleName() == source
+        dialog.reject()
+        assert not window._features.path.exists()
+    finally:
+        dialog.reject()
+        app.setStyle(original_style)
+        manager.set_language(original_language, persist=False)
