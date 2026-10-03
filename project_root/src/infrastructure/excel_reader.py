@@ -145,6 +145,11 @@ class ExcelReader:
                     raise ExcelImportError(notice("Hoja {sheet}, fila 1: falta la columna {columns}. Revise el encabezado.", sheet=sheet, columns=", ".join(missing)))
                 frame = data.iloc[1:].copy()
                 frame.columns = [v if v else f"__extra_{i}" for i, v in enumerate(normalized)]
+                if sheet == "Cursos":
+                    # Validation and every materializer consume the same keys.
+                    # Preserve legacy unambiguous aliases, but never validate
+                    # one column and silently load another.
+                    frame = frame.rename(columns=self._resolve_course_columns(frame.columns))
                 sheets[sheet] = frame
             self._sheets = sheets
         return self._sheets[name]
@@ -183,7 +188,7 @@ class ExcelReader:
             self._checkpoint()
             code = self._identifier(row.get("curso"))
             if not code:
-                if any(not self._blank(row.get(c)) for c in ("nombre de curso", "horas", "aula", "dias")):
+                if any(not self._blank(row.get(c)) for c in ("nombre", "horas", "aula", "dias")):
                     errors.append(notice("Cursos, fila {row}: falta Curso (código).", row=index + 1))
                 continue
             course_count += 1
@@ -460,6 +465,23 @@ class ExcelReader:
     # Column mapping
     # ------------------------------------------------------------------
 
+    def _resolve_course_columns(self, columns):
+        """Resolve legacy aliases once; exact headers keep their precedence.
+
+        More than one fallback, or one header claiming multiple fields, is
+        ambiguous and must be corrected before importing any rows.
+        """
+        resolved = {}
+        for key in ("curso", "nombre", "horas", "aula", "dias"):
+            matches = [key] if key in columns else [col for col in columns if key in col]
+            if len(matches) > 1 or (matches and matches[0] in resolved):
+                raise ExcelImportError(notice(
+                    "Hoja {sheet}, fila 1: columnas duplicadas: {columns}. Deje una sola columna de cada tipo.",
+                    sheet="Cursos", columns=", ".join(matches)))
+            if matches:
+                resolved[matches[0]] = key
+        return resolved
+
     def _build_col_map(self, columns) -> dict[str, str]:
         """
         Build a normalized name → original name mapping for DataFrame columns.
@@ -477,7 +499,7 @@ class ExcelReader:
 
     def _get(self, row, col_map: dict, key: str):
         """
-        Prefer an exact normalized column name, then a partial key match.
+        Read a canonical column resolved before validation.
         Returns None if column not found or value is NaN.
         """
         key = self._normalize(key)
@@ -486,10 +508,6 @@ class ExcelReader:
             # A blank exact match must remain blank, not fall back to a name.
             val = row[col_map[key]]
             return None if pd.isna(val) else val
-        for norm_col, orig_col in col_map.items():
-            if key in norm_col:
-                val = row[orig_col]
-                return None if pd.isna(val) else val
         return None
 
     # ------------------------------------------------------------------

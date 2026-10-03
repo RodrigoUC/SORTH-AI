@@ -69,6 +69,7 @@ siendo exactamente `Aulas` y `Cursos`; las hojas adicionales se ignoran.
 - No se admiten encabezados duplicados ni códigos de aula repetidos. Los códigos de curso repetidos sí representan grupos distintos.
 - `CAPACIDAD` debe ser un entero no negativo. Si falta, se avisa que se usará 0.
 - `Horas` y `Días` vacíos o `-` mantienen los valores predeterminados; los valores no vacíos mal escritos muestran la hoja y fila que debe corregirse.
+- Los alias históricos no ambiguos (por ejemplo `Horas sugeridas`, `Días sugeridos` o `Aula sugerida`) reciben la misma validación y avisos. El encabezado exacto tiene prioridad, incluso vacío; si faltara y hubiera varios alias para el mismo campo, se pide corregirlos.
 - Las referencias a aulas desconocidas siguen importándose sin esa preferencia, pero ahora se muestran como avisos antes de confirmar.
 - Cancelar la selección, cancelar los avisos o recibir un error de validación conserva los datos y el horario abierto.
 
