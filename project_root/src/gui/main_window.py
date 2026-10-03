@@ -44,14 +44,13 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 
 class MainWindow(QMainWindow):
-    # Focused native all-optional chrome fits four 30px rows at 803px with dense
-    # spacing (Windows style, both locales), including its 2px focus-frame cost.
-    # Keep secondary tools in F7 below
-    # that budget. Selection help returns sooner without adding a toolbar row.
+    # Content visibility is independent from the whitespace budget. Keep these
+    # transitions deterministic while reserving room for native font metrics,
+    # focused frames and four normal-height consultation rows.
     _COMPACT_HEIGHT = 802
     _COMPACT_HINT_HEIGHT = 760
-    # Spacious gaps need a further 120px. These decisions never depend on the
-    # current viewport, avoiding compact/spacious feedback or resize oscillation.
+    # These decisions never depend on the current viewport, avoiding
+    # compact/spacious feedback or resize oscillation.
     _DENSE_HEIGHT = 920
 
     def __init__(self, repo=None, restore_session=True, feature_settings=None):
@@ -125,7 +124,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         main_layout = self._main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(24, 20, 24, 12)
-        main_layout.setSpacing(16)
+        main_layout.setSpacing(8)
 
         main_layout.addLayout(self._create_file_section())
         self._feature_notice = QLabel()
@@ -1802,9 +1801,12 @@ class MainWindow(QMainWindow):
             dense = self.height() <= self._DENSE_HEIGHT
             # Reclaim whitespace, not control height, for native Windows metrics.
             # Keep the schedule rows readable at the supported 960×640 minimum.
-            self._main_layout.setSpacing(6 if dense else 16)
-            self._main_layout.setContentsMargins(*(16, 8, 16, 6) if dense else (24, 20, 24, 12))
-            self._file_layout.setSpacing(4 if dense else 16)
+            # Native Segoe UI chrome consumes more height than the Linux
+            # fallback at the same 10pt. Spend whitespace first, leaving fonts,
+            # action targets, visible scopes and reading rows unchanged.
+            self._main_layout.setSpacing(2 if dense else 8)
+            self._main_layout.setContentsMargins(*(16, 4, 16, 4) if dense else (24, 20, 24, 12))
+            self._file_layout.setSpacing(2 if dense else 16)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
                 self._update_feature_notice()
                 self._update_compact_overview()

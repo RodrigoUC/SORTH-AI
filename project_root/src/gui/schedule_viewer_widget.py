@@ -227,6 +227,10 @@ class ScheduleViewerWidget(QWidget):
         # Reclaim inter-row whitespace, not font size or readable table rows.
         # Global counts and the visible export scope now share the short shell.
         self.layout().setSpacing(2 if dense else 6)
+        for index in range(self.tabs.count()):
+            # The tab bar already separates its page. Compact native layouts
+            # need not pay another full inset before the table or room row.
+            self.tabs.widget(index).layout().setContentsMargins(0, 2 if dense else 8, 0, 0)
         for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
             hint.setVisible(not compact)
             table.setAccessibleDescription(hint.text())
