@@ -181,8 +181,8 @@ zero-overflow, exact-window-size and complete-action-visibility assertions.
 
 ## Distinct course blocks
 
-`src/scheduling/course_style.py` is the Qt-free source for course fills, accents
-and markers shared with printable schedules. Sixteen muted blue, teal, violet,
+`src/scheduling/course_style.py` is the Qt-free source for stable course identity
+and the white-paper export palette. Sixteen muted blue, teal, violet,
 sage and neutral pairs extend the established identity. CRC32 of the literal
 course code chooses a permanent pair and an independent solid, dashed, dotted or
 double marker; rooms, sort order, filters, language and process restarts cannot
@@ -191,14 +191,17 @@ boundaries identify courses without relying only on color. Red remains reserved
 for room conflicts; pinned-session wording remains explicit.
 
 The classroom grid uses one native item delegate, never per-cell child widgets.
-Each session span has a 3px white inset, contrasting 1px outline and course edge.
+Each session span has a 3px themed-surface inset, contrasting 1px outline and
+course edge. Screen fills and accents adapt to the actual reading surface while
+preserving hue families and markers; PDF/XLSX keep their stable paper palette.
 Bold session code, exact time and course name are left aligned for scanning;
 long names wrap to two lines and elide only in paint. Full plain text remains in
 the model, tooltip and accessible text, and the detailed list stays available.
-Selection uses a violet ring with a white separator without erasing course color.
+Selection uses the theme's focus ring with a surface-colored separator without
+erasing course color.
 Native keyboard navigation, exact minute boundaries and schedule data are retained.
 Runtime-font-derived minimum heights keep short sessions readable. Text contrast
-is at least 4.5:1; accents against fill and white gutters are at least 3:1.
+is at least 4.5:1; accents against fill and themed gutters are at least 3:1.
 
 Real Qt paint tests cover gutters, repeated fills with different markers,
 selection, conflicts, filtering, multiple rooms, restart identity and ES/EN.
@@ -288,8 +291,9 @@ canonical. No external design dependency or browser component is introduced.
 
 QSS and palette changes apply to the existing QApplication, never to OS settings.
 Owned dialogs, lists, text editors, menus, combo popups, tooltips, status areas and
-headers follow the selected appearance. `refresh_theme()` updates only cached
-pending-row and time-gutter brushes with item-change notifications blocked; it
+headers follow the selected appearance. `refresh_theme()` updates cached course,
+conflict, pending-row and time-gutter brushes with item-change notifications
+blocked; it
 never repopulates a model, clears a filter, regenerates a schedule or saves domain
 data. Native system file pickers and window chrome can retain the operating
 system's appearance. Palette tests do not establish full accessibility compliance.
@@ -299,11 +303,12 @@ The runtime draws arrows using validated on-header into in-memory Qt resources,
 retaining bundled white sort arrows for the original palette. Trusted checkmarks
 and input arrows likewise use validated foreground roles and require no writable
 temporary directory. No external paths or
-content are read from a theme. Course category fills, accents, markers, text and
-export palettes remain owned by the scheduling/export code. Classroom course
-cards retain an explicit white gutter/separator and a fixed dark-red/pale-red
-conflict presentation. Only the selection outline follows the theme's focus role,
-validated against that fixed white separator as well as adjacent theme surfaces.
+content are read from a theme. Stable course identities and white-paper export
+palettes remain owned by the Qt-free scheduling/export code. The GUI resolves
+course fills, accents and text against the actual theme surface, independently of
+theme names or mode labels. Classroom cards use themed gutters, semantic danger
+colors for conflicts and the validated focus outline. Isolated previews use their
+candidate palette without changing the live theme or printable output.
 
 `src/gui/theme_preferences.py` owns one versioned appearance JSON record containing
 both the selected key and complete normalized theme. It is independent of optional

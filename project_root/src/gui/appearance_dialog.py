@@ -146,7 +146,7 @@ class ThemePreview(QFrame):
         self.course.setCurrentCell(0, 0)
         self.course.selectRow(0)
         schedule.addWidget(self.course)
-        schedule.addWidget(_label(msg('Los colores de los cursos se conservan.'), role='mutedText'))
+        schedule.addWidget(_label(msg('Tonos adaptados; identidad y patrones estables.'), role='mutedText'))
         schedule.addStretch(1)
         self.columns.addWidget(self.controls, 0, 0)
         self.columns.addWidget(self.schedule, 0, 1)
@@ -288,7 +288,7 @@ class AppearanceDialog(QDialog):
         body.addWidget(self.details)
         self.preview = ThemePreview()
         body.addWidget(self.preview)
-        body.addWidget(_label(msg('El tema no cambia horarios, colores de cursos, permisos MCP ni animaciones. Los selectores de archivos y los bordes de ventana siguen al sistema operativo.'), role='mutedText'))
+        body.addWidget(_label(msg('El tema adapta los tonos de pantalla; PDF y Excel conservan su paleta para papel blanco. No cambia horarios, permisos MCP ni animaciones.'), role='mutedText'))
         body.addStretch(1)
 
         self.buttons = ResponsiveDialogButtonBox()

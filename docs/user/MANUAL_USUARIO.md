@@ -163,7 +163,7 @@ Haz clic en **Ver Resumen** para ver:
 
 1. Elige **Exportar todas las asignaciones** o **Exportar filtrado (N)** según el alcance que necesitas.
 2. Elige el formato y la ubicación:
-   - **Excel (`.xlsx`)**: incluye una hoja por aula con grilla visual, más hojas de lista detallada y por aula. Los colores de los cursos son consistentes con la GUI.
+   - **Excel (`.xlsx`)**: incluye una hoja por aula con grilla visual, más hojas de lista detallada y por aula. Conserva la identidad y los patrones de los cursos con una paleta estable para papel blanco; los tonos de pantalla se adaptan al tema.
    - **CSV (`.csv`)**: lista detallada en formato plano.
    - **PDF (`.pdf`)**: tablas cronológicas por aula listas para imprimir, con texto seleccionable, horas exactas, nombres completos, páginas y encabezados repetidos. No necesita Excel. El documento identifica el alcance, filtros aplicados, pendientes globales y excepciones LAB.
 3. Haz clic en **Guardar**.
