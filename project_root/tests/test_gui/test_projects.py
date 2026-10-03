@@ -1,5 +1,6 @@
 import pytest
 from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtCore import QSettings
 from src.gui.main_window import MainWindow
 from src.gui.project_dialog import ProjectDialog, ComparisonDialog
 from src.gui import project_dialog
@@ -12,7 +13,8 @@ from src.scheduling.classroom import Classroom
 
 @pytest.fixture
 def window(tmp_path):
-    window = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False)
+    settings = QSettings(str(tmp_path/'features.ini'), QSettings.Format.IniFormat)
+    window = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
     window._classrooms = {'A': Classroom('A', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
     window._save_session()
@@ -137,6 +139,8 @@ def test_unrenderable_seed_preserves_disk_and_gui(window, monkeypatch):
 
 
 def test_open_scenario_restores_pins_and_explicit_lab_exceptions(window, monkeypatch):
+    window._features.save({'pinned_sessions': True, 'project_scenarios': True})
+    window._apply_feature_preferences()
     window.course_manager.load_courses_from_excel([Course('LAB', 1, 60, 'LAB')])
     groups = window.course_manager.get_courses()[0].generate_groups()
     assignments = {'LAB-G1': ('A', 1, 480, 540)}

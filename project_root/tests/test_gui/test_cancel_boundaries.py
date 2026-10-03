@@ -5,6 +5,7 @@ import threading
 import pytest
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtCore import QSettings
 from src.gui.main_window import MainWindow
 from src.gui.scheduler_worker import SchedulingService
 from src.infrastructure.session_repository import SessionRepository
@@ -12,7 +13,9 @@ from src.scheduling.classroom import Classroom
 from src.scheduling.course import Course
 
 def test_actual_worker_cancel_close_and_inputs(tmp_path, monkeypatch):
-    window=MainWindow(SessionRepository(str(tmp_path/'session.db')),restore_session=False)
+    settings = QSettings(str(tmp_path/'features.ini'), QSettings.Format.IniFormat)
+    settings.setValue('features/pinned_sessions', True)
+    window=MainWindow(SessionRepository(str(tmp_path/'session.db')),restore_session=False, feature_settings=settings)
     window._classrooms={'R':Classroom('R',30,'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('A',1,60,'REGULAR')])
     groups=window.course_manager.get_courses()[0].generate_groups()
