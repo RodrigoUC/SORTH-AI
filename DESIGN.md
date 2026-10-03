@@ -457,3 +457,19 @@ identity column gains the floor. The course-name stretch column, all other width
 row heights, captions and sorting behavior remain unchanged. Narrow windows retain
 native horizontal scrolling. Font/style changes refit through the ordinary Qt
 layout-request queue, without timers or nested event-loop processing.
+
+### Compact calendar editing
+The project calendar keeps weekdays in a native two-column grid and its complete
+break actions in a single column. One scrollable body fits localized labels and
+large native fonts without enlarging the window beyond the desktop. The existing
+responsive action/footer owners preserve full captions; Review and apply/Cancel
+remain outside the scroller. Native time-control hints size break rows so scaled
+input text and spin buttons are not clipped.
+
+Tab order follows weekdays, opening/closing times, each editable break and the
+review actions, including after repeated Add/Remove/Reset. Focus reveal follows
+native reflow and exposes validation feedback as selectable keyboard-readable
+text. Localized form/time wrappers update labels and accessible names without
+changing the draft. ES/EN, 460×420, 20pt controls and light/dark/custom themes are
+covered by Linux offscreen/Fusion/Windows-style tests and synthetic captures;
+native Windows rendering and screen-reader acceptance remain unverified.
