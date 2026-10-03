@@ -83,3 +83,15 @@ Optional-tool preferences use one versioned atomic JSON record, separate from
 QSettings language/motion preferences. Failed saves keep committed flags and
 original bytes. Malformed/future settings require an explicit preserve-and-reset
 action; the native recovery message explains that schedule data never changes.
+
+## Staged Excel import
+
+A native status-bar cancel action accompanies the existing busy indicator; a new
+Load Excel request supersedes the previous reader. Input editing stays disabled
+until the candidate is accepted or canceled. Optional change review uses one
+780×560 native dialog, a keyboard-selectable scrolling text summary, explicit
+replacement wording, and default Cancel. Changes show previous/new field values;
+restrictions and assignments describe exactly what will be cleared or retained.
+No silent merge or partially editable model replacement. The indicator respects
+reduced motion; F6 exposes full status when the compact bar elides text. See
+`project_root/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.
