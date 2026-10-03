@@ -291,7 +291,8 @@ class MainWindow(QMainWindow):
             self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
             self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(),
-            self._theme_recovery_notice.text() if (theme_manager().recovery_issue or theme_manager().startup_issue) else '', self._save_error))))
+            self._theme_recovery_notice.text() if (theme_manager().recovery_issue or theme_manager().startup_issue) else '',
+            self._save_error, self._scenario_comparison_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)

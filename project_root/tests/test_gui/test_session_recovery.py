@@ -248,3 +248,66 @@ def test_unsaved_changes_take_precedence_over_pending_comparison(window, monkeyp
     assert not window._unsaved and window._save_error is None
     assert window._scenario_comparison_error is None
     assert not window._scenario_dirty
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeypatch, language):
+    from PyQt6.QtCore import QTimer, Qt
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QPlainTextEdit
+    from src.application.scenario_comparison import session_fingerprint
+    from src.gui.i18n import language_manager, msg
+
+    manager, previous_language = language_manager(), language_manager().language
+    manager.set_language(language, persist=False)
+    try:
+        assert window._save_session()
+        window._scenario_name = 'Baseline'
+        window._scenario_baseline = session_fingerprint(window._repo.load_session())
+        load, save = window._repo.load_session, window._repo.save_session
+        def comparison_failure():
+            raise OSError('temporary comparison read failure')
+        def commit_then_fail_comparison(**kwargs):
+            save(**kwargs)
+            monkeypatch.setattr(window._repo, 'load_session', comparison_failure)
+        monkeypatch.setattr(window._repo, 'save_session', commit_then_fail_comparison)
+        assert window._save_session()
+        explanation = str(window._scenario_comparison_error)
+        window.status_bar.showMessage('Unrelated status')
+        window.show()
+        window.activateWindow()
+        QApplication.processEvents()
+
+        def read_status():
+            window.activateWindow()
+            QApplication.processEvents()
+            observed = []
+            def inspect():
+                dialog = QApplication.activeModalWidget()
+                if dialog is None:
+                    observed.append('No active status dialog')
+                    return
+                observed.append(dialog.findChild(QPlainTextEdit).toPlainText())
+                QTest.keyClick(dialog, Qt.Key.Key_Escape)
+            QTimer.singleShot(30, inspect)
+            QTest.keyClick(window, Qt.Key.Key_F6)
+            assert len(observed) == 1
+            return observed[0]
+
+        pending = read_status()
+        assert explanation in pending
+        assert str(msg('Sin cambios pendientes')) in pending
+        assert str(msg('Comparación pendiente')) in pending
+        assert 'Unrelated status' in pending
+        assert window._repo._db_path not in pending
+        assert not window._unsaved and window._save_error is None
+        monkeypatch.setattr(window._repo, 'load_session', load)
+        monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: pytest.fail('Retry wrote saved data'))
+        assert window._retry_session()
+        window.status_bar.showMessage('Another unrelated status')
+        recovered = read_status()
+        assert explanation not in recovered and 'temporary comparison read failure' not in recovered
+        assert str(msg('Comparación pendiente')) not in recovered
+        assert str(msg('Sin cambios pendientes')) in recovered
+    finally:
+        manager.set_language(previous_language, persist=False)
