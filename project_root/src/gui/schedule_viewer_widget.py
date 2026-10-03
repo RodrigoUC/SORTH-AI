@@ -1,16 +1,17 @@
 """Read-only schedule consultation with consistent filters and stable row identities."""
 
 import re
+import math
 from dataclasses import replace
 import unicodedata
 
 from PyQt6 import sip
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea
+    QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea, QPlainTextEdit, QSizePolicy
 )
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
-    QColor
+    QColor, QFontMetricsF
 )
 
 from .theme import COLORS
@@ -25,7 +26,7 @@ from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE
 
 from .i18n import msg, plural, language_manager
 from .i18n_widgets import (
-    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget,
+    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget, ResponsiveDialogButtonBox,
     _keep_qt_owners_alive,
 )
 
@@ -137,6 +138,8 @@ class ScheduleViewerWidget(QWidget):
         self.summary_data = None
         self._quality_snapshot = None
         self._refreshing = False
+        self._schedule_generation = 0
+        self._grid_details_dialog = None
         self._init_ui()
         self._clear()
         language_manager().changed.connect(self._request_grid_render)
@@ -212,10 +215,10 @@ class ScheduleViewerWidget(QWidget):
         self._status_filter.addItem(msg('Asignados'), "assigned")
         self._status_filter.addItem(msg('Sin asignar'), "unassigned")
         filters.addStretch()
+        layout.addLayout(filters)
         self._result_label = QLabel()
         self._result_label.setWordWrap(True)
-        filters.addWidget(self._result_label, 1)
-        layout.addLayout(filters)
+        layout.addWidget(self._result_label)
 
         self.tabs = QTabWidget()
         self.list_table, self._btn_edit_list, self._btn_remove_list = self._make_list_tab(
@@ -235,18 +238,27 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_selector.currentTextChanged.connect(self._request_grid_render)
         grid_row.addWidget(grid_label)
         grid_row.addWidget(self.classroom_selector)
+        self._grid_count = QLabel()
+        grid_row.addWidget(self._grid_count)
         self._grid_hint = QLabel()
         self._grid_hint.setWordWrap(True)
         grid_row.addWidget(self._grid_hint, 1)
+        self._btn_grid_details = QPushButton(msg('Ver detalles'))
+        self._btn_grid_details.setEnabled(False)
+        self._btn_grid_details.setToolTip(msg('Seleccione un bloque y pulse Intro o Ver detalles para leer la sesión completa.'))
+        self._btn_grid_details.clicked.connect(self._show_grid_details)
+        grid_row.addWidget(self._btn_grid_details)
         grid_layout.addLayout(grid_row)
         self.grid_table = QTableWidget()
         self.grid_table.setAccessibleName(msg('Cuadrícula semanal por aula'))
-        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula y Tab para salir. La Lista detallada ofrece las mismas sesiones en filas, con estado y acciones.'))
+        self.grid_table.setAccessibleDescription(msg('Use flechas para recorrer la cuadrícula, Intro para ver detalles y Tab para salir.'))
         self.grid_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.grid_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.grid_table.verticalHeader().setVisible(False)
         self.grid_table.setWordWrap(True)
         self.grid_table.setItemDelegate(ScheduleGridDelegate(self.grid_table))
+        self.grid_table.itemSelectionChanged.connect(self._update_grid_action)
+        self.grid_table.itemActivated.connect(self._show_grid_details)
         grid_layout.addWidget(self.grid_table, 1)
         self.tabs.addTab(grid_widget, msg('Cuadrícula por aula'))
 
@@ -255,23 +267,32 @@ class ScheduleViewerWidget(QWidget):
             msg('Asignaciones ordenadas por aula'))
         self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
-        scope = self._export_scope_hint = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope = self._export_scope_hint = QLabel(msg('El aula de la cuadrícula no cambia la exportación filtrada.'))
+        scope.setToolTip(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope.setAccessibleDescription(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
 
-    def set_compact_layout(self, compact):
+    def set_compact_layout(self, compact, *, dense=None):
         # Reserve room for actual timetable rows at native Windows metrics.
-        # Explanatory copy remains available through accessible descriptions and
-        # tooltips; every filter and action retains its normal font and target.
-        self.layout().setContentsMargins(*(4, 2, 4, 2) if compact else (9, 9, 9, 9))
+        # The concise export scope stays visible; longer supporting copy remains
+        # in accessible descriptions and tooltips. Controls keep normal targets.
+        dense = compact if dense is None else dense
+        self.layout().setContentsMargins(*(4, 2, 4, 2) if dense else (9, 9, 9, 9))
+        # Reclaim inter-row whitespace, not font size or readable table rows.
+        # Global counts and the visible export scope now share the short shell.
+        self.layout().setSpacing(2 if dense else 6)
+        for index in range(self.tabs.count()):
+            # The tab bar already separates its page. Compact native layouts
+            # need not pay another full inset before the table or room row.
+            self.tabs.widget(index).layout().setContentsMargins(0, 2 if dense else 8, 0, 0)
         for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
             hint.setVisible(not compact)
             table.setAccessibleDescription(hint.text())
             table.setToolTip(hint.text())
-        self._export_scope_hint.setVisible(not compact)
-        self.setAccessibleDescription(self._export_scope_hint.text())
-        self.setToolTip(self._export_scope_hint.text())
+        self.setAccessibleDescription(self._export_scope_hint.toolTip())
+        self.setToolTip(self._export_scope_hint.toolTip())
         tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
         if self.tabs.styleSheet() != tab_style:
             self.tabs.setStyleSheet(tab_style)
@@ -369,6 +390,11 @@ class ScheduleViewerWidget(QWidget):
         return table, edit, remove
 
     def _clear(self):
+        # A replacement can reuse identical GIDs and time slots with different
+        # course metadata. Slot equality alone cannot authorize an old dialog.
+        self._schedule_generation += 1
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.reject()
         self._refreshing = True
         self._assignments = {}
         self._search_keys = {}
@@ -399,6 +425,7 @@ class ScheduleViewerWidget(QWidget):
         self._refreshing = False
         self._summary_label.setText(msg('Genere un horario para consultar sus sesiones y exportar los resultados.'))
         self._grid_hint.clear()
+        self._grid_count.clear()
         self._btn_summary.setEnabled(False)
         self._btn_clear_schedule.setEnabled(False)
         self._apply_filters()
@@ -536,6 +563,7 @@ class ScheduleViewerWidget(QWidget):
 
     def _request_grid_render(self, *_):
         self._grid_dirty = True
+        self._update_grid_action()
         if self.tabs.currentIndex() == 1:
             self._render_grid(self.classroom_selector.currentText())
 
@@ -543,6 +571,58 @@ class ScheduleViewerWidget(QWidget):
         if self.tabs.currentIndex() == 1 and self._grid_dirty:
             self._render_grid(self.classroom_selector.currentText())
         self._update_result_label()
+
+    def _selected_grid_gids(self):
+        item = self.grid_table.currentItem()
+        if self._grid_dirty or item is None or not self.grid_table.selectedItems():
+            return ()
+        gids = item.data(Qt.ItemDataRole.UserRole) or ()
+        # The model may have changed since a native item was selected. Never
+        # recover a missing identity by falling back to the previous list row.
+        return tuple(gids) if all(gid in self._assignments and gid in self._matching_gids
+                                  for gid in gids) else ()
+
+    def _update_grid_action(self):
+        self._btn_grid_details.setEnabled(bool(self._selected_grid_gids()))
+
+    def _show_grid_details(self, *_):
+        gids = self._selected_grid_gids() if self.tabs.currentIndex() == 1 else ()
+        if not gids:
+            return
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.raise_()
+            self._grid_details_dialog.activateWindow()
+            return
+        dialog = GridSessionDetailsDialog(self, gids)
+        self._grid_details_dialog = dialog
+
+        def finished(result):
+            if self._grid_details_dialog is dialog:
+                self._grid_details_dialog = None
+                self.window().activateWindow()
+                target = self.list_table if result == QDialog.DialogCode.Accepted else self.grid_table
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
+            dialog.deleteLater()
+
+        dialog.finished.connect(finished)
+        dialog.open()
+        dialog.details.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _show_grid_gid_in_list(self, gid):
+        table = self.list_table
+        table.clearSelection()
+        table.setCurrentItem(None)
+        if gid not in self._assignments or gid not in self._matching_gids:
+            return False
+        for row in range(table.rowCount()):
+            if (not table.isRowHidden(row)
+                    and table.item(row, 0).data(Qt.ItemDataRole.UserRole) == gid):
+                table.setCurrentCell(row, 0)
+                self.tabs.setCurrentIndex(0)
+                table.scrollToItem(table.item(row, 0))
+                table.setFocus(Qt.FocusReason.OtherFocusReason)
+                return True
+        return False
 
     def _render_grid(self, classroom):
         if self._refreshing or self._time_model is None:
@@ -555,6 +635,8 @@ class ScheduleViewerWidget(QWidget):
         table = self.grid_table
         selected_block = (table.currentItem().data(GRID_BLOCK_ROLE)
                           if table.currentItem() and table.selectedItems() else None)
+        table.clearSelection()
+        table.setCurrentItem(None)
         table.clearSpans()
         table.clear()
         table.setRowCount(len(grid.boundaries) - 1)
@@ -622,12 +704,17 @@ class ScheduleViewerWidget(QWidget):
             day = tm.to_day_index(tm.days[col - 1])
             table.setColumnHidden(col, self._day_filter.currentData() not in (None, day))
         conflicts = sum(len(block.entries) > 1 for block in grid.blocks)
+        self._grid_count.setText(msg('Sesiones en esta aula: {count}', count=len(entries)))
+        self.classroom_selector.setToolTip(classroom)
         if entries:
             suffix = msg(' · {p1} tramo(s) con conflicto', p1=conflicts) if conflicts else ""
-            self._grid_hint.setText(msg('{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.', p0=len(entries), p2=suffix))
+            self._grid_hint.setText(suffix)
         else:
             self._grid_hint.setText(msg('Sin sesiones para esta aula y estos filtros.'))
         self._update_result_label()
+        self._update_grid_action()
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.refresh_details()
 
     def _filter_spec(self):
         return (self._status_filter.currentData(), self._room_filter.currentData(),
@@ -673,6 +760,8 @@ class ScheduleViewerWidget(QWidget):
                                                (self._room_filter, self._day_filter, self._status_filter)))
         self._update_actions()
         self._update_result_label()
+        if self._grid_details_dialog is not None:
+            self._grid_details_dialog.refresh_details()
         self.filters_changed.emit()
 
     def export_filter_description(self):
@@ -717,19 +806,21 @@ class ScheduleViewerWidget(QWidget):
     def _update_result_label(self, *_):
         if not hasattr(self, "classroom_table"):
             return
-        index = self.tabs.currentIndex()
-        if index == 1:
-            room = self.classroom_selector.currentText()
-            visible = sum(gid in self._matching_gids and data[0] == room for gid, data in self._assignments.items())
-            total = len(self._assignments)
-        else:
-            table = self.list_table if index == 0 else self.classroom_table
-            visible = sum(not table.isRowHidden(r) for r in range(table.rowCount()))
-            total = table.rowCount()
-        text = plural('result_count', total, visible=visible)
+        # Use polished native metrics, including font/theme changes. The second
+        # line reserves pending/no-match guidance without moving the timetable.
+        self._result_label.ensurePolished()
+        metrics = QFontMetricsF(self._result_label.font(), self._result_label)
+        self._result_label.setMinimumHeight(2 * math.ceil(metrics.height()))
+        # Shared filters define the export set in every view. The grid-local
+        # classroom count belongs beside its selector, never in this label.
+        visible = len(self._matching_gids)
+        total = len(self._known_gids)
+        assigned = len(self._matching_gids & self._assignments.keys())
+        text = msg('Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}',
+                   assigned=assigned, pending=visible - assigned, visible=visible, total=total)
         if total and not visible:
             text += msg('. No hay coincidencias; cambie o restablezca los filtros.')
-        if index != 0 and self._status_filter.currentData() == "unassigned":
+        if self.tabs.currentIndex() != 0 and self._status_filter.currentData() == "unassigned":
             text += msg(' Consulte las sesiones sin asignar en Lista detallada.')
         self._result_label.setText(text)
 
@@ -861,6 +952,132 @@ class ScheduleViewerWidget(QWidget):
     def _show_summary(self):
         if self.summary_data:
             SummaryDialog(self, self.summary_data).exec()
+
+
+class GridSessionDetailsDialog(QDialog):
+    """Read-only native inspection, with an explicit identity-safe list handoff."""
+
+    def __init__(self, viewer, gids):
+        super().__init__(viewer)
+        self._viewer = viewer
+        self._generation = viewer._schedule_generation
+        self._closed = False
+        self._initial_size_applied = False
+        self.finished.connect(self._mark_closed)
+        self._gids = tuple(gids)
+        self._assignments = {gid: viewer._assignments[gid] for gid in gids}
+        self.setWindowTitle(msg('Sesiones del bloque en conflicto') if len(gids) > 1
+                            else msg('Detalles de la sesión'))
+        layout = QVBoxLayout(self)
+        self.session_selector = QComboBox()
+        self.session_selector.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.session_selector.setAccessibleName(msg('Grupo / sesión'))
+        self.session_selector.addItem(msg('Seleccione una sesión para verla en la lista.'), None)
+        for gid in gids:
+            self.session_selector.addItem(gid, gid)
+        self.session_selector.setCurrentIndex(1 if len(gids) == 1 else 0)
+        self.session_selector.setVisible(len(gids) > 1)
+        layout.addWidget(self.session_selector)
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setTabChangesFocus(True)
+        self.details.setAccessibleName(str(msg('Detalles de la sesión')))
+        layout.addWidget(self.details, 1)
+        buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.view_in_list = QPushButton(msg('Ver en lista'))
+        self.view_in_list.setAutoDefault(False)
+        buttons.addButton(self.view_in_list, QDialogButtonBox.ButtonRole.ActionRole)
+        self.view_in_list.clicked.connect(self._view_in_list)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.session_selector.currentIndexChanged.connect(self.refresh_details)
+        language_manager().changed.connect(self.refresh_details)
+        self.refresh_details()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._initial_size_applied or self._closed:
+            return
+        self._initial_size_applied = True
+        # Measure the actual wrapped plain-text blocks after native font/style
+        # and footer layout, not character counts or QTextDocument's line-count
+        # height. Only the initial size adapts; later user resizing is retained.
+        available = self.screen().availableGeometry().adjusted(12, 12, -12, -12)
+        frame = self.frameGeometry().size() - self.size()
+        width = min(620, max(1, available.width() - frame.width()))
+        height_limit = max(1, available.height() - frame.height())
+        self.resize(width, height_limit)
+        self.layout().activate()
+        document = self.details.document()
+        document_layout = document.documentLayout()
+        # Leave one native line below the last field, including the text
+        # cursor's scroll allowance, instead of a large empty fixed panel.
+        text_height = document.documentMargin() + self.details.fontMetrics().lineSpacing()
+        block = document.begin()
+        while block.isValid() and text_height < height_limit:
+            text_height += document_layout.blockBoundingRect(block).height()
+            block = block.next()
+        chrome_height = self.height() - self.details.viewport().height()
+        self.resize(width, min(height_limit, math.ceil(text_height + chrome_height)))
+        self.layout().activate()
+        # Resizing during the first show must not leave the footer off-screen
+        # when Qt centered the pre-layout size or the parent straddles screens.
+        centered = self.frameGeometry()
+        centered.moveCenter(self._viewer.window().frameGeometry().center())
+        self.move(max(available.left(), min(centered.left(), available.right() - centered.width() + 1)),
+                  max(available.top(), min(centered.top(), available.bottom() - centered.height() + 1)))
+
+    def _valid(self):
+        return (not self._closed
+                and self._generation == self._viewer._schedule_generation
+                and all(gid in self._viewer._matching_gids
+                        and self._viewer._assignments.get(gid) == slot
+                        for gid, slot in self._assignments.items()))
+
+    def _mark_closed(self, *_):
+        self._closed = True
+
+    def refresh_details(self, *_):
+        if self._closed:
+            return
+        if not self._valid():
+            self.view_in_list.setEnabled(False)
+            if self._viewer._grid_details_dialog is self:
+                self._viewer._show_grid_gid_in_list(None)
+            self.reject()
+            return
+        gid = self.session_selector.currentData()
+        self.view_in_list.setEnabled(gid in self._gids)
+        texts = []
+        for selected_gid in ((gid,) if gid is not None else self._gids):
+            room, day, start, end = self._assignments[selected_gid]
+            texts.append(str(msg('Sesión: {gid}\nCurso: {course}\nAula: {room}\nDía: {day}\nHorario: {start}–{end}',
+                                 gid=selected_gid, course=self._viewer._name_map.get(selected_gid, ''),
+                                 room=room, day=msg(self._viewer._time_model.to_day_name(day)),
+                                 start=TimeModel.minutes_to_hhmm(start), end=TimeModel.minutes_to_hhmm(end))))
+        self.details.setAccessibleName(str(msg('Detalles de la sesión')))
+        text = '\n\n'.join(texts)
+        if self.details.toPlainText() != text:
+            self.details.setPlainText(text)
+
+    def _view_in_list(self):
+        # Queued activations must remain inert after Close/Escape, acceptance,
+        # invalidation or replacement, even if the same session IDs reappear.
+        # Check Python state before touching widgets pending deferred deletion.
+        if self._closed or self._viewer._grid_details_dialog is not self:
+            return
+        gid = self.session_selector.currentData()
+        if not self._valid() or gid not in self._gids:
+            self.view_in_list.setEnabled(False)
+            if not self._valid():
+                self._viewer._show_grid_gid_in_list(None)
+                self.reject()
+            return
+        if self._viewer._show_grid_gid_in_list(gid):
+            self.accept()
+            # Modal dismissal can restore its invoker. The explicit handoff
+            # instead leaves keyboard focus on the exact selected list row.
+            self._viewer.list_table.setFocus(Qt.FocusReason.OtherFocusReason)
 
 
 class SummaryDialog(QDialog):

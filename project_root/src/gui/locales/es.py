@@ -615,6 +615,21 @@ MESSAGES = {
     "🧹 Limpiar Todo": "🧹 Limpiar Todo"
 }
 
+# Grid scope and native session details.
+MESSAGES.update({
+    'Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}': 'Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}',
+    'Sesiones en esta aula: {count}': 'Sesiones en esta aula: {count}',
+    'El aula de la cuadrícula no cambia la exportación filtrada.': 'El aula de la cuadrícula no cambia la exportación filtrada.',
+    'Ver detalles': 'Ver detalles',
+    'Detalles de la sesión': 'Detalles de la sesión',
+    'Sesiones del bloque en conflicto': 'Sesiones del bloque en conflicto',
+    'Seleccione una sesión para verla en la lista.': 'Seleccione una sesión para verla en la lista.',
+    'Ver en lista': 'Ver en lista',
+    'Sesión: {gid}\nCurso: {course}\nAula: {room}\nDía: {day}\nHorario: {start}–{end}': 'Sesión: {gid}\nCurso: {course}\nAula: {room}\nDía: {day}\nHorario: {start}–{end}',
+    'Seleccione un bloque y pulse Intro o Ver detalles para leer la sesión completa.': 'Seleccione un bloque y pulse Intro o Ver detalles para leer la sesión completa.',
+    'Use flechas para recorrer la cuadrícula, Intro para ver detalles y Tab para salir.': 'Use flechas para recorrer la cuadrícula, Intro para ver detalles y Tab para salir.',
+})
+
 QT_MESSAGES = {
     'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.': 'El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.',
     'Versión del formato': 'Versión del formato',

@@ -44,6 +44,14 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 
 class MainWindow(QMainWindow):
+    # Content visibility is independent from the whitespace budget. Keep these
+    # transitions deterministic while reserving room for native font metrics,
+    # focused frames and four normal-height consultation rows.
+    _COMPACT_HEIGHT = 802
+    _COMPACT_HINT_HEIGHT = 760
+    # These decisions never depend on the current viewport, avoiding
+    # compact/spacious feedback or resize oscillation.
+    _DENSE_HEIGHT = 920
 
     def __init__(self, repo=None, restore_session=True, feature_settings=None):
         super().__init__()
@@ -116,7 +124,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         main_layout = self._main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(24, 20, 24, 12)
-        main_layout.setSpacing(16)
+        main_layout.setSpacing(8)
 
         main_layout.addLayout(self._create_file_section())
         self._feature_notice = QLabel()
@@ -190,9 +198,7 @@ class MainWindow(QMainWindow):
         self.schedule_viewer.pin_requested.connect(self._toggle_pin)
         self.schedule_viewer.schedule_cleared.connect(self._on_schedule_cleared)
         main_layout.addWidget(self.tabs, 1)
-        self.tabs.currentChanged.connect(
-            lambda _index: self._motion.reveal(self.tabs.currentWidget()))
-        self.tabs.currentChanged.connect(self._update_compact_overview)
+        self.tabs.currentChanged.connect(self._on_main_view_changed)
         self.schedule_viewer.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.schedule_viewer.tabs.currentWidget()))
 
@@ -1208,7 +1214,7 @@ class MainWindow(QMainWindow):
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
                 resource_summaries.append(msg('{name}: {state} ({count})',
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
-        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= 700 and resource_summaries
+        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= self._COMPACT_HEIGHT and resource_summaries
                        else resource_details)
         if self._features.enabled('undo_redo') and self._history.reset_reason == 'feature_disabled_change':
             notices.append(msg('El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'))
@@ -1744,16 +1750,29 @@ class MainWindow(QMainWindow):
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
 
+    def _on_main_view_changed(self, *_):
+        # Responsive chrome changes geometry. Finish that synchronous native
+        # layout before revealing the new page, otherwise its resize correctly
+        # cancels the just-started animation. No event pumping or delayed input.
+        self._update_compact_overview()
+        self._main_layout.activate()
+        self._motion.reveal(self.tabs.currentWidget())
+
     def _update_compact_overview(self, *_):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
         # window size. All secondary actions remain in the native F7 menu; F6
         # retains complete feature status and the full schedule summary.
-        compact = self.height() <= 700 and self.tabs.currentIndex() == 1
+        compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
+        compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
-        self._feature_notice.setVisible(not compact and bool(self._feature_notice.text()))
+        # Retained-data warnings are reading content, not optional toolbar
+        # chrome. Restore them with detail captions, including the default 800px
+        # window, while secondary actions can still live in the F7 menu.
+        self._feature_notice.setVisible(not compact_details and bool(self._feature_notice.text()))
         self._compact_tools.setVisible(compact)
         viewer = self.schedule_viewer
-        viewer.set_compact_layout(compact)
+        viewer.set_compact_layout(compact_details,
+                                  dense=self.height() <= self._DENSE_HEIGHT)
         tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
         if self.tabs.styleSheet() != tab_style:
             self.tabs.setStyleSheet(tab_style)
@@ -1779,12 +1798,15 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, '_main_layout'):
-            compact = self.height() <= 700
+            dense = self.height() <= self._DENSE_HEIGHT
             # Reclaim whitespace, not control height, for native Windows metrics.
             # Keep the schedule rows readable at the supported 960×640 minimum.
-            self._main_layout.setSpacing(6 if compact else 16)
-            self._main_layout.setContentsMargins(*(16, 8, 16, 6) if compact else (24, 20, 24, 12))
-            self._file_layout.setSpacing(4 if compact else 16)
+            # Native Segoe UI chrome consumes more height than the Linux
+            # fallback at the same 10pt. Spend whitespace first, leaving fonts,
+            # action targets, visible scopes and reading rows unchanged.
+            self._main_layout.setSpacing(2 if dense else 8)
+            self._main_layout.setContentsMargins(*(16, 4, 16, 4) if dense else (24, 20, 24, 12))
+            self._file_layout.setSpacing(2 if dense else 16)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
                 self._update_feature_notice()
                 self._update_compact_overview()
