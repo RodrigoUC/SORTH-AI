@@ -156,6 +156,7 @@ MESSAGES = {
     'Preferencia de aula: satisfechas / evaluadas': 'Room preference: satisfied / evaluated',
     'Ocupación: minutos-aula / disponibles': 'Occupancy: room-minutes / available',
     'Excepciones activas': 'Active exceptions',
+    'No lectivo': 'Non-teaching day',
     'Docencia, día {day} (min)': 'Teaching, day {day} (min)',
     'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}': 'The catalog could not be opened. The current session is preserved. {detail}',
     'Cambios posteriores a la copia': 'Changes since snapshot',

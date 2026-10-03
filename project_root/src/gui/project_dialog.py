@@ -11,7 +11,7 @@ from ..infrastructure.session_repository import SessionRepository
 from ..application.scenario_comparison import scenario_metadata, compare_scenarios, session_fingerprint, validate_scenario_metadata
 from ..scheduling.validation import validate_schedule
 from ..scheduling.time_model import TimeModel
-from ..scheduling.project_calendar import ProjectCalendar
+from ..scheduling.project_calendar import ProjectCalendar, DAYS
 from copy import deepcopy
 
 
@@ -280,17 +280,26 @@ class ComparisonDialog(QDialog):
                                ('time', 'Hora: preferencias pendientes / desconocidas'),
                                ('room', 'Aula: preferencias pendientes / desconocidas')):
                 metrics.append((label, lambda q, k=key: f"{q['preferences'][k]['pending']} / {q['preferences'][k]['unknown']}"))
-            for day in result['left']['day_load']:
-                metrics.append((msg('Docencia, día {day} (min)', day=day['day']),
-                                lambda q, d=day['day']: next(x['teaching_minutes'] for x in q['day_load'] if x['day'] == d)))
+            # Day indices are local to each calendar: day 1 may be Monday in
+            # one scenario and Tuesday in the other. Align the union by weekday
+            # identity and distinguish an absent teaching day from zero load.
+            teaching_days = {row['name'] for side in ('left', 'right')
+                             for row in result[side]['day_load']}
+            for day in DAYS:
+                if day in teaching_days:
+                    metrics.append((msg('Docencia, día {day} (min)', day=msg(day)),
+                                    lambda q, d=day: next((x['teaching_minutes'] for x in q['day_load']
+                                                          if x['name'] == d), msg('No lectivo'))))
             table.setRowCount(len(metrics))
             for index, (label, read) in enumerate(metrics):
                 item = QTableWidgetItem(label if isinstance(label, Message) else msg(label))
                 self._metric_items.append(item)
                 table.setItem(index, 0, item)
                 for column, side in enumerate(('left', 'right'), 1):
-                    value = str(read(result[side]))
-                    table.setItem(index, column, QTableWidgetItem(msg('No aplica') if index in (0, 2, 3, 4, 5) and value == '0 / 0' else value))
+                    value = read(result[side])
+                    if index in (0, 2, 3, 4, 5) and str(value) == '0 / 0':
+                        value = msg('No aplica')
+                    table.setItem(index, column, QTableWidgetItem(value if isinstance(value, Message) else str(value)))
         close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close.rejected.connect(self.reject)
         layout.addWidget(close)

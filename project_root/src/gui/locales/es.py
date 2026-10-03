@@ -156,6 +156,7 @@ MESSAGES = {
     'Preferencia de aula: satisfechas / evaluadas': 'Preferencia de aula: satisfechas / evaluadas',
     'Ocupación: minutos-aula / disponibles': 'Ocupación: minutos-aula / disponibles',
     'Excepciones activas': 'Excepciones activas',
+    'No lectivo': 'No lectivo',
     'Docencia, día {day} (min)': 'Docencia, día {day} (min)',
     'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}': 'No se pudo abrir el catálogo. La sesión actual se conserva. {detail}',
     'Cambios posteriores a la copia': 'Cambios posteriores a la copia',
