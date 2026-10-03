@@ -21,6 +21,12 @@ credenciales persistentes, ningún secreto ni permisos de escritura. No usa
   `requirements-mcp.lock` (resolución universal/Python 3.12, incluye pruebas). Se audita en un
   paso independiente; nunca se instala dentro del entorno Windows principal.
   Un manifiesto opcional sin su lock bloquea el check.
+- `requirements-mcp-build.txt`: manifiesto de compilación del compañero, con
+  `requirements-mcp-windows.lock` separado. Fija 38 paquetes mediante hashes de
+  wheels exactos para CPython 3.12/Windows x64; no se instala en la GUI.
+  `third_party/mcp/` conserva los avisos e inventario del compañero. Su auditoría
+  `companion-dependencies` verifica inventario y requisitos directos por separado;
+  ausencia de lock, omisiones o avisos bloquean el control.
 - `security/requirements.txt`: Bandit 1.9.4 y pip-audit 2.10.1, en un entorno de
   análisis separado. Sus dependencias transitivas se resuelven en PyPI y no son
   parte del lock de distribución; no se afirma reproducibilidad binaria de ese
@@ -93,6 +99,7 @@ Si está presente el extra MCP, ejecutar también:
 
 ```sh
 .venv-security/bin/python tools/security_review.py optional-dependencies --output-dir build/security/optional
+.venv-security/bin/python tools/security_review.py companion-dependencies --output-dir build/security/companion
 ```
 
 En Windows sustituir `.venv-security/bin/python` por
@@ -136,7 +143,16 @@ El lock opcional candidato con MCP 1.30.0 también pasó: los 34 paquetes
 coincidieron con el inventario y no hubo avisos conocidos ni omisiones.
 La revisión universal posterior también pasó con los 36 paquetes, incluidos
 pywin32 312 y colorama 0.4.6, auditados desde Linux sin omisiones.
-CI debe repetirlo sobre el commit final; los avisos pueden cambiar.
+El inventario de compilación del compañero se audita por separado; sus 38
+paquetes no quedan cubiertos por afirmar que pasó el lock universal de 36.
+CI debe repetir todos los inventarios sobre el commit final; los avisos pueden cambiar.
+
+La preparación local valida el ZIP contra una identidad compilada en la GUI,
+rechaza rutas no seguras, comprueba cada archivo y ejecuta una prueba de identidad
+antes de un cambio atómico. Estos hashes no son firma ni prueba de procedencia.
+La suite Windows del compañero empaquetado y sus pruebas de host permanecen
+pendientes hasta ejecutarse y registrarse en sus plataformas reales. Las pruebas
+sintéticas en Linux no se presentan como aceptación de un EXE de Windows.
 
 No publicar fuentes privadas, sesiones, documentos institucionales ni detalles
 sensibles en artefactos/issues. Seguir [SECURITY.md](../SECURITY.md) para reportes

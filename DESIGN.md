@@ -126,3 +126,23 @@ Assignment requires an explicit selection, fresh-input fingerprint and independe
 validation. Changed inputs recalculate and clear selection. The accepted action
 uses the same persistence-first command path as manual assignment and supports undo.
 Closing, hiding the feature or failed persistence preserves schedule and pins.
+
+## Optional MCP preparation
+
+Settings keeps the existing native Save/Cancel preference contract. A separate
+**Preparar complemento MCP / Prepare MCP add-on** action opens a plain-text,
+default-Cancel confirmation with validated version and destination. Preparation
+copies only the bundled companion, checks integrity and runs a bounded local
+probe. Static progress text avoids fabricated percentages and respects reduced
+motion without introducing animation. Cancel/close requests cooperative cleanup
+and waits asynchronously before releasing the worker; a committed component stays
+prepared. Preparation never toggles the permission checkbox or starts a server.
+
+Status is selectable by mouse/keyboard. ES/EN messages distinguish missing bundle,
+unprepared component, integrity/version errors, cancellation and ready state. A
+native client selector shows read-only, keyboard-copyable JSON using the verified
+absolute companion command. OpenCode V2 defaults disconnected; Claude guidance
+warns that client restart may start the process. ChatGPT shows manual HTTPS/tunnel
+requirements rather than an invalid local config. Copy is explicit and does not
+modify client files. Real Qt offscreen lifecycle tests and ES/EN renders cover
+these views; native Windows host/packaged acceptance remains a separate gate.

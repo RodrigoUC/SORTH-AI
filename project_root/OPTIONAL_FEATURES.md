@@ -2,7 +2,8 @@
 
 Use **Configuración / Settings** in the masthead to enable advanced tools. New
 installations start with every optional feature disabled. Save applies changes;
-Cancel or Escape keeps the previous preferences. Preferences survive restarting
+Cancel or Escape keeps the previous preferences. The separately confirmed MCP
+add-on preparation takes effect immediately and is not undone by Settings Cancel. Preferences survive restarting
 on the same computer in a versioned `SORTH/optional-features.json` file under the
 user configuration directory, separately from project and session databases.
 Writes use `QSaveFile` with direct-write fallback disabled: only a complete atomic
@@ -14,9 +15,11 @@ Currently implemented switches:
 
 - **Permitir servidor MCP local / Allow local MCP server**: an explicit startup
   and per-tool-call permission, shared with the headless adapter. A bounded local
-  check is required before enabling in the GUI; no install, service startup,
-  model connection or network listener occurs. The standard EXE reports the
-  optional server unavailable. OFF also suppresses pending results; the client
+  check is required before enabling in the GUI. The separate **Prepare MCP add-on**
+  action confirms before copying and checking the bundled Windows companion,
+  without network or system Python installation. Missing bundles are reported
+  explicitly. Preparation does not enable the feature, start a service, connect
+  a model or open a listener. OFF also suppresses pending results; the client
   owns process shutdown. See [MCP configuration](MCP_OPTIONAL.md).
 
 - **Herramientas de sesiones fijadas / Pinned session tools**: exposes pin/unpin controls in schedule
@@ -32,8 +35,10 @@ Currently implemented switches:
 Course editing, ordinary generation, classroom restrictions, manual assignment,
 quality summaries, export, accessibility controls, recovery and data-validation
 protections remain available. Performance and safety are not optional switches.
-MCP remains a separately installed, explicitly started process; this dialog does
-not install dependencies, start services or grant external access.
+MCP remains a separately prepared, explicitly started process. The client starts
+it only after local permission is saved. Settings never installs dependencies
+from the network, starts services or grants external access. The client guide
+only displays copyable configuration and links; it does not modify other apps.
 
 ## Extension contract
 
