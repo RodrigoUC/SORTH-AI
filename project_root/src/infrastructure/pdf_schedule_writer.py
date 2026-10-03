@@ -18,7 +18,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, PageBreak, Spacer
 
-from ..scheduling.schedule_grid import build_schedule_grid, course_color
+from ..scheduling.course_style import GRID_TEXT_COLOR, course_style
+from ..scheduling.schedule_grid import build_schedule_grid
 from ..scheduling.time_model import TimeModel
 
 
@@ -67,7 +68,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
         raise ValueError(tr('El número de sesiones pendientes no puede ser negativo.'))
     font = _font()
     style = ParagraphStyle('body', fontName=_FONT, fontSize=9, leading=12,
-                           textColor=colors.HexColor('#182536'), splitLongWords=True)
+                           textColor=colors.HexColor('#' + GRID_TEXT_COLOR), splitLongWords=True)
     title_style = ParagraphStyle('room', parent=style, fontSize=12, leading=16)
 
     def p(value, text_style=style):
@@ -146,7 +147,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
             raise ValueError(tr('El nombre del aula es demasiado largo para el encabezado PDF.'))
         rows = [[room_paragraph, '', '', '', ''],
                 [p(tr(x)) for x in ('Día', 'Inicio - Fin', 'Grupo / sesión', 'Nombre completo del curso', 'Avisos')]]
-        fills = []
+        course_styles = []
         for gid, day, start, end in sorted(entries, key=lambda e: (e[1], e[2], e[3], exporter._natural_key(e[0]))):
             flags = [tr('CONFLICTO')] if gid in conflicts else []
             if gid in overrides:
@@ -156,13 +157,25 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
                       f'{TimeModel.minutes_to_hhmm(start)} - {TimeModel.minutes_to_hhmm(end)}',
                       gid, label, '\n'.join(flags) or '-']
             cells = [chunks(p(value), width - 12) for value, width in zip(values, widths)]
+            visual = course_style(exporter._group_parts(gid)[0])
             for part in range(max(map(len, cells))):
                 row = [items[min(part, len(items) - 1)] for items in cells]
                 if part and len(cells[3]) > part:
                     row[4] = p(('\n'.join(flags) + '\n' if flags else '') + tr('Continuación'))
                 rows.append(row)
-                fills.append(('BACKGROUND', (0, len(rows)-1), (-1, len(rows)-1),
-                              colors.HexColor('#FCE8EC' if flags else '#' + course_color(exporter._group_parts(gid)[0]))))
+                row_index = len(rows) - 1
+                accent = colors.HexColor('#' + visual.accent)
+                # Keep identity even for flagged sessions. The warning cell
+                # has its own semantic fill; it never recolors the whole course.
+                course_styles.append(('BACKGROUND', (0, row_index), (-1, row_index),
+                                      colors.HexColor('#' + visual.fill)))
+                if flags:
+                    course_styles.append(('BACKGROUND', (-1, row_index), (-1, row_index),
+                                          colors.HexColor('#FCE8EC')))
+                course_styles.extend([
+                    ('LINEABOVE', (0, row_index), (-1, row_index), 0.5, accent),
+                    _course_edge(row_index, visual),
+                ])
         table = Table(rows, colWidths=widths, repeatRows=2, hAlign='LEFT')
         table.setStyle(TableStyle([
             ('SPAN', (0, 0), (-1, 0)), ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#EDF2F7')),
@@ -171,7 +184,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
             ('TOPPADDING', (0, 0), (-1, -1), 7), ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
             ('LINEBELOW', (0, 1), (-1, 1), 0.7, colors.HexColor('#7688A1')),
             ('LINEBELOW', (0, 2), (-1, -1), 0.25, colors.HexColor('#7688A1')),
-        ] + fills))
+        ] + course_styles))
         story.append(table)
     doc.build(story, onFirstPage=page, onLaterPages=page)
     destination = Path(output_path)
@@ -186,3 +199,12 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _course_edge(row, style):
+    """ReportLab equivalent of the shared solid/dashed/dotted/double marker."""
+    dash = (None, (5, 3), (1, 2), None)[style.marker]
+    count = 2 if style.marker == 3 else 1
+    weight = 0.85 if count == 2 else 2
+    return ('LINEBEFORE', (0, row), (0, row), weight,
+            colors.HexColor('#' + style.accent), 0, dash, 1, count, 1.5)

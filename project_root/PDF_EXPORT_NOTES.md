@@ -10,6 +10,8 @@ El PDF contiene texto seleccionable, versión de SORTH, aulas, días, horas exac
 - Todas las páginas muestran cuántas asignaciones se exportaron, el total global asignado y cuántas sesiones permanecen pendientes. Un resultado parcial se rotula **PARCIAL**. Sin contexto global, la API informa que los pendientes son desconocidos; la API filtrada exige el total global.
 - La primera sección detalla Buscar, Aula, Día y Estado. La pestaña activa y el selector local del aula de la cuadrícula no se aplican. En una exportación total se indica que no se aplicaron filtros.
 - **EXCEPCIÓN LAB** identifica autorizaciones registradas para sesiones exportadas. La API de representación marca **CONFLICTO** usando la misma proyección de intervalos exactos que Excel y el visor; la GUI impide exportar un horario inválido. El color por curso es complementario: texto e identificadores conservan el sentido en escala de grises.
+- PDF y Excel usan el mismo fondo suave, acento y borde lateral por curso que la cuadrícula. La identidad depende del código original, no del orden, del aula ni del filtro; las hojas **Asignaciones** y **Por Aula** también la conservan. Los bordes laterales continuos, discontinuos, punteados o dobles ayudan cuando se repiten colores. La paleta es finita: los códigos y nombres siguen siendo la identificación principal.
+- En PDF, los avisos conservan su texto y fondo de advertencia en la columna **Avisos**, sin sustituir el color del resto de la fila. En la cuadrícula Excel, un bloque con sesiones simultáneas mantiene el fondo de conflicto. Los bloques, incluidos los que continúan en otra página, llevan un contorno visible que separa cursos consecutivos.
 - Un filtro vacío no abre Guardar en la GUI. La API puede generar un documento explícitamente vacío, conservando los conteos globales.
 
 La API PDF acepta un mapa opcional `labels` de claves de presentación a plantillas traducidas. No depende de Qt ni distingue idiomas dentro del exportador. Las claves ausentes o plantillas inválidas vuelven al español; los llamadores directos usan español si no suministran un catálogo.
@@ -18,7 +20,7 @@ La API PDF acepta un mapa opcional `labels` de claves de presentación a plantil
 
 El documento se genera primero en memoria. Sólo después se escribe un temporal en el directorio elegido y se reemplaza el destino atómicamente. Un fallo de generación o de reemplazo conserva un destino anterior y elimina el temporal. No se imprime automáticamente, no se envían datos y no se crea otra copia permanente.
 
-Las cadenas se escapan como texto PDF: fórmulas, etiquetas y símbolos como `=SUM(1,2)`, `<b>` o `&` son literales. Excel y CSV mantienen sus contratos sin cambios.
+Las cadenas se escapan como texto PDF: fórmulas, etiquetas y símbolos como `=SUM(1,2)`, `<b>` o `&` son literales. Excel y CSV mantienen sus columnas, orden, nombres y horas exactas sin cambios. CSV no contiene formato visual; conserva los identificadores de curso y grupo.
 
 ReportLab 4.4.9 pasa del conjunto de documentación al conjunto de ejecución; la versión y licencia ya constan en el lock e inventario Windows. DejaVu Sans se incluye en assets con su licencia y queda incrustada en el PDF. pypdf sólo se usa para pruebas.
 
