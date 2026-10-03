@@ -84,3 +84,11 @@ rendering restores the accepted model references, view and dirty/save bookkeepin
 History moves only after successful commit. If the renderer also fails during
 rollback, accepted data references and database remain preserved and editing locks
 for explicit session recovery. There is no second render after committing.
+
+Presentation state uses a shared identity-based snapshot: course/schedule searches,
+all filters, selected cells and current identities, sorting/interactive widths,
+scroll positions, selected room, tabs and focus survive refresh and rollback when
+those identities still exist. Known empty-room filters are retained after the
+last assignment is removed. A postcommit feedback failure reports that the change
+was saved and locks the view for recovery; it never claims the earlier session
+was preserved. Precommit rollback uses the distinct preserved-data recovery notice.

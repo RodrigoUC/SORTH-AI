@@ -5,7 +5,7 @@ from .i18n_widgets import (QDialog, QLabel, QCheckBox, QComboBox, QSpinBox,
 from .i18n import msg, language_manager
 from ..application.bulk_courses import preview_bulk, apply_bulk
 from ..application.edit_history import EditError
-from ..scheduling.time_model import TimeModel
+from ..scheduling.project_calendar import ProjectCalendar
 
 FIELD_LABELS = {'required_room_type': 'Tipo de aula', 'size': 'Tamaño', 'preferred_day': 'Día preferido'}
 
@@ -32,6 +32,10 @@ class BulkCourseDialog(QDialog):
         layout.addWidget(note)
         self.checks, self.inputs = {}, {}
         courses = [c for c in window.course_manager.get_courses() if c.code in self.selected_codes]
+        days = list(getattr(window, 'calendar', ProjectCalendar()).days)
+        for course in courses:
+            if course.preferred_day and course.preferred_day not in days:
+                days.append(course.preferred_day)
         for field, title in FIELD_LABELS.items():
             row = QHBoxLayout()
             check = QCheckBox(msg(title))
@@ -43,7 +47,7 @@ class BulkCourseDialog(QDialog):
             else:
                 control = QComboBox()
                 options = [('REGULAR', 'REGULAR'), ('LAB', 'LAB')] if field == 'required_room_type' else [
-                    ('Borrar preferencia', None), *[(day, day) for day in TimeModel.default().days]]
+                    ('Borrar preferencia', None), *[(day, day) for day in days]]
                 for label, value in options:
                     control.addItem(msg(label) if label not in ('REGULAR', 'LAB') else label, value)
             control.setAccessibleName(msg(title))
@@ -134,6 +138,8 @@ class BulkCourseDialog(QDialog):
             self.error.setText(error.render(msg) if isinstance(error, EditError) else msg(
                 'No se pudo guardar el lote. Se conservan todos los datos. {detail}', detail=str(error)))
             return
-        self.window._finish_edit_commit()
-        self.window.status_bar.showMessage(msg('Lote guardado. Puede deshacerlo en una sola operación.'))
-        self.accept()
+        try:
+            self.window._finish_edit_commit(msg('Lote guardado. Puede deshacerlo en una sola operación.'))
+            self.accept()
+        except Exception as error:
+            self.window._committed_view_failure(error)

@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 
 from ..scheduling.course import Course
 from ..scheduling.time_model import TimeModel
+from ..scheduling.project_calendar import ProjectCalendar
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
@@ -61,12 +62,11 @@ def _confirm(parent, title: str, message: str) -> bool:
 class CourseDialog(QDialog):
     """Dialog for adding/editing a course."""
 
-    DAYS = ["(Sin preferencia)", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-
     def __init__(self, parent=None, course: Course = None,
-                 completions: list[tuple[str, str]] | None = None):
+                 completions: list[tuple[str, str]] | None = None, calendar=None):
         super().__init__(parent)
         self.course = course
+        self.calendar = calendar if calendar is not None else ProjectCalendar()
         self._completions = completions or []   # [(code, name), ...]
         self._code_to_name = {c: n for c, n in self._completions}
         self.setWindowTitle(msg('Agregar Curso') if not course else msg('Editar Curso'))
@@ -134,8 +134,14 @@ class CourseDialog(QDialog):
 
         # Preferred day
         self.day_combo = QComboBox()
-        for index, day in enumerate(self.DAYS):
-            self.day_combo.addItem(msg(day), day if index else None)
+        self.day_combo.addItem(msg('(Sin preferencia)'), None)
+        days = list(self.calendar.days)
+        if self.course and self.course.preferred_day and self.course.preferred_day not in days:
+            # A soft preference may be latent outside the active calendar.
+            # Opening an editor must never silently erase it.
+            days.append(self.course.preferred_day)
+        for day in days:
+            self.day_combo.addItem(msg(day), day)
         layout.addRow(msg('Día Preferido:'), self.day_combo)
 
         # Preferred start time — QTimeEdit for clarity
@@ -146,8 +152,8 @@ class CourseDialog(QDialog):
         self.pref_time_edit.setAccessibleName(msg('Hora de inicio preferida'))
         self.pref_time_edit.setDisplayFormat("HH:mm")
         self.pref_time_edit.setTime(QTime(8, 0))
-        self.pref_time_edit.setMinimumTime(QTime(7, 0))
-        self.pref_time_edit.setMaximumTime(QTime(21, 0))
+        self.pref_time_edit.setMinimumTime(QTime(0, 0))
+        self.pref_time_edit.setMaximumTime(QTime(23, 59))
         self.pref_time_edit.setToolTip(msg('Hora de inicio preferida para este curso (ej: 08:00, 13:00)'))
         time_layout.addWidget(self.chk_pref_time)
         time_layout.addWidget(self.pref_time_edit)
@@ -286,10 +292,11 @@ class CourseManagerWidget(QWidget):
 
     courses_changed = pyqtSignal()  # emitted after any add/edit/delete/clear/load
 
-    def __init__(self, repo=None):
+    def __init__(self, repo=None, calendar_provider=None):
         super().__init__()
         self.courses: list[Course] = []
         self._repo = repo  # SessionRepository, optional
+        self._calendar_provider = calendar_provider or ProjectCalendar
         self._init_ui()
 
     def _init_ui(self):
@@ -396,7 +403,7 @@ class CourseManagerWidget(QWidget):
         for i, c in enumerate(self.courses):
             if c.code == code:
                 self.table.setCurrentCell(i, 0)
-                dialog = CourseDialog(self, self.courses[i], completions=self._get_completions())
+                dialog = CourseDialog(self, self.courses[i], completions=self._get_completions(), calendar=self._calendar_provider())
                 if dialog.exec():
                     course = dialog.get_course()
                     if course:
@@ -418,7 +425,7 @@ class CourseManagerWidget(QWidget):
         return []
 
     def _add_course(self):
-        dialog = CourseDialog(self, completions=self._get_completions())
+        dialog = CourseDialog(self, completions=self._get_completions(), calendar=self._calendar_provider())
         if dialog.exec():
             course = dialog.get_course()
             if not course:
@@ -429,7 +436,7 @@ class CourseManagerWidget(QWidget):
                 if _confirm(self, msg('Curso ya existe'),
                             msg("El curso '{p1}' ya existe en la lista.\n¿Deseas modificarlo en su lugar?", p1=course.code)):
                     edit_dlg = CourseDialog(self, self.courses[existing],
-                                           completions=self._get_completions())
+                                           completions=self._get_completions(), calendar=self._calendar_provider())
                     if edit_dlg.exec():
                         updated = edit_dlg.get_course()
                         if updated:
@@ -455,7 +462,7 @@ class CourseManagerWidget(QWidget):
         if row < 0:
             QMessageBox.warning(self, msg('Advertencia'), msg('Seleccione un curso para editar.'))
             return
-        dialog = CourseDialog(self, self.courses[row], completions=self._get_completions())
+        dialog = CourseDialog(self, self.courses[row], completions=self._get_completions(), calendar=self._calendar_provider())
         if dialog.exec():
             course = dialog.get_course()
             if not course:

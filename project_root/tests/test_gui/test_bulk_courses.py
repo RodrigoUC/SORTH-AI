@@ -138,3 +138,18 @@ def test_bulk_render_failure_retains_accepted_state_and_preview(window, monkeypa
     assert fingerprint(window._repo.load_session()) == before_db
     assert not window._history.can_undo
     dialog.reject()
+
+
+def test_multiselection_is_retained_after_bulk_and_failed_presentation_is_durable(window, monkeypatch):
+    select(window, ('BIO', 'CHEM'))
+    dialog = BulkCourseDialog(window)
+    dialog.checks['size'].setChecked(True)
+    dialog.inputs['size'].setValue(30)
+    dialog._review()
+    monkeypatch.setattr(dialog, 'accept', lambda: (_ for _ in ()).throw(RuntimeError('dialog close failed')))
+    dialog._apply()
+    assert window.course_manager.selected_course_codes() == ('BIO', 'CHEM')
+    assert [c.size for c in window._repo.load_session()['courses']][:2] == [30, 30]
+    assert window._history.can_undo and window._restore_failed
+    assert 'se guardó' in window.status_bar.currentMessage()
+    dialog.reject()

@@ -25,6 +25,7 @@ from .import_controller import ImportController
 from .theme import apply_theme, COLORS
 from .motion import MotionController, update_busy_indicator
 from .features import FeaturePreferences
+from .edit_view_state import EditViewState
 from .manual_assignment_dialog import ManualAssignmentDialog
 from dataclasses import replace
 from ..scheduling.teaching_resources import SchedulingResources, RESOURCE_KINDS
@@ -124,7 +125,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(resource_actions)
 
         self.tabs = QTabWidget()
-        self.course_manager = CourseManagerWidget(repo=self._repo)
+        self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
         self.tabs.addTab(self.course_manager, msg('📚 Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
@@ -440,17 +441,9 @@ class MainWindow(QMainWindow):
             '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty', 'resources')}
         previous_history = deepcopy(vars(self._history))
         previous_courses = self.course_manager.courses
-        previous_search = self.course_manager._search.text()
         previous_label = self.excel_path_label.text()
-        previous_status = self.status_bar.currentMessage()
+        previous_view = EditViewState.capture(self)
         viewer = self.schedule_viewer
-        previous_filters = (viewer._list_search.text(), viewer._room_filter.currentData(),
-                            viewer._day_filter.currentData(), viewer._status_filter.currentData(),
-                            viewer.classroom_selector.currentText(), viewer.tabs.currentIndex())
-        previous_tables = [(table, table.currentRow(), table.currentColumn(),
-                            [(item.row(), item.column()) for item in table.selectedItems()],
-                            table.verticalScrollBar().value(), table.horizontalScrollBar().value())
-                           for table in (self.course_manager.table, viewer.list_table, viewer.classroom_table)]
         if self._preserve_previous:
             self._repo.backup_session()
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
@@ -494,7 +487,6 @@ class MainWindow(QMainWindow):
             vars(self._history).update(previous_history)
             self.course_manager.courses = previous_courses
             try:
-                self.course_manager._search.setText(previous_search)
                 self.course_manager._refresh_table()
                 self.excel_path_label.setText(previous_label)
                 if self.current_groups is None:
@@ -503,31 +495,14 @@ class MainWindow(QMainWindow):
                     viewer.display_schedule(
                         self.current_schedule or {}, TimeModel.from_calendar(self.calendar), self.current_groups,
                         {c.code: c.name for c in previous_courses if c.name}, classrooms=self._classrooms)
-                viewer._list_search.setText(previous_filters[0])
-                for combo, value in zip((viewer._room_filter, viewer._day_filter, viewer._status_filter),
-                                        previous_filters[1:4]):
-                    combo.setCurrentIndex(max(0, combo.findData(value)))
-                viewer.classroom_selector.setCurrentText(previous_filters[4])
-                viewer.tabs.setCurrentIndex(previous_filters[5])
-                for table, row, column, selected, vertical, horizontal in previous_tables:
-                    table.setCurrentCell(row, column)
-                    table.clearSelection()
-                    for selected_row, selected_column in selected:
-                        item = table.item(selected_row, selected_column)
-                        if item is not None:
-                            item.setSelected(True)
-                    table.verticalScrollBar().setValue(vertical)
-                    table.horizontalScrollBar().setValue(horizontal)
+                previous_view.restore(self)
                 self._refresh_overview()
                 self._update_save_state()
                 self._update_history_actions()
-                self.status_bar.showMessage(previous_status)
             except Exception as recovery_error:
                 # SQL and domain data remain original; a damaged view is explicitly
                 # locked so it cannot overwrite the preserved session on disk.
-                self._restore_failed = True
-                self._record_save_error(recovery_error)
-                self._block_for_recovery()
+                self._view_recovery_failure(recovery_error, committed=False)
             raise
         finally:
             signal_guard.unblock()
@@ -848,6 +823,7 @@ class MainWindow(QMainWindow):
         if self._repo is None or self._restore_failed:
             raise OSError(msg('Sesión no disponible'))
         before = self._capture_edit_state()
+        before_view = EditViewState.capture(self)
         courses, assignments, groups = (self.course_manager.courses,
                                         self.current_schedule, self.current_groups)
         group_values = [(group, deepcopy(vars(group))) for group in (groups or [])]
@@ -888,34 +864,61 @@ class MainWindow(QMainWindow):
                 restore_references()
                 try:
                     self._display_edit_state(before)
+                    before_view.restore(self)
                 except Exception as recovery_error:
                     # The database transaction has rolled back. Preserve model
                     # references and lock the UI when its renderer cannot recover.
                     restore_references()
-                    self._restore_failed = True
-                    self._record_save_error(msg('No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}',
-                        detail=str(recovery_error)))
-                    self._block_for_recovery()
+                    self._view_recovery_failure(recovery_error, committed=False)
                 else:
                     restore_references()
                     self._update_save_state()
                     self._update_history_actions()
             raise
 
-    def _finish_edit_commit(self):
-        # Materialization happened inside the transaction; history stacks move
-        # only after commit. Do not render twice after a successful transaction.
-        self._update_save_state()
-        self._update_history_actions()
+    def _finish_edit_commit(self, message=None):
+        # Commit and history acceptance are already durable. A presentation-only
+        # failure here must never claim the previous edit was preserved.
+        try:
+            self._update_history_actions()
+            self._update_feature_notice()
+            if message is not None:
+                self._edit_status(message)
+        except Exception as error:
+            self._committed_view_failure(error)
+            return False
+        return True
+
+    def _committed_view_failure(self, error):
+        self._view_recovery_failure(error, committed=True)
+
+    def _view_recovery_failure(self, error, committed):
+        self._restore_failed = True
+        self._save_error = str(error)
+        self._busy = True
+        message = (msg('El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.')
+                   if committed else msg('No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}',
+                                         detail=str(error)))
+        # Set the recovery guard before touching potentially failed widgets. Even
+        # if another presentation setter fails, no exception escapes a Qt slot.
+        updates = [lambda: self._save_state_label.setText(message),
+                   lambda: self._retry_save_button.setVisible(True),
+                   lambda: self.status_bar.showMessage(message)]
+        for control in (self.course_manager, self.schedule_viewer, self.btn_load,
+                        self.btn_add_classroom, self.btn_generate, self.btn_restrictions,
+                        self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):
+            updates.append(lambda control=control: control.setEnabled(False))
+        for update in updates:
+            try:
+                update()
+            except Exception as secondary:
+                self._save_error += '\n' + str(secondary)
 
     def _display_edit_state(self, state):
         self._loading = True
         previous_calendar = self.calendar
         previous_groups = {g.group_id: g for g in (self.current_groups or [])}
-        filters = [(control, control.currentData()) for control in (
-            self.schedule_viewer._room_filter, self.schedule_viewer._day_filter)]
-        selections = [(table, self.schedule_viewer._selected_gid(table), max(0, table.currentColumn()))
-                      for table in (self.schedule_viewer.list_table, self.schedule_viewer.classroom_table)]
+        view = EditViewState.capture(self)
         try:
             self.calendar = state['calendar']
             self.resources = state['resources']
@@ -946,18 +949,10 @@ class MainWindow(QMainWindow):
                             unassigned_reason(group, validation_rooms(state), TimeModel.from_calendar(self.calendar)))
             self.schedule_viewer.display_schedule(self.current_schedule or {}, TimeModel.from_calendar(self.calendar),
                 self.current_groups or [], classrooms=self._classrooms)
-            for control, value in filters:
-                if control is self.schedule_viewer._day_filter and previous_calendar != self.calendar:
-                    name = TimeModel.from_calendar(previous_calendar).index_to_day.get(value)
-                    value = TimeModel.from_calendar(self.calendar).day_to_index.get(name)
-                index = control.findData(value)
-                if index >= 0:
-                    control.setCurrentIndex(index)
-            for table, gid, column in selections:
-                for row in range(table.rowCount()):
-                    if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == gid:
-                        table.setCurrentCell(row, column)
-                        break
+            if previous_calendar != self.calendar:
+                name = TimeModel.from_calendar(previous_calendar).index_to_day.get(view.filters[1])
+                view.filters = (view.filters[0], TimeModel.from_calendar(self.calendar).day_to_index.get(name), view.filters[2])
+            view.restore(self)
             self._preserve_previous = False
             self._unsaved = False
             self._save_error = None
@@ -999,8 +994,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self._edit_failed(error)
             return False
-        self._finish_edit_commit()
-        self._edit_status(msg('Cambio guardado.'))
+        self._finish_edit_commit(msg('Cambio guardado.'))
         return True
 
     def _commit_course_edit(self, courses, label):
@@ -1050,8 +1044,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self._edit_failed(error)
             return False
-        self._finish_edit_commit()
-        self._edit_status(msg('Cambio deshecho.') if undo else msg('Cambio rehecho.'))
+        self._finish_edit_commit(msg('Cambio deshecho.') if undo else msg('Cambio rehecho.'))
         return True
 
     def _reset_edit_history(self, reason='session'):

@@ -1257,3 +1257,5 @@ MESSAGES['Cursos seleccionados'] = 'Cursos seleccionados'
 MESSAGES['El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'] = 'El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'
 
 MESSAGES['No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'] = 'No se pudo restaurar la vista. Los datos se conservaron; reintente recuperar la sesión. {detail}'
+
+MESSAGES['El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.'] = 'El cambio se guardó, pero no se pudo actualizar la vista. Reintente recuperar la sesión.'

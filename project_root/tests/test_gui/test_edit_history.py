@@ -207,3 +207,86 @@ def test_undo_render_failure_does_not_consume_command(window, monkeypatch):
     assert not window._travel_history(True)
     assert fingerprint(window._capture_edit_state()) == before
     assert window._history.can_undo and not window._history.can_redo
+
+
+def test_postcommit_presentation_failure_is_saved_and_locked_not_rolled_back(window, monkeypatch):
+    monkeypatch.setattr(window, '_edit_status', lambda _: (_ for _ in ()).throw(RuntimeError('status failed')))
+    assert window._commit_course_edit([], 'delete')
+    assert window._repo.load_session()['courses'] == []
+    assert window.course_manager.courses == []
+    assert window._history.can_undo
+    assert window._restore_failed and window._busy
+    assert 'se guardó' in window.status_bar.currentMessage()
+
+
+def test_no_duplicate_save_state_setter_after_commit(window, monkeypatch):
+    original = window._update_save_state
+    calls = []
+    def second_fails():
+        calls.append(True)
+        if len(calls) == 2:
+            raise RuntimeError('redundant postcommit renderer')
+        original()
+    monkeypatch.setattr(window, '_update_save_state', second_fails)
+    assert window._commit_course_edit([], 'delete')
+    assert calls == [True]
+    assert window._repo.load_session()['courses'] == []
+
+
+def test_full_view_filters_focus_selection_preserved_on_pin_and_failed_undo(window, monkeypatch):
+    from src.gui.edit_view_state import EditViewState
+    from PyQt6.QtWidgets import QApplication
+    viewer = window.schedule_viewer
+    window.show()
+    window.tabs.setCurrentIndex(1)
+    viewer.tabs.setCurrentIndex(2)
+    viewer._list_search.setText('BIO')
+    viewer._status_filter.setCurrentIndex(viewer._status_filter.findData('assigned'))
+    viewer._day_filter.setCurrentIndex(viewer._day_filter.findData(1))
+    viewer.classroom_selector.setCurrentText('R')
+    viewer.classroom_table.setCurrentCell(0, 2)
+    viewer._list_search.setFocus()
+    QApplication.processEvents()
+    before = EditViewState.capture(window)
+    window._toggle_pin('BIO-G1')
+    after = EditViewState.capture(window)
+    for field in ('course_query', 'schedule_query', 'filters', 'room', 'tabs'):
+        assert getattr(after, field) == getattr(before, field)
+    assert after.tables[2].current == before.tables[2].current
+    assert after.tables[2].selected == before.tables[2].selected
+    original = viewer.display_schedule
+    calls = []
+    def fail_once(*args, **kwargs):
+        original(*args, **kwargs)
+        calls.append(True)
+        if len(calls) == 1:
+            raise RuntimeError('view failed after clear')
+    monkeypatch.setattr(viewer, 'display_schedule', fail_once)
+    assert not window._travel_history(True)
+    restored = EditViewState.capture(window)
+    for field in ('course_query', 'schedule_query', 'filters', 'room', 'tabs'):
+        assert getattr(restored, field) == getattr(before, field)
+    assert restored.tables[2].selected == before.tables[2].selected
+
+
+def test_persistent_feedback_failure_preserves_old_state_and_disables_editing(window, monkeypatch):
+    before = fingerprint(window._capture_edit_state())
+    before_db = fingerprint(window._repo.load_session())
+    monkeypatch.setattr(window, '_update_save_state', lambda: (_ for _ in ()).throw(RuntimeError('persistent label failure')))
+    assert not window._commit_course_edit([], 'delete')
+    assert fingerprint(window._capture_edit_state()) == before
+    assert fingerprint(window._repo.load_session()) == before_db
+    assert window._restore_failed and window._busy
+    assert not window.course_manager.isEnabled()
+    assert not window.schedule_viewer.isEnabled()
+    assert 'se conservaron' in window.status_bar.currentMessage()
+
+
+def test_last_assignment_removal_retains_empty_room_filter(window):
+    viewer = window.schedule_viewer
+    viewer._room_filter.setCurrentIndex(viewer._room_filter.findData('R'))
+    viewer.classroom_selector.setCurrentText('R')
+    window._on_group_removed('BIO-G1')
+    assert viewer._room_filter.currentData() == 'R'
+    assert viewer.classroom_selector.currentText() == 'R'
+    assert not window.current_schedule
