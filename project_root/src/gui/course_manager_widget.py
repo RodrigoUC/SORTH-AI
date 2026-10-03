@@ -425,7 +425,16 @@ class CourseManagerWidget(QWidget):
         """Open edit dialog for the course with the given code."""
         for i, c in enumerate(self.courses):
             if c.code == code:
-                self.table.setCurrentCell(i, 0)
+                # A model index is not a visual row after sorting/filtering.
+                # Never leave a different course selected for the next action.
+                self.table.clearSelection()
+                self.table.setCurrentItem(None)
+                for row in range(self.table.rowCount()):
+                    item = self.table.item(row, 0)
+                    if (item is not None and item.data(Qt.ItemDataRole.UserRole) == code
+                            and not self.table.isRowHidden(row)):
+                        self.table.setCurrentCell(row, 0)
+                        break
                 dialog = CourseDialog(self, self.courses[i], completions=self._get_completions(), calendar=self._calendar_provider())
                 if dialog.exec():
                     course = dialog.get_course()
