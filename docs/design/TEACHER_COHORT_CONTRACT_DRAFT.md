@@ -16,25 +16,42 @@ del código, nombre del curso o sufijo del grupo.
 El contrato actual permite extremos adyacentes y expresa intervalos en minutos,
 con día entero del `TimeModel`. Esos valores se mantienen en esta propuesta.
 
-## 2. Tres decisiones necesarias antes de implementar comportamiento
+## 2. Decisiones confirmadas y pendientes
 
-1. **Pertenencia:** ¿los docentes/cohortes pertenecen al grupo completo y se
-   heredan por todas sus partes, o varían por parte? ¿Puede haber varios docentes
-   simultáneos y varias cohortes? Una lista de docentes simultáneos no significa
-   que el generador pueda escoger cualquiera de ellos. La sustitución/asignación
-   automática de docentes sería un problema diferente y queda fuera.
-2. **Obligatoriedad:** ¿cada solapamiento y cada disponibilidad es restricción
-   dura? ¿Existen preferencias o excepciones que necesiten representación?
-   No convertir una regla dura en blanda como reintento del generador.
-3. **Información incompleta:** ¿bloquea la generación o se permite trabajar con
-   advertencia explícita de comprobación incompleta? Decidirlo por separado para
-   pertenencia sin declarar y disponibilidad sin declarar.
+### Confirmado por el mantenedor (3 de octubre de 2026)
 
-Hasta recibir respuestas, no implementar la opción recomendada como política.
-Recomendación para discutir: pertenencia por grupo, pluralidad explícita,
-conflictos duros entre recursos simultáneos y compatibilidad de proyectos
-anteriores con estado visible «sin comprobar». Esta es una propuesta, no una
-regla acordada.
+- Docentes y cohortes son **opcionales**. Cuando no se agregan, no participan en
+  las restricciones y se conserva el funcionamiento original. Su ausencia no
+  bloquea generación, edición, guardado ni exportación y no es un error.
+- El caso normal es **un docente durante el curso**. Al activar esta función,
+  la interfaz parte de asignar uno y permite que el usuario decida fijarlo o
+  asignar varios. No se crea ni se asigna un docente ficticio por defecto cuando
+  el usuario no ha agregado ninguno.
+- Permitir varios docentes es una necesidad confirmada; su significado exacto
+  (simultáneos o repartidos por sesión) todavía no está acordado.
+
+La presentación debe explicar el alcance efectivo («sin restricciones de
+docencia/cohortes» cuando no se usan), sin advertencias bloqueantes ni afirmar
+que se comprobaron reglas sin datos. No exigir completar una función opcional.
+
+### Pendiente antes de implementar reglas
+
+1. **Varios docentes:** ¿participan juntos en cada clase o se elige el docente
+   por sesión? ¿Cómo se asignan en las partes de un grupo dividido? Confirmar
+   también si una misma asignación de curso abarca todos sus grupos, o se edita
+   por grupo. No deducir esta granularidad del uso coloquial de «curso».
+2. **Cruces y disponibilidad:** cuando sí se registra un docente, ¿se prohíbe
+   ponerle dos clases al mismo tiempo y clases fuera de su disponibilidad
+   declarada? Recomendación pendiente de aprobación: prohibir ambas. La misma
+   semántica debe acordarse para cohortes y cualquier excepción/preferencia.
+3. **Disponibilidad parcial:** falta concretar qué ocurre cuando se asigna una
+   entidad pero no se declara su disponibilidad, y qué significa una lista
+   declarada vacía. No confundirlo con la ausencia de docentes/cohortes, que ya
+   está resuelta como función no utilizada.
+
+No convertir recomendaciones pendientes en políticas ni relajar una regla dura
+aprobada como reintento del generador. La sustitución/asignación automática de
+identidades sería otro problema y queda fuera.
 
 ## 3. Esquema candidato y decisiones técnicas seguras
 
@@ -42,11 +59,14 @@ regla acordada.
   del nombre. Aceptar alias sintéticos; no pedir correos, matrículas ni listas
   personales. Nombres repetidos no fusionan entidades. Renombrar conserva ID.
 - `Membership {group_ref, teacher_ids, cohort_ids}`: referencias explícitas.
-  Registrar nivel de herencia elegido; no usar simultáneamente grupo y parte
-  sin una regla de precedencia acordada.
+  La granularidad curso/grupo/parte sigue pendiente; `group_ref` es sólo una
+  forma candidata. Registrar nivel de herencia acordado; no usar simultáneamente
+  niveles sin una regla de precedencia aprobada.
 - `teacher_ids`/`cohort_ids` ausentes o `null`: información no declarada.
-  `[]`: declaración explícita sin entidades, si el mantenedor admite ese caso.
-  Nunca transformar automáticamente desconocido en vacío.
+  `[]`: declaración explícita sin entidades, si se acepta esta representación.
+  En ambos casos no hay identidades que comprobar y no se bloquea el flujo. La
+  distinción de representación puede conservarse para edición/importación; no
+  debe convertir una función opcional en obligatoria.
 - `Availability {entity_kind, entity_id, status, windows}`: `status` distingue
   `unknown` de `declared`; cada ventana contiene `day`, `start_min`, `end_min`.
   Propuesta para aprobación: ventanas declaradas son ventanas permitidas, no
@@ -84,21 +104,24 @@ Ejemplo de forma, **no archivo importable en la versión actual**:
 
 ## 4. Comprobación y mensajes
 
-Si se aprueban recursos simultáneos, el intervalo de una sesión debe estar
-permitido para todos sus docentes/cohortes declarados. Cada identidad compartida
-prohíbe un solapamiento, aunque el aula sea distinta. La regla se aplica a cada
+Sólo si se aprueban recursos simultáneos y reglas duras de conflicto y
+disponibilidad, el intervalo de una sesión deberá estar permitido para todos sus
+docentes/cohortes declarados, y cada identidad compartida prohibirá un
+solapamiento aunque el aula sea distinta. Estas reglas aún son propuestas. La regla se aplica a cada
 parte siguiendo la pertenencia que se acuerde; se conserva además la regla
 actual de partes en días distintos a la misma hora.
 
 El resultado debe separar:
 
 - errores estructurales o violaciones probadas del horario;
-- recursos/reglas no comprobados por falta de datos;
+- alcance no utilizado cuando no se agregan docentes/cohortes (sin error);
+- disponibilidad no declarada para entidades asignadas (política pendiente);
 - preferencias incumplidas, sólo si se acuerdan;
 - sesiones pendientes porque la búsqueda no encontró colocación.
 
-Un horario sin errores conocidos no está «verificado completamente» si faltan
-datos. Un fallo greedy no demuestra inviabilidad matemática.
+Un horario puede ser válido para las restricciones activas sin incluir la
+función opcional; describir ese alcance y no afirmar validación de docencia o
+cohortes no registradas. Un fallo greedy no demuestra inviabilidad matemática.
 
 Errores estructurados sugeridos: `UNKNOWN_TEACHER_REFERENCE`,
 `UNKNOWN_COHORT_REFERENCE`, `TEACHER_OVERLAP`, `COHORT_OVERLAP`,
@@ -122,9 +145,9 @@ traduce el mensaje sin introducir textos de presentación en el dominio.
    `Cohortes`, `Pertenencias` y `Disponibilidad`, con una fila por relación o
    ventana. Revisar encabezados exactos con el mantenedor antes de implementarlos.
    Evitar listas separadas por comas que resulten ambiguas con nombres.
-6. Mantener importación antigua; campos nuevos ausentes conservan significado
-   «desconocido», sujeto a la decisión 3. No presentar los archivos antiguos como
-   plenamente verificados. Rechazar versiones futuras no soportadas sin mutación.
+6. Mantener importación antigua; campos nuevos ausentes no activan restricciones
+   de docentes/cohortes ni bloquean el flujo. Presentar el alcance de validación
+   original sin afirmar comprobaciones de recursos que no se agregaron. Rechazar versiones futuras no soportadas sin mutación.
 7. Migración SQLite transaccional con respaldo previo y lectura antigua cubierta
    por pruebas. No fijar aquí un número de esquema: coordinar con la migración
    de escenarios y otras ramas para evitar colisiones de versión.
@@ -144,9 +167,11 @@ viajes entre sedes, vacaciones o selección automática de docentes a este alcan
   docencia compartida; jamás escoger uno automáticamente.
 - E: grupo dividido con pertenencia por grupo: ambas partes heredan los mismos
   recursos. Si varía por parte, exigir referencias explícitas acordadas.
-- F: `teacher_ids` ausente: desconocido; comportamiento decidido en pregunta 3.
+- F: `teacher_ids` ausente: función de docentes no utilizada; generación y
+  demás flujos mantienen el comportamiento original, sin docente ficticio.
 - G: docente conocido con `status=unknown`: disponibilidad desconocida, aunque
-  las colisiones de identidad sí se puedan comprobar.
+  técnicamente se pueden comprobar colisiones de identidad; su obligatoriedad
+  y la política de disponibilidad parcial siguen pendientes.
 - H: referencia `teacher-missing`: error de importación, no preferencia descartable.
 - I: disponibilidad declarada 08:00–10:00, sesión 09:30–10:30: fuera de ventana;
   probar por separado ventanas adyacentes y normalización de su unión.
@@ -156,7 +181,9 @@ viajes entre sedes, vacaciones o selección automática de docentes a este alcan
 ## 7. Criterio de aceptación y cierre
 
 La fase de especificación termina con respuestas registradas y aprobación de
-los ejemplos anteriores, formato de importación y semántica de datos faltantes.
+los ejemplos anteriores, formato de importación y decisiones aún pendientes.
+La opcionalidad y el caso habitual de un docente ya están confirmados; no
+volver a presentarlos como preguntas abiertas.
 El issue completo sigue abierto hasta integrar dominio, generación, validador,
 GUI y persistencia; pasar pruebas de compatibilidad, desconocidos, multirrecursos,
 partes, edición manual, restauración y exportación; y revisar interfaz nativa.
@@ -169,3 +196,7 @@ fixtures públicos serán sintéticos. No cerrar por añadir sólo este document
 - `project_root/src/scheduling/course.py`, `group.py`, `validation.py`.
 - `project_root/SCHEDULING_VALIDATION.md`.
 - `project_root/src/infrastructure/session_repository.py`, `excel_reader.py`.
+
+Decisiones confirmadas: respuesta directa del mantenedor del 3 de octubre de
+2026, puntos 1 y 3. El punto 2 requirió reformular la pregunta; no equivale a
+aprobación de reglas de conflicto o disponibilidad.
