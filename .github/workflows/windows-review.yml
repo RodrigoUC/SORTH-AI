@@ -59,6 +59,14 @@ jobs:
         run: |
           .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=gui --test-inventory=build/reports/tests-gui-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui.xml
           if ($LASTEXITCODE -ne 0) { throw 'GUI regression tests failed.' }
+      - name: Run GUI layout regression tests
+        # Isolate the expensive real-font layout/palette matrices without
+        # dropping tests or weakening the eight-minute GUI timeout.
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 6
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=gui-layout --test-inventory=build/reports/tests-gui-layout-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui-layout.xml
+          if ($LASTEXITCODE -ne 0) { throw 'GUI layout regression tests failed.' }
       - name: Run theme runtime regression tests
         # Full-application palette repolishing dominates Windows GUI time.
         # Collect evidence from all batches even if GUI tests fail; a failed
