@@ -18,6 +18,7 @@ def test_repository_respects_readme_layer_boundaries():
     ("src.application.scheduling_service", "mcp"),
     ("src.mcp_adapter.server", "PyQt6"),
     ("src.mcp_adapter.server", "src.infrastructure.session_repository"),
+    ("src.mcp_adapter.server", "src.scheduling.time_model"),
     ("src.gui.main_window", "tools.build_identity"),
     ("src.gui.main_window", "src.bootstrap.scheduling"),
     ("src.scheduling.course", "tests.test_scheduling"),
@@ -36,6 +37,7 @@ def test_reverse_or_optional_dependencies_are_rejected(module, target):
     ("src.infrastructure.gui_session_lock", "PyQt6.QtCore"),
     ("src.mcp_adapter.server", "mcp.types"),
     ("src.mcp_adapter.worker", "src.infrastructure.schedule_exporter"),
+    ("src.mcp_adapter.worker", "src.scheduling.time_model"),
 ])
 def test_documented_composition_and_compatibility_seams_remain_valid(module, target):
     assert import_problem(module, target) is None
@@ -73,3 +75,13 @@ def test_an_invalid_source_is_reported_without_importing_it(tmp_path):
 def test_missing_source_directory_is_not_a_false_pass(tmp_path):
     with pytest.raises(ValueError, match="No Python sources"):
         check_architecture(tmp_path / "missing")
+
+
+@pytest.mark.parametrize("statement", [
+    "from src import gui, __name__",
+    "from .. import gui, __name__",
+])
+def test_mixed_module_and_package_attribute_import_cannot_hide_reverse_dependency(statement):
+    imports = list(static_imports(statement, "src.scheduling.course", known_modules={"src.gui"}))
+    assert (1, "src.gui") in imports
+    assert any(import_problem("src.scheduling.course", target) for _, target in imports)

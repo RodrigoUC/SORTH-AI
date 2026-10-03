@@ -93,7 +93,8 @@ sea pura o que la separación hexagonal ya esté terminada.
 - `application.recovery_command` integra recuperación con el repositorio actual.
   Las preferencias, verificación y preparación MCP también contienen E/S local.
 - La composición de exportación MCP se limita a `mcp_adapter.worker` →
-  `infrastructure.schedule_exporter`. No habilita persistencia de la sesión ni
+  `infrastructure.schedule_exporter` y `scheduling.time_model` para construir
+  el archivo con el modelo compartido. No habilita persistencia de la sesión ni
   importaciones de GUI para el adaptador entero.
 - El guard admite el puente concreto `application.scheduling_service` →
   `bootstrap.scheduling` para conservar la API histórica basada en ruta cuando se

@@ -32,6 +32,7 @@ IMPORT_EXCEPTIONS = {
     ("src.gui.scheduler_worker", "src.bootstrap.scheduling"),
     # Optional worker composes the shared in-memory exporter; no GUI or session IO.
     ("src.mcp_adapter.worker", "src.infrastructure.schedule_exporter"),
+    ("src.mcp_adapter.worker", "src.scheduling.time_model"),
     # Preserve SchedulingService(path) when its default reader is composed externally.
     ("src.application.scheduling_service", "src.bootstrap.scheduling"),
 }
@@ -70,11 +71,9 @@ def static_imports(text: str, module: str, *, is_package=False, known_modules=()
             # from ..infrastructure import schedule_exporter imports that module,
             # whereas from ..infrastructure.schedule_exporter import Exporter
             # imports a symbol from the stated module.
-            if children and all(child in known_modules for child in children):
-                for child in children:
-                    yield node.lineno, child
-            else:
-                yield node.lineno, target
+            targets = {child if child in known_modules else target for child in children}
+            for imported in sorted(targets):
+                yield node.lineno, imported
 
 
 def import_problem(module: str, imported: str) -> str | None:
