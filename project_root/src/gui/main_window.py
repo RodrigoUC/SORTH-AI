@@ -1866,13 +1866,14 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         # Import cancellation can leave its reader draining while generation
         # starts. Cancel both immediately, regardless of which finishes first.
-        if self._worker is not None and self._worker.isRunning():
+        # Ownership lasts through queued result delivery, even after run() exits.
+        if self._worker is not None:
             self._close_after_generation = True
             self._cancel_generation()
         if hasattr(self, "_import") and not self._import.prepare_close():
             event.ignore()
             return
-        if self._worker is not None and self._worker.isRunning():
+        if self._worker is not None:
             self._import.closing = False
             event.ignore()
             return
