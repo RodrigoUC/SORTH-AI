@@ -115,6 +115,11 @@ class SessionRepository:
                 self._read_resource_contract(con)
             if version >= 4:
                 self._read_calendar_contract(con)
+            if version == self.SCHEMA_VERSION:
+                # Current-format opening is read-only. Never rewrite schema/header
+                # bytes before complete semantic validation of saved constraints.
+                self.load_session()
+                return
             if version < self.SCHEMA_VERSION and con.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
                 path = Path(self._db_path)
@@ -239,6 +244,10 @@ class SessionRepository:
             existing_calendar = self._read_calendar_contract(con)
             calendar = existing_calendar if calendar is None else ProjectCalendar.from_dict(calendar.to_dict())
             existing_resources = self._read_resource_contract(con)
+            if con.execute("SELECT 1 FROM session WHERE id=1").fetchone():
+                # Reject semantic corruption in the accepted version even if a
+                # caller offers an explicit replacement extension.
+                self.load_session()
             resources = existing_resources if resources is None else resources
             self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
             con.execute("INSERT INTO project_calendar VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",

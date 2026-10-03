@@ -161,3 +161,21 @@ def test_only_legacy_migration_initializes_explicit_empty_contract(tmp_path,lega
         rows=con.execute('SELECT id,payload FROM scheduling_resources').fetchall()
         assert rows==[(1,json.dumps(SchedulingResources().to_data()))]
     assert migrated.load_session()['resources']==SchedulingResources()
+
+
+def test_current_schema_unknown_reference_reopen_and_save_are_readonly(tmp_path):
+    path = tmp_path/'session.db'
+    repo = SessionRepository(str(path))
+    original = payload()
+    repo.save_session(**original)
+    with sqlite3.connect(path) as con:
+        doc = json.loads(con.execute('SELECT payload FROM scheduling_resources').fetchone()[0])
+        doc['catalogs'][0]['memberships'][0]['group_id'] = 'UNKNOWN-G1'
+        con.execute('UPDATE scheduling_resources SET payload=?', (json.dumps(doc),))
+    before = path.read_bytes()
+    with pytest.raises(ValueError):
+        SessionRepository(str(path))
+    assert path.read_bytes() == before
+    with pytest.raises(ValueError):
+        repo.save_session(**original)
+    assert path.read_bytes() == before
