@@ -1,5 +1,6 @@
 """Native MCP setup keeps progress, permission and client steps distinct."""
 import sys
+import re
 import time
 
 import pytest
@@ -13,6 +14,31 @@ from src.gui.mcp_availability import McpAvailabilityProbe
 from src.gui.mcp_client_help import McpClientHelp, client_configuration
 from src.gui.settings_dialog import SettingsDialog
 from src.infrastructure.session_repository import SessionRepository
+
+
+def caption_preserved_across_soft_breaks(display, source):
+    # A new display line may start in the same source word or after original
+    # whitespace. Spaces *inside* each line remain exact and cannot disappear.
+    pattern = r'\s*'.join(re.escape(line) for line in display.split('\n'))
+    return re.fullmatch(pattern, source) is not None
+
+
+def settings_width_for_unwrapped_captions(dialog):
+    """Measure full native captions at the current font/style, not a pixel guess."""
+    scroll = dialog.findChild(QScrollArea)
+    full_width = 0
+    for control in dialog._responsive_actions.controls:
+        source = control._messages['setText'][1][0].render()
+        probe = type(control)(source, dialog)
+        probe.setObjectName(control.objectName())
+        probe.setFont(control.font())
+        probe.ensurePolished()
+        full_width = max(full_width, probe.minimumSizeHint().width())
+        probe.deleteLater()
+    margins = scroll.widget().layout().contentsMargins()
+    gutters = dialog.width() - scroll.viewport().width() + margins.left() + margins.right()
+    # Retain room for the focus border and the wrapping safety inset.
+    return max(900, full_width + gutters + 16)
 
 
 def settings_layout_snapshot(dialog):
@@ -325,7 +351,7 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
             assert scroll.horizontalScrollBar().maximum() == 0, snapshot
             for button in controls:
                 source = button._messages['setText'][1][0]
-                assert ' '.join(button.text().split()) == str(source.render())
+                assert caption_preserved_across_soft_breaks(button.text(), source.render()), (button.text(), source.render())
                 assert button.accessibleName() == source.render()
                 assert button.width() >= button.minimumSizeHint().width()
                 assert button.height() >= button.minimumSizeHint().height()
@@ -337,7 +363,8 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
 
         inspect_geometry()
         if expanded_metrics:
-            assert '\n' in dialog.calendar_button.text()
+            assert caption_preserved_across_soft_breaks(dialog.calendar_button.text(),
+                                                        dialog.calendar_button._messages['setText'][1][0].render())
         checkbox = dialog.controls['project_scenarios']
         checkbox.setFocus()
         QTest.keyClick(checkbox, Qt.Key.Key_Space)
@@ -348,8 +375,12 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         inspect_geometry()
         assert checkbox.isChecked() and checkbox.hasFocus()
         dialog.resize(900, 420)
+        snapshot = settle_settings_layout(dialog)
+        assert snapshot['horizontal_maximum'] == 0, snapshot
+        assert caption_preserved_across_soft_breaks(dialog.calendar_button.text(),
+                                                    dialog.calendar_button._messages['setText'][1][0].render())
+        dialog.resize(settings_width_for_unwrapped_captions(dialog), 420)
         settle_settings_layout(dialog)
-        assert '\n' not in dialog.calendar_button.text()
         assert dialog.calendar_button.text() == dialog.calendar_button._messages['setText'][1][0].render()
         dialog.resize(460, 420)
         QApplication.processEvents()
@@ -368,9 +399,7 @@ def test_wrapped_native_captions_keep_supplementary_unicode_characters(kind):
     button = getattr(i18n_widgets, kind)(msg(caption))
     button.wrapPresentationText(120)
     assert '\n' in button.text()
-    # Soft wrapping may split a long word; it must preserve every non-space
-    # code point, while the accessible name/binding preserve exact whitespace.
-    assert ''.join(button.text().split()) == ''.join(caption.split())
+    assert caption_preserved_across_soft_breaks(button.text(), caption)
     assert button.accessibleName() == caption
     assert button._messages['setText'][1][0].render() == caption
     button.wrapPresentationText(2000)
@@ -394,7 +423,11 @@ def test_settings_show_and_resize_reflow_without_zero_timer_delivery(window, mon
         dialog.resize(900, 420)
         snapshot = settle_settings_layout(dialog)
         assert snapshot['horizontal_maximum'] == 0, snapshot
-        assert '\n' not in dialog.calendar_button.text()
+        assert caption_preserved_across_soft_breaks(dialog.calendar_button.text(),
+                                                    dialog.calendar_button._messages['setText'][1][0].render())
+        dialog.resize(settings_width_for_unwrapped_captions(dialog), 420)
+        settle_settings_layout(dialog)
+        assert dialog.calendar_button.text() == dialog.calendar_button._messages['setText'][1][0].render()
         dialog.resize(460, 420)
         snapshot = settle_settings_layout(dialog)
         assert snapshot['horizontal_maximum'] == 0, snapshot
@@ -431,12 +464,24 @@ def test_settings_footer_reflows_on_width_only_font_metric_change(window):
         dialog.resize(460, 420)
         dialog.show()
         settle_settings_layout(dialog)
+        from PyQt6.QtGui import QFont
+        available = dialog.buttons.width()
+        original_heights = [action.minimumSizeHint().height() for action in dialog.buttons.buttons()]
         for action in dialog.buttons.buttons():
             font = action.font()
-            font.setStretch(400)
+            text_width = action.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, action.text()).width()
+            chrome = max(0, action.minimumSizeHint().width() - text_width)
+            # Make each native action about 60% of the available row. This
+            # deterministically crosses the horizontal threshold while each
+            # complete caption still fits when stacked, without changing height.
+            target_text_width = available * .6 - chrome
+            spacing = max(0, (target_text_width - text_width) / max(1, len(action.text()))) + 2
+            font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
             action.setFont(font)
         snapshot = settle_settings_layout(dialog)
-        assert dialog.width() == 460, snapshot
+        assert sum(action.minimumSizeHint().width() for action in dialog.buttons.buttons()) > available, snapshot
+        assert [action.minimumSizeHint().height() for action in dialog.buttons.buttons()] == original_heights, snapshot
+        assert dialog.width() == 460 and dialog.height() == 420, snapshot
         assert dialog.buttons.orientation() == Qt.Orientation.Vertical, snapshot
         for action in dialog.buttons.buttons():
             assert action.width() >= action.minimumSizeHint().width(), snapshot
@@ -519,3 +564,19 @@ def test_footer_never_queries_native_metrics_during_global_style_replacement(win
             app.setStyle(original_style)
         finally:
             state['changing'] = False
+
+
+
+@pytest.mark.parametrize('display,source,valid', [
+    ('Verificar disponibilida\nd local de MCP', 'Verificar disponibilidad local de MCP', True),
+    ('Save settings\nand edit calendar', 'Save settings and edit calendar', True),
+    ('Preparar 🚀\nconexión 𠮷', 'Preparar 🚀 conexión 𠮷', True),
+    ('sinpermiso', 'sin permiso', False),
+    ('sin permiso', 'sin  permiso', False),
+    ('sin  permiso', 'sin permiso', False),
+    ('preparar cli\nte', 'preparar cliente', False),
+    ('Preparar conexión 𠮷', 'Preparar 🚀 conexión 𠮷', False),
+    ('preparar MCP', 'MCP preparar', False),
+])
+def test_caption_validation_distinguishes_soft_breaks_from_lost_content(display, source, valid):
+    assert caption_preserved_across_soft_breaks(display, source) is valid
