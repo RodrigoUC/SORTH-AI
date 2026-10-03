@@ -850,9 +850,14 @@ def test_warning_identity_treats_markup_as_literal_data(window, tmp_path, monkey
     observed = []
     def inspect(dialog):
         dialog.show()
-        QApplication.processEvents()
-        label = dialog.findChild(QLabel, 'qt_msgbox_informativelabel')
-        observed.append((label.text(), label.textFormat(), dialog.detailedText()))
+        try:
+            QApplication.processEvents()
+            label = dialog.findChild(QLabel, 'qt_msgbox_informativelabel')
+            observed.append((label.text(), label.textFormat(), dialog.detailedText()))
+        finally:
+            # This exec stub must retire the shown modal just like real exec.
+            # A visible orphan otherwise blocks later F7/undo shortcuts.
+            dialog.done(int(QMessageBox.StandardButton.Cancel))
         return QMessageBox.StandardButton.Cancel
     monkeypatch.setattr(QMessageBox, 'exec', inspect)
     before = session(window)
@@ -860,6 +865,7 @@ def test_warning_identity_treats_markup_as_literal_data(window, tmp_path, monkey
         manager.set_language(language, persist=False)
         window._import.active = True
         assert not window._import._review_candidate(window._import.token, candidate)
+        assert QApplication.activeModalWidget() is None
         assert literal_name in observed[0][0] and literal_name in observed[0][2]
         assert observed[0][1] == Qt.TextFormat.PlainText
         assert session(window) == before
