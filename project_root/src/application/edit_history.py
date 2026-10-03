@@ -10,7 +10,7 @@ import hashlib
 import json
 
 from ..scheduling.time_model import TimeModel
-from ..scheduling.validation import validate_schedule
+from ..scheduling.validation import validate_schedule, unassigned_reason
 
 
 class EditError(ValueError):
@@ -54,6 +54,34 @@ def validation_rooms(state):
 def edit_time_model(state):
     calendar = state.get('calendar')
     return TimeModel.from_calendar(calendar) if calendar is not None else TimeModel.default()
+
+
+def normalized_group_feedback(state, groups=None):
+    """Materialize the same feedback for command snapshots and their renderer.
+
+    Keep saved source messages (including intentionally empty feedback) intact.
+    Derive a reason only for newly pending sessions; assigned sessions have none.
+    This is detached data, so preparing a failed edit cannot alter live groups.
+    """
+    if not state.get('schedule_present'):
+        return {}
+    if groups is None:
+        groups = [group for course in state['courses'] for group in course.generate_groups()]
+    assignments = state['assignments'] or {}
+    previous = state.get('group_feedback', {})
+    feedback = {}
+    rooms = time_model = None
+    for group in groups:
+        gid = group.group_id
+        if gid in assignments:
+            feedback[gid] = ''
+        elif gid in previous:
+            feedback[gid] = previous[gid]
+        else:
+            if rooms is None:
+                rooms, time_model = validation_rooms(state), edit_time_model(state)
+            feedback[gid] = unassigned_reason(group, rooms, time_model)
+    return feedback
 
 
 def validate_edit(state):

@@ -291,3 +291,58 @@ def test_last_assignment_removal_retains_empty_room_filter(window):
     assert viewer._room_filter.currentData() == 'R'
     assert viewer.classroom_selector.currentText() == 'R'
     assert not window.current_schedule
+
+
+@pytest.mark.parametrize('kind', ['remove_assignment', 'pinned_course_edit', 'calendar_pending'])
+def test_pending_feedback_is_canonical_before_history_and_supports_redo(window, kind):
+    from src.application.calendar_transition import preview_calendar_change
+    from src.scheduling.project_calendar import ProjectCalendar
+    from src.gui.i18n import language_manager
+
+    if kind == 'pinned_course_edit':
+        window._toggle_pin('BIO-G1')
+    before = fingerprint(window._capture_edit_state())
+    before_disk = fingerprint(window._repo.load_session())
+    if kind == 'remove_assignment':
+        window._on_group_removed('BIO-G1')
+    elif kind == 'pinned_course_edit':
+        course = deepcopy(window.course_manager.courses[0])
+        course.number_of_groups = 2
+        assert window._commit_course_edit([course], 'add group')
+    else:
+        calendar = ProjectCalendar(('Martes',), 480, 660, ())
+        preview = preview_calendar_change(window.calendar, calendar, window.current_schedule,
+                                          window.current_groups, window._validation_classrooms())
+        assert window._apply_calendar(calendar, preview)
+
+    after_state = window._capture_edit_state()
+    after = fingerprint(after_state)
+    after_disk = fingerprint(window._repo.load_session())
+    assert any(group.unassigned_reason for group in window.current_groups if not group.assignment)
+    assert window._history._undo[-1].after['group_feedback'] == after_state['group_feedback']
+    assert window._history._expected == after
+    manager = language_manager()
+    language = manager.language
+    try:
+        manager.set_language('en' if language == 'es' else 'es', persist=False)
+        assert fingerprint(window._capture_edit_state()) == after
+        for _ in range(2):
+            assert window._travel_history(True)
+            assert fingerprint(window._capture_edit_state()) == before
+            assert fingerprint(window._repo.load_session()) == before_disk
+            assert window._travel_history(False)
+            assert fingerprint(window._capture_edit_state()) == after
+            assert fingerprint(window._repo.load_session()) == after_disk
+    finally:
+        manager.set_language(language, persist=False)
+
+
+def test_real_feedback_mutation_still_invalidates_history(window):
+    window._on_group_removed('BIO-G1')
+    assert window._history._expected == fingerprint(window._capture_edit_state())
+    disk = fingerprint(window._repo.load_session())
+    window.current_groups[0].unassigned_reason = 'Synthetic out-of-band feedback change'
+    assert not window._travel_history(True)
+    assert not window._history.can_undo and not window._history.can_redo
+    assert window._history.reset_reason == 'external_change'
+    assert fingerprint(window._repo.load_session()) == disk
