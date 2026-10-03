@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
     'Comparación pendiente': 'Comparison pending',
     'Comparación actualizada. La sesión sigue guardada.': 'Comparison updated. The session remains saved.',
     'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}': 'Session saved. The scenario snapshot could not be compared. Retry the comparison. {detail}',

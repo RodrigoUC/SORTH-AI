@@ -1444,6 +1444,13 @@ class MainWindow(QMainWindow):
             # Validate and deserialize before offering a restore or permitting
             # writes. Malformed sessions must remain recoverable on disk.
             data = self._repo.load_session()
+            if data is not None:
+                seed = data['seed']
+                # QSpinBox silently clamps representable out-of-range integers.
+                # Reject them before restoration can authorize a later autosave.
+                if seed is not None and (type(seed) is not int or
+                        not self.seed_input.minimum() <= seed <= self.seed_input.maximum()):
+                    raise ValueError(msg('La semilla guardada está fuera del intervalo permitido.'))
         except Exception as error:
             self._restore_failed = True
             self._record_save_error(error)
@@ -1527,7 +1534,7 @@ class MainWindow(QMainWindow):
             self.btn_restrictions.setEnabled(bool(self._classroom_course_map))
             self.btn_generate.setEnabled(bool(data["courses"]))
 
-            if data["courses"]:
+            if data["courses"] or data["assignments"]:
                 self.current_schedule = data["assignments"] or {}
                 time_model = TimeModel.from_calendar(self.calendar)
                 course_name_map = {c.code: c.name for c in data["courses"] if c.name}
