@@ -67,27 +67,49 @@ def test_reader_thread_and_event_loop_remain_responsive(window, tmp_path, monkey
     entered, release = threading.Event(), threading.Event()
     thread_checks = []
     def delayed(path, cancelled, previous=None):
-        thread_checks.append(QThread.currentThread() != QApplication.instance().thread())
+        in_background = QThread.currentThread() != QApplication.instance().thread()
+        thread_checks.append(in_background)
         entered.set()
+        # A synchronous-reader regression must fail, rather than deadlock this test.
+        if not in_background:
+            raise AssertionError('Excel reader ran on the GUI thread')
         while not release.wait(.005):
             if cancelled(): raise ImportCancelled()
         return original(path, cancelled, previous)
     monkeypatch.setattr(import_worker, 'read_candidate', delayed)
     ticks = []
     timer = QTimer()
-    timer.timeout.connect(lambda: ticks.append(time.monotonic()))
-    timer.start(5)
-    start = time.monotonic()
-    window._import.start(path)
-    assert time.monotonic() - start < .25
-    assert entered.wait(1)
-    QTest.qWait(80)
-    assert len(ticks) >= 3
-    assert window.btn_load.isEnabled() and not window.course_manager.isEnabled()
-    release.set()
-    wait_for_import(window)
-    timer.stop()
-    assert all(thread_checks)
+    def probe():
+        ticks.append((time.monotonic(), QThread.currentThread() == QApplication.instance().thread()))
+        if len(ticks) == 3:
+            timer.stop()
+    timer.timeout.connect(probe)
+    try:
+        start = time.monotonic()
+        window._import.start(path)
+        assert time.monotonic() - start < .25
+        assert entered.wait(1)
+        assert all(thread_checks)
+        worker = window._import.worker
+        assert worker is not None and worker.isRunning()
+        # Queue event-loop probes without relying on native 5 ms timer accuracy.
+        # Keep the original 80 ms budget, measured at delivery so a late event
+        # dispatcher return cannot make a stalled GUI pass.
+        probe_start = time.monotonic()
+        deadline = probe_start + .08
+        timer.start(0)
+        while len(ticks) < 3 and time.monotonic() < deadline:
+            QApplication.processEvents()
+        assert len(ticks) == 3
+        assert ticks[-1][0] - probe_start < .08
+        assert all(on_gui_thread for _when, on_gui_thread in ticks)
+        assert window._import.worker is worker and worker.isRunning()
+        assert window.btn_load.isEnabled() and not window.course_manager.isEnabled()
+    finally:
+        timer.stop()
+        release.set()
+        wait_for_import(window)
+    assert thread_checks and all(thread_checks)
     assert window.excel_path == path
     assert window.pinned_group_ids == {'BIO-G1'}
     assert window.current_schedule == {'BIO-G1': ('R', 1, 480, 540)}
