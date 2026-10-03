@@ -193,14 +193,16 @@ def test_widget_owners_survive_translation_and_deleted_blockers_are_dismissed(mo
 
 
 NATIVE_OWNER_LIFETIME_SCRIPT = r'''
-import gc, sys, weakref
+import gc, sys, time, traceback, weakref
 from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QEvent
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QWidget, QDialog, QTableWidget
 from src.gui.i18n import msg, language_manager
 from src.gui import i18n_widgets as iw
 
 kind, entry, mode = sys.argv[1:]
+case = f'{kind}/{entry}/{mode}'
 app = QApplication([])
 manager = language_manager()
 manager.set_language('es', persist=False)
@@ -257,7 +259,8 @@ def boundary():
     holder.clear()
     if mode in {'gc-owner', 'gc-fit'}:
         gc.collect()
-        assert owner_ref() is not None and not sip.isdeleted(child)
+        assert owner_ref() is not None and not sip.isdeleted(child), \
+            f'{case}: owner/child was collected inside the update'
     elif mode == 'delete-owner':
         sip.delete(owner_ref())
         assert sip.isdeleted(child)
@@ -280,7 +283,7 @@ def render(value):
     return result
 
 iw._render = render
-if mode == 'gc-fit' and entry == 'timer':
+if mode == 'gc-fit' and entry in {'timer', 'delayed-timer'}:
     original_hint = button.minimumSizeHint
     def hint():
         boundary()
@@ -296,9 +299,9 @@ elif mode == 'gc-fit':
 # raising them to sendEvent's caller. Capture that boundary without swallowing
 # renderer failures in production or letting Qt abort this test subprocess.
 errors = []
-def report_error(kind, error, traceback):
+def report_error(kind, error, error_traceback):
     errors.append((kind, str(error)))
-    print(kind.__name__ + ': ' + str(error), flush=True)
+    traceback.print_exception(kind, error, error_traceback, file=sys.stderr)
 sys.excepthook = report_error
 assert gc.isenabled()
 try:
@@ -306,10 +309,21 @@ try:
         QCoreApplication.sendEvent(child, QEvent(QEvent.Type.LanguageChange))
     elif entry in {'style-native', 'sibling-style'}:
         child.setStyleSheet('QPushButton { font-size: 20pt; }')
-    elif entry == 'timer':
+    elif entry in {'timer', 'delayed-timer'}:
         child._fit_signature = None
-        child._metric_timer.start(0)
+        completed = []
+        # This observer runs after the already-connected production callback.
+        # Do not call fitting ourselves: exercise an actual native timeout.
+        child._metric_timer.timeout.connect(lambda: completed.append(True))
+        child._metric_timer.start(20 if entry == 'delayed-timer' else 0)
+        deadline = time.monotonic() + 2
         app.processEvents()
+        # One processEvents pass is not a zero-timer completion barrier on
+        # Windows. Yield Qt event turns until the callback actually returns.
+        while not completed and not errors and time.monotonic() < deadline:
+            QTest.qWait(1)
+        assert completed, (f'{case}: metric timer did not complete within 2s; '
+                           f'checkpoint={bool(observed)}, errors={errors!r}')
     elif entry == 'direct':
         child.retranslate()
     elif entry == 'setter':
@@ -321,7 +335,7 @@ try:
         raise AssertionError(entry)
 except RuntimeError as error:
     errors.append((type(error), str(error)))
-assert observed
+assert observed, f'{case}: rendering/fitting checkpoint was not reached'
 assert gc.isenabled()
 if mode.startswith('render-error'):
     assert errors == [(RuntimeError, 'native translation failure sentinel')], errors
@@ -340,8 +354,8 @@ else:
         assert child.button(child.StandardButton.Cancel).text() == 'Cancelar'
 # No global owner retention, GC disabling, or leaked decorator traceback refs.
 gc.collect()
-assert owner_ref() is None and parent_ref() is None
-assert sip.isdeleted(child)
+assert owner_ref() is None and parent_ref() is None, f'{case}: owner retained after update'
+assert sip.isdeleted(child), f'{case}: child survived post-update owner collection'
 print('native owner lifecycle passed', flush=True)
 '''
 
@@ -362,7 +376,7 @@ def test_direct_localized_property_lifetime(tmp_path, kind, entry, mode):
     _run_native_owner_lifetime(tmp_path, kind, entry, mode)
 
 
-@pytest.mark.parametrize('entry', ['direct', 'native', 'timer'])
+@pytest.mark.parametrize('entry', ['direct', 'native', 'timer', 'delayed-timer'])
 def test_responsive_translation_retains_owner_through_fitting(tmp_path, entry):
     _run_native_owner_lifetime(tmp_path, 'ResponsiveDialogButtonBox', entry, 'gc-fit')
 
