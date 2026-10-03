@@ -875,7 +875,14 @@ class MainWindow(QMainWindow):
         if self._busy or self._restore_failed:
             return
         from .settings_dialog import SettingsDialog
-        SettingsDialog(self).exec()
+        dialog = SettingsDialog(self)
+        try:
+            # done() keeps exec() alive until pending MCP cleanup has finished.
+            dialog.exec()
+        finally:
+            # Closed settings own native controls and signal connections. Do not
+            # leave their release to cyclic GC on a long-lived main window.
+            dialog.deleteLater()
 
     def _show_calendar(self):
         if self._busy or self._restore_failed or not self._features.enabled('project_calendar'):
