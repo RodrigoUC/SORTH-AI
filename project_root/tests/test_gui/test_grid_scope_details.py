@@ -323,7 +323,11 @@ def test_language_and_theme_keep_grid_and_dialog_identity(viewer, app):
         assert viewer.grid_table.currentItem().background().color().name() == color
         assert ('Monday' if language == 'en' else 'Lunes') in dialog.details.toPlainText()
         assert ('Session:' if language == 'en' else 'Sesión:') in dialog.details.toPlainText()
-    dialog.reject()
+    assert dialog._valid()
+    dialog.view_in_list.click()
+    app.processEvents()
+    assert viewer._selected_gid(viewer.list_table) == 'CUR01-G1'
+    assert viewer.list_table.hasFocus()
     manager._apply(initial_theme)
     assert viewer._assignments == original
 
@@ -404,3 +408,61 @@ def test_viewing_details_emits_no_domain_commands_and_respects_reduced_motion(ap
     assert [vars(group) for group in groups] == before_groups
     assert all(not spy for spy in signals)
     window.close()
+
+
+@pytest.mark.parametrize('replacement_dialog', [False, True])
+def test_queued_handoff_cannot_cross_same_gid_schedule_replacement(viewer, app, replacement_dialog):
+    from PyQt6.QtCore import QTimer
+    assignments = {'SAME-G1': ('Room', 1, 480, 540)}
+    tm = TimeModel.default()
+    viewer.display_schedule(assignments, tm, course_name_by_code={'SAME': 'Original course'})
+    open_grid(viewer, app)
+    select_grid_gids(viewer, ['SAME-G1'])
+    viewer._show_grid_details()
+    old = viewer._grid_details_dialog
+    original_generation = viewer._schedule_generation
+    QTimer.singleShot(0, old._view_in_list)
+    viewer.display_schedule(assignments, tm, course_name_by_code={'SAME': 'Replacement course'})
+    assert viewer._schedule_generation != original_generation
+    assert old._closed
+    assert not old._valid()
+    if replacement_dialog:
+        select_grid_gids(viewer, ['SAME-G1'])
+        viewer._show_grid_details()
+        current = viewer._grid_details_dialog
+        assert current is not old
+    else:
+        current = None
+    app.processEvents()
+    assert viewer.tabs.currentIndex() == 1
+    assert viewer._selected_gid(viewer.list_table) is None
+    assert not viewer._btn_edit_list.isEnabled()
+    assert viewer._grid_details_dialog is current
+    assert viewer._name_map['SAME-G1'] == 'Replacement course'
+    if current is not None:
+        assert current.isVisible()
+        assert current.details.hasFocus()
+        assert 'Replacement course' in current.details.toPlainText()
+        current.reject()
+
+
+@pytest.mark.parametrize('dismiss', ['reject', 'close', 'accept'])
+def test_queued_handoff_is_inert_after_dialog_dismissal(viewer, app, dismiss):
+    from PyQt6.QtCore import QTimer
+    original, _, _ = populate_scope(viewer)
+    open_grid(viewer, app)
+    select_grid_gids(viewer, ['CUR01-G1'])
+    viewer._show_grid_details()
+    dialog = viewer._grid_details_dialog
+    QTimer.singleShot(0, dialog._view_in_list)
+    getattr(dialog, dismiss)()
+    # Establish another intentional selection before the old callback is drained.
+    select_list_gid(viewer.list_table, 'CUR12-G1')
+    viewer.tabs.setCurrentIndex(1)
+    app.processEvents()
+    assert dialog._closed
+    assert not dialog._valid()
+    assert viewer._grid_details_dialog is None
+    assert viewer.tabs.currentIndex() == 1
+    assert viewer._selected_gid(viewer.list_table) == 'CUR12-G1'
+    assert viewer._assignments == original

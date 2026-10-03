@@ -82,6 +82,7 @@ class ScheduleViewerWidget(QWidget):
         self.summary_data = None
         self._quality_snapshot = None
         self._refreshing = False
+        self._schedule_generation = 0
         self._grid_details_dialog = None
         self._init_ui()
         self._clear()
@@ -324,6 +325,9 @@ class ScheduleViewerWidget(QWidget):
         return table, edit, remove
 
     def _clear(self):
+        # A replacement can reuse identical GIDs and time slots with different
+        # course metadata. Slot equality alone cannot authorize an old dialog.
+        self._schedule_generation += 1
         if self._grid_details_dialog is not None:
             self._grid_details_dialog.reject()
         self._refreshing = True
@@ -528,10 +532,11 @@ class ScheduleViewerWidget(QWidget):
         self._grid_details_dialog = dialog
 
         def finished(result):
-            self._grid_details_dialog = None
-            self.window().activateWindow()
-            target = self.list_table if result == QDialog.DialogCode.Accepted else self.grid_table
-            target.setFocus(Qt.FocusReason.OtherFocusReason)
+            if self._grid_details_dialog is dialog:
+                self._grid_details_dialog = None
+                self.window().activateWindow()
+                target = self.list_table if result == QDialog.DialogCode.Accepted else self.grid_table
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
             dialog.deleteLater()
 
         dialog.finished.connect(finished)
@@ -890,6 +895,9 @@ class GridSessionDetailsDialog(QDialog):
     def __init__(self, viewer, gids):
         super().__init__(viewer)
         self._viewer = viewer
+        self._generation = viewer._schedule_generation
+        self._closed = False
+        self.finished.connect(self._mark_closed)
         self._gids = tuple(gids)
         self._assignments = {gid: viewer._assignments[gid] for gid in gids}
         self.setWindowTitle(msg('Sesiones del bloque en conflicto') if len(gids) > 1
@@ -921,14 +929,22 @@ class GridSessionDetailsDialog(QDialog):
         self.refresh_details()
 
     def _valid(self):
-        return all(gid in self._viewer._matching_gids
-                   and self._viewer._assignments.get(gid) == slot
-                   for gid, slot in self._assignments.items())
+        return (not self._closed
+                and self._generation == self._viewer._schedule_generation
+                and all(gid in self._viewer._matching_gids
+                        and self._viewer._assignments.get(gid) == slot
+                        for gid, slot in self._assignments.items()))
+
+    def _mark_closed(self, *_):
+        self._closed = True
 
     def refresh_details(self, *_):
+        if self._closed:
+            return
         if not self._valid():
             self.view_in_list.setEnabled(False)
-            self._viewer._show_grid_gid_in_list(None)
+            if self._viewer._grid_details_dialog is self:
+                self._viewer._show_grid_gid_in_list(None)
             self.reject()
             return
         gid = self.session_selector.currentData()
@@ -946,6 +962,11 @@ class GridSessionDetailsDialog(QDialog):
             self.details.setPlainText(text)
 
     def _view_in_list(self):
+        # Queued activations must remain inert after Close/Escape, acceptance,
+        # invalidation or replacement, even if the same session IDs reappear.
+        # Check Python state before touching widgets pending deferred deletion.
+        if self._closed or self._viewer._grid_details_dialog is not self:
+            return
         gid = self.session_selector.currentData()
         if not self._valid() or gid not in self._gids:
             self.view_in_list.setEnabled(False)
