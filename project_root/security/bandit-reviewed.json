@@ -206,5 +206,21 @@
     "count": 1,
     "reviewed_on": "2026-10-03",
     "reason": "Reviewed seeded scheduling tie-breaking and per-run RNG reset: Random is used only to choose between equal-scored valid scheduling candidates. It never creates secrets, credentials, permission generations or security decisions. Reproducible fixed seeds are intentional; all scheduling constraints remain independently validated."
+  },
+  {
+    "file": "src/application/mcp_component.py",
+    "test_id": "B404",
+    "code_sha256": "cad368b6a7848bad06e408e5273eae6e1f2ecce457c731888a87fbccb8e8c476",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Explicitly confirmed offline component health probe only: absolute fixed SORTH-MCP.exe from the versioned stage/installation, verified against the GUI compiled release hash inventory before execution; argument list contains only --probe, no shell, no user-supplied command. Bounded output, timeout and cancellation kill/reap the child. No listener, download, preference or client modification."
+  },
+  {
+    "file": "src/application/mcp_component.py",
+    "test_id": "B603",
+    "code_sha256": "a57d6d30f82befb1463a2c68ac9d86d80d5179f7b584324eea30fc4392907be4",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Explicitly confirmed offline component health probe only: absolute fixed SORTH-MCP.exe from the versioned stage/installation, verified against the GUI compiled release hash inventory before execution; argument list contains only --probe, no shell, no user-supplied command. Bounded output, timeout and cancellation kill/reap the child. No listener, download, preference or client modification."
   }
 ]
