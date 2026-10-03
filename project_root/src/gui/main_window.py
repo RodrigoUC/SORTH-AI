@@ -22,7 +22,7 @@ from ..scheduling.classroom import Classroom
 from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
 from .import_controller import ImportController
-from .theme import apply_theme, COLORS
+from .theme import apply_theme, theme_manager
 from .motion import MotionController, update_busy_indicator
 from .features import FeaturePreferences
 from .edit_view_state import EditViewState
@@ -96,6 +96,11 @@ class MainWindow(QMainWindow):
         self.chk_random_seed.toggled.connect(self._save_session)
         self.seed_input.valueChanged.connect(self._save_session)
 
+    def _refresh_theme_recovery_notice(self, _theme=None):
+        notice = self._theme_recovery_notice
+        notice.setText(msg('No se pudo leer la apariencia guardada. Se muestra Original claro y el archivo original se conserva. Abra Configuración → Apariencia para revisarlo o recuperarlo.'))
+        notice.setVisible(bool(theme_manager().recovery_issue))
+
     def _init_ui(self):
         self.setWindowTitle(msg('SORTH - Sistema de Organización de Horarios'))
         self._set_window_icon()
@@ -114,6 +119,12 @@ class MainWindow(QMainWindow):
         self._feature_notice.setWordWrap(True)
         self._feature_notice.setAccessibleName(msg('Datos de funciones desactivadas'))
         main_layout.addWidget(self._feature_notice)
+        self._theme_recovery_notice = QLabel()
+        self._theme_recovery_notice.setObjectName('themeRecoveryNotice')
+        self._theme_recovery_notice.setWordWrap(True)
+        main_layout.addWidget(self._theme_recovery_notice)
+        theme_manager().changed.connect(self._refresh_theme_recovery_notice)
+        self._refresh_theme_recovery_notice()
         from .resource_dialog import RESOURCE_TITLES
         resource_actions = QHBoxLayout()
         self.resource_buttons = {}
@@ -266,7 +277,8 @@ class MainWindow(QMainWindow):
         text.setPlainText('\n\n'.join(filter(None, (
             self.status_bar.currentMessage(), self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
-            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(), self._save_error))))
+            self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(),
+            self._theme_recovery_notice.text() if theme_manager().recovery_issue else '', self._save_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
@@ -300,7 +312,7 @@ class MainWindow(QMainWindow):
         language_manager().changed.connect(self._sync_language_selector)
         language_label = QLabel(msg('Idioma:'))
         language_label.setBuddy(self.language_selector)
-        language_label.setStyleSheet(f"color: {COLORS['on_navy_muted']};")
+        language_label.setObjectName("headerMutedText")
         heading.addWidget(language_label)
         heading.addWidget(self.language_selector)
         self.btn_settings = QPushButton(msg('Configuración'))
@@ -1350,10 +1362,7 @@ class MainWindow(QMainWindow):
             outer.setContentsMargins(0, 0, 0, 0)
             outer.setSpacing(0)
             hdr = QLabel(msg('  💾  Sesión anterior encontrada'))
-            hdr.setStyleSheet(
-                "background-color: #1967D2; color: #FFFFFF; "
-                "font-size: 12pt; font-weight: bold; padding: 14px 20px;"
-            )
+            hdr.setObjectName('dialogInfoHeader')
             outer.addWidget(hdr)
             body = QWidget()
             bl = QVBoxLayout(body)
@@ -1397,7 +1406,7 @@ class MainWindow(QMainWindow):
             if data["excel_path"] and Path(data["excel_path"]).exists():
                 self.excel_path = data["excel_path"]
                 self.excel_path_label.setText(Path(data["excel_path"]).name)
-                self.excel_path_label.setStyleSheet("color: green;")
+                self.excel_path_label.setObjectName("successText")
                 # Reload classroom-course map from Excel for restrictions dialog
                 try:
                     from ..infrastructure.excel_reader import ExcelReader as _ER

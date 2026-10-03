@@ -47,6 +47,11 @@ class ThemeSpec:
     description: str | None = None
     schema_version: int = SCHEMA_VERSION
 
+    def __post_init__(self):
+        # Direct construction cannot retain a mutable caller-owned mapping.
+        # Full validation remains the responsibility of validate_theme().
+        object.__setattr__(self, "colors", MappingProxyType(dict(self.colors)))
+
     def to_dict(self):
         result = {"schema_version": self.schema_version, "name": self.name,
                   "mode": self.mode, "colors": dict(self.colors)}
