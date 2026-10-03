@@ -4,10 +4,13 @@ import pandas as pd
 import unicodedata
 import re
 import zipfile
+import posixpath
+from xml.parsers import expat
 from io import BytesIO
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict
+from openpyxl.xml.constants import XLSX, XLSM, XLTX, XLTM
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
@@ -71,10 +74,21 @@ class ExcelReader:
     MAX_EXPANDED_BYTES = 100 * 1024 * 1024
     MAX_ARCHIVE_MEMBERS = 1000
     MAX_DATA_ROWS = 10000
+    MAX_DATA_COLUMNS = 128
+    MAX_SHEET_CELLS = 500000
 
     def _check_workbook_size(self):
         self._checkpoint()
-        size = len(self._source_bytes) if self._source_bytes is not None else Path(self.file_path).stat().st_size
+        if self._source_bytes is None:
+            # Direct reader callers need the same immutable bytes for the
+            # preflight and pandas. The GUI already supplies its snapshot.
+            with open(self.file_path, 'rb') as source:
+                data = source.read(self.MAX_FILE_BYTES + 1)
+            self._checkpoint()
+            if len(data) > self.MAX_FILE_BYTES:
+                raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._source_bytes = data
+        size = len(self._source_bytes)
         if size > self.MAX_FILE_BYTES:
             raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
         with zipfile.ZipFile(self._source()) as archive:
@@ -82,6 +96,170 @@ class ExcelReader:
             if (len(entries) > self.MAX_ARCHIVE_MEMBERS or
                     sum(entry.file_size for entry in entries) > self.MAX_EXPANDED_BYTES):
                 raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._check_sheet_sizes(archive)
+
+    def _check_sheet_sizes(self, archive):
+        """Reject sparse rectangular amplification before pandas/openpyxl load.
+
+        Inspect actual row/cell references rather than trusting the worksheet
+        dimension hint. Only the two imported sheets are subject to these
+        shape limits; extra sheets retain their existing ignored behavior.
+        """
+        content_ns = 'http://schemas.openxmlformats.org/package/2006/content-types}'
+        content_root = content_ns + 'Types'
+        workbook_paths = []
+        workbook_defaults = set()
+        part_names = set()
+        extensions = set()
+        def content_type(tag, attributes, parents):
+            if not parents:
+                if tag != content_root:
+                    raise ValueError('Invalid content type namespace')
+                return
+            if parents != (content_root,) or tag not in (content_ns + 'Override', content_ns + 'Default'):
+                raise ValueError('Invalid content type element')
+            content = attributes.get('ContentType')
+            if tag == content_ns + 'Override':
+                part = attributes['PartName']
+                if not part.startswith('/') or part.startswith('//'):
+                    raise ValueError('Invalid absolute content type part name')
+                if part in part_names:
+                    raise ValueError('Duplicate content type part')
+                part_names.add(part)
+                if content in (XLSX, XLSM, XLTX, XLTM):
+                    workbook_paths.append(part[1:])
+            else:
+                extension = attributes['Extension']
+                if extension in extensions:
+                    raise ValueError('Duplicate default content type')
+                extensions.add(extension)
+                if content in (XLSX, XLSM, XLTX, XLTM):
+                    workbook_defaults.add(content)
+        self._scan_xml(archive, '[Content_Types].xml', content_type)
+        if len(workbook_paths) > 1 or (not workbook_paths and len(workbook_defaults) != 1):
+            raise ValueError('Missing or ambiguous workbook part')
+        workbook_path = workbook_paths[0] if workbook_paths else 'xl/workbook.xml'
+        ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+        relationship_id = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
+        sheet_ids = []
+        sheet_names = set()
+        def workbook_sheet(tag, attributes, parents):
+            if not parents and tag != ns + 'workbook':
+                raise ValueError('Invalid workbook namespace')
+            if tag.rsplit('}', 1)[-1] == 'sheet':
+                if tag != ns + 'sheet' or parents != (ns + 'workbook', ns + 'sheets'):
+                    raise ValueError('Invalid workbook sheet element')
+                if attributes.get('name') in ('Aulas', 'Cursos'):
+                    if attributes['name'] in sheet_names:
+                        raise ValueError('Duplicate imported worksheet name')
+                    sheet_names.add(attributes['name'])
+                    sheet_ids.append(attributes[relationship_id])
+        self._scan_xml(archive, workbook_path, workbook_sheet)
+        directory, filename = posixpath.split(workbook_path)
+        relationships_path = posixpath.join(directory, '_rels', filename + '.rels')
+        targets = {}
+        seen_ids = set()
+        relation_ns = 'http://schemas.openxmlformats.org/package/2006/relationships}'
+        relation_root = relation_ns + 'Relationships'
+        def relationship(tag, attributes, parents):
+            if not parents:
+                if tag != relation_root:
+                    raise ValueError('Invalid relationship namespace')
+                return
+            if tag != relation_ns + 'Relationship' or parents != (relation_root,):
+                raise ValueError('Invalid relationship element')
+            identifier = attributes['Id']
+            if identifier in seen_ids:
+                raise ValueError('Duplicate workbook relationship ID')
+            seen_ids.add(identifier)
+            if identifier in sheet_ids:
+                targets[identifier] = attributes
+        self._scan_xml(archive, relationships_path, relationship)
+        for sheet_id in sheet_ids:
+            self._checkpoint()
+            relation = targets[sheet_id]
+            if relation.get('Type') != 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet':
+                raise ValueError('Invalid imported worksheet relationship type')
+            if relation.get('TargetMode') == 'External':
+                raise ValueError('An imported worksheet must be inside the workbook')
+            target = relation['Target']
+            path = (target[1:] if target.startswith('/') else
+                    posixpath.normpath(posixpath.join(directory, target)))
+            row = column = max_row = max_column = 0
+            row_columns = set()
+            data_parent = (ns + 'worksheet',)
+            row_parent = data_parent + (ns + 'sheetData',)
+            cell_parent = row_parent + (ns + 'row',)
+            def worksheet_element(tag, attributes, parents):
+                nonlocal row, column, max_row, max_column
+                if not parents and tag != ns + 'worksheet':
+                    raise ValueError('Invalid worksheet namespace')
+                # openpyxl parses every direct row child as a cell, regardless
+                # of its tag, and processes namespaced rows at any depth. Fail
+                # closed on malformed structure so both parsers see exactly
+                # the cells whose dimensions we check.
+                if ((tag == ns + 'sheetData' and parents != data_parent) or
+                        (parents == row_parent and tag != ns + 'row') or
+                        (tag == ns + 'row' and parents != row_parent) or
+                        (parents == cell_parent and tag != ns + 'c') or
+                        (tag == ns + 'c' and parents != cell_parent)):
+                    raise ValueError('Invalid worksheet row or cell structure')
+                if tag == ns + 'row':
+                    self._checkpoint()
+                    next_row = int(attributes.get('r', row + 1))
+                    if next_row <= row:
+                        raise ValueError('Worksheet rows must be unique and increasing')
+                    row = next_row
+                    column = 0
+                    row_columns.clear()
+                    max_row = max(max_row, row)
+                elif tag == ns + 'c':
+                    reference = attributes.get('r')
+                    if reference:
+                        match = re.fullmatch(r'([A-Za-z]{1,3})([1-9][0-9]*)', reference)
+                        if not match:
+                            raise ValueError('Invalid worksheet cell reference')
+                        column = 0
+                        for letter in match[1].upper():
+                            column = column * 26 + ord(letter) - ord('A') + 1
+                        max_row = max(max_row, int(match[2]))
+                    else:
+                        column += 1
+                    if column in row_columns:
+                        raise ValueError('Duplicate worksheet cell column')
+                    row_columns.add(column)
+                    max_column = max(max_column, column)
+                else:
+                    return
+                if (max_row > self.MAX_DATA_ROWS + 1 or
+                        max_column > self.MAX_DATA_COLUMNS or
+                        max_row * max_column > self.MAX_SHEET_CELLS):
+                    raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._scan_xml(archive, path, worksheet_element)
+
+    def _scan_xml(self, archive, path, on_start):
+        """Streaming SAX-style scan without a tree, DTDs or entity expansion."""
+        parser = expat.ParserCreate(namespace_separator='}')
+        stack = []
+        def start_element(tag, attributes):
+            if len(stack) >= 64:
+                raise ValueError('Workbook XML nesting exceeds the supported depth')
+            on_start(tag, attributes, tuple(stack))
+            stack.append(tag)
+        parser.StartElementHandler = start_element
+        parser.EndElementHandler = lambda tag: stack.pop()
+        def reject_entities(*args):
+            raise ValueError('Workbook XML must not contain DTDs or entities')
+        parser.StartDoctypeDeclHandler = reject_entities
+        parser.EntityDeclHandler = reject_entities
+        parser.ExternalEntityRefHandler = reject_entities
+        with archive.open(path) as source:
+            while True:
+                self._checkpoint()
+                chunk = source.read(64 * 1024)
+                parser.Parse(chunk, not chunk)
+                if not chunk:
+                    break
 
 
     def __init__(self, file_path: str, *, source_bytes=None, cancelled=None):
@@ -145,6 +323,11 @@ class ExcelReader:
                     raise ExcelImportError(notice("Hoja {sheet}, fila 1: falta la columna {columns}. Revise el encabezado.", sheet=sheet, columns=", ".join(missing)))
                 frame = data.iloc[1:].copy()
                 frame.columns = [v if v else f"__extra_{i}" for i, v in enumerate(normalized)]
+                if sheet == "Cursos":
+                    # Validation and every materializer consume the same keys.
+                    # Preserve legacy unambiguous aliases, but never validate
+                    # one column and silently load another.
+                    frame = frame.rename(columns=self._resolve_course_columns(frame.columns))
                 sheets[sheet] = frame
             self._sheets = sheets
         return self._sheets[name]
@@ -183,7 +366,7 @@ class ExcelReader:
             self._checkpoint()
             code = self._identifier(row.get("curso"))
             if not code:
-                if any(not self._blank(row.get(c)) for c in ("nombre de curso", "horas", "aula", "dias")):
+                if any(not self._blank(row.get(c)) for c in ("nombre", "horas", "aula", "dias")):
                     errors.append(notice("Cursos, fila {row}: falta Curso (código).", row=index + 1))
                 continue
             course_count += 1
@@ -460,6 +643,23 @@ class ExcelReader:
     # Column mapping
     # ------------------------------------------------------------------
 
+    def _resolve_course_columns(self, columns):
+        """Resolve legacy aliases once; exact headers keep their precedence.
+
+        More than one fallback, or one header claiming multiple fields, is
+        ambiguous and must be corrected before importing any rows.
+        """
+        resolved = {}
+        for key in ("curso", "nombre", "horas", "aula", "dias"):
+            matches = [key] if key in columns else [col for col in columns if key in col]
+            if len(matches) > 1 or (matches and matches[0] in resolved):
+                raise ExcelImportError(notice(
+                    "Hoja {sheet}, fila 1: columnas duplicadas: {columns}. Deje una sola columna de cada tipo.",
+                    sheet="Cursos", columns=", ".join(matches)))
+            if matches:
+                resolved[matches[0]] = key
+        return resolved
+
     def _build_col_map(self, columns) -> dict[str, str]:
         """
         Build a normalized name → original name mapping for DataFrame columns.
@@ -477,7 +677,7 @@ class ExcelReader:
 
     def _get(self, row, col_map: dict, key: str):
         """
-        Prefer an exact normalized column name, then a partial key match.
+        Read a canonical column resolved before validation.
         Returns None if column not found or value is NaN.
         """
         key = self._normalize(key)
@@ -486,10 +686,6 @@ class ExcelReader:
             # A blank exact match must remain blank, not fall back to a name.
             val = row[col_map[key]]
             return None if pd.isna(val) else val
-        for norm_col, orig_col in col_map.items():
-            if key in norm_col:
-                val = row[orig_col]
-                return None if pd.isna(val) else val
         return None
 
     # ------------------------------------------------------------------

@@ -2,6 +2,61 @@
 
 SORTH funciona sin MCP, Internet, modelos, claves o pagos. Esta integración **no se inicia con la GUI**, no forma parte del instalador Windows y no llama a ningún modelo. Es un adaptador local `stdio` que un cliente MCP puede iniciar por decisión explícita. No abre puertos, HTTP, SSE ni escucha en la red.
 
+## Configuración: permiso local y disponibilidad
+
+**Configuración → Permitir servidor MCP local** empieza desactivado. El botón
+**Verificar disponibilidad local de MCP** ejecuta una prueba local de carga del SDK
+y construcción del servidor en un subproceso fijo, sin iniciar stdio, sin datos de
+horarios, sin red y con límite de cinco segundos. Se distingue SDK ausente,
+versión incompatible (se admite exactamente `mcp==1.30.0`), error de carga y tiempo
+agotado. La comprobación es asíncrona, se cancela al cerrar y no instala nada.
+Solo se puede guardar una nueva activación si la comprobación tuvo éxito.
+Guardar no inicia el servidor ni configura un cliente/modelo. Cancelar no activa
+nada. Guarda los cambios de recursos y el permiso MCP por separado, tanto al
+activar como al desactivar, para que una transacción de recursos fallida nunca
+revierta una revocación o publique una activación parcial.
+
+El **EXE estándar no incluye el SDK ni un servidor MCP ejecutable**: la opción
+muestra esa limitación y no se puede activar desde ese entorno. Nunca se lanza
+`sys.executable` del EXE como si fuera Python. Para MCP usa el código fuente y el
+entorno Python separado descrito abajo; no hay descarga, compra ni instalación
+automática de complementos. La GUI comprueba solo su propio entorno, no descubre
+ni prueba otros intérpretes instalados.
+
+GUI y servidor comparten un único registro `features.mcp_server` en
+`SORTH/optional-features.json`: Linux usa `$XDG_CONFIG_HOME` o `~/.config`, macOS
+`~/Library/Preferences`, Windows `%LOCALAPPDATA%`. El archivo no contiene claves,
+proveedores ni datos de horarios. El servidor lee ese permiso al iniciar, al
+recibir cada llamada y antes de devolver el resultado. Ausencia, corrupción,
+versión de archivo desconocida o permiso desactivado cierran el acceso. Desactivar
+bloquea nuevos inicios y llamadas y descarta una propuesta pendiente, incluso si
+vuelves a activar MCP antes de que termine. Un identificador de generación
+`mcp_generation` dentro del mismo registro cambia en cada transición de permiso;
+las preferencias antiguas sin identificador se migran en la siguiente escritura
+explícita, sin escrituras al leer. Un identificador inválido también cierra el
+acceso. No mata el proceso que pertenece al cliente. Una generación ya iniciada puede terminar
+internamente con su límite existente de diez segundos. Cierra el proceso desde
+el cliente. Una generación de permiso cambia al activar o desactivar: volver a activar
+MCP no recupera propuestas iniciadas antes de la revocación. No se revocan
+copias de resultados entregados previamente.
+
+Para instalaciones sin Qt, el CLI de configuración siguiente usa el mismo archivo
+y conserva sus demás preferencias mediante reemplazo atómico. `--preferences`
+permite elegir explícitamente otro archivo; úsalo **igual** al configurar el
+servidor y el CLI. La GUI refresca el permiso al abrir o comprobar Configuración y bloquea un guardado
+si el CLI cambió el permiso desde la última lectura; revisa la casilla antes de
+volver a guardar, incluso tras una secuencia OFF→ON. GUI, CLI y recuperación
+usarán un bloqueo del SO no bloqueante durante toda la lectura y escritura: si
+otro escritor lo tiene, el guardado falla sin cambiar las preferencias y puede
+reintentarse después. El archivo auxiliar `.lock` permanece para conservar el
+mismo bloqueo; no contiene preferencias, no lo borres para forzar un desbloqueo.
+El SO libera el bloqueo al cerrar el proceso. Editores externos que no usen este
+protocolo no están coordinados; no edites el JSON manualmente mientras se usa.
+Los errores preservan el original y no lo reparan silenciosamente. El lector
+rechaza claves duplicadas, valores no finitos y profundidad superior a 32 niveles. Ejecutar el
+CLI con `--enable` es una autorización explícita; la comprobación de disponibilidad
+se hace al arrancar el servidor y puede hacerse por separado sin activarlo.
+
 ## Activar, probar y desactivar
 
 Requiere Python 3.12 y el código fuente con las correcciones de validación/persistencia de #2/#3. Desde `project_root`, crea un entorno separado; no alteres el entorno de la GUI:
@@ -10,11 +65,13 @@ Requiere Python 3.12 y el código fuente con las correcciones de validación/per
 python -m venv .venv-mcp
 # Linux/macOS:
 .venv-mcp/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-mcp.lock
+.venv-mcp/bin/python -B -m src.mcp_adapter.availability
+.venv-mcp/bin/python -B -m src.application.mcp_preferences --enable
 .venv-mcp/bin/python -B -m src.mcp_adapter.server
 # Windows: sustituye .venv-mcp/bin/python por .venv-mcp\Scripts\python.exe
 ```
 
-El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ctrl+C o cerrar el cliente lo termina. Para desactivar, quita su entrada del cliente y cierra ese proceso; la GUI sigue funcionando igual. No hay servicio de sistema, inicio automático ni credenciales que revocar.
+El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ctrl+C o cerrar el cliente lo termina. Para desactivar, desmarca la opción y guarda en Configuración, o ejecuta `.venv-mcp/bin/python -B -m src.application.mcp_preferences --disable`; después quita la entrada del cliente y cierra ese proceso. La GUI sigue funcionando igual. No hay servicio de sistema, inicio automático ni credenciales que revocar.
 
 `requirements-mcp.txt` fija `mcp==1.30.0`, versión de la rama 1.x mantenida por el SDK oficial. Se elige explícitamente esa API; no se permite que una resolución sin límite la cambie a 2.x. `requirements-mcp-dev.txt` añade pytest. `requirements-mcp.lock` fija con hashes todas las dependencias del entorno opcional de ejecución y pruebas, resuelto de forma universal para Python 3.12; incluye pytest deliberadamente y las dependencias condicionales Windows `colorama` y `pywin32`. Se genera con `uv pip compile requirements-mcp-dev.txt --python-version 3.12 --universal --generate-hashes --no-build --output-file requirements-mcp.lock`; una resolución sólo Linux omitiría dependencias Windows. Las actualizaciones requieren regenerar el lock, auditar todos sus paquetes (también los condicionales) y repetir pruebas. El lock Windows de la aplicación no incorpora MCP.
 
@@ -27,6 +84,7 @@ En la configuración de servidores **locales stdio** de tu cliente, crea una ent
 - Argumentos: `-B`, `-m`, `src.mcp_adapter.server`
 - Directorio de trabajo (`cwd`): ruta absoluta a `SORTH-AI/project_root`
 - Variables/credenciales: ninguna requerida
+- Si elegiste un archivo alternativo: añade `--preferences`, `/ruta/absoluta/optional-features.json` a los argumentos. La GUI usa su archivo predeterminado; no alterna rutas desde este diálogo.
 
 El formato de configuración depende del cliente. No pegues claves de proveedor en SORTH. Si tu cliente no admite `cwd`, usa su opción equivalente para lanzar desde `project_root`; no inventes una ruta de servidor remoto. Usa un cliente que soporte los esquemas de herramientas MCP y revisa sus permisos antes de compartir datos.
 

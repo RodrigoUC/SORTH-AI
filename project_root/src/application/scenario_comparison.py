@@ -6,7 +6,7 @@ from ..scheduling.time_model import TimeModel
 from ..scheduling.project_calendar import ProjectCalendar
 from ..scheduling.teaching_resources import SchedulingResources
 
-ALGORITHM_VERSION = 'sorth-scheduler-v1'
+ALGORITHM_VERSION = 'sorth-scheduler-v2'
 
 
 def scenario_metadata(algorithm_version=None, calendar=None):

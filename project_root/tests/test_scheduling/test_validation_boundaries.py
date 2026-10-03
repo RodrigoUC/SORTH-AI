@@ -70,3 +70,26 @@ def test_service_rejects_invalid_scheduler_result(monkeypatch):
 @pytest.mark.parametrize('gid,room',[('UNKNOWN','A'),('G','UNKNOWN')])
 def test_unknown_identity_rejected(gid,room):
     assert 'desconocido' in check({gid:(room,1,420,480)})[0]
+
+
+def test_off_grid_free_interval_is_not_reported_as_impossible():
+    from src.scheduling.project_calendar import ProjectCalendar
+    from src.scheduling.validation import unassigned_reason
+    from src.scheduling.group import Group
+    calendar = ProjectCalendar(('Lunes',), 420, 480, ((420, 421),))
+    time = TimeModel.from_calendar(calendar)
+    rooms = {'R': Classroom('R', 20, 'REGULAR')}
+    group = Group('A', 59, 'REGULAR', size=10)
+    assert time.generate_start_candidates(59) == []
+    assert not validate_schedule({'A': ('R', 1, 421, 480)}, [group], rooms, time)
+    assert 'Esto no demuestra que sea imposible' in unassigned_reason(group, rooms, time)
+    group.duration_min = 60
+    assert 'La duración no cabe' in unassigned_reason(group, rooms, time)
+
+
+def test_duration_diagnosis_clips_breaks_to_operating_hours():
+    from src.scheduling.validation import unassigned_reason
+    from src.scheduling.group import Group
+    time = TimeModel(['Lunes'], day_start=420, day_end=480)
+    rooms = {'R': Classroom('R', 20, 'REGULAR')}
+    assert 'La duración no cabe' in unassigned_reason(Group('A', 61, 'REGULAR'), rooms, time)

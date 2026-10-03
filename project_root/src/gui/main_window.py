@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._worker = None
         self._generation_cancelled = False
+        self._generation_result_committed = False
         self._close_after_generation = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
@@ -370,7 +371,7 @@ class MainWindow(QMainWindow):
 
         seed_label = QLabel(msg('Semilla:'))
         seed_label.setToolTip(
-            msg('Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.')
+            msg('Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.')
         )
 
         self.chk_random_seed = QCheckBox(msg('Aleatoria'))
@@ -611,6 +612,7 @@ class MainWindow(QMainWindow):
         if self._busy:
             return
         self._generation_cancelled = False
+        self._generation_result_committed = False
         if not self._classrooms:
             QMessageBox.warning(self, msg('Advertencia'),
                                 msg('Cargue un Excel o agregue al menos un aula primero.'))
@@ -651,19 +653,38 @@ class MainWindow(QMainWindow):
     def _generation_finished(self, worker):
         if self._worker is not worker:
             return
-        self._set_busy(False)
-        if self._generation_cancelled:
-            self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+        # Retire worker ownership before any fallible presentation. A subsequent
+        # close must never see a stale running thread, even if a widget fails.
         self._worker = None
-        worker.deleteLater()
-        if self._close_after_generation:
-            self._close_after_generation = False
-            self.close()
+        try:
+            worker.deleteLater()
+            self._set_busy(self._restore_failed)
+            if self._restore_failed:
+                self._progress.setVisible(False)
+                self.btn_generate.setText(msg('Recuperación pendiente'))
+            elif self._generation_cancelled:
+                self.status_bar.showMessage(msg('Generación cancelada. Se conserva el horario anterior.'))
+        except Exception as error:
+            self._view_recovery_failure(error, committed=self._generation_result_committed)
+
+        close_requested = self._close_after_generation
+        self._close_after_generation = False
+        if self._restore_failed:
+            # Do not hide a new recovery notice through an earlier deferred
+            # close request. An explicit later close remains available.
+            self._import.closing = False
+        elif close_requested:
+            try:
+                self.close()
+            except Exception as error:
+                self._import.closing = False
+                self._view_recovery_failure(error, committed=self._generation_result_committed)
 
     def _on_schedule_done(self, assignments, groups):
         if self._generation_cancelled:
             return
 
+        self._generation_result_committed = False
         if assignments is not None and groups is not None:
             errors = validate_schedule(assignments, groups, self._validation_classrooms(),
                                        TimeModel.from_calendar(self.calendar),
@@ -674,29 +695,39 @@ class MainWindow(QMainWindow):
             if any(assignments.get(gid) != placement for gid, placement in self._pinned_assignments().items()):
                 self._on_schedule_error(msg('La generación cambió sesiones fijadas. Se conserva el horario anterior.'))
                 return
-            for group in groups:
-                group.pinned = group.group_id in self.pinned_group_ids
+            candidate = self._capture_edit_state()
+            candidate.update(assignments=deepcopy(assignments), schedule_present=True,
+                lab_overrides={g.group_id for g in groups if g.lab_override},
+                group_feedback={g.group_id: g.unassigned_reason for g in groups})
+            try:
+                # Generation is not an undo command, but must use the same
+                # guarded SQLite/materialization boundary as accepted edits.
+                self._persist_edit_state(candidate, result_groups=groups)
+            except Exception as error:
+                if not self._restore_failed:
+                    try:
+                        self._edit_failed(error)
+                    except Exception as feedback_error:
+                        self._view_recovery_failure(feedback_error, committed=False)
+                return
+
+            self._generation_result_committed = True
             from ..application.scenario_comparison import ALGORITHM_VERSION
             self._algorithm_version = ALGORITHM_VERSION
-            self.current_schedule = assignments
-            self.current_groups   = groups
+            try:
+                # Invalidate commands before fingerprinting the committed result;
+                # even a failed snapshot must not leave earlier commands usable.
+                self._history.reset(reason='generation')
+                self._history.observe(self._capture_edit_state())
+                already_showing_results = self.tabs.currentIndex() == 1
+                self.tabs.setCurrentIndex(1)
+                if already_showing_results:
+                    self._motion.reveal(self.schedule_viewer)
+                self._update_history_actions()
+                self._show_schedule_status()
+            except Exception as error:
+                self._committed_view_failure(error)
 
-            courses = self.course_manager.get_courses()
-            time_model = TimeModel.from_calendar(self.calendar)
-            course_name_map = {c.code: c.name for c in courses if c.name}
-
-            self.schedule_viewer.display_schedule(
-                assignments, time_model, groups, course_name_map, classrooms=self._classrooms
-            )
-            already_showing_results = self.tabs.currentIndex() == 1
-            self.tabs.setCurrentIndex(1)
-            if already_showing_results:
-                self._motion.reveal(self.schedule_viewer)
-            self._update_export_actions()
-
-            self._show_schedule_status()
-            self._refresh_overview()
-            self._save_session()
         else:
             self.status_bar.showMessage(msg('❌ No se pudo generar el horario'))
             dlg = _InfoDialog(
@@ -864,7 +895,7 @@ class MainWindow(QMainWindow):
             classroom_course_map=self._classroom_course_map,
         ))
 
-    def _persist_edit_state(self, state):
+    def _persist_edit_state(self, state, result_groups=None):
         if self._repo is None or self._restore_failed:
             raise OSError(msg('Sesión no disponible'))
         before = self._capture_edit_state()
@@ -896,7 +927,10 @@ class MainWindow(QMainWindow):
             nonlocal materialized
             materialized = True
             # Synchronous, no dialogs/event loops. _loading suppresses autosaves.
-            self._display_edit_state(state)
+            if result_groups is None:
+                self._display_edit_state(state)
+            else:
+                self._display_edit_state(state, result_groups=result_groups)
 
         if self._preserve_previous or state['calendar'] != self.calendar:
             self._repo.backup_session()
@@ -948,7 +982,10 @@ class MainWindow(QMainWindow):
         # if another presentation setter fails, no exception escapes a Qt slot.
         updates = [lambda: self._save_state_label.setText(message),
                    lambda: self._retry_save_button.setVisible(True),
-                   lambda: self.status_bar.showMessage(message)]
+                   lambda: self.status_bar.showMessage(message),
+                   lambda: self._progress.setVisible(False),
+                   lambda: self._cancel_button.setVisible(False),
+                   lambda: self.btn_generate.setText(msg('Recuperación pendiente'))]
         for control in (self.course_manager, self.schedule_viewer, self.btn_load,
                         self.btn_add_classroom, self.btn_generate, self.btn_restrictions,
                         self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):
@@ -959,7 +996,7 @@ class MainWindow(QMainWindow):
             except Exception as secondary:
                 self._save_error += '\n' + str(secondary)
 
-    def _display_edit_state(self, state):
+    def _display_edit_state(self, state, result_groups=None):
         self._loading = True
         previous_calendar = self.calendar
         previous_groups = {g.group_id: g for g in (self.current_groups or [])}
@@ -973,11 +1010,12 @@ class MainWindow(QMainWindow):
             self.pinned_group_ids = set(state['pinned_group_ids'])
             self.current_groups = None
             if state['schedule_present']:
-                generated = [g for c in state['courses'] for g in c.generate_groups()]
+                generated = (result_groups if result_groups is not None else
+                             [g for c in state['courses'] for g in c.generate_groups()])
                 dynamic = {'assignment', 'pinned', 'lab_override', 'unassigned_reason', 'domain'}
                 self.current_groups = []
                 for group in generated:
-                    previous = previous_groups.get(group.group_id)
+                    previous = previous_groups.get(group.group_id) if result_groups is None else None
                     if previous is not None and all(getattr(previous, key, None) == value
                             for key, value in vars(group).items() if key not in dynamic):
                         # Preserve existing viewer references only after durable

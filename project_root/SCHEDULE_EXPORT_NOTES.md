@@ -22,6 +22,8 @@ Asignaciones y CSV se ordenan por curso y grupo con orden natural (G2 antes de G
 
 Texto que pudiera interpretarse como fórmula recibe un apóstrofo inicial en ambos formatos. CR/CRLF se normalizan a LF y controles no admitidos por XML se convierten en espacios en ambos formatos. Los nombres de hojas se sanean y resuelven colisiones sin distinguir mayúsculas.
 
+Excel y CSV se escriben primero en un archivo temporal del mismo directorio y reemplazan el destino únicamente al terminar correctamente. Un fallo de escritura, cierre, sincronización o reemplazo conserva el archivo anterior y elimina el temporal.
+
 Excel incorpora encabezados repetidos al imprimir, filtros, paneles congelados, filas alternas, texto ajustado y orientación horizontal A4. Cada aula imprime solo su rango ocupado para evitar páginas iniciales vacías; no elimina sesiones ni modifica el horario. Las celdas combinadas reciben alturas explícitas.
 
 Las cuadrículas incorporan saltos de página explícitos y dividen las celdas combinadas en cada salto. Si una sesión continúa en otra página, se repite su etiqueta completa con el mismo horario original. Esto evita recortar texto al imprimir sin reducir el tamaño de letra; no añade asignaciones a las tablas ni al CSV.

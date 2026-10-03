@@ -92,3 +92,9 @@ those identities still exist. Known empty-room filters are retained after the
 last assignment is removed. A postcommit feedback failure reports that the change
 was saved and locks the view for recovery; it never claims the earlier session
 was preserved. Precommit rollback uses the distinct preserved-data recovery notice.
+
+Generation results share the guarded SQLite/materialization boundary, without
+creating an undo command. A failed write or result render retains the previous
+session and history; a successful generation resets history. If rollback cannot
+render, worker completion keeps recovery locked. Feedback failures after commit
+explicitly report that the new result was saved.

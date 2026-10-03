@@ -144,14 +144,6 @@
     "reason": "Optional icon loading falls back to the default window icon."
   },
   {
-    "file": "src/scheduling/scheduler.py",
-    "test_id": "B311",
-    "code_sha256": "e175cb9d0b7ef5687381e5845ff0d7e41114a3250e80de9f065ada48a6d9b263",
-    "count": 1,
-    "reviewed_on": "2026-10-03",
-    "reason": "Seeded scheduling heuristic needs reproducibility; this randomness is not used for secrets, tokens or security decisions. Re-reviewed after adding the adjacent cooperative cancellation token; Random(seed) behavior is unchanged."
-  },
-  {
     "file": "tools/package_windows.py",
     "test_id": "B404",
     "code_sha256": "455625c54d4f926809e4ee340dba3cec39563d4ff276160394dc7ba4feba727f",
@@ -198,5 +190,21 @@
     "count": 1,
     "reviewed_on": "2026-10-03",
     "reason": "Bounded developer-only source compatibility test: runs this interpreter with -I, a fixed checked-in worker program and argument-array paths/actions; no shell or network. Caller must supply trusted reviewed source checkouts because their modules are intentionally executed. Generates synthetic databases only in a new output directory; 60-second subprocess timeout. This does not permit arbitrary external commands or user database inputs."
+  },
+  {
+    "file": "src/scheduling/scheduler.py",
+    "test_id": "B311",
+    "code_sha256": "e615f25161e22175faa79c8ceed86a1511a5434a00bb6a96c08bf7d585bc22d7",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Reviewed seeded scheduling tie-breaking and per-run RNG reset: Random is used only to choose between equal-scored valid scheduling candidates. It never creates secrets, credentials, permission generations or security decisions. Reproducible fixed seeds are intentional; all scheduling constraints remain independently validated."
+  },
+  {
+    "file": "src/scheduling/scheduler.py",
+    "test_id": "B311",
+    "code_sha256": "55c945616ed001b19c8ab789752ccc1f6b53d3df007172c1b2d816e4cd7cd5cb",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Reviewed seeded scheduling tie-breaking and per-run RNG reset: Random is used only to choose between equal-scored valid scheduling candidates. It never creates secrets, credentials, permission generations or security decisions. Reproducible fixed seeds are intentional; all scheduling constraints remain independently validated."
   }
 ]

@@ -1,6 +1,25 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.': 'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.',
+    'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.': 'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.',
+    'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.': 'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.',
+
+    'Permitir servidor MCP local': 'Permitir servidor MCP local',
+    'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.': 'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.',
+    'Disponibilidad MCP sin verificar en este entorno.': 'Disponibilidad MCP sin verificar en este entorno.',
+    'Verificar disponibilidad local de MCP': 'Verificar disponibilidad local de MCP',
+    'Verificando componentes locales de MCP…': 'Verificando componentes locales de MCP…',
+    'MCP disponible en este entorno. El cliente inicia el servidor; Guardar no lo inicia.': 'MCP disponible en este entorno. El cliente inicia el servidor; Guardar no lo inicia.',
+    'Falta el SDK MCP opcional en este entorno. No se ha instalado nada.': 'Falta el SDK MCP opcional en este entorno. No se ha instalado nada.',
+    'Versión MCP incompatible. Se requiere mcp 1.30.0; no se ha cambiado nada.': 'Versión MCP incompatible. Se requiere mcp 1.30.0; no se ha cambiado nada.',
+    'Este EXE no incluye el servidor MCP opcional. Usa el código fuente y un entorno Python separado según MCP_OPTIONAL.md.': 'Este EXE no incluye el servidor MCP opcional. Usa el código fuente y un entorno Python separado según MCP_OPTIONAL.md.',
+    'No se pudieron cargar los componentes MCP. Revisa el entorno siguiendo MCP_OPTIONAL.md.': 'No se pudieron cargar los componentes MCP. Revisa el entorno siguiendo MCP_OPTIONAL.md.',
+    'La verificación MCP agotó el tiempo. Puedes volver a intentarlo.': 'La verificación MCP agotó el tiempo. Puedes volver a intentarlo.',
+    'Verificación MCP cancelada.': 'Verificación MCP cancelada.',
+    'Verifica que MCP esté disponible antes de activarlo. No se han guardado cambios.': 'Verifica que MCP esté disponible antes de activarlo. No se han guardado cambios.',
+    'Desactivar MCP bloquea nuevos inicios y solicitudes y descarta resultados pendientes. El cliente cierra el proceso stdio; una tarea en curso puede tardar hasta 10 segundos. La verificación solo comprueba este entorno; el EXE estándar no incluye MCP. Consulta MCP_OPTIONAL.md para un entorno Python separado.': 'Desactivar MCP bloquea nuevos inicios y solicitudes y descarta resultados pendientes. El cliente cierra el proceso stdio; una tarea en curso puede tardar hasta 10 segundos. La verificación solo comprueba este entorno; el EXE estándar no incluye MCP. Consulta MCP_OPTIONAL.md para un entorno Python separado.',
+
     'La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}': 'La sesión y sus parámetros de recursos no cambiaron. Algunas preferencias de herramientas se guardaron y no se pudieron restaurar. Recupere la configuración antes de continuar. {detail}',
     'Actualizar recursos': 'Actualizar recursos',
     'compact_assigned_count': {'one': '{n} asignada', 'other': '{n} asignadas'},
@@ -262,7 +281,7 @@ MESSAGES = {
     "Confirmar eliminación": "Confirmar eliminación",
     "Confirmar excepción de laboratorio": "Confirmar excepción de laboratorio",
     "Conflicto de aula\n": "Conflicto de aula\n",
-    "Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.": "Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.",
+    "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.": "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.",
     "Corrija el archivo y vuelva a cargarlo:": "Corrija el archivo y vuelva a cargarlo:",
     "Cuadrícula por aula": "Cuadrícula por aula",
     "Cuadrícula semanal por aula": "Cuadrícula semanal por aula",

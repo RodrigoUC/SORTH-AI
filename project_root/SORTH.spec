@@ -8,7 +8,7 @@ a = Analysis(
     [str(root / 'gui_app.py')],
     pathex=[str(root)],
     binaries=[],
-    datas=[(str(root / 'data/input'), 'data/input'), (str(root / 'assets'), 'assets'), (str(root / 'README.md'), '.'), (str(root.parent / 'CREDITS.md'), '.'), (str(root.parent / 'LICENSE'), '.'), (str(root.parent / 'LICENSING.md'), '.'), (str(root.parent / 'third_party'), 'third_party')],
+    datas=[(str(root / 'data/input'), 'data/input'), (str(root / 'assets'), 'assets'), (str(root / 'README.md'), '.'), (str(root / 'MCP_OPTIONAL.md'), '.'), (str(root.parent / 'CREDITS.md'), '.'), (str(root.parent / 'LICENSE'), '.'), (str(root.parent / 'LICENSING.md'), '.'), (str(root.parent / 'third_party'), 'third_party')],
     hiddenimports=['PyQt6'],
     hookspath=[],
     hooksconfig={},

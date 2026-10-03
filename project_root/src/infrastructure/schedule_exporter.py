@@ -2,7 +2,10 @@
 
 from math import ceil
 from pathlib import Path
+from contextlib import contextmanager
+import os
 import re
+import tempfile
 
 import pandas as pd
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -48,19 +51,47 @@ class ScheduleExporter:
                  include_grid: bool = True) -> None:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         name_map = self._build_name_map(assignments, groups, course_name_by_code)
-        with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-            if include_grid:
-                self._write_grid_sheets(writer, assignments, name_map)
-            self._write_detail_sheet(writer, assignments, name_map)
-            self._write_by_classroom_sheet(writer, assignments, name_map)
+        with self._atomic_output(output_path, ".xlsx") as temporary:
+            # Own the stream lifetime: pandas can raise during save before it
+            # closes its handles. Windows cannot unlink that open temporary.
+            with temporary.open("w+b") as target:
+                with pd.ExcelWriter(target, engine="openpyxl") as writer:
+                    if include_grid:
+                        self._write_grid_sheets(writer, assignments, name_map)
+                    self._write_detail_sheet(writer, assignments, name_map)
+                    self._write_by_classroom_sheet(writer, assignments, name_map)
 
     def to_csv(self, assignments: dict, output_path: str,
                groups=None, course_name_by_code: dict = None) -> None:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         name_map = self._build_name_map(assignments, groups, course_name_by_code)
-        self._detail_dataframe(assignments, name_map).to_csv(
-            output_path, index=False, encoding="utf-8-sig",
-        )
+        with self._atomic_output(output_path, ".csv") as temporary:
+            self._detail_dataframe(assignments, name_map).to_csv(
+                temporary, index=False, encoding="utf-8-sig",
+            )
+
+    @staticmethod
+    @contextmanager
+    def _atomic_output(output_path, suffix):
+        """Keep an existing export intact until serialization and flush succeed.
+
+        Close the named temporary file before libraries reopen it (Windows),
+        and keep it on the destination filesystem for atomic replacement.
+        """
+        destination = Path(output_path)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=destination.parent,
+                                             prefix=".sorth-export-", suffix=suffix,
+                                             delete=False) as handle:
+                temporary = Path(handle.name)
+            yield temporary
+            with temporary.open("r+b") as handle:
+                os.fsync(handle.fileno())
+            os.replace(temporary, destination)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def to_pdf(self, assignments: dict, output_path: str,
                groups=None, course_name_by_code: dict = None, *, filtered=False,

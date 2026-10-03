@@ -21,6 +21,15 @@ from .test_preview import request
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.fixture(autouse=True)
+def explicit_mcp_permission(tmp_path_factory, monkeypatch):
+    from src.application.mcp_preferences import set_enabled
+    path = tmp_path_factory.mktemp('mcp-permission') / 'optional-features.json'
+    set_enabled(path, True)
+    monkeypatch.setenv('SORTH_TEST_PREF', str(path))
+
+
+
 def test_real_stdio_initialize_list_call(tmp_path):
     sentinel = tmp_path / "SORTH" / "sorth_session.db"
     sentinel.parent.mkdir()
@@ -29,7 +38,7 @@ def test_real_stdio_initialize_list_call(tmp_path):
                     for p in tmp_path.rglob("*") if p.is_file()}
     async def exercise():
         params = StdioServerParameters(command=sys.executable,
-                                      args=["-B", "-m", "src.mcp_adapter.server"],
+                                      args=["-B", "-m", "src.mcp_adapter.server", "--preferences", os.environ["SORTH_TEST_PREF"]],
                                       cwd=str(ROOT), env={"PYTHONDONTWRITEBYTECODE": "1",
                                                          "XDG_DATA_HOME": str(tmp_path)})
         async with stdio_client(params) as (read, write):
@@ -125,7 +134,7 @@ def test_cancel_and_busy_reap_worker(monkeypatch):
 def test_real_wire_cancellation_invalid_frame_and_limit(tmp_path):
     async def exercise():
         process = await asyncio.create_subprocess_exec(
-            sys.executable, "-B", "-m", "src.mcp_adapter.server", cwd=ROOT,
+            sys.executable, "-B", "-m", "src.mcp_adapter.server", "--preferences", os.environ["SORTH_TEST_PREF"], cwd=ROOT,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "XDG_DATA_HOME": str(tmp_path)})
@@ -218,7 +227,7 @@ def test_sigint_exits_with_stdin_pipe_held_open():
     import signal
     import subprocess
     import time
-    process = subprocess.Popen([sys.executable, "-B", "-m", "src.mcp_adapter.server"],
+    process = subprocess.Popen([sys.executable, "-B", "-m", "src.mcp_adapter.server", "--preferences", os.environ["SORTH_TEST_PREF"]],
                                cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     try:
@@ -339,3 +348,57 @@ def test_hash_lock_explicitly_covers_windows_only_dependencies():
             child = locked[canonicalize_name(requirement.name)]
             pinned = next(iter(child.specifier)).version
             assert requirement.specifier.contains(pinned)
+
+
+def test_off_blocks_existing_client_and_discards_inflight_result(tmp_path, monkeypatch):
+    from src.application.mcp_preferences import set_enabled
+    from src.mcp_adapter.server import build_server
+    from mcp.types import CallToolRequest, CallToolRequestParams
+    path = tmp_path / 'preferences.json'
+    set_enabled(path, True)
+    server = build_server(path)
+    handler = server.request_handlers[CallToolRequest]
+    async def exercise():
+        request_message = CallToolRequest(method='tools/call', params=CallToolRequestParams(
+            name='generate_preview', arguments=request()))
+        async def disable_during_generate(self, value):
+            set_enabled(path, False)
+            return {'status': 'complete'}
+        monkeypatch.setattr(PreviewExecutor, 'generate', disable_during_generate)
+        response = await handler(request_message)
+        assert response.root.isError
+        assert response.root.structuredContent['error']['code'] == 'MCP_DISABLED'
+        monkeypatch.setattr(PreviewExecutor, 'generate', lambda *args: pytest.fail('No work may start while off'))
+        response = await handler(request_message)
+        assert response.root.structuredContent['error']['code'] == 'MCP_DISABLED'
+    asyncio.run(exercise())
+
+
+def test_revocation_then_reenable_discards_previous_generation(tmp_path, monkeypatch):
+    from src.application.mcp_preferences import set_enabled
+    from src.application.schedule_preview import generate_preview
+    from src.mcp_adapter.server import build_server
+    from mcp.types import CallToolRequest, CallToolRequestParams
+    path = tmp_path / 'preferences.json'
+    set_enabled(path, True)
+    handler = build_server(path).request_handlers[CallToolRequest]
+    result = generate_preview(request())
+    async def revoke_and_reenable(self, value):
+        set_enabled(path, False)
+        await asyncio.sleep(0)
+        set_enabled(path, True)
+        return result
+    monkeypatch.setattr(PreviewExecutor, 'generate', revoke_and_reenable)
+    async def exercise():
+        message = CallToolRequest(method='tools/call', params=CallToolRequestParams(
+            name='generate_preview', arguments=request()))
+        response = await handler(message)
+        assert response.root.isError
+        assert response.root.structuredContent['error']['code'] == 'MCP_DISABLED'
+        async def next_generation(self, value):
+            return result
+        monkeypatch.setattr(PreviewExecutor, 'generate', next_generation)
+        response = await handler(message)
+        assert not response.root.isError
+        assert response.root.structuredContent['status'] == 'complete'
+    asyncio.run(exercise())

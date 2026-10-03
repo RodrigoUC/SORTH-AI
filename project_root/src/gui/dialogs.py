@@ -26,7 +26,8 @@ class ClassroomRestrictionsDialog(QDialog):
         self.resize(700, 480)
         self._map = {k: list(v) for k, v in classroom_course_map.items()}
         # Working copy: classroom -> set of selected course codes
-        self._selected: dict[str, set[str]] = {}
+        self._selected: dict[str, set[str]] = {name: set(codes) for name, codes in self._map.items()}
+        self._enabled = set(existing or {})
         if existing:
             for cls, codes in existing.items():
                 self._selected[cls] = set(codes)
@@ -57,7 +58,7 @@ class ClassroomRestrictionsDialog(QDialog):
         for classroom in sorted(self._map):
             item = QListWidgetItem(classroom)
             item.setCheckState(
-                Qt.CheckState.Checked if classroom in self._selected
+                Qt.CheckState.Checked if classroom in self._enabled
                 else Qt.CheckState.Unchecked
             )
             self.cls_list.addItem(item)
@@ -125,10 +126,8 @@ class ClassroomRestrictionsDialog(QDialog):
         classroom = self._current_classroom()
         if not classroom:
             return
-        # Only persist if classroom is checked
-        cls_item = self._find_cls_item(classroom)
-        if cls_item and cls_item.checkState() == Qt.CheckState.Checked:
-            self._save_current_courses(classroom)
+        # Keep draft selections even while the room restriction is disabled.
+        self._save_current_courses(classroom)
 
     def _find_cls_item(self, classroom: str) -> QListWidgetItem | None:
         for i in range(self.cls_list.count()):
@@ -143,10 +142,8 @@ class ClassroomRestrictionsDialog(QDialog):
             item = self.course_list.item(i)
             if item.checkState() == Qt.CheckState.Checked:
                 codes.add(item.text())
-        if codes:
-            self._selected[classroom] = codes
-        else:
-            self._selected.pop(classroom, None)
+        # Empty is an explicit choice, never the uninitialized default.
+        self._selected[classroom] = codes
 
     def _check_all(self):
         self.course_list.blockSignals(True)
@@ -164,7 +161,7 @@ class ClassroomRestrictionsDialog(QDialog):
         self.course_list.blockSignals(False)
         classroom = self._current_classroom()
         if classroom:
-            self._selected.pop(classroom, None)
+            self._selected[classroom] = set()
 
     def get_restrictions(self) -> dict[str, set[str]]:
         """Return {classroom: {course_codes}} only for checked+non-empty classrooms."""
@@ -173,12 +170,9 @@ class ClassroomRestrictionsDialog(QDialog):
             item = self.cls_list.item(i)
             if item.checkState() == Qt.CheckState.Checked:
                 classroom = item.text()
-                codes = self._selected.get(classroom)
-                if not codes:
-                    # Default: all courses in map
-                    codes = set(self._map.get(classroom, []))
+                codes = self._selected.get(classroom, set())
                 if codes:
-                    result[classroom] = codes
+                    result[classroom] = set(codes)
         return result
 
 

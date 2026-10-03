@@ -42,6 +42,15 @@ Descargar paquetes, instalar dependencias y abrir enlaces del manual/repositorio
 
 ## Integración MCP voluntaria
 
+La opción MCP de Configuración guarda únicamente un permiso booleano local,
+desactivado de origen, en el mismo archivo de preferencias opcionales. La prueba
+de disponibilidad carga componentes locales en un proceso temporal limitado;
+no envía información a un proveedor ni instala nada. El servidor lee el permiso
+al iniciar y en cada solicitud y descarta resultados pendientes cuando está
+desactivado. El cliente conserva el control del cierre del proceso; desactivar
+no revoca información que ya haya recibido. El EXE estándar no incluye MCP y
+muestra esa limitación.
+
 El [adaptador MCP opcional](project_root/MCP_OPTIONAL.md) sólo se inicia por decisión explícita desde un cliente local stdio; no abre un servidor de red ni se inicia con la GUI. Recibe exclusivamente cursos/aulas suministrados en la solicitud y devuelve configuración normalizada, propuesta y pendientes. No lee la sesión activa ni el catálogo de escenarios, ni permite guardar, aplicar, exportar, elegir rutas o consultar archivos personales. Rechaza campos de docentes, estudiantes, membresías, disponibilidad y calendario personalizado; activar recursos en la GUI no amplía este contrato. No llama modelos ni pide claves. Los diagnósticos de este adaptador son mínimos por stderr y no repiten datos de solicitudes; stdout se reserva para el protocolo.
 
 El host elegido sí conoce los datos que envía y recibe, y puede compartirlos con un proveedor según sus propias reglas. Sus permisos, retención, telemetría y posibles costes son externos a SORTH. Instalar el SDK y dependencias utiliza servicios de distribución externos. Usa ejemplos sintéticos y revisa autorización institucional antes de proporcionar datos reales a un host. Desactivar o cerrar esta integración no borra lo que un host/proveedor ya haya conservado. El núcleo offline sigue funcionando sin la integración ni sus dependencias.
@@ -61,3 +70,5 @@ GitHub es un servicio externo: al visitarlo o publicar, GitHub procesa datos de 
 ## Base de esta revisión
 
 Se inspeccionaron `gui_app.py`, `main.py`, `src/`, la configuración de empaquetado y los puntos de escritura de datos: `SessionRepository`, `ProjectRepository`, `SchedulingResources`, `FeaturePreferences`, `SettingsDialog`, `EditHistory`, `gui_session_lock.py`, `LanguageManager`, `MotionController`, exportadores y `packaged_smoke.py`. Las rutas y los datos descritos corresponden al inicio normal; pruebas y herramientas técnicas pueden usar rutas explícitas distintas. Revisa este aviso si una versión añade red, registros, nuevas preferencias, almacenamiento o integraciones.
+
+El permiso MCP opcional incluye una generación aleatoria local para descartar propuestas iniciadas antes de desactivarlo. No identifica a una persona ni se envía a un proveedor. Un archivo lateral `.lock` coordina los cambios de configuración entre procesos; no contiene horarios ni credenciales.
