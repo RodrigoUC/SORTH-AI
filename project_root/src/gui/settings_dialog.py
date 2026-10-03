@@ -1,6 +1,6 @@
 """Transactional native settings: Cancel never changes preferences or project data."""
 from PyQt6.QtWidgets import QVBoxLayout
-from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox
+from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton
 from .i18n import msg
 from .features import FEATURES
 
@@ -15,6 +15,14 @@ class SettingsDialog(QDialog):
         intro = QLabel(msg('Las funciones opcionales empiezan desactivadas. Los cambios se guardan en este equipo.'))
         intro.setWordWrap(True)
         layout.addWidget(intro)
+        self.recovery_label = QLabel(msg('La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.'))
+        self.recovery_label.setWordWrap(True)
+        self.recovery_label.setVisible(bool(window._features.load_error))
+        layout.addWidget(self.recovery_label)
+        self.recover_button = QPushButton(msg('Conservar original y restablecer herramientas'))
+        self.recover_button.setVisible(bool(window._features.load_error))
+        self.recover_button.clicked.connect(self.recover_preferences)
+        layout.addWidget(self.recover_button)
         self.controls = {}
         for feature in FEATURES:
             control = QCheckBox(msg(feature.title))
@@ -39,6 +47,26 @@ class SettingsDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
 
+    def recover_preferences(self):
+        answer = QMessageBox.question(self, msg('Configuración'), msg(
+            'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?'),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.window._features.recover_defaults()
+        except (OSError, ValueError):
+            self.recovery_label.setVisible(bool(self.window._features.load_error))
+            self.recover_button.setVisible(bool(self.window._features.load_error))
+            QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
+            return
+        for control in self.controls.values():
+            control.setChecked(False)
+        self.window._apply_feature_preferences()
+        self.recovery_label.hide()
+        self.recover_button.hide()
+
     def accept(self):
         values = {key: control.isChecked() for key, control in self.controls.items()}
         if (self.window._features.enabled('pinned_sessions') and not values['pinned_sessions']
@@ -52,6 +80,8 @@ class SettingsDialog(QDialog):
         try:
             self.window._features.save(values)
         except (OSError, ValueError):
+            self.recovery_label.setVisible(bool(self.window._features.load_error))
+            self.recover_button.setVisible(bool(self.window._features.load_error))
             QMessageBox.warning(self, msg('Configuración'), msg('No se pudo guardar la configuración. Revisa los permisos e inténtalo de nuevo.'))
             return
         self.window._apply_feature_preferences()

@@ -1,6 +1,15 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'Optional settings could not be read. Open Settings to preserve and recover them.',
+    'Herramientas de sesiones fijadas': 'Pinned session tools',
+    'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Show pin/unpin controls. Saved pins are always enforced.',
+    'Herramientas de proyectos y escenarios': 'Project and scenario tools',
+    'Mostrar controles para guardar, abrir y comparar copias independientes.': 'Show controls to save, open and compare independent snapshots.',
+    'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.': 'Optional settings cannot be read. You can preserve the original file and reset only these tools.',
+    'Conservar original y restablecer herramientas': 'Preserve original and reset tools',
+    'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?': 'The original file will be preserved and optional tools turned off. Schedules, pins and scenarios will not change. Continue?',
+
     'Cancelar generación': 'Cancel generation',
     'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelling generation; the schedule and pinned sessions will be preserved.',
 

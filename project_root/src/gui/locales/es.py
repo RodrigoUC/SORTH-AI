@@ -1,6 +1,15 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.': 'No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.',
+    'Herramientas de sesiones fijadas': 'Herramientas de sesiones fijadas',
+    'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.': 'Mostrar controles para fijar o desfijar. Las fijaciones guardadas siempre se respetan.',
+    'Herramientas de proyectos y escenarios': 'Herramientas de proyectos y escenarios',
+    'Mostrar controles para guardar, abrir y comparar copias independientes.': 'Mostrar controles para guardar, abrir y comparar copias independientes.',
+    'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.': 'La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.',
+    'Conservar original y restablecer herramientas': 'Conservar original y restablecer herramientas',
+    'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?': 'Se conservará el archivo original y se desactivarán las herramientas opcionales. Los horarios, fijaciones y escenarios no cambian. ¿Continuar?',
+
     'Cancelar generación': 'Cancelar generación',
     'Cancelando generación; se conservarán el horario y las sesiones fijadas.': 'Cancelando generación; se conservarán el horario y las sesiones fijadas.',
 

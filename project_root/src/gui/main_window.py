@@ -628,6 +628,8 @@ class MainWindow(QMainWindow):
 
     def _update_feature_notice(self):
         notices = []
+        if self._features.load_error:
+            notices.append(msg('No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.'))
         if self.pinned_group_ids and not self._features.enabled('pinned_sessions'):
             notices.append(msg('Hay sesiones fijadas: siguen protegidas. Activa Sesiones fijadas en Configuración para modificarlas.'))
         catalog_path = getattr(self._repo, '_db_path', None)
