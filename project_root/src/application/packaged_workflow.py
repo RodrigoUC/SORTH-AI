@@ -1,13 +1,13 @@
 """Deterministic packaged workflow checks; isolated synthetic data only."""
 import csv
 import hashlib
+from pathlib import Path
 from time import monotonic
 from openpyxl import Workbook, load_workbook
 from PyQt6.QtCore import QTimer, QEventLoop
 from PyQt6.QtWidgets import QApplication, QDialog
-from ..gui.main_window import MainWindow
+from ..gui.i18n import language_manager
 from ..infrastructure.excel_reader import ExcelReader, ExcelImportError
-from ..infrastructure.session_repository import SessionRepository
 from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..scheduling.time_model import TimeModel
 from .scheduling_service import SchedulingService
@@ -49,7 +49,8 @@ def verify_workflow(window, output, result):
         if isinstance(dialog, QDialog):
             dialog.accept()
     QTimer.singleShot(0, accept_restore)
-    reopened = MainWindow(repo=SessionRepository(str(output / 'smoke-session.db')))
+    from .packaged_smoke import create_smoke_window
+    reopened = create_smoke_window(output)
     try:
         if not (reopened.course_manager.get_courses()[0].name == edited_name):
             raise RuntimeError('Packaged workflow verification failed: reopened.course_manager.get_courses()[0].name == edited_name')
@@ -121,3 +122,172 @@ def verify_workflow(window, output, result):
             raise RuntimeError('Packaged workflow verification failed: len(list(csv.DictReader(stream))) == 500')
     result['large_fixture'] = {'courses': 500, 'rooms': 50, 'assigned': len(assignments), 'elapsed_seconds': round(monotonic()-started, 3)}
     result['stages'].append('large_workbook_schedule_export')
+
+
+def smoke_preserved_files(output):
+    """Fingerprint schedule and unrelated preferences, including MCP permission."""
+    from .packaged_smoke import smoke_settings
+    from .mcp_preferences import default_path
+    paths = (output / 'smoke-session.db', default_path(),
+             Path(smoke_settings(output).fileName()))
+    return {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in paths}
+
+
+def _theme_restart(output, phase, frozen):
+    """Rerun this exact executable, without a shell, provider, SDK or network."""
+    import os
+    import sys
+    import json
+    from PyQt6.QtCore import QProcess, QProcessEnvironment
+    report_path = output / f'theme-{phase}-restart.json'
+    if report_path.exists():
+        raise RuntimeError('Refusing stale theme restart evidence.')
+    process = QProcess()
+    if frozen:
+        # Ask the PyInstaller bootloader for an independent application instance.
+        environment = QProcessEnvironment.systemEnvironment()
+        environment.insert('PYINSTALLER_RESET_ENVIRONMENT', '1')
+        process.setProcessEnvironment(environment)
+    arguments = [] if frozen else [str(Path(__file__).resolve().parents[2] / 'gui_app.py')]
+    arguments += ['--smoke-test', '--smoke-output', str(output), '--smoke-theme-probe', phase]
+    process.start(sys.executable, arguments)
+    if not process.waitForStarted(10000) or not process.waitForFinished(30000):
+        process.kill()
+        process.waitForFinished(5000)
+        raise RuntimeError(f'Theme {phase} restart timed out: {process.errorString()}')
+    diagnostics = bytes(process.readAllStandardError()).decode('utf-8', errors='replace')
+    (output / f'theme-{phase}-restart.log').write_text(diagnostics, encoding='utf-8')
+    if process.exitStatus() != QProcess.ExitStatus.NormalExit or process.exitCode() != 0:
+        raise RuntimeError(f'Theme {phase} restart failed; inspect its JSON/log evidence.')
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    if (not report.get('ok') or report.get('frozen') != frozen
+            or report.get('pid') == os.getpid() or report.get('phase') != phase
+            or report.get('text_rendering', {}).get('ok') is not True):
+        raise RuntimeError('Invalid or mismatched fresh-process theme evidence.')
+    return report
+
+
+def verify_theme_workflow(window, output, result):
+    """Exercise real Appearance controls and restart with synthetic local JSON."""
+    import json
+    from ..gui import theme
+    from ..gui.appearance_dialog import AppearanceDialog
+    from PyQt6.QtGui import QPalette
+    from ..gui.theme_contract import MAX_THEME_BYTES
+    from .edit_history import fingerprint
+    manager = theme.theme_manager()
+    appearance = manager.preferences.path
+    preserved = smoke_preserved_files(output)
+    domain = fingerprint(window._capture_edit_state())
+    flags = window._features.values()
+    motion = window._motion.reduced
+
+    def unchanged():
+        if (smoke_preserved_files(output) != preserved
+                or fingerprint(window._capture_edit_state()) != domain
+                or window._features.values() != flags or window._motion.reduced != motion
+                or language_manager().language != 'es'):
+            raise RuntimeError('Appearance changed schedule, permissions, locale or motion.')
+
+    def active(spec, key):
+        from PyQt6.QtGui import QPalette
+        if (manager.current_key != key or manager.current.to_dict() != spec.to_dict()
+                or QApplication.instance().palette().color(QPalette.ColorRole.Window).name()
+                != spec.colors['canvas'].lower()):
+            raise RuntimeError('Appearance Apply failed to update the native theme.')
+        unchanged()
+
+    # Preview every built-in through the actual selector, then cancel with no save.
+    dialog = AppearanceDialog(window)
+    try:
+        dialog.show()
+        initial = manager.current
+        initial_stylesheet = QApplication.instance().styleSheet()
+        for choice in theme.builtin_themes():
+            dialog.selector.setCurrentIndex(dialog.selector.findData(choice.key))
+            QApplication.processEvents()
+            if (dialog.candidate != choice.spec or manager.current != initial or appearance.exists()
+                    or QApplication.instance().styleSheet() != initial_stylesheet
+                    or dialog.preview.palette().color(QPalette.ColorRole.Window).name()
+                    != choice.spec.colors['canvas'].lower()):
+                raise RuntimeError('Built-in selection applied or saved without Apply.')
+            unchanged()
+        dialog.cancel_button.click()
+        if dialog.result() != QDialog.DialogCode.Rejected or appearance.exists():
+            raise RuntimeError('Cancel persisted an appearance preview.')
+    finally:
+        dialog.close()
+    result['stages'].append('theme_builtin_preview_cancel')
+
+    for choice in theme.builtin_themes():
+        dialog = AppearanceDialog(window)
+        try:
+            dialog.selector.setCurrentIndex(dialog.selector.findData(choice.key))
+            dialog.apply_button.click()
+            if dialog.result() != QDialog.DialogCode.Accepted:
+                raise RuntimeError('Built-in Apply did not complete.')
+            active(choice.spec, choice.key)
+        finally:
+            dialog.close()
+    result['stages'].append('theme_builtin_apply')
+
+    data = theme.builtin_themes()[1].spec.to_dict()
+    data['colors']['on_header'] = '#F4F7FB'
+    data['name'] = 'Synthetic AI-compatible theme'
+    data['description'] = 'Local data-only fixture; no AI service is contacted.'
+    imported = output / 'synthetic.sorth-theme.json'
+    imported.write_text(json.dumps(data), encoding='utf-8')
+    dialog = AppearanceDialog(window)
+    try:
+        before = appearance.read_bytes(), manager.current
+        if not dialog.import_file(imported):
+            raise RuntimeError('Valid data-only theme import failed.')
+        if (appearance.read_bytes(), manager.current) != before:
+            raise RuntimeError('Import changed appearance before Apply.')
+        custom = dialog.candidate
+        bad_color = dict(data, colors=dict(data['colors'], text='url(file:///unsafe.svg)'))
+        low_contrast = dict(data, colors=dict(data['colors'], text=data['colors']['surface']))
+        invalid = [dict(data, stylesheet='QWidget { color: red; }'),
+                   dict(data, script='do not execute'), bad_color, low_contrast,
+                   dict(data, schema_version=2)]
+        payloads = [json.dumps(item).encode('utf-8') for item in invalid]
+        duplicate = b'{"name":"duplicate",' + json.dumps(data).encode('utf-8')[1:]
+        payloads += [b'{broken', duplicate, b'x' * (MAX_THEME_BYTES + 1)]
+        for index, payload in enumerate(payloads):
+            unsafe = output / f'invalid-theme-{index}.json'
+            unsafe.write_bytes(payload)
+            if dialog.import_file(unsafe) or dialog.candidate != custom:
+                raise RuntimeError('Unsafe JSON was accepted or replaced the valid preview.')
+            if (appearance.read_bytes(), manager.current) != before:
+                raise RuntimeError('Invalid JSON changed active/persisted appearance.')
+            unchanged()
+        result['stages'].append('theme_unsafe_json_rejected')
+        dialog.apply_button.click()
+        if dialog.result() != QDialog.DialogCode.Accepted:
+            raise RuntimeError('Custom appearance Apply did not complete.')
+        active(custom, 'custom')
+        imported.unlink()  # Saved themes must not depend on the import location.
+        (output / 'theme-expected.json').write_text(
+            json.dumps({'theme': data, 'domain': domain}), encoding='utf-8')
+    finally:
+        dialog.close()
+    result['stages'].append('theme_custom_import_apply')
+    saved = appearance.read_bytes()
+    result['theme_restarts'] = [_theme_restart(output, 'custom', result['frozen'])]
+    if appearance.read_bytes() != saved:
+        raise RuntimeError('Restart rewrote the custom appearance record.')
+    unchanged()
+    result['stages'].append('theme_custom_fresh_process_restart')
+    corrupt = b'{"version": 999, "synthetic_corrupt_theme": true}\n'
+    try:
+        appearance.write_bytes(corrupt)
+        result['theme_restarts'].append(_theme_restart(output, 'fallback', result['frozen']))
+        if appearance.read_bytes() != corrupt:
+            raise RuntimeError('Fallback rewrote the corrupt appearance record.')
+        unchanged()
+        result['stages'].append('theme_corrupt_fresh_process_fallback')
+    finally:
+        # Restore only this synthetic fixture, preserving useful final evidence.
+        appearance.write_bytes(saved)
+    result['stages'].append('theme_preserves_session_and_preferences')

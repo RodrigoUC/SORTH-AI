@@ -97,6 +97,55 @@ aceptaciones por separado. No hay publicación ni firma automática.
 
 `Windows review build` ejecuta el commit exacto del PR en Windows x64, con permisos de lectura y acciones fijadas a SHA. Instala el lock base con verificación de hashes, ejecuta la suite, genera el PDF y prepara el compañero en un entorno aislado con su propio lock. Compila la GUI con `-McpPrepared`, ejecuta los controles del compañero y abre la GUI en Qt offscreen. La prueba importa el Excel incluido, genera en QThread, exporta Excel/CSV, verifica SQLite y captura la ventana, usando una sesión temporal separada.
 
+Qt offscreen en Windows usa una base de fuentes FreeType que no descubre por sí
+sola las fuentes del escritorio. El CI establece `QT_QPA_FONTDIR` con la carpeta
+especial de fuentes instaladas de Windows antes de iniciar Qt, y registra sólo
+la ruta y el número de archivos compatibles en `qt-font-discovery.json`. No copia,
+redistribuye ni sube fuentes del sistema. La aplicación normal no cambia su familia
+tipográfica ni su plataforma Qt. Esta ruta se basa en el código oficial de Qt
+6.11.2: [offscreen](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/offscreen/qoffscreenintegration.cpp),
+[FreeType](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/text/freetype/qfreetypefontdatabase.cpp)
+y [directorio de fuentes](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/text/qplatformfontdatabase.cpp).
+
+Antes de aceptar capturas, el smoke exige una base de fuentes no vacía, cobertura
+de caracteres ingleses/españoles en las fuentes reales de los controles visibles
+y rásteres de texto con tinta y formas diferentes. Guarda `text-rendering-*.json`
+y `.png` al inicio, en ambos idiomas y en cada reinicio. Un PNG no vacío por sí
+solo no pasa el control: los cuadros de glifos ausentes deben causar fallo. Los
+20 pasos funcionales siguen vigentes. Revisar también las capturas reales del
+paquete y del instalado; esta comprobación no es OCR ni garantiza todos los
+caracteres de datos de usuario. La aceptación visual de escritorio nativo Windows
+(con su plataforma `windows`, DPI y fuentes reales) continúa pendiente por separado.
+
+Antes de medir o capturar una pantalla, el smoke entrega solamente los eventos
+nativos `LayoutRequest` pendientes hasta estabilizar la geometría. Así evita
+pintar una etiqueta nueva con el ancho anterior de «Generando…» o del otro idioma.
+No bombea entradas, temporizadores ni señales del trabajador, y no cambia fuentes,
+textos, tamaños de ventana o reglas de la interfaz normal. El informe registra los
+límites de contenido y texto de cada botón visible; una etiqueta que realmente
+no cabe, o una geometría que no se estabiliza, hace fallar el smoke. Esta prueba
+acotada no certifica todos los encabezados de tabla ni la accesibilidad completa.
+
+La misma prueba usa un perfil sintético separado para apariencia, QSettings y
+preferencias opcionales; nunca escribe preferencias normales del usuario. Idioma,
+movimiento y lectura de preferencias heredadas reciben un QSettings con archivo
+INI explícito y fallbacks desactivados; no dependen del formato predeterminado de
+Qt ni del registro de Windows. El informe registra las rutas efectivas de cada
+consumidor dentro del perfil sintético. Comprueba
+los temas integrados con Vista previa/Cancelar/Aplicar, importa un tema JSON local,
+rechaza contenido no permitido y conserva los bytes de la sesión, permisos MCP,
+idioma y reducción de movimiento. Después inicia dos procesos nuevos del mismo
+`SORTH.exe`: uno recupera el tema personalizado sin el archivo importado, y otro
+muestra Original claro con aviso al encontrar preferencias de apariencia dañadas,
+sin reescribirlas. Los informes `theme-*-restart.json` y capturas acompañan a
+`smoke-result.json`. También se ejecuta esta secuencia desde la aplicación instalada.
+
+Estos controles desde `python gui_app.py --smoke-test` son evidencia **de fuentes**:
+los informes deben indicar `frozen: false`. Sólo ejecutar el EXE construido en
+Windows y comprobar `frozen: true` en el informe principal y ambos reinicios valida
+ese paquete. Qt offscreen sigue sin sustituir la revisión visual, DPI, SmartScreen
+ni la aceptación en una PC limpia. No se conecta un proveedor de IA ni se habilita MCP.
+
 Después crea un ZIP **sin firma**, `SHA256SUMS.txt`, un inventario con el commit y el manual actual. Los artefactos `SORTH-windows-review-*` y `SORTH-windows-checks-*` se conservan siete días en la ejecución de Actions. Se necesitan permisos de lectura de la ejecución para descargarlos. No se crea una GitHub Release, no se firma, no se despliega y no se modifica la protección de Windows.
 
 Las pruebas automatizadas no sustituyen probar interactivamente en un Windows limpio sin Python, con un usuario estándar y las protecciones activas. En particular, no se presentan como análisis de Defender ni prueba de reputación de descarga SmartScreen.

@@ -115,6 +115,18 @@ class SettingsDialog(QDialog):
             section_summary.setObjectName('mutedText')
             section_layout.addWidget(section_summary)
             section_layout.addSpacing(6)
+            if key == 'general':
+                self.appearance_button = QPushButton(msg('Apariencia…'))
+                self.appearance_button.clicked.connect(self.open_appearance)
+                section_layout.addWidget(self.appearance_button)
+                appearance_note = QLabel(msg('Temas integrados o propios. Aplicar en Apariencia guarda el tema de inmediato; Guardar y Cancelar aquí solo afectan a las herramientas opcionales.'))
+                appearance_note.setWordWrap(True)
+                appearance_note.setObjectName('mutedText')
+                section_layout.addWidget(appearance_note)
+                divider = QFrame()
+                divider.setObjectName('settingsDivider')
+                divider.setFixedHeight(1)
+                section_layout.addWidget(divider)
             if key == 'mcp':
                 self._add_mcp_section(section_layout, self.controls['mcp_server'], descriptions['mcp_server'])
             else:
@@ -159,7 +171,7 @@ class SettingsDialog(QDialog):
         self._responsive_actions = ResponsiveActionLabels(scroll, [
             *self.controls.values(), self.recover_button, self.calendar_button,
             self.mcp_check_button, self.mcp_prepare_button, self.mcp_cancel_button,
-            self.mcp_help_button,
+            self.mcp_help_button, self.appearance_button,
         ], self)
         for control in self.controls.values():
             control.toggled.connect(self._refresh_save_state)
@@ -168,7 +180,7 @@ class SettingsDialog(QDialog):
         self._refresh_mcp_permission()
         self._refresh_save_state()
         # Native tab order follows each section; hidden sections are skipped.
-        ordered = [self.section_selector, self.recover_button,
+        ordered = [self.section_selector, self.recover_button, self.appearance_button,
                    *(self.controls[key] for section in ('general', 'resources', 'advanced')
                      for key in self.section_features[section]), self.calendar_button,
                    self.mcp_status_label, self.mcp_check_button, self.mcp_prepare_button,
@@ -180,6 +192,16 @@ class SettingsDialog(QDialog):
             self.setTabOrder(previous, following)
         QApplication.instance().focusChanged.connect(self._scroll_to_focus)
         self.section_selector.setFocus(Qt.FocusReason.TabFocusReason)
+
+    def open_appearance(self):
+        # Theme persistence is intentionally separate from optional preferences.
+        # Opening or cancelling never commits this dialog's pending checkboxes.
+        from .appearance_dialog import AppearanceDialog
+        dialog = AppearanceDialog(self)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
 
     def _scroll_to_focus(self, previous, focused):
         # Nested section widgets are not direct children of the scroller. Native

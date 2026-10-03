@@ -1,55 +1,73 @@
-"""Palette regression checks: text, component boundaries and packaged icons."""
+"""Palette contracts, trusted assets and immutable native theme choices."""
 from pathlib import Path
+from PyQt6.QtCore import QFile, QIODevice
+from dataclasses import FrozenInstanceError
 import pytest
-from src.gui.theme import COLORS, STYLESHEET
+from src.gui.theme import COLORS, STYLESHEET, builtin_themes, stylesheet_for, trusted_assets
+from src.gui.theme_contract import COLOR_ROLES, COURSE_GUTTER, ThemeSpec, contrast_ratio, contrast_checks
 from src.scheduling.schedule_grid import COURSE_COLORS, GRID_TEXT_COLOR
 from src.scheduling.course_style import COURSE_STYLES
 
 
-def contrast(a, b):
-    def luminance(value):
-        value = value.lstrip('#')
-        rgb = [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
-        linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in rgb]
-        return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
-    low, high = sorted((luminance(a), luminance(b)))
-    return (high + .05) / (low + .05)
+@pytest.mark.parametrize('choice', builtin_themes(), ids=lambda choice: choice.key)
+def test_builtin_contrast_contract(choice):
+    assert all(check.passes for check in contrast_checks(choice.spec))
+    assert set(choice.spec.colors) == set(COLOR_ROLES)
+    assert '$' not in stylesheet_for(choice.spec)
 
 
-@pytest.mark.parametrize('foreground,background', [
-    ('text', 'surface'), ('text', 'surface_alt'), ('muted', 'surface'),
-    ('muted', 'canvas'), ('muted', 'surface_alt'), ('warning', 'canvas'),
-    ('navy', 'surface'), ('muted', 'accent_soft'), ('navy', 'primary_soft'),
-    ('on_primary', 'primary'), ('on_primary', 'primary_hover'),
-    ('on_primary', 'primary_pressed'), ('on_navy', 'navy'),
-    ('on_navy_muted', 'navy'), ('on_navy', 'navy_hover'),
-    ('accent', 'accent_soft'), ('disabled_text', 'disabled'),
-    ('danger', 'danger_soft'), ('success', 'success_soft'), ('warning', 'warning_soft'),
-])
-def test_text_contrast(foreground, background):
-    assert contrast(COLORS[foreground], COLORS[background]) >= 4.5
+def test_original_preserves_existing_canonical_palette():
+    colors = builtin_themes()[0].spec.colors
+    assert colors['canvas'] == '#EFF3F9'
+    assert colors['header'] == colors['heading'] == colors['on_primary_soft'] == '#183153'
+    assert colors['primary'] == '#087F83'
+    assert colors['accent'] == colors['focus'] == '#6545AD'
+    assert colors['danger'] == '#A12D46'
+    assert colors['surface'] == '#FFFFFF'
 
 
-@pytest.mark.parametrize('foreground,background', [
-    ('border', 'surface'), ('border', 'canvas'), ('focus', 'surface'),
-    ('focus', 'canvas'), ('on_primary', 'primary'), ('on_navy', 'navy'),
-])
-def test_controls_and_focus_contrast(foreground, background):
-    assert contrast(COLORS[foreground], COLORS[background]) >= 3
-
-
-def test_course_palette_keeps_readable_labels():
-    assert all(contrast(GRID_TEXT_COLOR, color) >= 4.5 for color in COURSE_COLORS)
-
-
-def test_course_edges_keep_non_text_contrast_against_fill_and_gutter():
+def test_course_palette_keeps_readable_labels_and_fixed_white_gutters():
+    assert all(contrast_ratio('#' + GRID_TEXT_COLOR, '#' + color) >= 4.5 for color in COURSE_COLORS)
     for style in COURSE_STYLES:
-        assert contrast(style.accent, style.fill) >= 3
-        assert contrast(style.accent, COLORS['surface']) >= 3
-        assert style.fill not in (COLORS['danger_soft'][1:], COLORS['warning_soft'][1:])
+        assert contrast_ratio('#' + style.accent, '#' + style.fill) >= 3
+        assert contrast_ratio('#' + style.accent, COURSE_GUTTER) >= 3
 
 
-def test_qss_resolved_and_sort_icons_exist():
+def test_qss_resolved_and_assets_separate_from_color_values():
     assert '$' not in STYLESHEET
-    assert Path(COLORS['sort_up']).is_file()
-    assert Path(COLORS['sort_down']).is_file()
+    assert set(COLORS) == set(COLOR_ROLES)
+    for choice in builtin_themes():
+        for name, path in trusted_assets(choice.spec).items():
+            file = QFile(path)
+            assert file.open(QIODevice.OpenModeFlag.ReadOnly)
+            data = bytes(file.readAll()).decode('ascii')
+            assert data.startswith('<svg')
+            if name.startswith('sort_'):
+                assert choice.spec.colors['on_header'].lower() in data.lower()
+
+
+def test_direct_theme_construction_detaches_color_dictionary():
+    source = dict(builtin_themes()[0].spec.colors)
+    spec = ThemeSpec('Detached', 'light', source)
+    source['canvas'] = '#000000'
+    assert spec.colors['canvas'] == '#EFF3F9'
+    with pytest.raises(TypeError):
+        spec.colors['canvas'] = '#000000'
+    with pytest.raises(FrozenInstanceError):
+        spec.name = 'Changed'
+
+
+@pytest.mark.parametrize('choice', builtin_themes(), ids=lambda choice: choice.key)
+def test_trusted_sort_resources_render_the_validated_header_foreground(choice):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from PyQt6.QtSvg import QSvgRenderer
+    for name in ('sort_up', 'sort_down'):
+        renderer = QSvgRenderer(trusted_assets(choice.spec)[name])
+        assert renderer.isValid()
+        image = QImage(8, 5, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image); renderer.render(painter); painter.end()
+        actual = image.pixelColor(4, 2)
+        assert actual.name() == choice.spec.colors['on_header'].lower()
+        assert actual.alpha() == 255

@@ -49,6 +49,8 @@ python gui_app.py
 7. **Editar o eliminar grupos** desde el horario generado con los botones al pie de cada tabla
 8. **Exportar** a Excel (con grilla visual por aula) o CSV
 
+Para personalizar la interfaz, consulta [Apariencia y temas propios](../docs/user/APPEARANCE.md).
+
 ---
 
 ## Formato del Excel de Entrada

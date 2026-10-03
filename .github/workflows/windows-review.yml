@@ -32,6 +32,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Discover installed fonts for Windows offscreen QA
+        run: .\tools\configure_windows_qt_fonts.ps1
       - name: Install fixed Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -46,11 +48,46 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Dependency validation failed.' }
           New-Item -ItemType Directory -Force build/reports | Out-Null
           .\.venv-build\Scripts\python.exe -m pip freeze | Out-File -Encoding utf8 build/reports/build-environment.txt
-      - name: Run all regression tests
+      - name: Collect full regression inventory
+        id: regression-inventory
+        timeout-minutes: 2
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest --collect-only -q -p tools.windows_test_batches --test-inventory=build/reports/tests-all-inventory.json
+          if ($LASTEXITCODE -ne 0) { throw 'Full regression collection failed.' }
+      - name: Run GUI regression tests
         timeout-minutes: 8
         run: |
-          .\.venv-build\Scripts\python.exe -m pytest -vv -o faulthandler_timeout=120 --junitxml=build/reports/tests.xml
-          if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=gui --test-inventory=build/reports/tests-gui-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui.xml
+          if ($LASTEXITCODE -ne 0) { throw 'GUI regression tests failed.' }
+      - name: Run GUI layout regression tests
+        # Isolate the expensive real-font layout/palette matrices without
+        # dropping tests or weakening the eight-minute GUI timeout.
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 6
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=gui-layout --test-inventory=build/reports/tests-gui-layout-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui-layout.xml
+          if ($LASTEXITCODE -ne 0) { throw 'GUI layout regression tests failed.' }
+      - name: Run theme runtime regression tests
+        # Full-application palette repolishing dominates Windows GUI time.
+        # Collect evidence from all batches even if GUI tests fail; a failed
+        # step still blocks every subsequent build and packaging step.
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 7
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=theme-runtime --test-inventory=build/reports/tests-theme-runtime-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-theme-runtime.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Theme runtime regression tests failed.' }
+      - name: Run remaining regression tests
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 4
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=remaining --test-inventory=build/reports/tests-remaining-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-remaining.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Remaining regression tests failed.' }
+      - name: Verify exact regression batch coverage
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 1
+        run: |
+          .\.venv-build\Scripts\python.exe tools/windows_test_batches.py --verify build/reports
+          if ($LASTEXITCODE -ne 0) { throw 'Regression batch coverage verification failed.' }
       - name: Generate current manual
         run: |
           .\.venv-build\Scripts\python.exe tools/build_manual.py --output build/docs/MANUAL_USUARIO.pdf
@@ -82,6 +119,9 @@ jobs:
           $result = Get-Content (Join-Path $smokeDir 'smoke-result.json') -Raw | ConvertFrom-Json
           if (-not $result.ok -or -not $result.frozen -or $result.assigned -ne $result.groups) {
             throw 'Packaged smoke validation failed.'
+          }
+          foreach ($phase in @('startup', 'es', 'en')) {
+            if (-not $result.text_rendering.$phase.ok) { throw "Missing readable text evidence: $phase." }
           }
           $env:PATH = $oldPath
           Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."
@@ -136,6 +176,7 @@ jobs:
             project_root/build/reports/installed-smoke/
             project_root/build/reports/*.txt
             project_root/build/reports/*.xml
+            project_root/build/reports/packaged-smoke/*.log
             project_root/build/reports/packaged-smoke/*.json
             project_root/build/reports/packaged-smoke/*.png
             project_root/build/reports/packaged-smoke/*.xlsx

@@ -131,6 +131,8 @@ def test_each_section_fits_small_native_window_with_large_fonts(window, locale, 
                 QStyle.SubControl.SC_ComboBoxEditField, selector)
             assert selector.fontMetrics().horizontalAdvance(selector.currentText()) <= text_rect.width()
             actions = [dialog.controls[key] for key in feature_keys]
+            if section == 'general':
+                actions.append(dialog.appearance_button)
             if section == 'advanced':
                 actions.append(dialog.calendar_button)
             if section == 'mcp':
@@ -208,6 +210,8 @@ def test_keyboard_navigation_scrolls_every_section_control_into_view(window, loc
             else:
                 pytest.fail(f'Keyboard traversal never returned to the {section} selector')
             expected = [dialog.controls[key] for key in feature_keys]
+            if section == 'general':
+                expected.append(dialog.appearance_button)
             if section == 'mcp':
                 expected += [dialog.mcp_status_label, dialog.mcp_check_button,
                              dialog.mcp_prepare_button, dialog.mcp_permission_label,

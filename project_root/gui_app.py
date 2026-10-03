@@ -52,8 +52,9 @@ def main():
         parser = argparse.ArgumentParser(description="Validate SORTH in an isolated session")
         parser.add_argument("--smoke-test", action="store_true")
         parser.add_argument("--smoke-output", type=Path, required=True)
+        parser.add_argument("--smoke-theme-probe", choices=("custom", "fallback"), help=argparse.SUPPRESS)
         args = parser.parse_args()
-        sys.exit(run_smoke_test(app, args.smoke_output))
+        sys.exit(run_smoke_test(app, args.smoke_output, theme_probe=args.smoke_theme_probe))
 
     # Ownership must precede all repository creation, migration and restore.
     # Keep the lock alive through the event loop, including close-time saves.

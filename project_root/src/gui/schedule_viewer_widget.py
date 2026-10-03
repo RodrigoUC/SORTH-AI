@@ -4,10 +4,11 @@ import re
 from dataclasses import replace
 import unicodedata
 
+from PyQt6 import sip
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHeaderView, QHBoxLayout, QFrame, QMenu, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
     QColor
 )
@@ -15,6 +16,7 @@ from PyQt6.QtGui import (
 from .theme import COLORS
 from .schedule_grid_delegate import (
     COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard, ScheduleGridDelegate,
+    COURSE_CONFLICT_ACCENT, COURSE_CONFLICT_FILL,
 )
 from ..scheduling.course_style import course_style
 from ..scheduling.time_model import TimeModel
@@ -23,7 +25,8 @@ from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE
 
 from .i18n import msg, plural, language_manager
 from .i18n_widgets import (
-    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget
+    QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget,
+    _keep_qt_owners_alive,
 )
 
 _DAY_ORDER = {d: i for i, d in enumerate(TimeModel.DAY_ORDER)}
@@ -48,6 +51,60 @@ class _SortableItem(QTableWidgetItem):
         if isinstance(other, _SortableItem):
             return self._sort_key < other._sort_key
         return super().__lt__(other)
+
+
+class _SessionIdentityHeader(QHeaderView):
+    """Keep the session column caption readable without fixing its width.
+
+    Native sectionSizeHint includes the current font, section padding and sort
+    indicator allowance. Only this identity column has a content-derived floor;
+    wider user sizes and every other column's resize policy remain unchanged.
+    """
+    def __init__(self, session_column, table):
+        self._session_column = session_column
+        self._fitting_caption = False
+        super().__init__(Qt.Orientation.Horizontal, table)
+        self.sectionResized.connect(self._section_resized)
+        table.model().headerDataChanged.connect(self._caption_changed)
+        language_manager().changed.connect(self._fit_caption)
+
+    def _section_resized(self, column, _old, _new):
+        if column == self._session_column:
+            self._fit_caption()
+
+    def _caption_changed(self, orientation, first, last):
+        if orientation == Qt.Orientation.Horizontal and first <= self._session_column <= last:
+            self._fit_caption()
+
+    @_keep_qt_owners_alive
+    def _fit_caption(self, *_):
+        if sip.isdeleted(self):
+            return
+        column = self._session_column
+        if self._fitting_caption or column >= self.count():
+            return
+        if self.sectionResizeMode(column) != QHeaderView.ResizeMode.Interactive:
+            return
+        self._fitting_caption = True
+        try:
+            required = self.sectionSizeHint(column)
+            if self.sectionSize(column) < required:
+                self.resizeSection(column, required)
+        finally:
+            self._fitting_caption = False
+
+    @_keep_qt_owners_alive
+    def event(self, event):
+        result = super().event(event)
+        if sip.isdeleted(self):
+            return result
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            # Fit after native style replacement unwinds, using the ordinary
+            # layout queue instead of timers or event-loop reentrancy.
+            QCoreApplication.postEvent(self, QEvent(QEvent.Type.LayoutRequest))
+        elif event.type() in (QEvent.Type.Show, QEvent.Type.LayoutRequest):
+            self._fit_caption()
+        return result
 
 
 class ScheduleViewerWidget(QWidget):
@@ -87,6 +144,30 @@ class ScheduleViewerWidget(QWidget):
     def set_suggestion_controls_visible(self, visible):
         for control in self._suggestion_controls:
             control.setVisible(visible)
+
+    def refresh_theme(self):
+        """Recolor cached interface brushes without rebuilding schedule data.
+
+        Item identities, filters, selection, sorting and scroll positions remain
+        intact. Course fills and conflict cards keep the fixed printable palette;
+        their delegate reads the current interface focus color while painting.
+        """
+        for table in (self.list_table, self.classroom_table):
+            with QSignalBlocker(table):
+                for row in range(table.rowCount()):
+                    for column in range(table.columnCount()):
+                        item = table.item(row, column)
+                        if item and item.data(Qt.ItemDataRole.UserRole) not in self._assignments:
+                            item.setBackground(QColor(COLORS["danger_soft"]))
+                            item.setForeground(QColor(COLORS["danger"]))
+            table.viewport().update()
+        with QSignalBlocker(self.grid_table):
+            for row in range(self.grid_table.rowCount()):
+                item = self.grid_table.item(row, 0)
+                if item:
+                    item.setBackground(QColor(COLORS["primary_soft"]))
+                    item.setForeground(QColor(COLORS["on_primary_soft"]))
+        self.grid_table.viewport().update()
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -212,6 +293,7 @@ class ScheduleViewerWidget(QWidget):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 8, 0, 0)
         table = QTableWidget(0, len(headers))
+        table.setHorizontalHeader(_SessionIdentityHeader(headers.index(msg('Grupo / sesión')), table))
         table.setHorizontalHeaderLabels(headers)
         table.setAccessibleName(accessible_name)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -481,7 +563,7 @@ class ScheduleViewerWidget(QWidget):
         for row, start in enumerate(grid.boundaries[:-1]):
             item = QTableWidgetItem(TimeModel.minutes_to_hhmm(start))
             item.setBackground(QColor(COLORS["primary_soft"]))
-            item.setForeground(QColor(COLORS["navy"]))
+            item.setForeground(QColor(COLORS["on_primary_soft"]))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             item.setToolTip(f"{TimeModel.minutes_to_hhmm(start)}–{TimeModel.minutes_to_hhmm(grid.boundaries[row + 1])}")
             table.setItem(row, 0, item)
@@ -514,9 +596,9 @@ class ScheduleViewerWidget(QWidget):
             item.setData(COURSE_CARD_ROLE, CourseCard(
                 course_style(self._code(block.entries[0][0])), tuple(sections),
                 str(msg('Conflicto de aula\n')).strip() if conflict else ""))
-            item.setBackground(QColor(COLORS["danger_soft"]) if conflict else
+            item.setBackground(QColor(COURSE_CONFLICT_FILL) if conflict else
                                self._course_colors[self._code(block.entries[0][0])])
-            item.setForeground(QColor(COLORS["danger"]) if conflict else QColor("#" + GRID_TEXT_COLOR))
+            item.setForeground(QColor(COURSE_CONFLICT_ACCENT) if conflict else QColor("#" + GRID_TEXT_COLOR))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             col = tm.days.index(tm.to_day_name(block.day)) + 1
             table.setItem(block.row, col, item)
@@ -803,23 +885,22 @@ class SummaryDialog(QDialog):
         total      = assigned + unassigned
         pct        = int(assigned / total * 100) if total else 0
 
-        for label, value, color in [
-            (msg('Sesiones asignadas'),  f"{assigned} / {total}  ({pct}%)", "#2E7D32"),
-            (msg('Sin asignar'),       str(unassigned),                   "#B71C1C" if unassigned else "#2E7D32"),
-            (msg('Aulas utilizadas'),  str(self._data["classrooms"]),     "#1565C0"),
-            (msg('Cursos programados'),str(self._data["courses"]),        "#6A1B9A"),
+        for label, value, tone in [
+            (msg('Sesiones asignadas'),  f"{assigned} / {total}  ({pct}%)", "success"),
+            (msg('Sin asignar'),       str(unassigned),                   "danger" if unassigned else "success"),
+            (msg('Aulas utilizadas'),  str(self._data["classrooms"]),     "primary"),
+            (msg('Cursos programados'),str(self._data["courses"]),        "accent"),
         ]:
             card = QFrame()
-            card.setStyleSheet(
-                f"QFrame {{ background: {color}; border-radius: 6px; padding: 4px; }}"
-            )
+            card.setObjectName("summaryCard")
+            card.setProperty("tone", tone)
             cl = QVBoxLayout(card)
             cl.setSpacing(2)
             vl = QLabel(value)
-            vl.setStyleSheet("color: white; font-size: 16px; font-weight: bold;")
+            vl.setObjectName("summaryValue")
             vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             ll = QLabel(label)
-            ll.setStyleSheet("color: rgba(255,255,255,0.85); font-size: 10px;")
+            ll.setObjectName("summaryCaption")
             ll.setAlignment(Qt.AlignmentFlag.AlignCenter)
             cl.addWidget(vl)
             cl.addWidget(ll)
@@ -849,7 +930,7 @@ class SummaryDialog(QDialog):
         # --- Unassigned groups ---
         if self._data.get("unassigned_list"):
             lbl = self._section_label(msg('Sesiones sin asignar (ver Lista detallada)'))
-            lbl.setStyleSheet("font-weight: bold; color: #B71C1C;")
+            lbl.setObjectName("dangerText")
             layout.addWidget(lbl)
             ua_table = self._make_table(
                 [msg('Código'), msg('Nombre'), msg('Grupo')],

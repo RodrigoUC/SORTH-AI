@@ -1,0 +1,4 @@
+interface:
+  display_name: "SORTH Theme Designer"
+  short_description: "Create validated light and dark SORTH theme files"
+  default_prompt: "Use $sorth-theme-designer to create a SORTH theme that matches my color and light/dark preferences."
