@@ -138,3 +138,19 @@ def test_multiple_simultaneous_teachers_not_inferred_from_course_choice():
     catalog=replace(resources.catalog('teacher'),resources=(Resource('a','A'),Resource('b','B')),
                     memberships=((groups[0].group_id,('a','b')),))
     assert 'INVALID_MEMBERSHIP' in {i.code for i in catalog.validate({},groups,TimeModel.default())}
+
+
+@pytest.mark.parametrize('group_id', ['', None, 1, True, [], {}])
+def test_deserialization_still_rejects_malformed_session_references(group_id):
+    document = data()[3].to_data()
+    document['catalogs'][0]['memberships'][0]['group_id'] = group_id
+    with pytest.raises(ValueError, match='Malformed session membership'):
+        SchedulingResources.from_data(document)
+
+
+@pytest.mark.parametrize('field', ['id', 'label'])
+def test_session_reference_compatibility_does_not_relax_resource_name_limits(field):
+    document = data()[3].to_data()
+    document['catalogs'][0]['resources'][0][field] = 'X' * 121
+    with pytest.raises(ValueError, match='Malformed resource'):
+        SchedulingResources.from_data(document)

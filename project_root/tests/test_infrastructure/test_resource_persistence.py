@@ -179,3 +179,36 @@ def test_current_schema_unknown_reference_reopen_and_save_are_readonly(tmp_path)
     with pytest.raises(ValueError):
         repo.save_session(**original)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('kind', ['teacher', 'student_group', 'student'])
+@pytest.mark.parametrize('enabled', [True, False])
+@pytest.mark.parametrize('split', [False, True])
+def test_generated_long_session_ids_roundtrip_resources_and_scenarios(tmp_path, kind, enabled, split):
+    from src.scheduling.course import Course
+    from src.scheduling.teaching_resources import Resource, ResourceCatalog
+
+    values = payload(kind, enabled)
+    course = Course('SYNTHETIC-' + 'X' * 120, 1, 240 if split else 60,
+                    'REGULAR', force_split=split)
+    groups = course.generate_groups()
+    assert all(len(group.group_id) > 120 for group in groups)
+    resources = SchedulingResources((ResourceCatalog(kind, enabled,
+        (Resource('demo-resource', 'Synthetic alias'),),
+        tuple((group.group_id, ('demo-resource',)) for group in groups)),))
+    values.update(courses=[course], resources=resources,
+        assignments={group.group_id: ('R1', index + 1, 480, 480 + group.duration_min)
+                     for index, group in enumerate(groups)})
+    path = tmp_path / 'long-session.db'
+    repo = SessionRepository(str(path))
+    repo.save_session(**values)
+    assert repo.load_session()['resources'] == resources
+    assert SessionRepository(str(path)).load_session()['resources'] == resources
+    # A subsequent save and a scenario copy both reread the saved contract.
+    repo.save_session(**values)
+    projects = ProjectRepository(tmp_path / 'long-projects.db')
+    _, scenario = projects.create_project('Synthetic', 'Long identifiers', repo,
+                                         scenario_metadata('test'))
+    restored, _ = projects.read(scenario)
+    assert restored['resources'] == resources
+    assert restored['assignments'] == values['assignments']
