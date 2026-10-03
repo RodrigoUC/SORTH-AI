@@ -2,7 +2,7 @@ name: Windows review build
 
 on:
   pull_request:
-    branches: [main, feat/optional-mcp-preview]
+    branches: [main, feat/optional-mcp-preview, feat/product-controls-and-scenarios]
   push:
     branches: [main]
   workflow_dispatch:
