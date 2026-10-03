@@ -844,6 +844,15 @@ class MainWindow(QMainWindow):
         if not Path(file_path).suffix:
             file_path += (".pdf" if "*.pdf" in selected_format else
                           ".csv" if "*.csv" in selected_format else ".xlsx")
+            # The native picker approved its returned path, not this newly
+            # resolved destination. Confirm only this extra collision; an
+            # explicit suffix has already been handled by the picker.
+            if Path(file_path).exists() and QMessageBox.question(
+                    self, msg('Confirmar reemplazo'),
+                    msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+                return
 
         try:
             time_model = TimeModel.from_calendar(self.calendar)
