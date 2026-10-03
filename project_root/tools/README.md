@@ -5,6 +5,11 @@ producción en `src/` no debe importarlos. Ejecuta los comandos siguientes desde
 `project_root`; los scripts con rutas absolutas también indican esa capacidad en
 su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 
+## Arquitectura
+
+- `check_architecture.py`: guard AST de los límites del README.
+  Comando: `python tools/check_architecture.py`; no importa ni ejecuta la app.
+
 ## Medición y diagnóstico
 
 - `benchmark_scheduler.py`: motor de horarios con semilla y comprobación de invariantes.

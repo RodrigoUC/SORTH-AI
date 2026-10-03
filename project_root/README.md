@@ -106,6 +106,8 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 
 La organización conserva estas cuatro capas. El árbol muestra sus módulos principales;
 [el índice de documentación](../docs/README.md) reúne las guías por audiencia.
+El [mapa de responsabilidades y guardas](../docs/architecture/ARCHITECTURE.md)
+explica los límites, adaptadores opcionales y excepciones de compatibilidad.
 
 ```
 src/

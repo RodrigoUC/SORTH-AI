@@ -88,7 +88,10 @@ El sistema lee un único archivo Excel con dos hojas:
 
 ## Arquitectura del Sistema
 
-El proyecto sigue una arquitectura en capas:
+El proyecto sigue la arquitectura en capas descrita abajo. El
+[mapa de archivos y dependencias](docs/architecture/ARCHITECTURE.md) amplía estas
+responsabilidades, y la [decisión investigada](docs/architecture/decisions/0001-modular-layers.md)
+explica su evolución incremental sin cambiar las cuatro capas:
 
 - **Presentation Layer** (`src/gui/`): Interfaz gráfica PyQt6 con gestión de cursos y visualización de horarios
 - **Application Layer** (`src/application/`): Servicios de orquestación y lógica de negocio

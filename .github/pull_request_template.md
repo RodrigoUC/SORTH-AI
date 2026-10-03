@@ -12,6 +12,7 @@ Describe el problema y el alcance. Enlaza el issue si existe.
 ## Revisión
 
 - [ ] Cambio enfocado, sin archivos generados, sesiones ni secretos.
+- [ ] Límites de arquitectura, enlaces y rutas de distribución comprobados si se movieron archivos.
 - [ ] Pruebas de regresión y documentación actualizadas cuando corresponde.
 - [ ] Datos de prueba sintéticos; derechos y procedencia de cualquier recurso externo identificados.
 - [ ] Cambios incompatibles y pasos de migración explicados, o no aplican.

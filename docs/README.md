@@ -21,7 +21,10 @@ Los comandos de aplicación, pruebas y compilación siguen ejecutándose desde
 
 ## Desarrollar y verificar
 
-- [Arquitectura del README](../project_root/README.md#arquitectura)
+- [Arquitectura del README](../project_root/README.md#arquitectura),
+  [mapa y límites ejecutables](architecture/ARCHITECTURE.md),
+  [decisión investigada](architecture/decisions/0001-modular-layers.md)
+  y [flujo de desarrollo](development/WORKFLOW.md)
 - [Contribuir](../CONTRIBUTING.md) y [diseño de la interfaz](../DESIGN.md)
 - [Localización](development/LOCALIZATION.md), [accesibilidad](development/ACCESSIBILITY.md)
   y [notas de refinamiento](development/REFINEMENT_NOTES.md)
