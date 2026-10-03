@@ -20,7 +20,7 @@ LEGAL_FILES = ('LICENSE', 'LICENSING.md', 'CREDITS.md', 'SUPPORT.md', 'SECURITY.
                'PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
                'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
                'project_root/SCHEDULING_VALIDATION.md', 'project_root/MANUAL_USUARIO.md',
-               'project_root/README.md', 'project_root/WINDOWS_DISTRIBUTION.md')
+               'project_root/PDF_EXPORT_NOTES.md', 'project_root/README.md', 'project_root/WINDOWS_DISTRIBUTION.md')
 
 
 FORBIDDEN_SUFFIXES = {'.db', '.sqlite', '.sqlite3', '.pyc'}

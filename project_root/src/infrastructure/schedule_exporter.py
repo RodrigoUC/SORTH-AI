@@ -62,6 +62,17 @@ class ScheduleExporter:
             output_path, index=False, encoding="utf-8-sig",
         )
 
+    def to_pdf(self, assignments: dict, output_path: str,
+               groups=None, course_name_by_code: dict = None, *, filtered=False,
+               total_assigned=None, pending_count=None, filters=None, labels=None) -> None:
+        from .pdf_schedule_writer import write_schedule_pdf
+        write_schedule_pdf(
+            self, assignments, output_path,
+            self._build_name_map(assignments, groups, course_name_by_code),
+            groups=groups, filtered=filtered, total_assigned=total_assigned,
+            pending_count=pending_count, filters=filters, labels=labels,
+        )
+
     # The seven column names/order and minute strings are kept for downstream
     # consumers. Explicit columns also make an empty export a usable template.
     def _detail_dataframe(self, assignments: dict, name_map: dict) -> pd.DataFrame:

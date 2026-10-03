@@ -471,6 +471,17 @@ class ScheduleViewerWidget(QWidget):
         self._update_result_label()
         self.filters_changed.emit()
 
+    def export_filter_description(self):
+        """Localized PDF context; never translate data or include the grid selector."""
+        day = self._day_filter.currentData()
+        return {
+            str(msg('Buscar')): self._list_search.text() or str(msg('(sin búsqueda)')),
+            str(msg('Aula')): self._room_filter.currentData() or str(msg('Todas')),
+            str(msg('Día')): str(msg(self._time_model.to_day_name(day))) if day is not None else str(msg('Todos')),
+            str(msg('Estado')): str(msg({'all': 'Todos', 'assigned': 'Asignados',
+                       'unassigned': 'Sin asignar'}[self._status_filter.currentData()])),
+        }
+
     def filtered_assignments(self):
         """A copy of assigned sessions matching the shared consultation filters.
 

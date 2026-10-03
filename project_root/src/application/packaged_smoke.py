@@ -67,6 +67,12 @@ def run_smoke_test(app, output_dir: Path) -> int:
             if not all((output_dir / name).stat().st_size > 0 for name in ('schedule.xlsx', 'schedule.csv')):
                 raise RuntimeError('An export is empty.')
             result['stages'].append('excel_csv_export')
+            pdf_path = output_dir / 'schedule.pdf'
+            exporter.to_pdf(assignments, str(pdf_path), groups=groups,
+                            total_assigned=len(assignments), pending_count=0)
+            if not pdf_path.read_bytes().startswith(b'%PDF-'):
+                raise RuntimeError('PDF export did not produce a PDF document.')
+            result['stages'].append('pdf_export')
             saved = repo.load_session()
             if saved['assignments'] != assignments:
                 raise RuntimeError('SQLite roundtrip changed assignments.')

@@ -40,7 +40,7 @@ def test_archive_has_current_manual_commit_and_hash(inputs):
         assert 'SORTH/docs/SOURCE_AVAILABILITY.md' in zf.namelist()
         for name in ['PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
                      'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
-                     'project_root/SCHEDULING_VALIDATION.md']:
+                     'project_root/SCHEDULING_VALIDATION.md', 'project_root/PDF_EXPORT_NOTES.md']:
             assert ('SORTH/' + name) in zf.namelist()
         assert zf.read('SORTH/MANUAL_USUARIO.pdf') == manual.read_bytes()
         info = json.loads(zf.read('SORTH/build-info.json'))
@@ -72,8 +72,12 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
     report = json.loads((output / 'smoke-result.json').read_text(encoding='utf-8'))
     assert report['ok'] and not report['frozen']
     assert report['assigned'] == report['groups'] > 0
+    from pypdf import PdfReader
+    pdf = PdfReader(output / 'schedule.pdf')
+    assert len(pdf.pages) > 0
+    assert 'Horario completo: 0 pendientes' in pdf.pages[0].extract_text()
     assert set(report['stages']) == {'bundled_excel_import', 'background_schedule',
-                                     'excel_csv_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
+                                     'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
                                      'course_dialog_edit_save', 'new_window_restore',
                                      'reopened_export_content', 'invalid_input_preserves_session',
                                      'large_workbook_schedule_export'}
