@@ -27,11 +27,15 @@ la confirmación de conflictos con sesiones fijadas.
    la lectura se rechaza y requiere seleccionar el archivo otra vez. La importación
    representa la última instantánea de bytes validada, no una vinculación viva:
    editar el archivo después de la comprobación final no altera esa instantánea.
-6. La sesión aceptada se guarda en una transacción SQLite antes de sustituir las
-   entradas visibles. Un error de escritura revierte la transacción y conserva
-   los datos, restricciones, horario y fijaciones anteriores. Cancelar o recibir
-   un resultado obsoleto no escribe la sesión. Un historial de cambios, si otra
-   extensión lo añade, debe reiniciarse solo tras `_commit_import` exitoso.
+6. Se comprueba primero la presentación en controles separados. Después, la
+   sesión aceptada y su presentación forman una unidad de trabajo: SQLite no
+   confirma hasta que termina la sustitución visible, sin diálogos ni bombeo de
+   eventos durante la transacción. Un error de presentación o escritura revierte
+   los datos y restaura el estado previo. Si también falla el renderizado de
+   recuperación, los datos originales y el archivo se conservan, pero se bloquea
+   la edición con una indicación explícita de recuperación pendiente. Cancelar o
+   recibir un resultado obsoleto no escribe la sesión. Un historial de cambios,
+   si otra extensión lo añade, se reinicia solo tras `_commit_import` exitoso.
 
 Cerrar durante la lectura solicita cancelación y espera mediante el bucle de
 eventos; no destruye un QThread en ejecución ni bloquea con `wait()` la interfaz.
@@ -83,3 +87,8 @@ atribuir una aceleración algorítmica a estas mediciones.
 Evidencia incluida: `docs/import/measurements-first.json`,
 `docs/import/measurements-repeat.json`, `docs/import/preview-es.png`,
 `docs/import/preview-en.png`, `docs/import/loading-en-960.png`.
+
+La revisión de atomicidad añade una previsualización interna de tablas antes de
+confirmar. Las mediciones anteriores preceden ese refuerzo; deben repetirse
+para comparar la latencia de la versión final. La presentación final sigue
+siendo sincrónica y no se afirma ausencia de pausas.

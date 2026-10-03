@@ -357,3 +357,75 @@ def test_real_warning_dialog_nested_event_loop_and_thread_cleanup(window, tmp_pa
         assert window.pinned_group_ids == {'BIO-G1'}
     else:
         assert session(window) == before
+
+
+def test_import_materialization_failure_preserves_disk_and_live_state(window, tmp_path, monkeypatch):
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    before = session(window)
+    disk = (tmp_path/'session.db').read_bytes()
+    def fail(*args, **kwargs):
+        raise RuntimeError('synthetic presentation failure')
+    monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
+    with pytest.raises(RuntimeError, match='synthetic presentation failure'):
+        window._commit_import(candidate, set())
+    assert (tmp_path/'session.db').read_bytes() == disk
+    assert session(window) == before
+
+
+@pytest.mark.parametrize('method', ['_invalidate_schedule', '_refresh_overview', '_update_save_state'])
+def test_late_import_presentation_failure_rolls_back(window, tmp_path, monkeypatch, method):
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    before = session(window)
+    disk = (tmp_path/'session.db').read_bytes()
+    original = getattr(window, method)
+    calls = []
+    def once(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 1:
+            raise RuntimeError('late presentation')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(window, method, once)
+    with pytest.raises(RuntimeError, match='late presentation'):
+        window._commit_import(candidate, set())
+    assert (tmp_path/'session.db').read_bytes() == disk
+    assert session(window) == before
+    assert not window._restore_failed
+
+
+def test_import_commit_failure_after_presentation_rolls_back(window, tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    before = session(window)
+    disk = (tmp_path/'session.db').read_bytes()
+    original = window._repo._connect
+    @contextmanager
+    def fail_commit():
+        with original() as connection:
+            yield connection
+            assert window.excel_path == candidate.path
+            raise sqlite3.OperationalError('late commit failure')
+    monkeypatch.setattr(window._repo, '_connect', fail_commit)
+    with pytest.raises(sqlite3.OperationalError, match='late commit failure'):
+        window._commit_import(candidate, set())
+    assert (tmp_path/'session.db').read_bytes() == disk
+    assert session(window) == before
+
+
+def test_import_rollback_render_failure_locks_preserved_domain(window, tmp_path, monkeypatch):
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    before = session(window)
+    disk = (tmp_path/'session.db').read_bytes()
+    original_courses = window.course_manager.courses
+    def fail(*args, **kwargs):
+        raise RuntimeError('persistent renderer failure')
+    monkeypatch.setattr(window.course_manager, '_refresh_table', fail)
+    with pytest.raises(RuntimeError, match='persistent renderer failure'):
+        window._commit_import(candidate, set())
+    assert (tmp_path/'session.db').read_bytes() == disk
+    assert window.course_manager.courses is original_courses
+    assert session(window)[:-1] == before[:-1]
+    assert window._restore_failed and window._busy
+    assert not window.course_manager.isEnabled()
+    window._import.cancel(announce=False)
+    assert window._busy and not window.course_manager.isEnabled()
+    window._unsaved = False

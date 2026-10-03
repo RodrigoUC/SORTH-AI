@@ -201,7 +201,8 @@ class SessionRepository:
                      classrooms: dict[str, Classroom],
                      courses: list[Course],
                      restrictions: dict[str, set[str]],
-                     assignments: dict | None, lab_overrides=(), pinned_group_ids=()):
+                     assignments: dict | None, lab_overrides=(), pinned_group_ids=(),
+                     *, before_commit=None):
         pinned_group_ids = frozenset(pinned_group_ids)
         if not pinned_group_ids.issubset(assignments or {}):
             raise ValueError("Pinned sessions must have assignments")
@@ -263,6 +264,11 @@ class SessionRepository:
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, [(gid, cls, day, s, e, int(gid in lab_overrides), int(gid in pinned_group_ids))
                       for gid, (cls, day, s, e) in assignments.items()])
+
+            # Application unit-of-work hook: no event pumping or nested writes.
+            # An exception rolls back all SQL, including a late commit failure.
+            if before_commit is not None:
+                before_commit()
 
     # ------------------------------------------------------------------
     # Load

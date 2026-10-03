@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'The saved session is preserved. The view requires recovery before continuing.',
     'Sin valor': 'No value',
     'Grupo {number}: aula {room}, día {day}, hora {time}': 'Group {number}: room {room}, day {day}, time {time}',
 

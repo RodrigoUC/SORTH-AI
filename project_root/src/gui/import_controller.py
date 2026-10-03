@@ -137,7 +137,10 @@ class ImportController(QObject):
         failed_token = self.token
         QMessageBox.critical(self.window, msg('Error'), msg('Error al cargar archivo Excel:\n{p1}',
                              p1=error.render(msg) if isinstance(error, ExcelImportError) else str(error)))
-        if self.token == failed_token and not self.closing:
+        if self.window._restore_failed:
+            self.window._block_for_recovery()
+            self.window.status_bar.showMessage(msg('La sesión guardada se conserva. La vista requiere recuperación antes de continuar.'))
+        elif self.token == failed_token and not self.closing:
             self.window.status_bar.showMessage(msg('No se cargó el archivo. La sesión anterior se conserva.'))
 
     def prepare_close(self):
