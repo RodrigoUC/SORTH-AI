@@ -200,10 +200,10 @@ class ScheduleExporter:
         )
         ws = writer.book.create_sheet(sheet_name)
         n_cols = len(days) + 1
-        header_row = 3
+        header_row = 2
         first_data_row = header_row + 1
         ws.sheet_view.showGridLines = False
-        ws.freeze_panes = "B4"
+        ws.freeze_panes = "B3"
         ws.sheet_properties.tabColor = "1967D2"
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
         room_label = str(classroom) if str(classroom).casefold().startswith("aula ") else f"Aula {classroom}"
@@ -211,11 +211,6 @@ class ScheduleExporter:
         ws.cell(1, 1).font = Font(name="Calibri", size=16, bold=True, color=GRID_TEXT_COLOR)
         ws.cell(1, 1).alignment = Alignment(vertical="center", wrap_text=True)
         ws.row_dimensions[1].height = max(34, self._line_count(classroom, 100) * 20)
-        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
-        ws.cell(2, 1, "Horas exactas · Un color por curso · CONFLICTO indica sesiones simultáneas")
-        ws.cell(2, 1).font = Font(name="Calibri", size=10, color="526577")
-        ws.cell(2, 1).alignment = Alignment(vertical="center", wrap_text=True)
-        ws.row_dimensions[2].height = 30
         for column, label in enumerate(["Hora"] + days, 1):
             cell = ws.cell(header_row, column, self._safe_text(label))
             self._style_header(cell)
@@ -278,7 +273,7 @@ class ScheduleExporter:
         ws.column_dimensions["A"].width = 10
         for column in range(2, n_cols + 1):
             ws.column_dimensions[get_column_letter(column)].width = 27
-        self._configure_print(ws, "1:3")
+        self._configure_print(ws, "1:2")
 
     @staticmethod
     def _paginate_grid(ws, blocks, first_row):

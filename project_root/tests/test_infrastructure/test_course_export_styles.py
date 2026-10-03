@@ -63,7 +63,7 @@ def test_excel_all_views_keep_original_course_identity_after_filtering_and_reord
                     assert row[0].border.left.style == EDGE_STYLES[visual.marker]
                     assert all(cell.font.color.rgb[-6:] == GRID_TEXT_COLOR for cell in row)
             else:
-                for row in sheet.iter_rows(min_row=4):
+                for row in sheet.iter_rows(min_row=3):
                     for cell in row[1:]:
                         if not cell.value:
                             continue
@@ -81,7 +81,7 @@ def test_excel_continuations_keep_accent_outline_and_marker_after_real_merge_ser
     visual = course_style('BIO')
     assert sheet.row_breaks.brk
     for merged in sheet.merged_cells.ranges:
-        if merged.min_row < 4:
+        if merged.min_row < 3:
             continue
         top = sheet.cell(merged.min_row, merged.min_col)
         bottom = sheet.cell(merged.max_row, merged.min_col)
@@ -107,7 +107,7 @@ def test_excel_adjacent_courses_with_repeated_fill_still_have_outlines_and_disti
         f'{code}-G1': ('R', 1, 482 + index * 5, 487 + index * 5)
         for index, code in enumerate(codes)
     })
-    first, second = book['Aula R']['B4'], book['Aula R']['B5']
+    first, second = book['Aula R']['B3'], book['Aula R']['B4']
     assert first.fill.fgColor.rgb == second.fill.fgColor.rgb
     assert first.border.left.style != second.border.left.style
     assert first.border.bottom.style == second.border.top.style == 'thin'
@@ -118,7 +118,7 @@ def test_excel_grid_conflicts_keep_reserved_warning_style(tmp_path):
     book = excel(ScheduleExporter(TimeModel.default()), tmp_path, 'conflict', {
         'BIO-G1': ('R', 1, 482, 487), 'CHEM-G1': ('R', 1, 482, 487),
     })
-    cell = book['Aula R']['B4']
+    cell = book['Aula R']['B3']
     assert cell.value.startswith('CONFLICTO: 2 sesiones')
     assert cell.fill.fgColor.rgb[-6:] == 'FCE4D6'
     assert cell.border.left.color.rgb[-6:] == '9C2F21'

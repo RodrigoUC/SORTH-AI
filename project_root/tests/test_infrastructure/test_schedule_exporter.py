@@ -77,10 +77,10 @@ def test_tables_are_printable_wrapped_filtered_and_frozen(tmp_path):
         assert sheet.print_area
         assert not sheet.sheet_view.showGridLines
     grid = workbook['Aula A1']
-    assert grid.freeze_panes == 'B4'
-    assert grid.print_title_rows == '$1:$3'
+    assert grid.freeze_panes == 'B3'
+    assert grid.print_title_rows == '$1:$2'
     assert any('07:00–08:00' in str(cell.value) for row in grid for cell in row)
-    assert any(str(merged).startswith('B4:B') for merged in grid.merged_cells.ranges)
+    assert any(str(merged).startswith('B3:B') for merged in grid.merged_cells.ranges)
 
 
 def test_group_name_precedence_and_legacy_part_contract(tmp_path):
@@ -182,8 +182,8 @@ def test_grid_print_range_omits_leading_and_trailing_blank_hours(tmp_path):
     _, workbook = export_pair(tmp_path, {'BIO-G1': ('Aula 2', 1, 1260, 1320)})
     sheet = next(sheet for sheet in workbook if sheet.title not in ('Asignaciones', 'Por Aula'))
     assert sheet['A1'].value == 'Horario · Aula 2'
-    assert sheet['A4'].value == '21:00'
-    assert sheet.max_row == 5
+    assert sheet['A3'].value == '21:00'
+    assert sheet.max_row == 4
 
 
 def test_detail_natural_group_order_and_chronological_parts(tmp_path):
@@ -227,5 +227,19 @@ def test_print_pages_never_split_merged_session_labels(tmp_path):
         assert not any(merged.min_row <= boundary < merged.max_row for boundary in breaks)
     labels = [str(cell.value or '') for row in sheet for cell in row]
     assert sum('BIO-G1' in text and '07:00–22:00' in text for text in labels) > 1
-    for start, end in zip([4] + [boundary + 1 for boundary in breaks], breaks + [sheet.max_row]):
+    for start, end in zip([3] + [boundary + 1 for boundary in breaks], breaks + [sheet.max_row]):
         assert sum(sheet.row_dimensions[row].height for row in range(start, end + 1)) <= 400
+
+
+def test_grid_has_compact_title_and_headers_without_instruction_legend(tmp_path):
+    _, workbook = export_pair(tmp_path, {'BIO-G1': ('Aula 2', 1, 482, 487)},
+                              course_name_by_code={'BIO': 'Biología celular'})
+    sheet = workbook['Aula 2']
+    assert sheet['A1'].value == 'Horario · Aula 2'
+    assert [cell.value for cell in sheet[2]] == ['Hora'] + TimeModel.default().days
+    assert sheet['A3'].value == '08:02'
+    assert sheet['B3'].value == 'BIO-G1\nBiología celular\n08:02–08:07'
+    assert sheet.max_row == 3
+    assert not any('Un color por curso' in str(cell.value or '') or
+                   'CONFLICTO indica sesiones simultáneas' in str(cell.value or '')
+                   for row in sheet for cell in row)
