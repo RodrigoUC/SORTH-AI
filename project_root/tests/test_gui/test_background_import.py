@@ -1,0 +1,282 @@
+import sqlite3
+import threading
+import time
+from copy import deepcopy
+import pandas as pd
+import pytest
+from PyQt6.QtCore import QSettings, QTimer, QThread, Qt
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog, QDialogButtonBox
+from src.gui.main_window import MainWindow
+from src.gui.import_preview_dialog import ImportPreviewDialog
+from src.gui import import_worker
+from src.gui.i18n import language_manager
+from src.infrastructure.import_candidate import read_candidate, ImportCandidate
+from src.infrastructure.excel_reader import ExcelImport, ExcelImportError, ImportCancelled, ExcelReader
+from src.infrastructure.session_repository import SessionRepository
+from src.scheduling.course import Course
+from src.scheduling.classroom import Classroom
+from src.scheduling.time_model import TimeModel
+from src.application.import_difference import import_difference
+from tests.test_gui.import_helpers import wait_for_import
+
+
+@pytest.fixture
+def window(tmp_path, monkeypatch):
+    settings = QSettings(str(tmp_path/'preferences.ini'), QSettings.Format.IniFormat)
+    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+    w._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
+    w.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
+    w.classroom_restrictions = {'R': {'BIO'}}
+    w._classroom_course_map = {'R': ['BIO']}
+    w.current_groups = w.course_manager.get_courses()[0].generate_groups()
+    w.current_schedule = {'BIO-G1': ('R', 1, 480, 540)}
+    w.current_groups[0].assignment = w.current_schedule['BIO-G1']
+    w.pinned_group_ids = {'BIO-G1'}
+    w.schedule_viewer.display_schedule(w.current_schedule, TimeModel.default(), w.current_groups)
+    w._save_session()
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: None)
+    yield w
+    w._import.cancel(announce=False)
+    wait_for_import(w)
+    w._unsaved = False
+    w.close()
+
+
+def workbook(path, code='BIO', room='R', hours='0800-0900', count=1):
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': [room], 'CAPACIDAD': [30]}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': [code]*count, 'Horas': [hours]*count, 'Aula': [room]*count}).to_excel(writer, sheet_name='Cursos', index=False)
+    return str(path)
+
+
+def session(w):
+    return deepcopy((w.excel_path, [vars(c) for c in w.course_manager.get_courses()],
+                     {k: vars(v) for k,v in w._classrooms.items()}, w.classroom_restrictions,
+                     w._classroom_course_map, w.current_schedule, w.pinned_group_ids,
+                     [vars(g) for g in w.current_groups or []], w._unsaved, w._save_error))
+
+
+def enable_preview(w):
+    w._features.save({**w._features.values(), 'import_diff_preview': True})
+
+
+def test_reader_thread_and_event_loop_remain_responsive(window, tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx')
+    original = import_worker.read_candidate
+    entered, release = threading.Event(), threading.Event()
+    thread_checks = []
+    def delayed(path, cancelled, previous=None):
+        thread_checks.append(QThread.currentThread() != QApplication.instance().thread())
+        entered.set()
+        while not release.wait(.005):
+            if cancelled(): raise ImportCancelled()
+        return original(path, cancelled, previous)
+    monkeypatch.setattr(import_worker, 'read_candidate', delayed)
+    ticks = []
+    timer = QTimer()
+    timer.timeout.connect(lambda: ticks.append(time.monotonic()))
+    timer.start(5)
+    start = time.monotonic()
+    window._import.start(path)
+    assert time.monotonic() - start < .25
+    assert entered.wait(1)
+    QTest.qWait(80)
+    assert len(ticks) >= 3
+    assert window.btn_load.isEnabled() and not window.course_manager.isEnabled()
+    release.set()
+    wait_for_import(window)
+    timer.stop()
+    assert all(thread_checks)
+    assert window.excel_path == path
+    assert window.pinned_group_ids == {'BIO-G1'}
+    assert window.current_schedule == {'BIO-G1': ('R', 1, 480, 540)}
+    assert window.classroom_restrictions == {}
+    assert window._repo.load_session()['pinned_group_ids'] == {'BIO-G1'}
+
+
+def test_rapid_imports_use_one_reader_and_only_latest_result(window, tmp_path, monkeypatch):
+    first, last = workbook(tmp_path/'first.xlsx'), workbook(tmp_path/'last.xlsx', count=2)
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+    original = import_worker.read_candidate
+    def blocked(path, cancelled, previous=None):
+        calls.append(path)
+        if len(calls) == 1:
+            entered.set()
+            release.wait(2)
+        return original(path, cancelled, previous)
+    monkeypatch.setattr(import_worker, 'read_candidate', blocked)
+    window._import.start(first)
+    assert entered.wait(1)
+    for _ in range(20): window._import.start(last)
+    assert len(calls) == 1
+    release.set()
+    wait_for_import(window)
+    assert calls == [first, last, last]
+    assert window.excel_path == last
+    assert window.course_manager.get_courses()[0].number_of_groups == 2
+
+
+def test_cancel_then_late_delivery_cannot_overwrite(window, tmp_path):
+    path = workbook(tmp_path/'input.xlsx')
+    before, disk = session(window), open(window._repo._db_path,'rb').read()
+    window._import.start(path)
+    token = window._import.token
+    window._import.cancel()
+    window._import._result(token, read_candidate(path, lambda: False), True)
+    wait_for_import(window)
+    assert session(window) == before
+    assert open(window._repo._db_path,'rb').read() == disk
+    assert window.course_manager.isEnabled()
+
+
+def test_close_is_cooperative_and_nonblocking(window, tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx')
+    entered, release = threading.Event(), threading.Event()
+    original = import_worker.read_candidate
+    def blocked(path, cancelled, previous=None):
+        entered.set()
+        release.wait(2)
+        return original(path, cancelled, previous)
+    monkeypatch.setattr(import_worker, 'read_candidate', blocked)
+    window.show()
+    window._import.start(path)
+    assert entered.wait(1)
+    before = session(window)
+    start = time.monotonic()
+    window.close()
+    assert time.monotonic() - start < .25
+    assert window._import.closing and window.isVisible()
+    release.set()
+    wait_for_import(window)
+    QTest.qWait(20)
+    assert not window.isVisible() and session(window) == before
+
+
+@pytest.mark.parametrize('choice', ['cancel', 'escape', 'stale'])
+def test_preview_dismissal_keeps_session(window, tmp_path, monkeypatch, choice):
+    path = workbook(tmp_path/'input.xlsx', count=2)
+    enable_preview(window)
+    before = session(window)
+    def review(dialog):
+        if choice == 'stale':
+            window._import.cancel()
+            return QDialog.DialogCode.Accepted
+        if choice == 'escape':
+            dialog.show()
+            QTest.keyClick(dialog, Qt.Key.Key_Escape)
+            assert not dialog.isVisible()
+        return QDialog.DialogCode.Rejected
+    monkeypatch.setattr(ImportPreviewDialog, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    assert session(window) == before
+
+
+@pytest.mark.parametrize('changed_to', ['valid', 'malformed'])
+def test_changed_file_revalidated_and_reviewed_again(window, tmp_path, monkeypatch, changed_to):
+    path = workbook(tmp_path/'input.xlsx')
+    enable_preview(window)
+    before, reviews, errors = session(window), [], []
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: errors.append(args))
+    def review(dialog):
+        reviews.append(dialog.details.toPlainText())
+        if len(reviews) == 1:
+            workbook(path, count=2, hours='bad' if changed_to == 'malformed' else '0800-0900')
+            return QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Rejected
+    monkeypatch.setattr(ImportPreviewDialog, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    assert session(window) == before
+    assert len(reviews) == (2 if changed_to == 'valid' else 1)
+    assert bool(errors) == (changed_to == 'malformed')
+
+
+def test_write_error_rolls_back_sql_without_unpinning(window, tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx', room='NEW')
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Yes)
+    with sqlite3.connect(window._repo._db_path) as con:
+        con.execute("CREATE TRIGGER refuse_import BEFORE INSERT ON courses BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END")
+    before, disk = session(window), open(window._repo._db_path, 'rb').read()
+    window._import.start(path)
+    wait_for_import(window)
+    assert session(window) == before
+    assert open(window._repo._db_path, 'rb').read() == disk
+    assert window._repo.load_session()['pinned_group_ids'] == {'BIO-G1'}
+
+
+def test_accepted_unpin_and_import_commit_together(window, tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx', room='NEW', code='CHEM')
+    enable_preview(window)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Yes)
+    inspected = []
+    def review(dialog):
+        assert window.pinned_group_ids == {'BIO-G1'}
+        inspected.append(dialog.details.toPlainText())
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(ImportPreviewDialog, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    assert all(text in inspected[0] for text in ['BIO-G1', 'CHEM', 'NEW'])
+    assert not window.pinned_group_ids and window.current_schedule is None
+    assert window._repo.load_session()['courses'][0].code == 'CHEM'
+
+
+def test_default_off_still_validates_pin_confirmation(window, tmp_path, monkeypatch):
+    assert not window._features.enabled('import_diff_preview')
+    path, before, called = workbook(tmp_path/'input.xlsx', room='NEW'), session(window), []
+    monkeypatch.setattr(ImportPreviewDialog, 'exec', lambda self: pytest.fail('preview should be off'))
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: called.append(args) or QMessageBox.StandardButton.Cancel)
+    window._import.start(path)
+    wait_for_import(window)
+    assert called and session(window) == before
+
+
+def test_difference_excludes_runtime_occupancy(window):
+    imported = ExcelImport(deepcopy(window._classrooms), deepcopy(window.course_manager.get_courses()), {}, [])
+    imported.classrooms['R'].occupancy = {1: [(100, 200)]}
+    courses, rooms = import_difference(window.course_manager.get_courses(), window._classrooms, imported)
+    assert not rooms.changed and not courses.changed
+    imported.classrooms['R'].capacity = 50
+    imported.courses[0].group_suggestions = [{'preferred_start_min': 600}]
+    courses, rooms = import_difference(window.course_manager.get_courses(), window._classrooms, imported)
+    assert courses.changed == {'BIO': ('group_suggestions',)}
+    assert rooms.changed == {'R': ('capacity',)}
+
+
+def test_preview_localizes_and_has_accessible_default_cancel(window):
+    manager, previous = language_manager(), language_manager().language
+    dialog = ImportPreviewDialog(window, ImportCandidate('synthetic.xlsx', b'x', ExcelImport({}, [], {}, [])), set())
+    try:
+        for language, title, heading, action in [('es','Revisar cambios del Excel','Eliminados','Reemplazar con este Excel'),
+                                                ('en','Review Excel changes','Deleted','Replace with this Excel file')]:
+            manager.set_language(language, persist=False)
+            assert dialog.windowTitle() == title and heading in dialog.details.toPlainText()
+            buttons = dialog.findChild(QDialogButtonBox)
+            assert buttons.button(QDialogButtonBox.StandardButton.Ok).text() == action
+            assert buttons.button(QDialogButtonBox.StandardButton.Cancel).isDefault()
+            assert dialog.details.accessibleName() and dialog.details.isReadOnly()
+    finally:
+        manager.set_language(previous, persist=False)
+        dialog.reject()
+
+
+def test_snapshot_requires_identical_bytes_and_cancellation_is_separate(tmp_path):
+    path = workbook(tmp_path/'input.xlsx')
+    candidate = read_candidate(path, lambda: False)
+    assert read_candidate(path, lambda: False, candidate) is candidate
+    workbook(path, code='CHANGED')
+    changed = read_candidate(path, lambda: False, candidate)
+    assert changed.digest != candidate.digest and changed.imported.courses[0].code == 'CHANGED'
+    with pytest.raises(ImportCancelled): read_candidate(path, lambda: True)
+    checks = []
+    with pytest.raises(ImportCancelled):
+        ExcelReader(path, cancelled=lambda: checks.append(1) or len(checks) > 4).load_validated()
+
+
+def test_reader_limits_remain_enforced(tmp_path, monkeypatch):
+    path = workbook(tmp_path/'input.xlsx', count=101)
+    monkeypatch.setattr(ExcelReader, 'MAX_DATA_ROWS', 100)
+    with pytest.raises(ExcelImportError, match='límite'): read_candidate(path, lambda: False)

@@ -57,6 +57,8 @@ def test_failed_import_preserves_previous_inputs(window, monkeypatch):
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: ('missing.xlsx', ''))
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: None)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path == 'previous.xlsx'
     assert window.course_manager.get_courses()[0].code == 'BIO'
     assert 'A1' in window._classrooms
@@ -167,6 +169,8 @@ def test_import_cancel_and_validation_preserve_complete_session(window, tmp_path
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: None)
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Cancel)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path == 'previous.xlsx'
     assert set(window._classrooms) == {'A1'}
     assert window.course_manager.get_courses()[0].code == 'BIO'
@@ -187,6 +191,8 @@ def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
         pd.DataFrame({'Curso': ['NEW'], 'Aula': ['NEW']}).to_excel(writer, sheet_name='Cursos', index=False)
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path == str(path)
     assert set(window._classrooms) == {'NEW'}
     assert window.course_manager.get_courses()[0].code == 'NEW'

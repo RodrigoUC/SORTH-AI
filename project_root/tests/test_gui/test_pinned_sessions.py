@@ -148,10 +148,14 @@ def test_replacing_excel_with_missing_room_cancel_is_atomic(window, monkeypatch)
     class Reader:
         def __init__(self, *a): pass
         def load_validated(self): return imported
-    monkeypatch.setattr(main_window, 'ExcelReader', Reader)
+    from src.gui import import_worker
+    from src.infrastructure.import_candidate import ImportCandidate
+    monkeypatch.setattr(import_worker, 'read_candidate', lambda path, cancelled, previous: previous or ImportCandidate(path, b'x', imported))
     monkeypatch.setattr(QFileDialog,'getOpenFileName',lambda *a:('new.xlsx',''))
     monkeypatch.setattr(QMessageBox,'warning',lambda *a:QMessageBox.StandardButton.Cancel)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path is None
     assert set(window._classrooms) == {'R'}
     assert window.current_schedule == before

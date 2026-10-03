@@ -400,6 +400,8 @@ def test_import_error_boundary_uses_active_language_and_keeps_data(manager, wind
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: ('missing.xlsx', ''))
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: messages.append(a))
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert 'The file was not found. Select it again.' in str(messages[-1][2])
     assert window.current_schedule == original
 
