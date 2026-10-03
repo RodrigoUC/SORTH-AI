@@ -58,3 +58,15 @@ progress, save state, totals and errors, with focus returned on close. This is
 an explicit fallback, not a claim of live screen-reader announcement support.
 See `project_root/ACCESSIBILITY.md` for inventory, shortcuts and outstanding
 Windows acceptance; do not declare issue #11 complete from offscreen tests.
+## Named projects and scenario comparison
+
+The status bar opens a native project dialog using existing localized Qt controls
+and theme tokens. Scenario rows have native multi-selection and internal scrolling;
+create/save/open are separated from duplicate/rename/compare in two action rows.
+The comparison uses a wider metric-label column, explicit numerators/denominators,
+and an incompatibility warning above the scrollable metrics. Close remains outside
+the scroll area. User names remain literal, not translation keys or file paths.
+Opening another scenario explicitly confirms and preserves a recovery copy. Naming
+cancellation performs no write; duplicate names show an inline error and never
+replace data. Shared i18n widgets own labels/buttons/tables, `ProjectRepository`
+owns uniqueness and transactions, and quality v1 owns all descriptive measures.
