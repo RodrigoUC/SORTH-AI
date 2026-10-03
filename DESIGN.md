@@ -374,3 +374,8 @@ themes, native-default/Fusion/Windows styles, optional tools OFF/all ON, all thr
 consultation tabs and tall→short resize. The native viewport retains at least
 four 30px row heights at every tested size, including 759/760/761, 799/800/801/802/803/804 and
 919/920/921/922. No font, row, scope visibility or exact-size assertion is relaxed.
+
+Main-tab navigation completes its synchronous native chrome/layout update before
+the existing 150ms reveal starts. It does not pump events or queue user input.
+This prevents a responsive resize from canceling the new reveal; actual external
+resize, hide, close and reduced-motion preferences retain their cancellation rules.

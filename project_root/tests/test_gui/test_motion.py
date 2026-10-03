@@ -172,3 +172,25 @@ def test_result_refresh_on_current_tab_is_animated(window):
     window.chk_reduce_motion.setChecked(True)
     window._on_schedule_done(assignments, course.generate_groups())
     assert window.schedule_viewer.graphicsEffect() is None
+
+
+@pytest.mark.parametrize('height', [640, 720, 760, 761, 800, 802, 803, 920, 921, 1000])
+def test_responsive_chrome_settles_before_tab_reveal(window, app, height):
+    window.resize(960, height)
+    app.processEvents()
+    for index in (1, 0, 1):
+        window.tabs.setCurrentIndex(index)
+        page = window.tabs.currentWidget()
+        effect = page.graphicsEffect()
+        assert effect is not None
+        window._motion.animation.pause()
+        geometry = page.geometry()
+        app.processEvents()
+        assert page.geometry() == geometry
+        assert page.graphicsEffect() is effect
+        assert window._motion.animation.state() == QAbstractAnimation.State.Paused
+        window._motion.finish()
+    window.chk_reduce_motion.setChecked(True)
+    window.tabs.setCurrentIndex(0)
+    window.tabs.setCurrentIndex(1)
+    assert window.schedule_viewer.graphicsEffect() is None

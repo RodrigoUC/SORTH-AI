@@ -199,9 +199,7 @@ class MainWindow(QMainWindow):
         self.schedule_viewer.pin_requested.connect(self._toggle_pin)
         self.schedule_viewer.schedule_cleared.connect(self._on_schedule_cleared)
         main_layout.addWidget(self.tabs, 1)
-        self.tabs.currentChanged.connect(
-            lambda _index: self._motion.reveal(self.tabs.currentWidget()))
-        self.tabs.currentChanged.connect(self._update_compact_overview)
+        self.tabs.currentChanged.connect(self._on_main_view_changed)
         self.schedule_viewer.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.schedule_viewer.tabs.currentWidget()))
 
@@ -1752,6 +1750,14 @@ class MainWindow(QMainWindow):
         self._cancel_button.setEnabled(busy and not self._generation_cancelled)
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
+
+    def _on_main_view_changed(self, *_):
+        # Responsive chrome changes geometry. Finish that synchronous native
+        # layout before revealing the new page, otherwise its resize correctly
+        # cancels the just-started animation. No event pumping or delayed input.
+        self._update_compact_overview()
+        self._main_layout.activate()
+        self._motion.reveal(self.tabs.currentWidget())
 
     def _update_compact_overview(self, *_):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
