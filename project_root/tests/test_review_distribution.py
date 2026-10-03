@@ -39,9 +39,14 @@ def test_archive_has_current_manual_commit_and_hash(inputs):
         assert 'SORTH/third_party/licenses/dejavu-font.txt' in zf.namelist()
         assert 'SORTH/docs/SOURCE_AVAILABILITY.md' in zf.namelist()
         for name in ['PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
-                     'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
-                     'project_root/SCHEDULING_VALIDATION.md', 'project_root/PDF_EXPORT_NOTES.md']:
+                     'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'docs/user/SESSION_RECOVERY.md',
+                     'docs/user/SCHEDULING_VALIDATION.md', 'docs/user/PDF_EXPORT_NOTES.md',
+                     'docs/user/MANUAL_USUARIO.md', 'docs/user/QUALITY_METRICS.md',
+                     'docs/release/WINDOWS_DISTRIBUTION.md', 'project_root/MCP_OPTIONAL.md',
+                     'project_root/MANUAL_USUARIO.md', 'project_root/WINDOWS_DISTRIBUTION.md']:
             assert ('SORTH/' + name) in zf.namelist()
+        assert b'La gu' in zf.read('SORTH/project_root/MANUAL_USUARIO.md')
+        assert b'## ' in zf.read('SORTH/docs/user/MANUAL_USUARIO.md')
         assert zf.read('SORTH/MANUAL_USUARIO.pdf') == manual.read_bytes()
         info = json.loads(zf.read('SORTH/build-info.json'))
         assert info['source_commit'] == 'a' * 40

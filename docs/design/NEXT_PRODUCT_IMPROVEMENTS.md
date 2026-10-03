@@ -119,7 +119,7 @@ estado cambia, recalcular antes de aceptar; cero candidatos se expresa como
 «no hay opciones en el horario actual», no como prueba global de inviabilidad.
 
 Evidencia: `src/scheduling/validation.py:unassigned_reason`,
-`src/gui/manual_assignment_dialog.py`; `SCHEDULING_VALIDATION.md`.
+`src/gui/manual_assignment_dialog.py`; [Validación del horario](../user/SCHEDULING_VALIDATION.md).
 
 ### 8. Calendario operativo configurable por proyecto
 

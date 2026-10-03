@@ -30,7 +30,7 @@ python -m pytest -q
 
 En un entorno sin pantalla, ejecuta los tests con `QT_QPA_PLATFORM=offscreen` (PowerShell: `$env:QT_QPA_PLATFORM="offscreen"`; Linux/macOS: `export QT_QPA_PLATFORM=offscreen`). Esto no sustituye la revisión visual en un escritorio real.
 
-Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](project_root/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
+Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](docs/release/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
 
 ## Organización y revisión
 

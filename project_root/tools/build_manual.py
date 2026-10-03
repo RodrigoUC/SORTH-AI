@@ -30,9 +30,9 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = ROOT / "MANUAL_USUARIO.md"
+DEFAULT_SOURCE = ROOT.parent / "docs" / "user" / "MANUAL_USUARIO.md"
 DEFAULT_OUTPUT = ROOT / "build" / "docs" / "MANUAL_USUARIO.pdf"
-REPOSITORY_DOCS = "https://github.com/RodrigoUC/SORTH-AI/blob/main/project_root/"
+REPOSITORY_DOCS = "https://github.com/RodrigoUC/SORTH-AI/blob/main/docs/user/"
 PAGE_WIDTH, PAGE_HEIGHT = letter
 MARGIN = 48
 CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2 - 12  # SimpleDocTemplate frame padding

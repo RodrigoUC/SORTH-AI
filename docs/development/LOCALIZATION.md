@@ -36,6 +36,6 @@ Development previews are Linux Qt offscreen renders, not native Windows visual a
 
 Spanish and English views use the same sample data and palette. These are Qt offscreen previews; they do not establish native Windows appearance.
 
-![Spanish schedule](docs/localization/spanish.png)
-![English schedule](docs/localization/english.png)
-![English course editor](docs/localization/course-dialog-english.png)
+![Spanish schedule](../evidence/localization/spanish.png)
+![English schedule](../evidence/localization/english.png)
+![English course editor](../evidence/localization/course-dialog-english.png)

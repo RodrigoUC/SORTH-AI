@@ -73,5 +73,5 @@ algunas preferencias de herramientas ya se guardaron, se bloquea la edición y s
 pide recuperar la configuración. Un fallo visual después de confirmar ambos
 guardados se identifica como cambio guardado pendiente de recuperar la vista.
 
-Consulta [Privacidad y datos locales](../PRIVACY.md) para ubicaciones, datos
+Consulta [Privacidad y datos locales](../../PRIVACY.md) para ubicaciones, datos
 conservados, exportaciones, respaldos y diferencia entre desactivar y borrar.

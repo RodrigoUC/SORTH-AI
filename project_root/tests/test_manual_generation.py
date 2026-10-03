@@ -7,7 +7,7 @@ import pytest
 from pypdf import PdfReader
 from reportlab.platypus import Table
 
-from tools.build_manual import DEFAULT_OUTPUT, DEFAULT_SOURCE, MarkdownRenderer, build_manual
+from tools.build_manual import ROOT, DEFAULT_OUTPUT, DEFAULT_SOURCE, MarkdownRenderer, build_manual
 
 
 def compact(text):
@@ -48,7 +48,7 @@ def test_current_manual_retains_content_links_and_numbered_pages(tmp_path):
             assert compact(node.content) in text
     links = {annotation["/A"]["/URI"] for annotation in annotations(reader)}
     assert "https://github.com/RodrigoUC/SORTH-AI" in links
-    assert "https://github.com/RodrigoUC/SORTH-AI/blob/main/project_root/WINDOWS_DISTRIBUTION.md" in links
+    assert "https://github.com/RodrigoUC/SORTH-AI/blob/main/docs/release/WINDOWS_DISTRIBUTION.md" in links
     assert reader.trailer["/Root"]["/Lang"] == "es"
     assert reader.metadata.title == "Manual de usuario de SORTH"
 
@@ -146,7 +146,7 @@ def test_source_cannot_be_overwritten(tmp_path):
 
 
 def test_cli_can_run_outside_project(tmp_path):
-    script = DEFAULT_SOURCE.parent / "tools" / "build_manual.py"
+    script = ROOT / "tools" / "build_manual.py"
     output = tmp_path / "manual.pdf"
     result = subprocess.run(
         [sys.executable, str(script), "--output", str(output)],
@@ -154,11 +154,11 @@ def test_cli_can_run_outside_project(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert output.read_bytes().startswith(b"%PDF-")
-    assert DEFAULT_OUTPUT == DEFAULT_SOURCE.parent / "build/docs/MANUAL_USUARIO.pdf"
+    assert DEFAULT_OUTPUT == ROOT / "build/docs/MANUAL_USUARIO.pdf"
 
 
 def test_cli_returns_nonzero_for_missing_source(tmp_path):
-    script = DEFAULT_SOURCE.parent / "tools" / "build_manual.py"
+    script = ROOT / "tools" / "build_manual.py"
     result = subprocess.run(
         [sys.executable, str(script), "--source", str(tmp_path / "missing.md"),
          "--output", str(tmp_path / "manual.pdf")],

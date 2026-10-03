@@ -84,9 +84,9 @@ Una segunda ejecución de la misma carga, con menos contención de CPU, observó
 ~915 ms). Esta variación es la razón para conservar ambos informes y evitar
 atribuir una aceleración algorítmica a estas mediciones.
 
-Evidencia incluida: `docs/import/measurements-first.json`,
-`docs/import/measurements-repeat.json`, `docs/import/preview-es.png`,
-`docs/import/preview-en.png`, `docs/import/loading-en-960.png`.
+Evidencia incluida: `docs/evidence/import/measurements-first.json`,
+`docs/evidence/import/measurements-repeat.json`, `docs/evidence/import/preview-es.png`,
+`docs/evidence/import/preview-en.png`, `docs/evidence/import/loading-en-960.png`.
 
 La revisión de atomicidad añade una previsualización interna de tablas antes de
 confirmar. Las mediciones anteriores preceden ese refuerzo; deben repetirse
@@ -111,8 +111,8 @@ registró los siguientes tiempos (milisegundos, una observación por tamaño):
 | 10.000 | 9.641 → 5.554 | 5.759 → 1.945 | 5.804 → 2.048 |
 
 Informes con versiones y cifras completas:
-`docs/import/measurements-preflight-before.json` y
-`docs/import/measurements-preflight-after.json`. La fase final sigue siendo
+`docs/evidence/import/measurements-preflight-before.json` y
+`docs/evidence/import/measurements-preflight-after.json`. La fase final sigue siendo
 sincrónica: la pausa observada de unos dos segundos con 10.000 cursos continúa
 siendo una limitación. Esta comparación no certifica rendimiento en Windows ni
 predice la latencia con sesiones fijadas, cuya vista parcial sigue preparándose.

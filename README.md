@@ -6,9 +6,9 @@ El código propio de SORTH está bajo [GPL-3.0-only](LICENSING.md). Los recursos
 
 - [Contribuir](CONTRIBUTING.md) · [Soporte por Issues](SUPPORT.md) · [Seguridad](SECURITY.md)
 - [Guía de convivencia](CODE_OF_CONDUCT.md) · [Créditos](CREDITS.md) · [Revisión de licencias](docs/LICENSING_REVIEW.md)
-- [Inicio rápido](docs/QUICKSTART.md) · [Privacidad](PRIVACY.md)
+- [Documentación](docs/README.md) · [Inicio rápido](docs/QUICKSTART.md) · [Privacidad](PRIVACY.md)
 - [Limitaciones conocidas](docs/KNOWN_LIMITATIONS.md) · [Checklist de releases](docs/RELEASING.md)
-- [Instalar y ejecutar desde código](project_root/README.md) · [Distribución Windows](project_root/WINDOWS_DISTRIBUTION.md)
+- [Instalar y ejecutar desde código](project_root/README.md) · [Distribución Windows](docs/release/WINDOWS_DISTRIBUTION.md)
 
 Los reportes pueden escribirse en español o inglés. Utiliza datos sintéticos: los issues son públicos.
 
@@ -107,7 +107,7 @@ El proyecto sigue una arquitectura en capas:
 
 ## Distribución
 
-La distribución predeterminada para Windows es una carpeta con `SORTH.exe` y sus dependencias; no requiere instalar Python en el equipo destino. Debe extraerse y conservarse completa. Consulta [Distribución para Windows](project_root/WINDOWS_DISTRIBUTION.md) para compilar, verificar y publicar sin desactivar las protecciones de seguridad. El workflow **Windows review build** genera paquetes de revisión sin firma y un manual PDF actualizado como artefactos temporales de Actions; no publica versiones. Los ejecutables y PDF antiguos ya no se guardan en el árbol fuente.
+La distribución predeterminada para Windows es una carpeta con `SORTH.exe` y sus dependencias; no requiere instalar Python en el equipo destino. Debe extraerse y conservarse completa. Consulta [Distribución para Windows](docs/release/WINDOWS_DISTRIBUTION.md) para compilar, verificar y publicar sin desactivar las protecciones de seguridad. El workflow **Windows review build** genera paquetes de revisión sin firma y un manual PDF actualizado como artefactos temporales de Actions; no publica versiones. Los ejecutables y PDF antiguos ya no se guardan en el árbol fuente.
 
 ## Historial de Cambios
 
@@ -168,7 +168,7 @@ La distribución predeterminada para Windows es una carpeta con `SORTH.exe` y su
 
 ## Calidad y exportación local
 
-La GUI incluye [indicadores explicables de cobertura, preferencias y uso de recursos](project_root/QUALITY_METRICS.md), sin nota global ni promesa de optimalidad, y [exportación PDF en español o inglés](project_root/PDF_EXPORT_NOTES.md). Estas funciones son locales y no requieren MCP ni un proveedor de IA.
+La GUI incluye [indicadores explicables de cobertura, preferencias y uso de recursos](docs/user/QUALITY_METRICS.md), sin nota global ni promesa de optimalidad, y [exportación PDF en español o inglés](docs/user/PDF_EXPORT_NOTES.md). Estas funciones son locales y no requieren MCP ni un proveedor de IA.
 
 ## Integración MCP opcional
 
