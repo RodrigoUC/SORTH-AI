@@ -64,6 +64,8 @@ Los encabezados van en la primera fila. Se permiten columnas reordenadas y difer
 mayúsculas, espacios exteriores o acentos en los encabezados. Los nombres de hojas siguen
 siendo exactamente `Aulas` y `Cursos`; las hojas adicionales se ignoran.
 
+Antes de materializar las tablas se comprueban las referencias reales de filas y celdas: cada hoja importada admite hasta 10.000 filas de datos, 128 columnas y 500.000 celdas en su rectángulo (incluido el encabezado). Una celda aislada muy lejos también cuenta para ese rectángulo; elimine filas/columnas sobrantes o divida el archivo si supera el límite. Se mantienen además los límites de 25 MiB de archivo y 100 MiB descomprimidos.
+
 - `Aulas` requiere `# DE AULA`; `Cursos` requiere `Curso`. Debe haber al menos un aula y un curso.
 - Las filas completamente vacías se ignoran. Una fila de datos sin identificador debe corregirse.
 - No se admiten encabezados duplicados ni códigos de aula repetidos. Los códigos de curso repetidos sí representan grupos distintos.

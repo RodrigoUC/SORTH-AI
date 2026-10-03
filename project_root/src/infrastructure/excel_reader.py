@@ -4,10 +4,13 @@ import pandas as pd
 import unicodedata
 import re
 import zipfile
+import posixpath
+from xml.parsers import expat
 from io import BytesIO
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict
+from openpyxl.xml.constants import XLSX, XLSM, XLTX, XLTM
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
@@ -71,6 +74,8 @@ class ExcelReader:
     MAX_EXPANDED_BYTES = 100 * 1024 * 1024
     MAX_ARCHIVE_MEMBERS = 1000
     MAX_DATA_ROWS = 10000
+    MAX_DATA_COLUMNS = 128
+    MAX_SHEET_CELLS = 500000
 
     def _check_workbook_size(self):
         self._checkpoint()
@@ -82,6 +87,95 @@ class ExcelReader:
             if (len(entries) > self.MAX_ARCHIVE_MEMBERS or
                     sum(entry.file_size for entry in entries) > self.MAX_EXPANDED_BYTES):
                 raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._check_sheet_sizes(archive)
+
+    def _check_sheet_sizes(self, archive):
+        """Reject sparse rectangular amplification before pandas/openpyxl load.
+
+        Inspect actual row/cell references rather than trusting the worksheet
+        dimension hint. Only the two imported sheets are subject to these
+        shape limits; extra sheets retain their existing ignored behavior.
+        """
+        workbook_paths = []
+        def content_type(tag, attributes):
+            if (attributes.get('ContentType') in (XLSX, XLSM, XLTX, XLTM)
+                    and 'PartName' in attributes and not workbook_paths):
+                workbook_paths.append(attributes['PartName'].lstrip('/'))
+        self._scan_xml(archive, '[Content_Types].xml', content_type)
+        workbook_path = workbook_paths[0] if workbook_paths else 'xl/workbook.xml'
+        ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+        relationship_id = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
+        sheet_ids = []
+        sheet_names = set()
+        def workbook_sheet(tag, attributes):
+            if tag == ns + 'sheet' and attributes.get('name') in ('Aulas', 'Cursos'):
+                if attributes['name'] in sheet_names:
+                    raise ValueError('Duplicate imported worksheet name')
+                sheet_names.add(attributes['name'])
+                sheet_ids.append(attributes[relationship_id])
+        self._scan_xml(archive, workbook_path, workbook_sheet)
+        directory, filename = posixpath.split(workbook_path)
+        relationships_path = posixpath.join(directory, '_rels', filename + '.rels')
+        targets = {}
+        def relationship(tag, attributes):
+            if attributes.get('Id') in sheet_ids:
+                targets[attributes['Id']] = attributes
+        self._scan_xml(archive, relationships_path, relationship)
+        for sheet_id in sheet_ids:
+            self._checkpoint()
+            relation = targets[sheet_id]
+            if relation.get('TargetMode') == 'External':
+                raise ValueError('An imported worksheet must be inside the workbook')
+            target = relation['Target']
+            path = (target.lstrip('/') if target.startswith('/') else
+                    posixpath.normpath(posixpath.join(directory, target)))
+            row = column = max_row = max_column = 0
+            def worksheet_element(tag, attributes):
+                nonlocal row, column, max_row, max_column
+                if tag == ns + 'row':
+                    self._checkpoint()
+                    row = int(attributes.get('r', row + 1))
+                    column = 0
+                    max_row = max(max_row, row)
+                    if row < 1:
+                        raise ValueError('Invalid worksheet row')
+                elif tag == ns + 'c':
+                    reference = attributes.get('r')
+                    if reference:
+                        match = re.fullmatch(r'([A-Za-z]{1,3})([1-9][0-9]*)', reference)
+                        if not match:
+                            raise ValueError('Invalid worksheet cell reference')
+                        column = 0
+                        for letter in match[1].upper():
+                            column = column * 26 + ord(letter) - ord('A') + 1
+                        max_row = max(max_row, int(match[2]))
+                    else:
+                        column += 1
+                    max_column = max(max_column, column)
+                else:
+                    return
+                if (max_row > self.MAX_DATA_ROWS + 1 or
+                        max_column > self.MAX_DATA_COLUMNS or
+                        max_row * max_column > self.MAX_SHEET_CELLS):
+                    raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            self._scan_xml(archive, path, worksheet_element)
+
+    def _scan_xml(self, archive, path, on_start):
+        """Streaming SAX-style scan without a tree, DTDs or entity expansion."""
+        parser = expat.ParserCreate(namespace_separator='}')
+        parser.StartElementHandler = on_start
+        def reject_entities(*args):
+            raise ValueError('Workbook XML must not contain DTDs or entities')
+        parser.StartDoctypeDeclHandler = reject_entities
+        parser.EntityDeclHandler = reject_entities
+        parser.ExternalEntityRefHandler = reject_entities
+        with archive.open(path) as source:
+            while True:
+                self._checkpoint()
+                chunk = source.read(64 * 1024)
+                parser.Parse(chunk, not chunk)
+                if not chunk:
+                    break
 
 
     def __init__(self, file_path: str, *, source_bytes=None, cancelled=None):

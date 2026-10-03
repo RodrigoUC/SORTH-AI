@@ -1,0 +1,124 @@
+"""Tiny sparse workbooks must not allocate unbounded rectangular frames."""
+from io import BytesIO
+from zipfile import ZipFile, ZIP_DEFLATED
+
+from openpyxl import Workbook
+import pytest
+
+from src.infrastructure import excel_reader
+from src.infrastructure.excel_reader import ExcelReader, ExcelImportError, ImportCancelled
+
+
+def workbook_bytes(extra_cell=None, extra_sheet=False, course_rows=1):
+    book = Workbook()
+    rooms = book.active
+    rooms.title = 'Aulas'
+    rooms.append(['# DE AULA', 'CAPACIDAD'])
+    rooms.append(['R', 30])
+    courses = book.create_sheet('Cursos')
+    courses.append(['Curso', 'Horas'])
+    for _ in range(course_rows):
+        courses.append(['BIO', '0800-0900'])
+    if extra_cell:
+        target = book.create_sheet('Ignored') if extra_sheet else courses
+        target[extra_cell] = 'x'
+    buffer = BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+def mutate_member(data, member, transform):
+    out = BytesIO()
+    with ZipFile(BytesIO(data)) as archive, ZipFile(out, 'w', ZIP_DEFLATED) as target:
+        for item in archive.infolist():
+            value = archive.read(item.filename)
+            target.writestr(item, transform(value) if item.filename == member else value)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize('reference', ['XFD2', 'A10002', 'DX4000'])
+def test_sparse_dimensions_rejected_before_workbook_materialization(monkeypatch, reference):
+    data = workbook_bytes(reference)
+    assert len(data) < 10000
+    def must_not_open(*args, **kwargs):
+        pytest.fail('pandas opened an oversized workbook before preflight rejection')
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', must_not_open)
+    with pytest.raises(ExcelImportError, match='límite de importación'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_shape_limit_is_inclusive_and_counts_header(monkeypatch):
+    data = workbook_bytes()
+    monkeypatch.setattr(ExcelReader, 'MAX_DATA_ROWS', 1)
+    monkeypatch.setattr(ExcelReader, 'MAX_DATA_COLUMNS', 2)
+    monkeypatch.setattr(ExcelReader, 'MAX_SHEET_CELLS', 4)
+    assert ExcelReader('input.xlsx', source_bytes=data).load_validated().courses[0].code == 'BIO'
+    monkeypatch.setattr(ExcelReader, 'MAX_SHEET_CELLS', 3)
+    with pytest.raises(ExcelImportError, match='límite de importación'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_false_small_dimension_does_not_hide_actual_sparse_width(monkeypatch):
+    data = mutate_member(workbook_bytes('XFD2'), 'xl/worksheets/sheet2.xml',
+                         lambda xml: xml.replace(b'<dimension ref="A1:XFD2"/>', b'<dimension ref="A1:B2"/>'))
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='límite de importación'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_false_large_dimension_hint_does_not_reject_small_real_data():
+    data = mutate_member(workbook_bytes(), 'xl/worksheets/sheet2.xml',
+                         lambda xml: xml.replace(b'<dimension ref="A1:B2"/>', b'<dimension ref="A1:XFD1048576"/>'))
+    assert ExcelReader('input.xlsx', source_bytes=data).load_validated().courses[0].code == 'BIO'
+
+
+def test_ignored_extra_sheet_does_not_acquire_import_shape_limits():
+    data = workbook_bytes('XFD1048576', extra_sheet=True)
+    assert ExcelReader('input.xlsx', source_bytes=data).load_validated().courses[0].code == 'BIO'
+
+
+def test_implicit_column_references_are_counted(monkeypatch):
+    def without_references(xml):
+        return xml.replace(b' r="A2"', b'').replace(b' r="B2"', b'').replace(b' r="C2"', b'')
+    data = mutate_member(workbook_bytes('C2'), 'xl/worksheets/sheet2.xml', without_references)
+    monkeypatch.setattr(ExcelReader, 'MAX_DATA_COLUMNS', 2)
+    with pytest.raises(ExcelImportError, match='límite de importación'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_preflight_can_be_cancelled_before_pandas(monkeypatch):
+    calls = 0
+    def cancelled():
+        nonlocal calls
+        calls += 1
+        return calls >= 4
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ImportCancelled):
+        ExcelReader('input.xlsx', source_bytes=workbook_bytes(), cancelled=cancelled).load_validated()
+
+
+@pytest.mark.parametrize('encoding', ['utf-8', 'utf-16'])
+def test_xml_dtd_is_rejected_without_entity_expansion_or_pandas(monkeypatch, encoding):
+    def add_doctype(xml):
+        text = xml.decode('utf-8')
+        return ('<?xml version="1.0" encoding="' + encoding + '"?>'
+                '<!DOCTYPE worksheet [<!ENTITY demo "BIO">]>' + text).encode(encoding)
+    data = mutate_member(workbook_bytes(), 'xl/worksheets/sheet2.xml', add_doctype)
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='No se pudo leer'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_relative_sheet_targets_are_resolved_from_workbook_directory():
+    data = mutate_member(workbook_bytes(), 'xl/_rels/workbook.xml.rels',
+                         lambda xml: xml.replace(b'Target="/xl/worksheets/', b'Target="worksheets/'))
+    assert ExcelReader('input.xlsx', source_bytes=data).load_validated().courses[0].code == 'BIO'
+
+
+def test_ten_thousand_data_rows_remain_supported():
+    data = workbook_bytes(course_rows=10000)
+    assert len(data) < 200000
+    imported = ExcelReader('input.xlsx', source_bytes=data).load_validated()
+    assert len(imported.courses) == 1
+    assert imported.courses[0].number_of_groups == 10000
+    assert len(imported.courses[0].group_suggestions) == 10000
