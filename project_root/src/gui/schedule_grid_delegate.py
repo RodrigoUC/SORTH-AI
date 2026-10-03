@@ -15,6 +15,7 @@ from ..scheduling.course_style import CourseStyle, GRID_TEXT_COLOR
 
 
 COURSE_CARD_ROLE = int(Qt.ItemDataRole.UserRole) + 1
+GRID_BLOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
 
 
 @dataclass(frozen=True)

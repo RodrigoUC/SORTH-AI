@@ -13,7 +13,9 @@ from PyQt6.QtGui import (
 )
 
 from .theme import COLORS
-from .schedule_grid_delegate import COURSE_CARD_ROLE, CourseCard, ScheduleGridDelegate
+from .schedule_grid_delegate import (
+    COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard, ScheduleGridDelegate,
+)
 from ..scheduling.course_style import course_style
 from ..scheduling.time_model import TimeModel
 from ..scheduling.quality import QualitySnapshot, analyze_quality
@@ -469,8 +471,8 @@ class ScheduleViewerWidget(QWidget):
                    if entry[0] in self._matching_gids]
         grid = build_schedule_grid(entries, tm.day_start, tm.day_end)
         table = self.grid_table
-        selected_ids = (table.currentItem().data(Qt.ItemDataRole.UserRole)
-                        if table.currentItem() and table.selectedItems() else None)
+        selected_block = (table.currentItem().data(GRID_BLOCK_ROLE)
+                          if table.currentItem() and table.selectedItems() else None)
         table.clearSpans()
         table.clear()
         table.setRowCount(len(grid.boundaries) - 1)
@@ -501,6 +503,12 @@ class ScheduleViewerWidget(QWidget):
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             item.setData(Qt.ItemDataRole.UserRole, tuple(entry[0] for entry in block.entries))
+            # One session can appear on both sides of an overlapping session.
+            # IDs alone would select the last matching segment after a redraw.
+            block_identity = (block.day, grid.boundaries[block.row],
+                              grid.boundaries[block.row + block.span],
+                              tuple(entry[0] for entry in block.entries))
+            item.setData(GRID_BLOCK_ROLE, block_identity)
             item.setData(Qt.ItemDataRole.AccessibleTextRole, text)
             item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
             item.setData(COURSE_CARD_ROLE, CourseCard(
@@ -512,7 +520,7 @@ class ScheduleViewerWidget(QWidget):
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             col = tm.days.index(tm.to_day_name(block.day)) + 1
             table.setItem(block.row, col, item)
-            if selected_ids is not None and item.data(Qt.ItemDataRole.UserRole) == selected_ids:
+            if selected_block is not None and block_identity == selected_block:
                 table.setCurrentItem(item)
             if block.span > 1:
                 table.setSpan(block.row, col, block.span, 1)

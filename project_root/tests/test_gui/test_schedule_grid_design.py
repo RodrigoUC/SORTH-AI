@@ -6,7 +6,7 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QStyle, QStyleOptionViewItem
 
 from src.gui.i18n import language_manager
-from src.gui.schedule_grid_delegate import COURSE_CARD_ROLE, CourseCard
+from src.gui.schedule_grid_delegate import COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard
 from src.gui.schedule_viewer_widget import ScheduleViewerWidget
 from src.gui.theme import COLORS, apply_theme
 from src.scheduling.course_style import course_style
@@ -137,3 +137,26 @@ def test_selection_identity_survives_repaint_and_native_keyboard_navigation(view
     viewer._list_search.setText('no matching course')
     assert not viewer.grid_table.selectedItems()
     assert 'Sin sesiones' in viewer._grid_hint.text()
+
+
+def test_split_session_selection_preserves_exact_block_across_repaint(viewer):
+    viewer.display_schedule({'BIO-G1': ('A1', 1, 480, 540),
+                             'CHEM-G1': ('A1', 1, 510, 525)}, TimeModel.default())
+    viewer.tabs.setCurrentIndex(1)
+    expected_blocks = [
+        (1, 480, 510, ('BIO-G1',)),
+        (1, 510, 525, ('BIO-G1', 'CHEM-G1')),
+        (1, 525, 540, ('BIO-G1',)),
+    ]
+    for identity in expected_blocks:
+        item = next(viewer.grid_table.item(row, 1)
+                    for row in range(viewer.grid_table.rowCount())
+                    if viewer.grid_table.item(row, 1)
+                    and viewer.grid_table.item(row, 1).data(GRID_BLOCK_ROLE) == identity)
+        viewer.grid_table.setCurrentItem(item)
+        row = item.row()
+        for _ in range(2):
+            viewer._request_grid_render()
+            assert viewer.grid_table.currentItem().data(GRID_BLOCK_ROLE) == identity
+            assert viewer.grid_table.currentRow() == row
+            assert viewer.grid_table.currentItem().isSelected()
