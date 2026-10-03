@@ -191,3 +191,62 @@ def test_relocated_workbook_part_matches_downstream_mapping():
             target.writestr(path, value)
     imported = ExcelReader('input.xlsx', source_bytes=out.getvalue()).load_validated()
     assert imported.courses[0].code == 'BIO'
+
+
+@pytest.mark.parametrize('mutation', [
+    'foreign_cell', 'custom_cell', 'no_namespace_cell', 'nested_cell',
+    'foreign_row', 'custom_row', 'nested_row', 'row_outside_sheet_data',
+    'nested_sheet_data',
+])
+def test_malformed_row_and_cell_structures_reject_before_pandas(monkeypatch, mutation):
+    def alter(xml):
+        cell = re.search(rb'<c r="XFD2"[^>]*>.*?</c>', xml).group()
+        row = re.search(rb'<row r="2"[^>]*>.*?</row>', xml).group()
+        if mutation == 'foreign_cell':
+            replacement = cell.replace(b'<c ', b'<foreign:c xmlns:foreign="urn:review-foreign" ').replace(b'</c>', b'</foreign:c>')
+            return xml.replace(cell, replacement)
+        if mutation == 'custom_cell':
+            return xml.replace(cell, cell.replace(b'<c ', b'<other ').replace(b'</c>', b'</other>'))
+        if mutation == 'no_namespace_cell':
+            return xml.replace(cell, cell.replace(b'<c ', b'<c xmlns="" '))
+        if mutation == 'nested_cell':
+            return xml.replace(cell, b'<c r="C2">' + cell + b'</c>')
+        if mutation == 'foreign_row':
+            replacement = row.replace(b'<row ', b'<foreign:row xmlns:foreign="urn:review-foreign" ').replace(b'</row>', b'</foreign:row>')
+            return xml.replace(row, replacement)
+        if mutation == 'custom_row':
+            return xml.replace(row, row.replace(b'<row ', b'<other ').replace(b'</row>', b'</other>'))
+        if mutation == 'nested_row':
+            return xml.replace(row, b'<row r="2"><c r="A2">' + row + b'</c></row>')
+        if mutation == 'row_outside_sheet_data':
+            return xml.replace(row, b'').replace(b'</worksheet>', row + b'</worksheet>')
+        return xml.replace(b'<sheetData>', b'<wrapper><sheetData>').replace(b'</sheetData>', b'</sheetData></wrapper>')
+    data = mutate_member(workbook_bytes('XFD2'), 'xl/worksheets/sheet2.xml', alter)
+    assert len(data) < 10000
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='No se pudo leer'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+@pytest.mark.parametrize('mutation', ['duplicate_cell', 'duplicate_row', 'decreasing_row'])
+def test_duplicate_coordinates_cannot_expand_objects_behind_small_dimensions(monkeypatch, mutation):
+    def alter(xml):
+        cell = re.search(rb'<c r="B2"[^>]*>.*?</c>', xml).group()
+        row = re.search(rb'<row r="2"[^>]*>.*?</row>', xml).group()
+        if mutation == 'duplicate_cell':
+            return xml.replace(cell, cell + cell)
+        if mutation == 'duplicate_row':
+            return xml.replace(row, row + row)
+        return xml.replace(row, row + row.replace(b'<row r="2"', b'<row r="1"'))
+    data = mutate_member(workbook_bytes(), 'xl/worksheets/sheet2.xml', alter)
+    monkeypatch.setattr(excel_reader.pd, 'ExcelFile', lambda *a, **k: pytest.fail('materialized'))
+    with pytest.raises(ExcelImportError, match='No se pudo leer'):
+        ExcelReader('input.xlsx', source_bytes=data).load_validated()
+
+
+def test_valid_sparse_gapped_rows_still_import():
+    reader = ExcelReader('input.xlsx', source_bytes=workbook_bytes('A10'))
+    imported = reader.load_validated()
+    assert [course.code for course in imported.courses] == ['BIO', 'x']
+    assert sum(course.number_of_groups for course in imported.courses) == 2
+    assert reader._read_sheet('Cursos').shape == (9, 2)

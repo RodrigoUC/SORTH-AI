@@ -66,6 +66,8 @@ siendo exactamente `Aulas` y `Cursos`; las hojas adicionales se ignoran.
 
 Antes de materializar las tablas se comprueban las referencias reales de filas y celdas: cada hoja importada admite hasta 10.000 filas de datos, 128 columnas y 500.000 celdas en su rectángulo (incluido el encabezado). Una celda aislada muy lejos también cuenta para ese rectángulo; elimine filas/columnas sobrantes o divida el archivo si supera el límite. Se mantienen además los límites de 25 MiB de archivo y 100 MiB descomprimidos.
 
+Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celda inesperadas, coordenadas duplicadas o filas que no avanzan. Las filas y columnas vacías intermedias siguen admitiéndose; si el archivo se rechaza, guarde una copia válida desde Excel antes de volver a importar.
+
 - `Aulas` requiere `# DE AULA`; `Cursos` requiere `Curso`. Debe haber al menos un aula y un curso.
 - Las filas completamente vacías se ignoran. Una fila de datos sin identificador debe corregirse.
 - No se admiten encabezados duplicados ni códigos de aula repetidos. Los códigos de curso repetidos sí representan grupos distintos.

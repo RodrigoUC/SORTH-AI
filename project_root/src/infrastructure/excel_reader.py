@@ -186,17 +186,33 @@ class ExcelReader:
             path = (target[1:] if target.startswith('/') else
                     posixpath.normpath(posixpath.join(directory, target)))
             row = column = max_row = max_column = 0
+            row_columns = set()
+            data_parent = (ns + 'worksheet',)
+            row_parent = data_parent + (ns + 'sheetData',)
+            cell_parent = row_parent + (ns + 'row',)
             def worksheet_element(tag, attributes, parents):
                 nonlocal row, column, max_row, max_column
                 if not parents and tag != ns + 'worksheet':
                     raise ValueError('Invalid worksheet namespace')
+                # openpyxl parses every direct row child as a cell, regardless
+                # of its tag, and processes namespaced rows at any depth. Fail
+                # closed on malformed structure so both parsers see exactly
+                # the cells whose dimensions we check.
+                if ((tag == ns + 'sheetData' and parents != data_parent) or
+                        (parents == row_parent and tag != ns + 'row') or
+                        (tag == ns + 'row' and parents != row_parent) or
+                        (parents == cell_parent and tag != ns + 'c') or
+                        (tag == ns + 'c' and parents != cell_parent)):
+                    raise ValueError('Invalid worksheet row or cell structure')
                 if tag == ns + 'row':
                     self._checkpoint()
-                    row = int(attributes.get('r', row + 1))
+                    next_row = int(attributes.get('r', row + 1))
+                    if next_row <= row:
+                        raise ValueError('Worksheet rows must be unique and increasing')
+                    row = next_row
                     column = 0
+                    row_columns.clear()
                     max_row = max(max_row, row)
-                    if row < 1:
-                        raise ValueError('Invalid worksheet row')
                 elif tag == ns + 'c':
                     reference = attributes.get('r')
                     if reference:
@@ -209,6 +225,9 @@ class ExcelReader:
                         max_row = max(max_row, int(match[2]))
                     else:
                         column += 1
+                    if column in row_columns:
+                        raise ValueError('Duplicate worksheet cell column')
+                    row_columns.add(column)
                     max_column = max(max_column, column)
                 else:
                     return
