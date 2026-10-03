@@ -22,7 +22,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = {'.db', '.sqlite', '.sqlite3', '.pyc', '.pyo'}
-FORBIDDEN_MODULES = {'pyqt6', 'pyside6', 'pandas', 'numpy', 'openpyxl', 'openai', 'anthropic', 'torch'}
+FORBIDDEN_MODULES = {'pyqt6', 'pyside6', 'pandas', 'numpy', 'openai', 'anthropic', 'torch'}
 
 
 def digest(data):

@@ -52,11 +52,11 @@ El modo de carpeta facilita inspeccionar las dependencias y evita la extracción
 
 ## Compañero MCP aislado
 
-`requirements-mcp-build.txt` declara SDK MCP 1.30.0, PyInstaller y pip; su
-`requirements-mcp-windows.lock` fija 38 paquetes, cada uno con el hash SHA-256 del
+`requirements-mcp-build.txt` declara SDK MCP 1.30.0, openpyxl 3.1.5, PyInstaller y pip; su
+`requirements-mcp-windows.lock` fija 40 paquetes, cada uno con el hash SHA-256 del
 wheel exacto para CPython 3.12/Windows x64. Es independiente del lock base de 29
 paquetes y del lock universal de pruebas de MCP. El compañero no incluye Qt,
-pandas, openpyxl, pytest ni clientes de modelos. `third_party/mcp/` conserva su
+pandas, pytest ni clientes de modelos. Incluye openpyxl/et-xmlfile para la exportación XLSX en memoria, con los mismos hashes revisados de la aplicación. `third_party/mcp/` conserva su
 inventario y avisos de licencias; se verifican junto con los wheels antes de
 redistribuir.
 

@@ -32,7 +32,7 @@ $mcpPython = (Resolve-Path 'build/mcp/venv/Scripts/python.exe').Path
 if ($LASTEXITCODE -ne 0) { throw 'Companion locked installation failed.' }
 & $mcpPython -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Companion dependency validation failed.' }
-& $mcpPython -c "import importlib.util, importlib.metadata as m; assert m.version('mcp') == '1.30.0'; assert all(importlib.util.find_spec(n) is None for n in ('PyQt6','pandas','openpyxl','openai','anthropic','torch','pytest'))"
+& $mcpPython -c "import importlib.util, importlib.metadata as m; assert m.version('mcp') == '1.30.0'; assert m.version('openpyxl') == '3.1.5'; assert all(importlib.util.find_spec(n) is None for n in ('PyQt6','pandas','openai','anthropic','torch','pytest'))"
 if ($LASTEXITCODE -ne 0) { throw 'Companion environment is contaminated.' }
 & $mcpPython tools/build_identity.py --commit $env:SOURCE_COMMIT
 if ($LASTEXITCODE -ne 0) { throw 'Companion build identity failed.' }

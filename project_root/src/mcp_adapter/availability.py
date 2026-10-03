@@ -21,6 +21,9 @@ def check(*, packaged=False):
     if version != SUPPORTED_VERSION:
         return 'incompatible_sdk'
     try:
+        import openpyxl
+        if openpyxl.__version__ != "3.1.5":
+            return "runtime_error"
         from .server import build_server
         if packaged:
             build_server(packaged=True)

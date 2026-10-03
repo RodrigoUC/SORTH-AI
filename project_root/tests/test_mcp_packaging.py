@@ -148,7 +148,7 @@ def test_payload_refuses_linked_member(payload):
 def test_companion_license_inventory_is_complete_and_byte_verified(tmp_path):
     source = ROOT.parent / 'third_party/mcp'
     inventory = mcp_payload.verify_notices(source)
-    assert len(inventory['packages']) == 38
+    assert len(inventory['packages']) == 40
     copied = tmp_path / 'notices'
     shutil.copytree(source, copied)
     notice = copied / inventory['packages'][0]['notice_file']
@@ -162,7 +162,7 @@ def test_isolated_companion_lock_matches_direct_pins_and_excludes_gui_model_test
     assert pins['mcp'] == '1.30.0'
     assert pins['pyinstaller'] == '6.22.2'
     assert {'pywin32', 'cryptography', 'cffi', 'pycparser'} <= set(pins)
-    assert not ({'pytest', 'pandas', 'numpy', 'pyqt6', 'openpyxl', 'openai', 'anthropic'} & set(pins))
+    assert not ({'pytest', 'pandas', 'numpy', 'pyqt6', 'openai', 'anthropic'} & set(pins))
     assert 'mcp' not in validate_lock()
 
 

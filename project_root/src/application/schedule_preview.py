@@ -75,6 +75,6 @@ def generate_preview(request, scheduler: SchedulingPort | None = None):
     result["pending"] = [{"group_id": group.group_id, "reason": str(unassigned_reason(group, validation_rooms, TimeModel.default()))}
                          for group in expected_groups if group.group_id not in assignments]
     result["status"] = "partial" if result["pending"] else "complete"
-    result["notices"].append({"code": "PREVIEW_ONLY", "message": "No session was read or changed. Review this normalized configuration and proposal; no save, apply, export or LAB override tool exists."})
+    result["notices"].append({"code": "PREVIEW_ONLY", "message": "No session was read or changed. Review this normalized configuration and proposal; no save, apply or LAB override is performed. Excel is available separately through generate_excel after scope confirmation."})
     validate_shape(result, OUTPUT_SCHEMA, "result")
     return result
