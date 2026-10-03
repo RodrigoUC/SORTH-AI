@@ -1,0 +1,3 @@
+# Separate analysis environment; never install into the application/build environment.
+bandit==1.9.4
+pip-audit==2.10.1

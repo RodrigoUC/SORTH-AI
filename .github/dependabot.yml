@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Python updates require the custom Windows wheel/hash generator and human review.
+  # Do not add a pip updater that independently edits manifests or this lock.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

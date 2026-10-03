@@ -23,7 +23,8 @@ def verify_workflow(window, output, result):
             dialog.accept()
     QTimer.singleShot(0, edit)
     window.course_manager.edit_course_by_code(course.code)
-    assert window.course_manager.get_courses()[0].name == edited_name
+    if not (window.course_manager.get_courses()[0].name == edited_name):
+        raise RuntimeError('Packaged workflow verification failed: window.course_manager.get_courses()[0].name == edited_name')
     # Editing deliberately invalidates the old schedule; regenerate through
     # the real background worker before persisting and reopening.
     loop = QEventLoop()
@@ -38,8 +39,10 @@ def verify_workflow(window, output, result):
     loop.exec()
     probe.stop()
     deadline.stop()
-    assert not window._busy and window.current_schedule, 'Regeneration failed'
-    assert window._save_session(), 'Edited session failed to save'
+    if not (not window._busy and window.current_schedule):
+        raise RuntimeError('Regeneration failed')
+    if not (window._save_session()):
+        raise RuntimeError('Edited session failed to save')
     result['stages'].append('course_dialog_edit_save')
     def accept_restore():
         dialog = QApplication.activeModalWidget()
@@ -48,8 +51,10 @@ def verify_workflow(window, output, result):
     QTimer.singleShot(0, accept_restore)
     reopened = MainWindow(repo=SessionRepository(str(output / 'smoke-session.db')))
     try:
-        assert reopened.course_manager.get_courses()[0].name == edited_name
-        assert reopened.current_schedule == window.current_schedule
+        if not (reopened.course_manager.get_courses()[0].name == edited_name):
+            raise RuntimeError('Packaged workflow verification failed: reopened.course_manager.get_courses()[0].name == edited_name')
+        if not (reopened.current_schedule == window.current_schedule):
+            raise RuntimeError('Packaged workflow verification failed: reopened.current_schedule == window.current_schedule')
         result['stages'].append('new_window_restore')
         exporter = ScheduleExporter(TimeModel.default())
         names = {c.code: c.name for c in reopened.course_manager.get_courses()}
@@ -57,10 +62,13 @@ def verify_workflow(window, output, result):
         exporter.to_csv(reopened.current_schedule, str(output / 'reopened.csv'), groups=reopened.current_groups, course_name_by_code=names)
         with (output / 'reopened.csv').open(encoding='utf-8-sig', newline='') as stream:
             rows = list(csv.DictReader(stream))
-        assert len(rows) == len(reopened.current_schedule)
-        assert any(row['Nombre Curso'] == edited_name for row in rows)
+        if not (len(rows) == len(reopened.current_schedule)):
+            raise RuntimeError('Packaged workflow verification failed: len(rows) == len(reopened.current_schedule)')
+        if not (any(row['Nombre Curso'] == edited_name for row in rows)):
+            raise RuntimeError("Packaged workflow verification failed: any(row['Nombre Curso'] == edited_name for row in rows)")
         book = load_workbook(output / 'reopened.xlsx', read_only=True)
-        assert book['Asignaciones'].max_row == len(rows) + 1
+        if not (book['Asignaciones'].max_row == len(rows) + 1):
+            raise RuntimeError("Packaged workflow verification failed: book['Asignaciones'].max_row == len(rows) + 1")
         book.close()
         result['stages'].append('reopened_export_content')
     finally:
@@ -85,7 +93,8 @@ def verify_workflow(window, output, result):
             pass
         else:
             raise AssertionError('Bad workbook was accepted')
-    assert before == hashlib.sha256(db.read_bytes()).hexdigest()
+    if not (before == hashlib.sha256(db.read_bytes()).hexdigest()):
+        raise RuntimeError('Packaged workflow verification failed: before == hashlib.sha256(db.read_bytes()).hexdigest()')
     result['stages'].append('invalid_input_preserves_session')
     started = monotonic()
     book = Workbook()
@@ -101,11 +110,14 @@ def verify_workflow(window, output, result):
     large = output / 'large-input.xlsx'
     book.save(large)
     imported = ExcelReader(str(large)).load_validated()
-    assert len(imported.courses) == 500 and len(imported.classrooms) == 50
+    if not (len(imported.courses) == 500 and len(imported.classrooms) == 50):
+        raise RuntimeError('Packaged workflow verification failed: len(imported.courses) == 500 and len(imported.classrooms) == 50')
     assignments, groups = SchedulingService(None, seed=42).run(courses=imported.courses, classrooms=imported.classrooms)
-    assert len(assignments) == len(groups) == 500
+    if not (len(assignments) == len(groups) == 500):
+        raise RuntimeError('Packaged workflow verification failed: len(assignments) == len(groups) == 500')
     exporter.to_csv(assignments, str(output / 'large.csv'), groups=groups)
     with (output / 'large.csv').open(encoding='utf-8-sig', newline='') as stream:
-        assert len(list(csv.DictReader(stream))) == 500
+        if not (len(list(csv.DictReader(stream))) == 500):
+            raise RuntimeError('Packaged workflow verification failed: len(list(csv.DictReader(stream))) == 500')
     result['large_fixture'] = {'courses': 500, 'rooms': 50, 'assigned': len(assignments), 'elapsed_seconds': round(monotonic()-started, 3)}
     result['stages'].append('large_workbook_schedule_export')

@@ -19,3 +19,6 @@ project_root/MANUAL_USUARIO.pdf
 
 # Generated schedules contain user data and are never source assets
 project_root/data/output/
+
+# Isolated security-analysis tools
+project_root/.venv-security/

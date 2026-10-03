@@ -43,3 +43,11 @@ Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](project_root
 - Abre el PR como borrador mientras falten pruebas; indica qué pasó, qué falló y qué no se pudo ejecutar. No declares soporte de una plataforma sólo por pasar tests sin pantalla.
 
 El mantenedor revisa alcance, corrección, pruebas, privacidad y licencias antes de integrar. Un PR puede requerir ajustes o quedar fuera de alcance. No hay un tiempo de respuesta garantizado.
+
+## Controles de seguridad
+
+Antes de proponer cambios de código o dependencias, sigue
+[SECURITY_CHECKS.md](docs/SECURITY_CHECKS.md). La revisión estática y la auditoría
+son independientes del build Windows. No suprimas avisos globalmente ni aceptes
+actualizaciones automáticamente. Los cambios de Python requieren mantener
+sincronizados los requisitos, el lock Windows con hashes y el inventario/licencias.

@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import tempfile
 from string import Formatter
-from xml.sax.saxutils import escape
+from html import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -78,7 +78,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
         # Fail explicitly instead of producing a misleading visual label.
         if missing or re.search(r'[\u0590-\u08ff\u0900-\u0dff]', value):
             raise ValueError(tr('El PDF no admite algunos caracteres o escrituras de los datos. Use Excel/CSV para conservarlos.'))
-        return Paragraph(escape(value).replace('\n', '<br/>'), text_style)
+        return Paragraph(escape(value, quote=False).replace('\n', '<br/>'), text_style)
 
     scope = tr('Vista filtrada') if filtered else tr('Todas las asignaciones')
     state = (tr('Estado global: pendientes no informados') if pending_count is None else
