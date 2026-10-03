@@ -4,9 +4,10 @@ import re
 import time
 
 import pytest
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QRect, QSize, Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QStyleFactory, QWidget, QDialogButtonBox
+from PyQt6.QtWidgets import (QApplication, QStyleFactory, QWidget, QDialogButtonBox,
+                             QStyle, QStyleOptionButton)
 
 from src.gui.calendar_dialog import CalendarDialog
 from src.gui.i18n import language_manager
@@ -102,6 +103,68 @@ def test_calendar_fits_complete_controls_at_compact_size(dialog, presentation, s
             assert control.height() >= control.minimumSizeHint().height()
             assert dialog.breaks.rowHeight(row) >= control.minimumSizeHint().height()
     assert dialog.value() == ProjectCalendar()
+
+
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('large', [False, True])
+def test_weekday_focus_keeps_fresh_native_height_after_retranslation(
+        dialog, presentation, style_name, locale, large):
+    app, manager = presentation
+    if style_name not in QStyleFactory.keys():
+        pytest.skip(f'{style_name} unavailable')
+    app.setStyle(style_name)
+    manager._apply(builtin_themes()[0].spec)
+    language_manager().set_language(locale, persist=False)
+    if large:
+        dialog.setStyleSheet('QPushButton, QCheckBox, QLabel, QTimeEdit { font-size: 20pt; }')
+    dialog.resize(460, 420)
+    dialog.show()
+    settle(dialog)
+    first = dialog.days['Lunes']
+    first.setFocus()
+    QTest.keyClick(first, Qt.Key.Key_Space)
+    expected = dialog.value()
+    original_fonts = {day: control.font() for day, control in dialog.days.items()}
+    for language in [locale, 'en' if locale == 'es' else 'es', locale]:
+        first.setFocus()
+        language_manager().set_language(language, persist=False)
+        settle(dialog)
+        assert first.hasFocus()
+        for day, checkbox in dialog.days.items():
+            caption = checkbox.text()
+            required_heights = []
+            for target in (checkbox, dialog.opening, checkbox):
+                target.setFocus()
+                settle(dialog)
+                option = QStyleOptionButton()
+                checkbox.initStyleOption(option)
+                style = checkbox.style()
+                text_size = style.itemTextRect(
+                    checkbox.fontMetrics(), QRect(), Qt.TextFlag.TextShowMnemonic,
+                    False, checkbox.text()).size()
+                # A cached minimumSizeHint can hide focus-only border growth.
+                # Measure the current native style and actual text area afresh.
+                native_size = style.sizeFromContents(
+                    QStyle.ContentsType.CT_CheckBox, option, text_size, checkbox)
+                contents = style.subElementRect(
+                    QStyle.SubElement.SE_CheckBoxContents, option, checkbox)
+                required_heights.append(native_size.height())
+                assert checkbox.height() >= native_size.height()
+                assert checkbox.height() >= checkbox.minimumSizeHint().height()
+                assert contents.height() >= text_size.height()
+                assert checkbox.text() == caption
+                assert checkbox.font() == original_fonts[day]
+                assert dialog.value() == expected
+                assert dialog.size() == QSize(460, 420)
+                assert dialog.scroll.horizontalScrollBar().maximum() == 0
+            assert len(set(required_heights)) == 1
+            source = checkbox._messages['setText'][1][0].render()
+            assert re.fullmatch(r'\s*'.join(re.escape(part) for part in caption.split('\n')), source)
+            assert checkbox.accessibleName() == source
+        assert_footer_visible(dialog)
+    dialog.reject()
+    assert dialog.parentWidget().calendar == ProjectCalendar()
 
 
 @pytest.mark.parametrize('locale', ['es', 'en'])

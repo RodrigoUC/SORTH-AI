@@ -22,6 +22,7 @@ class CalendarDialog(QDialog):
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         content = QWidget()
+        content.setObjectName('calendarContent')
         layout = QVBoxLayout(content)
         self.scroll.setWidget(content)
         outer.addWidget(self.scroll, 1)

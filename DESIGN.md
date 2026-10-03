@@ -473,3 +473,9 @@ text. Localized form/time wrappers update labels and accessible names without
 changing the draft. ES/EN, 460×420, 20pt controls and light/dark/custom themes are
 covered by Linux offscreen/Fusion/Windows-style tests and synthetic captures;
 native Windows rendering and screen-reader acceptance remain unverified.
+
+Calendar weekdays reuse the Settings checkbox focus-border reserve in the shared
+theme owner: a transparent 2px border is present before focus, which changes only
+its color. Native size hints and text-content height remain stable while tabbing
+and switching ES/EN, including 20pt fonts, without fixing heights or changing
+fonts. Fresh native-style measurements guard against stale cached size hints.
