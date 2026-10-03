@@ -176,5 +176,5 @@ def test_legacy_assignment_migration_preserves_rows_and_defaults_override_false(
     SessionRepository(str(path))
     SessionRepository(str(path))
     with sqlite3.connect(path) as con:
-        assert con.execute("SELECT * FROM assignments").fetchall() == [("OLD-G1", "R1", 1, 480, 540, 0)]
+        assert con.execute("SELECT * FROM assignments").fetchall() == [("OLD-G1", "R1", 1, 480, 540, 0, 0)]
         assert [row[1] for row in con.execute("PRAGMA table_info(assignments)")].count("lab_override") == 1

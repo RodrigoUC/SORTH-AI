@@ -36,6 +36,7 @@ class Group:
         # assignment: (classroom_name, day_index, start_min, end_min)
         self.assignment: tuple | None = None
         self.lab_override = False
+        self.pinned = False
         self.unassigned_reason = ""
 
     def is_assigned(self) -> bool:
