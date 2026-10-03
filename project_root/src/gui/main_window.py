@@ -44,6 +44,15 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 
 class MainWindow(QMainWindow):
+    # Focused native all-optional chrome fits four 30px rows at 803px with dense
+    # spacing (Windows style, both locales), including its 2px focus-frame cost.
+    # Keep secondary tools in F7 below
+    # that budget. Selection help returns sooner without adding a toolbar row.
+    _COMPACT_HEIGHT = 802
+    _COMPACT_HINT_HEIGHT = 760
+    # Spacious gaps need a further 120px. These decisions never depend on the
+    # current viewport, avoiding compact/spacious feedback or resize oscillation.
+    _DENSE_HEIGHT = 920
 
     def __init__(self, repo=None, restore_session=True, feature_settings=None):
         super().__init__()
@@ -1208,7 +1217,7 @@ class MainWindow(QMainWindow):
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
                 resource_summaries.append(msg('{name}: {state} ({count})',
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
-        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= 700 and resource_summaries
+        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= self._COMPACT_HEIGHT and resource_summaries
                        else resource_details)
         if self._features.enabled('undo_redo') and self._history.reset_reason == 'feature_disabled_change':
             notices.append(msg('El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'))
@@ -1748,12 +1757,17 @@ class MainWindow(QMainWindow):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
         # window size. All secondary actions remain in the native F7 menu; F6
         # retains complete feature status and the full schedule summary.
-        compact = self.height() <= 700 and self.tabs.currentIndex() == 1
+        compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
+        compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
-        self._feature_notice.setVisible(not compact and bool(self._feature_notice.text()))
+        # Retained-data warnings are reading content, not optional toolbar
+        # chrome. Restore them with detail captions, including the default 800px
+        # window, while secondary actions can still live in the F7 menu.
+        self._feature_notice.setVisible(not compact_details and bool(self._feature_notice.text()))
         self._compact_tools.setVisible(compact)
         viewer = self.schedule_viewer
-        viewer.set_compact_layout(compact)
+        viewer.set_compact_layout(compact_details,
+                                  dense=self.height() <= self._DENSE_HEIGHT)
         tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
         if self.tabs.styleSheet() != tab_style:
             self.tabs.setStyleSheet(tab_style)
@@ -1779,12 +1793,12 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, '_main_layout'):
-            compact = self.height() <= 700
+            dense = self.height() <= self._DENSE_HEIGHT
             # Reclaim whitespace, not control height, for native Windows metrics.
             # Keep the schedule rows readable at the supported 960×640 minimum.
-            self._main_layout.setSpacing(6 if compact else 16)
-            self._main_layout.setContentsMargins(*(16, 8, 16, 6) if compact else (24, 20, 24, 12))
-            self._file_layout.setSpacing(4 if compact else 16)
+            self._main_layout.setSpacing(6 if dense else 16)
+            self._main_layout.setContentsMargins(*(16, 8, 16, 6) if dense else (24, 20, 24, 12))
+            self._file_layout.setSpacing(4 if dense else 16)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
                 self._update_feature_notice()
                 self._update_compact_overview()

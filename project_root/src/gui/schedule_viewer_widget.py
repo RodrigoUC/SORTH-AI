@@ -218,11 +218,15 @@ class ScheduleViewerWidget(QWidget):
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
 
-    def set_compact_layout(self, compact):
+    def set_compact_layout(self, compact, *, dense=None):
         # Reserve room for actual timetable rows at native Windows metrics.
         # The concise export scope stays visible; longer supporting copy remains
         # in accessible descriptions and tooltips. Controls keep normal targets.
-        self.layout().setContentsMargins(*(4, 2, 4, 2) if compact else (9, 9, 9, 9))
+        dense = compact if dense is None else dense
+        self.layout().setContentsMargins(*(4, 2, 4, 2) if dense else (9, 9, 9, 9))
+        # Reclaim inter-row whitespace, not font size or readable table rows.
+        # Global counts and the visible export scope now share the short shell.
+        self.layout().setSpacing(2 if dense else 6)
         for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
             hint.setVisible(not compact)
             table.setAccessibleDescription(hint.text())

@@ -354,3 +354,23 @@ explicit names. A generated name follows Message or literal caption replacements
 and drops obsolete translation bindings; an explicitly assigned name remains
 independent through wrapping, text changes and locale changes. The helper still
 uses already-rendered canonical text and never translates during native fitting.
+
+### Schedule consultation height budget
+The schedule shell uses three independent, deterministic presentation budgets.
+Selection-help captions and retained-data notices return above 760px. Secondary summary/resource chrome
+returns above 802px; below that it remains in the established native F7 menu.
+Dense gaps/insets remain through 920px, so the full chrome can fit four readable
+rows before spacious margins return. The native 2px focused-frame cost is included. No mode decision reads the current viewport,
+avoiding responsive feedback or oscillation. The thresholds are verified on both
+sides with actual native metrics and every optional feature restored.
+
+The viewer uses 2px inter-row gaps in dense mode, retaining native fonts, table
+row heights, action targets, the visible scope line and existing F6/F7 routes.
+Spacious windows restore the 6px viewer gaps. Counts, filters, details and exports
+retain their existing semantics; no preference or domain data changes.
+
+Regressions save/reopen the session/preferences and check ES/EN, all three shipped
+themes, native-default/Fusion/Windows styles, optional tools OFF/all ON, all three
+consultation tabs and tall→short resize. The native viewport retains at least
+four 30px row heights at every tested size, including 759/760/761, 799/800/801/802/803/804 and
+919/920/921/922. No font, row, scope visibility or exact-size assertion is relaxed.

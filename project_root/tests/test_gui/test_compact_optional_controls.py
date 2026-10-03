@@ -76,3 +76,101 @@ def test_compact_schedule_retains_four_readable_rows_and_actions(window, languag
     finally:
         app.setStyle(previous_style)
         manager.set_language(previous, persist=False)
+
+
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'], ids=['native-default', 'Fusion', 'Windows'])
+@pytest.mark.parametrize('language', ['es', 'en'])
+@pytest.mark.parametrize('optional_enabled', [False, True], ids=['saved-off', 'saved-all-on'])
+def test_reopened_schedule_layout_budget_across_themes(window, language, style_name, optional_enabled):
+    """Persisted controls and real themes must share the short-window budget."""
+    import json
+    from pathlib import Path
+    from src.gui.main_window import MainWindow
+    from src.gui.theme import builtin_themes, theme_manager
+
+    app = QApplication.instance()
+    locale = language_manager()
+    previous_language = locale.language
+    previous_style = app.style().objectName()
+    appearance = theme_manager()
+    previous_theme = appearance.current
+    reopened = None
+    snapshots = []
+    report_dir = Path(__file__).resolve().parents[2] / 'build' / 'reports'
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report = report_dir / f'schedule-budget-{style_name}-{language}-{optional_enabled}.json'
+    try:
+        if style_name is not None:
+            app.setStyle(style_name)
+        locale.set_language(language, persist=False)
+        window.resources = SchedulingResources(tuple(
+            ResourceCatalog(kind, optional_enabled) for kind in RESOURCE_KINDS))
+        window.calendar = ProjectCalendar(('Lunes', 'Domingo'), 0, 1440, ())
+        window._features.save({key: optional_enabled for key in window._features.values()})
+        assert window._save_session()
+        window.close()
+        reopened = MainWindow(window._repo, restore_session=False,
+                              feature_settings=window._features.settings)
+        reopened._restore_session_if_exists(confirm=False)
+        assert not reopened._restore_failed
+        assert all(value is optional_enabled for value in reopened._features.values().values())
+        viewer = reopened.schedule_viewer
+        original = dict(viewer._assignments)
+        original_font = viewer.list_table.font().pointSizeF()
+        original_row_height = viewer.list_table.rowHeight(0)
+        reopened.tabs.setCurrentIndex(1)
+        reopened.show()
+        reopened.activateWindow()
+        for choice in builtin_themes():
+            appearance._apply(choice.spec)
+            for width, height in ((960, 640), (960, 720), (960, 759), (960, 760),
+                                  (960, 761), (960, 780), (960, 799), (960, 800),
+                                  (960, 801), (960, 802), (960, 803), (960, 804),
+                                  (1200, 800), (960, 919), (960, 920),
+                                  (960, 921), (960, 922), (960, 640)):
+                reopened.resize(width, height)
+                app.processEvents()
+                for index, table in ((0, viewer.list_table), (1, viewer.grid_table),
+                                     (2, viewer.classroom_table)):
+                    viewer.tabs.setCurrentIndex(index)
+                    table.setCurrentCell(0, 0)
+                    table.setFocus()
+                    app.processEvents()
+                    assert table.hasFocus()
+                    snapshot = {
+                        'theme': choice.key, 'size': [reopened.width(), reopened.height()],
+                        'tab': index, 'viewport_height': table.viewport().height(),
+                        'row_height': original_row_height, 'font': table.font().pointSizeF(),
+                        'scope_visible': viewer._export_scope_hint.isVisible(),
+                        'compact_tools': reopened._compact_tools.isVisible(),
+                        'table_focused': table.hasFocus(),
+                    }
+                    snapshots.append(snapshot)
+                    report.write_text(json.dumps(snapshots, indent=2), encoding='utf-8')
+                    assert reopened.size() == QSize(width, height)
+                    assert table.font().pointSizeF() == original_font
+                    assert viewer.list_table.rowHeight(0) == original_row_height
+                    assert viewer._export_scope_hint.isVisible()
+                    assert viewer._result_label.isVisible()
+                    assert viewer._export_scope_hint.height() >= viewer._export_scope_hint.heightForWidth(viewer._export_scope_hint.width())
+                    assert viewer._result_label.height() >= viewer._result_label.heightForWidth(viewer._result_label.width())
+                    assert table.viewport().height() >= 4 * original_row_height
+                    assert reopened._compact_tools.isVisible() is (height <= 802)
+                    assert all(hint.isHidden() is (height <= 760) for hint in viewer._selection_hints)
+                    assert reopened._feature_notice.isVisible() is (height > 760)
+                    if index == 1:
+                        assert viewer._grid_count.isVisible()
+                        assert viewer._btn_grid_details.isVisible()
+                        assert viewer._btn_grid_details.height() >= 30
+                    else:
+                        controls = (viewer._pin_controls[index // 2], viewer._suggestion_controls[index // 2])
+                        assert all(control.isVisible() is optional_enabled for control in controls)
+                        if optional_enabled:
+                            assert all(control.height() >= 30 for control in controls)
+                    assert viewer._assignments == original
+    finally:
+        if reopened is not None:
+            reopened.close()
+        appearance._apply(previous_theme)
+        app.setStyle(previous_style)
+        locale.set_language(previous_language, persist=False)
