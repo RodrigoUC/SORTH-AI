@@ -19,6 +19,7 @@ from src.infrastructure.excel_reader import ExcelReader
 from src.scheduling.schedule_state import ScheduleState
 from src.scheduling.scheduler import Scheduler
 from src.scheduling.time_model import TimeModel
+from src.scheduling.quality import QualitySnapshot, analyze_quality
 
 
 DEFAULT_INPUT = Path(__file__).resolve().parent / "data" / "input" / "Cursos_Ejemplo.xlsx"
@@ -102,6 +103,8 @@ def benchmark_excel(input_path=DEFAULT_INPUT, repeats=5, seed=42):
         "input_load_seconds": load_seconds,
         "deterministic": deterministic,
         "hard_constraints_verified": True,
+        "quality": analyze_quality(QualitySnapshot.capture(
+            state.assignments, groups, state.time_model, state.classrooms)),
     }
 
 

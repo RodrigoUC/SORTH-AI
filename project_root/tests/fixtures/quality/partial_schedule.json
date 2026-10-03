@@ -1,0 +1,75 @@
+{
+  "description": "Synthetic unweighted quality regression: split family, pending session and approved laboratory exception.",
+  "days": [
+    "Lunes",
+    "Martes"
+  ],
+  "day_start": 420,
+  "day_end": 840,
+  "rooms": {
+    "A": "REGULAR",
+    "B": "LAB"
+  },
+  "courses": [
+    {
+      "code": "C",
+      "number_of_groups": 1,
+      "duration_min": 60,
+      "required_room_type": "REGULAR",
+      "suggested_classroom": "A",
+      "preferred_day": "Lunes",
+      "preferred_start_min": 480
+    },
+    {
+      "code": "D",
+      "number_of_groups": 1,
+      "duration_min": 240,
+      "required_room_type": "REGULAR",
+      "force_split": true,
+      "suggested_classroom": "B",
+      "preferred_day": "Martes",
+      "preferred_start_min": 540
+    },
+    {
+      "code": "LAB",
+      "number_of_groups": 1,
+      "duration_min": 60,
+      "required_room_type": "LAB"
+    },
+    {
+      "code": "NONE",
+      "number_of_groups": 1,
+      "duration_min": 60,
+      "required_room_type": "REGULAR"
+    }
+  ],
+  "assignments": {
+    "C-G1": [
+      "A",
+      1,
+      480,
+      540
+    ],
+    "D-G1-P1": [
+      "A",
+      1,
+      540,
+      660
+    ],
+    "LAB-G1": [
+      "A",
+      2,
+      780,
+      840
+    ],
+    "NONE-G1": [
+      "B",
+      2,
+      660,
+      720
+    ]
+  },
+  "lab_overrides": [
+    "LAB-G1"
+  ]
+}

@@ -427,7 +427,7 @@ class MainWindow(QMainWindow):
             course_name_map = {c.code: c.name for c in courses if c.name}
 
             self.schedule_viewer.display_schedule(
-                assignments, time_model, groups, course_name_map
+                assignments, time_model, groups, course_name_map, classrooms=self._classrooms
             )
             already_showing_results = self.tabs.currentIndex() == 1
             self.tabs.setCurrentIndex(1)
@@ -701,7 +701,7 @@ class MainWindow(QMainWindow):
                     raise ValueError("\n".join(error.render(msg) for error in errors))
                 self.current_groups = groups
                 self.schedule_viewer.display_schedule(
-                    self.current_schedule, time_model, groups, course_name_map
+                    self.current_schedule, time_model, groups, course_name_map, classrooms=self._classrooms
                 )
                 self._update_export_actions()
 
@@ -742,7 +742,8 @@ class MainWindow(QMainWindow):
             self.current_schedule = {}
         self.current_schedule[gid] = group.assignment
         self._show_schedule_status()
-        self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups)
+        self.schedule_viewer.display_schedule(self.current_schedule, TimeModel.default(), self.current_groups,
+                                              classrooms=self._classrooms)
         self._update_export_actions()
         self._refresh_overview()
         self._save_session()
