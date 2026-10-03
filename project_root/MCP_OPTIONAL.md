@@ -1,27 +1,82 @@
 # MCP opcional: propuestas de horarios sin guardar
 
-SORTH funciona sin MCP, Internet, modelos, claves o pagos. Esta integración **no se inicia con la GUI**, no forma parte del instalador Windows y no llama a ningún modelo. Es un adaptador local `stdio` que un cliente MCP puede iniciar por decisión explícita. No abre puertos, HTTP, SSE ni escucha en la red.
+SORTH funciona sin MCP, Internet, modelos, claves o pagos. La distribución Windows
+puede incluir un complemento MCP empaquetado; **no se prepara, activa ni inicia
+automáticamente al abrir la GUI**. Es un adaptador local `stdio` que el cliente elegido inicia por
+decisión explícita. No abre puertos, HTTP, SSE ni escucha en la red.
 
-## Configuración: permiso local y disponibilidad
+## Preparar el complemento desde Configuración
 
-**Configuración → Permitir servidor MCP local** empieza desactivado. El botón
-**Verificar disponibilidad local de MCP** ejecuta una prueba local de carga del SDK
-y construcción del servidor en un subproceso fijo, sin iniciar stdio, sin datos de
-horarios, sin red y con límite de cinco segundos. Se distingue SDK ausente,
-versión incompatible (se admite exactamente `mcp==1.30.0`), error de carga y tiempo
-agotado. La comprobación es asíncrona, se cancela al cerrar y no instala nada.
-Solo se puede guardar una nueva activación si la comprobación tuvo éxito.
+1. Pulsa **Configuración → Preparar complemento MCP**. La confirmación muestra
+   la versión y el destino exacto dentro de
+   `%LOCALAPPDATA%/SORTH/components/mcp/<versión-commit>/`.
+2. Revisa y confirma. Se comprueban el archivo incluido, sus tamaños y hashes,
+   se preparan archivos en una carpeta temporal propia y se ejecuta una prueba
+   local limitada antes del cambio atómico final. No hay descarga, `pip`, búsqueda
+   de otros intérpretes ni instalación en Python del sistema. No hace falta que
+   Python esté instalado en el equipo del usuario.
+3. Espera **Complemento MCP preparado y verificado**. Esto no marca la casilla
+   de permiso, no inicia un servidor y no configura ningún cliente o proveedor.
+4. Si deseas permitir el servidor, marca **Permitir servidor MCP local** y pulsa
+   **Guardar**. La comprobación local debe pasar antes de una nueva activación.
+5. Abre **Ver guía de conexión**. Copia la configuración del cliente elegido
+   y combínala manualmente con su configuración existente. La ruta del ejecutable
+   procede del complemento preparado/verificado, no de una ruta supuesta.
+
+Configuración organiza el flujo en tres pasos: preparar/verificar, guardar el
+permiso local y configurar el cliente. **Permiso guardado** informa lo que ya está
+vigente; **Cambio pendiente** corresponde a la casilla sin guardar. Mientras se
+verifica una nueva activación, Guardar espera al resultado. Desmarcar la casilla
+permite guardar sin exigir que pase la verificación. **Cancelar verificación MCP**
+cancela la comprobación sin cerrar Configuración. Un complemento listo no necesita
+prepararse de nuevo; la comprobación sigue disponible para revisarlo.
+
+La guía consulta el permiso compartido al abrirse sin aceptar ni descartar cambios
+pendientes. Abrirla no evita la advertencia de conflicto si el CLI cambió el permiso.
+Los pasos para OpenCode y Claude son manuales; el permiso local no significa que el
+cliente esté configurado ni conectado. La guía conserva Cerrar fuera del área de
+desplazamiento y permite salir de la configuración JSON con Tab.
+
+**Preparar es una operación independiente de Guardar/Cancelar.** Tras confirmar,
+la preparación se aplica inmediatamente. Cancelar Configuración conserva un
+complemento ya preparado y no guarda cambios en el permiso. Durante la preparación,
+**Cancelar preparación MCP**, Escape y cerrar solicitan cancelación segura: la
+ventana espera al trabajador sin bloquear el bucle de interfaz. Antes del punto
+de confirmación atómico se retira sólo su carpeta temporal; después de ese punto
+el complemento permanece preparado. Nunca se borra una instalación previa para
+simular una cancelación. Si no se pueden retirar temporales, se informa del fallo
+sin prometer limpieza completa. Repetir la preparación de la misma versión
+verifica la existente y no crea otra copia ni cambia el permiso.
+
+La ausencia de paquete se muestra como **no incluido en esta compilación**;
+no es éxito ni desencadena descargas. El complemento empaquetado actual es para
+Windows x64. La compilación base sin complemento sigue disponible; véase
+[Distribución Windows](WINDOWS_DISTRIBUTION.md). En desarrollo desde fuente se
+mantiene la ruta Python separada descrita abajo.
+
+Un complemento alterado o de identidad incompatible no se ejecuta ni se sobrescribe
+silenciosamente. Obtén la distribución verificada correspondiente o consulta soporte
+antes de reparar sus archivos. Los hashes comprueban correspondencia con el
+manifiesto integrado en el ejecutable de SORTH; no sustituyen la autenticidad del
+origen de la distribución ni equivalen a una firma Authenticode. No copies
+manifiestos o ejecutables de procedencia desconocida en la carpeta del complemento.
+
+## Permiso local y disponibilidad
+
+**Permitir servidor MCP local** empieza desactivado. **Verificar disponibilidad
+local de MCP** comprueba la integridad fuera del hilo de interfaz y ejecuta el
+compañero instalado con `--probe`, con límite de cinco segundos para el proceso.
+Compara versión, commit, identidad de compilación, SDK y condición empaquetada;
+no inicia `stdio`, no usa datos de horarios ni red. En desarrollo ejecuta únicamente
+el Python actual con `-B -m src.mcp_adapter.availability`, sin buscar intérpretes
+arbitrarios. Nunca se lanza el EXE de la GUI como si fuera Python. Se distingue
+paquete/complemento ausente, plataforma/versión incompatible, integridad, carga y
+tiempo agotado. Cerrar cancela la verificación; el hash se cancela cooperativamente.
+
 Guardar no inicia el servidor ni configura un cliente/modelo. Cancelar no activa
 nada. Guarda los cambios de recursos y el permiso MCP por separado, tanto al
 activar como al desactivar, para que una transacción de recursos fallida nunca
 revierta una revocación o publique una activación parcial.
-
-El **EXE estándar no incluye el SDK ni un servidor MCP ejecutable**: la opción
-muestra esa limitación y no se puede activar desde ese entorno. Nunca se lanza
-`sys.executable` del EXE como si fuera Python. Para MCP usa el código fuente y el
-entorno Python separado descrito abajo; no hay descarga, compra ni instalación
-automática de complementos. La GUI comprueba solo su propio entorno, no descubre
-ni prueba otros intérpretes instalados.
 
 GUI y servidor comparten un único registro `features.mcp_server` en
 `SORTH/optional-features.json`: Linux usa `$XDG_CONFIG_HOME` o `~/.config`, macOS
@@ -57,7 +112,7 @@ rechaza claves duplicadas, valores no finitos y profundidad superior a 32 nivele
 CLI con `--enable` es una autorización explícita; la comprobación de disponibilidad
 se hace al arrancar el servidor y puede hacerse por separado sin activarlo.
 
-## Activar, probar y desactivar
+## Desarrollo desde código fuente: activar, probar y desactivar
 
 Requiere Python 3.12 y el código fuente con las correcciones de validación/persistencia de #2/#3. Desde `project_root`, crea un entorno separado; no alteres el entorno de la GUI:
 
@@ -73,9 +128,70 @@ python -m venv .venv-mcp
 
 El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ctrl+C o cerrar el cliente lo termina. Para desactivar, desmarca la opción y guarda en Configuración, o ejecuta `.venv-mcp/bin/python -B -m src.application.mcp_preferences --disable`; después quita la entrada del cliente y cierra ese proceso. La GUI sigue funcionando igual. No hay servicio de sistema, inicio automático ni credenciales que revocar.
 
-`requirements-mcp.txt` fija `mcp==1.30.0`, versión de la rama 1.x mantenida por el SDK oficial. Se elige explícitamente esa API; no se permite que una resolución sin límite la cambie a 2.x. `requirements-mcp-dev.txt` añade pytest. `requirements-mcp.lock` fija con hashes todas las dependencias del entorno opcional de ejecución y pruebas, resuelto de forma universal para Python 3.12; incluye pytest deliberadamente y las dependencias condicionales Windows `colorama` y `pywin32`. Se genera con `uv pip compile requirements-mcp-dev.txt --python-version 3.12 --universal --generate-hashes --no-build --output-file requirements-mcp.lock`; una resolución sólo Linux omitiría dependencias Windows. Las actualizaciones requieren regenerar el lock, auditar todos sus paquetes (también los condicionales) y repetir pruebas. El lock Windows de la aplicación no incorpora MCP.
+`requirements-mcp.txt` fija `mcp==1.30.0`, versión de la rama 1.x mantenida por el SDK oficial. Se elige explícitamente esa API; no se permite que una resolución sin límite la cambie a 2.x. `requirements-mcp-dev.txt` añade pytest. `requirements-mcp.lock` fija con hashes todas las dependencias del entorno opcional de ejecución y pruebas, resuelto de forma universal para Python 3.12; incluye pytest deliberadamente y las dependencias condicionales Windows `colorama` y `pywin32`. Se genera con `uv pip compile requirements-mcp-dev.txt --python-version 3.12 --universal --generate-hashes --no-build --output-file requirements-mcp.lock`; una resolución sólo Linux omitiría dependencias Windows. Las actualizaciones requieren regenerar el lock, auditar todos sus paquetes (también los condicionales) y repetir pruebas. El lock Windows base de la GUI no incorpora MCP. El compañero empaquetado usa su propio entorno y `requirements-mcp-windows.lock`; no mezcla sus dependencias con la GUI.
 
 ## Conectar un cliente elegido por ti
+
+La guía nativa ofrece OpenCode V2, Claude Desktop y ChatGPT. Sólo muestra texto y
+copia al portapapeles al pulsar **Copiar configuración**. No escribe archivos de
+clientes, abre conexiones, solicita claves ni activa un proveedor. Preparar o
+verificar SORTH no prueba la conexión a un host comercial.
+
+### OpenCode V2
+
+En `opencode.jsonc`, combina una entrada bajo **`mcp.servers`**; V2 no coloca el
+nombre directamente bajo `mcp`. La guía genera la ruta absoluta exacta:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "sorth-preview": {
+        "type": "local",
+        "command": ["C:\\RUTA_EXACTA_COPIADA\\SORTH-MCP.exe", "--serve"],
+        "disabled": true,
+        "protocol": "legacy"
+      }
+    }
+  }
+}
+```
+
+La ruta mostrada aquí es un marcador, no un comando ejecutable. Usa la copia de la
+GUI. `disabled: true` evita conexión automática; después de guardar el permiso en
+SORTH, revisa las herramientas y conecta desde `/mcps`. `legacy` corresponde a
+las revisiones MCP de 2025 probadas por SORTH. Conserva las entradas existentes y
+verifica si la configuración del proyecto reemplaza la global. Véase la
+[guía oficial OpenCode V2](https://opencode.ai/v2/docs/mcp-servers).
+
+### Claude Desktop
+
+La guía genera un objeto `mcpServers.sorth-preview` con `command` igual al ejecutable
+absoluto y `args: ["--serve"]`. Combínalo con la configuración local desde las
+opciones de desarrollador del cliente; no reemplaces otros servidores. Reiniciar
+Claude Desktop puede iniciar el proceso, por lo que primero debes guardar el
+permiso MCP en SORTH y revisar las aprobaciones del cliente. Consulta la
+[configuración local oficial de MCP](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
+
+Claude Desktop también admite extensiones `.mcpb`, incluidos servidores locales,
+según su [guía oficial de extensiones](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
+Este flujo de SORTH no genera ni instala un `.mcpb` y no se presenta como extensión
+publicada o revisada por Anthropic. La guía JSON y el ejecutable requieren una
+aceptación independiente en la versión de Claude Desktop elegida.
+
+### ChatGPT
+
+Una ruta local no se pega como URL de servidor. Hace falta una conexión separada:
+un endpoint HTTPS con transporte HTTP compatible, o Secure MCP Tunnel que alcance
+el servidor `stdio`. El complemento SORTH no proporciona un servidor HTTP. La
+configuración de ChatGPT, permisos de organización, autenticación y eventual
+exposición de datos deben revisarse y autorizarse aparte. SORTH no crea túneles,
+claves, permisos persistentes ni puertos abiertos. Sigue la
+[conexión oficial en ChatGPT](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+y, si corresponde, la [guía de Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+La disponibilidad depende de cuenta y políticas; no se ha probado ese flujo aquí.
+
+### Otros clientes y desarrollo desde fuente
 
 En la configuración de servidores **locales stdio** de tu cliente, crea una entrada con:
 
@@ -151,7 +267,7 @@ La base SQLite y sus transacciones no se importan ni se abren en este MVP. ACID 
 python -m pytest -q
 ```
 
-Las pruebas cubren cliente SDK real `initialize`/`tools/list`/`tools/call`, contrato JSON, cancelación por cable, cierre SIGINT con stdin abierto y stdout bloqueado, límites, fallo/timeout y posterior recuperación, LAB estricto, resultados parciales, reproducibilidad frente al servicio directo, texto adversario y directorios de sesión sin cambios. Un proceso `python -B -S` verifica casos de uso sin paquetes externos. Se negocian y prueban las revisiones MCP `2025-06-18` y `2025-11-25` con SDK 1.30.0. No se presupone compatibilidad con borradores o revisiones posteriores; el host debe negociar una soportada. El flujo CI opcional tiene jobs aislados Linux y Windows/Python 3.12: instala el lock con hashes, exige el SDK presente y Qt/pandas/modelo ausentes, comprueba cierre transitivo de dependencias según plataforma y ejecuta las pruebas stdio reales; empaquetado/GUI base mantienen su flujo sin MCP. Los casos POSIX de señal SIGINT y backpressure de descriptores se omiten explícitamente en Windows porque sus señales y consola son distintas; no se presentan como pruebas Windows aprobadas. La negociación, listado, llamadas, cancelación MCP, timeout, recolección de subprocesos y todos los demás contratos se ejecutan en ambos jobs. La ejecución nativa Windows queda pendiente del resultado de ese CI; descargar sus wheels desde Linux no equivale a ejecutarlos. Hosts comerciales: no probados aquí.
+Las pruebas cubren cliente SDK real `initialize`/`tools/list`/`tools/call`, contrato JSON, cancelación por cable, cierre SIGINT con stdin abierto y stdout bloqueado, límites, fallo/timeout y posterior recuperación, LAB estricto, resultados parciales, reproducibilidad frente al servicio directo, texto adversario y directorios de sesión sin cambios. Un proceso `python -B -S` verifica casos de uso sin paquetes externos. Se negocian y prueban las revisiones MCP `2025-06-18` y `2025-11-25` con SDK 1.30.0. No se presupone compatibilidad con borradores o revisiones posteriores; el host debe negociar una soportada. El flujo CI opcional tiene jobs aislados Linux y Windows/Python 3.12: instala el lock con hashes, exige el SDK presente y Qt/pandas/modelo ausentes, comprueba cierre transitivo de dependencias según plataforma y ejecuta las pruebas stdio reales; la GUI base mantiene su entorno sin SDK MCP. El flujo Windows empaqueta el compañero en un entorno separado y verifica el artefacto; la aceptación nativa sigue dependiendo del resultado real de ese flujo. Los casos POSIX de señal SIGINT y backpressure de descriptores se omiten explícitamente en Windows porque sus señales y consola son distintas; no se presentan como pruebas Windows aprobadas. La negociación, listado, llamadas, cancelación MCP, timeout, recolección de subprocesos y todos los demás contratos se ejecutan en ambos jobs. La ejecución nativa Windows queda pendiente del resultado de ese CI; descargar sus wheels desde Linux no equivale a ejecutarlos. Hosts comerciales: no probados aquí.
 
 ### Aceptación manual de consola Windows
 
@@ -159,7 +275,7 @@ Antes de afirmar cierre nativo por teclado, abre una consola Windows real, ejecu
 
 Base de trabajo: correcciones de validación y persistencia #2/#3, no un reemplazo de ellas. La aplicación incluye [indicadores explicables de calidad](QUALITY_METRICS.md) y [exportación PDF bilingüe](PDF_EXPORT_NOTES.md); este contrato MCP se limita a validación y propuestas, sin exponer esos indicadores ni herramientas de exportación. No modifica la sesión, las métricas ni los archivos de la GUI.
 
-Fuentes oficiales consultadas al implementar (2 de octubre de 2026):
+Fuentes oficiales consultadas al implementar el adaptador (2 de octubre de 2026); guías de clientes revisadas el 3 de octubre de 2026:
 
 - [SDK Python v1.30.0 y mantenimiento de 1.x](https://github.com/modelcontextprotocol/python-sdk/blob/v1.30.0/README.md)
 - [Servidor de bajo nivel y resultado estructurado, v1.30.0](https://github.com/modelcontextprotocol/python-sdk/blob/v1.30.0/docs/low-level-server.md)

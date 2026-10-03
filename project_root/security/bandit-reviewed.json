@@ -206,5 +206,45 @@
     "count": 1,
     "reviewed_on": "2026-10-03",
     "reason": "Reviewed seeded scheduling tie-breaking and per-run RNG reset: Random is used only to choose between equal-scored valid scheduling candidates. It never creates secrets, credentials, permission generations or security decisions. Reproducible fixed seeds are intentional; all scheduling constraints remain independently validated."
+  },
+  {
+    "file": "src/application/mcp_component.py",
+    "test_id": "B404",
+    "code_sha256": "cad368b6a7848bad06e408e5273eae6e1f2ecce457c731888a87fbccb8e8c476",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Explicitly confirmed offline component health probe only: absolute fixed SORTH-MCP.exe from the versioned stage/installation, verified against the GUI compiled release hash inventory before execution; argument list contains only --probe, no shell, no user-supplied command. Bounded output, timeout and cancellation kill/reap the child. No listener, download, preference or client modification."
+  },
+  {
+    "file": "src/application/mcp_component.py",
+    "test_id": "B603",
+    "code_sha256": "c2f3d74411371f8c079dd712299c745333c6af6ff93d2c3dd796a9aa763a49c5",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Explicitly confirmed offline health probe: fixed absolute verified companion plus --probe, argument array and no shell. Artifact files are checked against the GUI compiled identity before execution and after the probe. Bounded readiness-only pipe reads, output cap, timeout/cancellation and owned Windows job/POSIX process-group cleanup prevent blocked inherited pipes; no arbitrary commands, listener, download, preferences or client changes."
+  },
+  {
+    "file": "tools/frozen_mcp_smoke.py",
+    "test_id": "B404",
+    "code_sha256": "9e53cd445b98e24f841e5cfd49de93f64f96071eb608d3f919d71911d9b7bbe9",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Windows-only developer/CI acceptance of the freshly built reviewed SORTH-MCP.exe. The executable is verified against the compiled GUI trust anchor and complete ZIP/file inventory before use. Calls use a fixed --probe or --serve argument array, no shell, 20-second timeout, Python-free child PATH and temporary synthetic preferences/session data only. The harness neither installs into a real user profile nor contacts a model/client/network service."
+  },
+  {
+    "file": "tools/frozen_mcp_smoke.py",
+    "test_id": "B603",
+    "code_sha256": "1c7115bf494a994b4c73ebc7b90b43b553cc539cfcff3c0909cb14b4ddce8d92",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Windows-only developer/CI acceptance of the freshly built reviewed SORTH-MCP.exe. The executable is verified against the compiled GUI trust anchor and complete ZIP/file inventory before use. Calls use a fixed --probe or --serve argument array, no shell, 20-second timeout, Python-free child PATH and temporary synthetic preferences/session data only. The harness neither installs into a real user profile nor contacts a model/client/network service."
+  },
+  {
+    "file": "tools/frozen_mcp_smoke.py",
+    "test_id": "B603",
+    "code_sha256": "92294ca80731055823c238c33b69ab136e292e01e97cdd4ad8528b22a927e308",
+    "count": 1,
+    "reviewed_on": "2026-10-03",
+    "reason": "Windows-only developer/CI acceptance of the freshly built reviewed SORTH-MCP.exe. The executable is verified against the compiled GUI trust anchor and complete ZIP/file inventory before use. Calls use a fixed --probe or --serve argument array, no shell, 20-second timeout, Python-free child PATH and temporary synthetic preferences/session data only. The harness neither installs into a real user profile nor contacts a model/client/network service."
   }
 ]

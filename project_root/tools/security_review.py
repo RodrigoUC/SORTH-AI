@@ -119,7 +119,7 @@ def execute(command, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('check', choices=['static', 'dependencies', 'optional-dependencies'])
+    parser.add_argument('check', choices=['static', 'dependencies', 'optional-dependencies', 'companion-dependencies'])
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/security')
     args = parser.parse_args()
     directory = args.output_dir.resolve()
@@ -133,8 +133,11 @@ def main():
             findings = review_bandit(report, baseline, code)
         else:
             optional = args.check == 'optional-dependencies'
-            lock_name = 'requirements-mcp.lock' if optional else 'requirements-windows.lock'
-            manifests = ('requirements-mcp.txt', 'requirements-mcp-dev.txt') if optional else None
+            companion = args.check == 'companion-dependencies'
+            lock_name = ('requirements-mcp-windows.lock' if companion else
+                         'requirements-mcp.lock' if optional else 'requirements-windows.lock')
+            manifests = (('requirements-mcp.txt', 'requirements-mcp-build.txt') if companion else
+                         ('requirements-mcp.txt', 'requirements-mcp-dev.txt') if optional else None)
             pins = validate_lock(lock_name, manifests)
             audit_input = directory / 'audit-inventory.txt'
             if write_audit_inventory(lock_name, audit_input) != pins:

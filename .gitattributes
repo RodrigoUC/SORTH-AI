@@ -5,3 +5,4 @@
 # Preserve exact upstream notice bytes, including their original line endings.
 /third_party/licenses/*.txt -text
 /third_party/native-notices/** -text -whitespace
+/third_party/mcp/licenses/*.txt -text

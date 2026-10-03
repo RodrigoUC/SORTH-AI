@@ -51,7 +51,8 @@ def test_cancel_never_enables_and_save_rechecks_local_availability(window, monke
     assert not enabled(window._features.path)
 
 
-@pytest.mark.parametrize('status', ['missing_sdk', 'incompatible_sdk', 'frozen_unsupported', 'runtime_error', 'timeout'])
+@pytest.mark.parametrize('status', ['missing_sdk', 'incompatible_sdk', 'frozen_unsupported', 'runtime_error', 'timeout',
+                                        'missing_bundle', 'missing_component', 'integrity_error', 'incompatible_component'])
 def test_unavailable_cannot_be_enabled(window, monkeypatch, status):
     monkeypatch.setattr(McpAvailabilityProbe, 'start', lambda self: self.finished.emit(status))
     warnings = []
@@ -79,10 +80,13 @@ def test_failed_save_cannot_enable(window, monkeypatch):
 
 def test_frozen_does_not_spawn_second_gui(window, monkeypatch):
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    from src.application import mcp_component
+    monkeypatch.setattr(mcp_component, 'bundle_info', lambda: (_ for _ in ()).throw(mcp_component.ComponentError('missing_bundle')))
     monkeypatch.setattr(QProcess, 'start', lambda *args: pytest.fail('EXE must not launch itself'))
     dialog = SettingsDialog(window)
     dialog._check_mcp()
-    assert dialog.mcp_status == 'frozen_unsupported'
+    wait_until(lambda: dialog.mcp_status != 'checking')
+    assert dialog.mcp_status == 'missing_bundle'
     dialog.reject()
 
 

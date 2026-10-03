@@ -31,7 +31,7 @@ from dataclasses import replace
 from ..scheduling.teaching_resources import SchedulingResources, RESOURCE_KINDS
 from ..scheduling.validation import validate_schedule, unassigned_reason
 from copy import deepcopy
-from ..application.edit_history import EditHistory, EditError, course_change, validation_rooms
+from ..application.edit_history import EditHistory, EditError, course_change, normalized_group_feedback
 
 from .i18n import msg, plural, language_manager, join_messages
 from .locales import LANGUAGES
@@ -1012,6 +1012,7 @@ class MainWindow(QMainWindow):
             if state['schedule_present']:
                 generated = (result_groups if result_groups is not None else
                              [g for c in state['courses'] for g in c.generate_groups()])
+                feedback = normalized_group_feedback(state, generated)
                 dynamic = {'assignment', 'pinned', 'lab_override', 'unassigned_reason', 'domain'}
                 self.current_groups = []
                 for group in generated:
@@ -1026,10 +1027,7 @@ class MainWindow(QMainWindow):
                     group.assignment = (self.current_schedule or {}).get(group.group_id)
                     group.pinned = group.group_id in self.pinned_group_ids
                     group.lab_override = group.group_id in state['lab_overrides']
-                    group.unassigned_reason = ''
-                    if not group.assignment:
-                        group.unassigned_reason = state.get('group_feedback', {}).get(group.group_id,
-                            unassigned_reason(group, validation_rooms(state), TimeModel.from_calendar(self.calendar)))
+                    group.unassigned_reason = feedback[group.group_id]
             self.schedule_viewer.display_schedule(self.current_schedule or {}, TimeModel.from_calendar(self.calendar),
                 self.current_groups or [], classrooms=self._classrooms)
             if previous_calendar != self.calendar:
@@ -1072,6 +1070,9 @@ class MainWindow(QMainWindow):
                 from ..application.edit_history import fingerprint
                 if fingerprint(before) != expected:
                     raise EditError('La sesión cambió desde la revisión. Vuelva a revisar el cambio.')
+            # Record the feedback materialization will display, so derived
+            # pending reasons cannot look like a later out-of-band edit.
+            candidate = {**candidate, 'group_feedback': normalized_group_feedback(candidate)}
             accepted = self._history.execute(before, candidate, self._persist_edit_state,
                 label, enabled=self._features.enabled('undo_redo'))
         except Exception as error:

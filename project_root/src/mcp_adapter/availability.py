@@ -9,8 +9,8 @@ import sys
 SUPPORTED_VERSION = '1.30.0'
 
 
-def check():
-    if getattr(sys, 'frozen', False):
+def check(*, packaged=False):
+    if getattr(sys, 'frozen', False) and not packaged:
         return 'frozen_unsupported'
     try:
         version = importlib.metadata.version('mcp')
@@ -22,7 +22,10 @@ def check():
         return 'incompatible_sdk'
     try:
         from .server import build_server
-        build_server()
+        if packaged:
+            build_server(packaged=True)
+        else:
+            build_server()
     except Exception:
         return 'runtime_error'
     return 'available'

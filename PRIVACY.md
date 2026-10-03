@@ -48,12 +48,29 @@ de disponibilidad carga componentes locales en un proceso temporal limitado;
 no envía información a un proveedor ni instala nada. El servidor lee el permiso
 al iniciar y en cada solicitud y descarta resultados pendientes cuando está
 desactivado. El cliente conserva el control del cierre del proceso; desactivar
-no revoca información que ya haya recibido. El EXE estándar no incluye MCP y
-muestra esa limitación.
+no revoca información que ya haya recibido.
+
+**Preparar complemento MCP** es una acción separada y confirmada. En compilaciones
+Windows que incluyen el paquete, copia archivos a
+`%LOCALAPPDATA%/SORTH/components/mcp/<versión-commit>/`, comprueba hashes e identidad
+y ejecuta una prueba local limitada. No descarga, usa pip ni instala en Python
+del sistema. No cambia el permiso, configura clientes o abre puertos. Cancelar
+Configuración no elimina un complemento ya preparado. La cancelación durante la
+preparación retira únicamente su área temporal antes del cambio atómico; un fallo
+de limpieza se informa. Versiones preparadas y el archivo lateral de bloqueo
+pueden permanecer al desactivar o desinstalar la GUI. No contienen horarios ni
+credenciales. Una compilación sin paquete muestra que no está incluido.
+
+La guía de clientes muestra la ruta absoluta local y la copia al portapapeles
+sólo al pulsar **Copiar configuración**; no envía ese texto a un proveedor ni
+modifica archivos del cliente. Revisa antes de pegar o compartir capturas: la
+ruta puede incluir tu nombre de usuario. Los enlaces oficiales se abren sólo por
+acción del usuario. ChatGPT requiere configuración HTTPS/túnel y autorizaciones
+separadas; SORTH no crea credenciales ni acceso persistente.
 
 El [adaptador MCP opcional](project_root/MCP_OPTIONAL.md) sólo se inicia por decisión explícita desde un cliente local stdio; no abre un servidor de red ni se inicia con la GUI. Recibe exclusivamente cursos/aulas suministrados en la solicitud y devuelve configuración normalizada, propuesta y pendientes. No lee la sesión activa ni el catálogo de escenarios, ni permite guardar, aplicar, exportar, elegir rutas o consultar archivos personales. Rechaza campos de docentes, estudiantes, membresías, disponibilidad y calendario personalizado; activar recursos en la GUI no amplía este contrato. No llama modelos ni pide claves. Los diagnósticos de este adaptador son mínimos por stderr y no repiten datos de solicitudes; stdout se reserva para el protocolo.
 
-El host elegido sí conoce los datos que envía y recibe, y puede compartirlos con un proveedor según sus propias reglas. Sus permisos, retención, telemetría y posibles costes son externos a SORTH. Instalar el SDK y dependencias utiliza servicios de distribución externos. Usa ejemplos sintéticos y revisa autorización institucional antes de proporcionar datos reales a un host. Desactivar o cerrar esta integración no borra lo que un host/proveedor ya haya conservado. El núcleo offline sigue funcionando sin la integración ni sus dependencias.
+El host elegido sí conoce los datos que envía y recibe, y puede compartirlos con un proveedor según sus propias reglas. Sus permisos, retención, telemetría y posibles costes son externos a SORTH. Instalar manualmente el SDK y dependencias para desarrollo utiliza servicios de distribución externos; preparar el paquete incluido es local. Usa ejemplos sintéticos y revisa autorización institucional antes de proporcionar datos reales a un host. Desactivar o cerrar esta integración no borra lo que un host/proveedor ya haya conservado. El núcleo offline sigue funcionando sin la integración ni sus dependencias.
 
 ## Control, respaldo y eliminación
 

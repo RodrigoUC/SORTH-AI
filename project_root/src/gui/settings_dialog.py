@@ -1,10 +1,14 @@
-"""Transactional native settings: Cancel never changes preferences or project data."""
+"""Transactional preferences plus a separately confirmed local MCP preparation."""
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
-from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton
+from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
-from PyQt6.QtCore import QSignalBlocker
+from PyQt6.QtCore import QSignalBlocker, Qt
 from .mcp_availability import McpAvailabilityProbe
+from .mcp_preparation import McpPreparation
+from .mcp_client_help import McpClientHelp
+from ..application import mcp_component
+from ..application.mcp_preferences import enabled as mcp_permission_enabled
 from ..scheduling.teaching_resources import RESOURCE_KINDS
 
 
@@ -35,6 +39,11 @@ class SettingsDialog(QDialog):
         self.recover_button.clicked.connect(self.recover_preferences)
         layout.addWidget(self.recover_button)
         self.mcp_status = None
+        self.mcp_command = None
+        self._pending_close = None
+        self.mcp_preparation = McpPreparation(self)
+        self.mcp_preparation.progress.connect(self._mcp_progress)
+        self.mcp_preparation.finished.connect(self._mcp_prepared)
         self.mcp_probe = McpAvailabilityProbe(self)
         self.mcp_probe.finished.connect(self._mcp_checked)
         self.controls = {}
@@ -44,39 +53,117 @@ class SettingsDialog(QDialog):
             control.setAccessibleDescription(msg(feature.description))
             control.setChecked(window.resources.catalog(feature.key).enabled if feature.key in RESOURCE_KINDS
                                else window._features.enabled(feature.key))
-            layout.addWidget(control)
             description = QLabel(msg(feature.description))
             description.setWordWrap(True)
             description.setObjectName('mutedText')
-            layout.addWidget(description)
             self.controls[feature.key] = control
             if feature.key == 'mcp_server':
-                self.mcp_status_label = QLabel(msg('Disponibilidad MCP sin verificar en este entorno.'))
-                self.mcp_status_label.setWordWrap(True)
-                layout.addWidget(self.mcp_status_label)
-                self.mcp_check_button = QPushButton(msg('Verificar disponibilidad local de MCP'))
-                self.mcp_check_button.clicked.connect(self._check_mcp)
-                layout.addWidget(self.mcp_check_button)
-                control.toggled.connect(lambda checked: self._check_mcp() if checked else None)
+                self._add_mcp_section(layout, control, description)
+            else:
+                layout.addWidget(control)
+                layout.addWidget(description)
         self.calendar_button = QPushButton(msg('Guardar configuración y editar calendario'))
         self.calendar_button.setEnabled(window._features.enabled('project_calendar') and not window._busy and not window._restore_failed)
         self.calendar_button.clicked.connect(self.open_calendar)
-        self.controls['project_calendar'].toggled.connect(lambda enabled: self.calendar_button.setEnabled(enabled and not window._busy and not window._restore_failed))
+        self.controls['project_calendar'].toggled.connect(lambda enabled: self.calendar_button.setEnabled(enabled and not window._busy and not window._restore_failed and not self.mcp_preparation.active))
         layout.addWidget(self.calendar_button)
         note = QLabel(msg('Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.'))
         note.setWordWrap(True)
         layout.addWidget(note)
-        mcp = QLabel(msg('Desactivar MCP bloquea nuevos inicios y solicitudes y descarta resultados pendientes. El cliente cierra el proceso stdio; una tarea en curso puede tardar hasta 10 segundos. La verificación solo comprueba este entorno; el EXE estándar no incluye MCP. Consulta MCP_OPTIONAL.md para un entorno Python separado.'))
-        mcp.setWordWrap(True)
-        mcp.setObjectName('mutedText')
-        layout.addWidget(mcp)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)
+        self._responsive_actions = ResponsiveActionLabels(scroll, [
+            *self.controls.values(), self.recover_button, self.calendar_button,
+            self.mcp_check_button, self.mcp_prepare_button, self.mcp_cancel_button,
+            self.mcp_help_button,
+        ], self)
+        self._refresh_mcp_permission()
+        self.setTabOrder(self.mcp_status_label, self.mcp_check_button)
+        self.setTabOrder(self.mcp_check_button, self.mcp_prepare_button)
+        self.setTabOrder(self.mcp_prepare_button, self.mcp_cancel_button)
+        self.setTabOrder(self.mcp_cancel_button, self.controls['mcp_server'])
+        self.setTabOrder(self.controls['mcp_server'], self.mcp_permission_label)
+        self.setTabOrder(self.mcp_permission_label, self.mcp_help_button)
+        self.setTabOrder(self.mcp_help_button, self.controls[FEATURES[1].key])
+        self.mcp_check_button.setFocus(Qt.FocusReason.TabFocusReason)
+
+    @staticmethod
+    def _section_heading(layout, text):
+        layout.addSpacing(8)
+        heading = QLabel(text)
+        heading.setWordWrap(True)
+        font = heading.font()
+        font.setBold(True)
+        heading.setFont(font)
+        layout.addWidget(heading)
+
+    def _add_mcp_section(self, layout, control, description):
+        self._section_heading(layout, msg('1. Preparar MCP'))
+        self.mcp_status_label = QLabel(msg('Disponibilidad MCP sin verificar en este entorno.'))
+        self.mcp_status_label.setWordWrap(True)
+        self.mcp_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.mcp_status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.mcp_status_label.setAccessibleName(msg('Estado del complemento MCP'))
+        layout.addWidget(self.mcp_status_label)
+        self.mcp_check_button = QPushButton(msg('Verificar disponibilidad local de MCP'))
+        self.mcp_check_button.clicked.connect(self._check_mcp)
+        layout.addWidget(self.mcp_check_button)
+        self.mcp_prepare_button = QPushButton(msg('Preparar complemento MCP'))
+        self.mcp_prepare_button.clicked.connect(self._prepare_mcp)
+        layout.addWidget(self.mcp_prepare_button)
+        self.mcp_cancel_button = QPushButton(msg('Cancelar preparación MCP'))
+        self.mcp_cancel_button.clicked.connect(self._cancel_mcp_operation)
+        self.mcp_cancel_button.hide()
+        layout.addWidget(self.mcp_cancel_button)
+        preparation_note = QLabel(msg('Preparar requiere confirmación y conserva el complemento aunque canceles Configuración. No concede permiso ni conecta clientes.'))
+        preparation_note.setWordWrap(True)
+        preparation_note.setObjectName('mutedText')
+        layout.addWidget(preparation_note)
+        self._section_heading(layout, msg('2. Guardar el permiso local'))
+        layout.addWidget(control)
+        layout.addWidget(description)
+        self.mcp_permission_label = QLabel()
+        self.mcp_permission_label.setWordWrap(True)
+        self.mcp_permission_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(self.mcp_permission_label)
+        control.toggled.connect(self._refresh_mcp_permission)
+        control.toggled.connect(lambda checked: self._check_mcp() if checked else None)
+        self._section_heading(layout, msg('3. Configurar tu cliente'))
+        self.mcp_help_button = QPushButton(msg('Ver guía de conexión'))
+        self.mcp_help_button.clicked.connect(self._show_mcp_help)
+        layout.addWidget(self.mcp_help_button)
+        guide_note = QLabel(msg('Abre instrucciones para OpenCode, Claude Desktop o ChatGPT. La conexión y sus permisos se gestionan en el cliente.'))
+        guide_note.setWordWrap(True)
+        guide_note.setObjectName('mutedText')
+        layout.addWidget(guide_note)
+        self._section_heading(layout, msg('Otras funciones opcionales'))
+
+    def _refresh_mcp_permission(self):
+        # Read for presentation only: keep the preference store's expected
+        # generation intact so a later Save still detects external changes.
+        saved = mcp_permission_enabled(self.window._features.path)
+        selected = self.controls['mcp_server'].isChecked()
+        if selected != saved:
+            text = (msg('Cambio pendiente: pulsa Guardar para permitir MCP. Cancelar conserva el permiso desactivado.')
+                    if selected else msg('Cambio pendiente: pulsa Guardar para desactivar MCP. El permiso sigue activo hasta guardar.'))
+        elif saved:
+            text = msg('Permiso guardado: activado. El cliente inicia el servidor; SORTH no lo inicia al guardar.')
+        elif self.mcp_status == 'available':
+            text = msg('Permiso guardado: desactivado. MCP está listo; marca la casilla y pulsa Guardar si deseas permitirlo.')
+        else:
+            text = msg('Permiso guardado: desactivado. Prepara y verifica MCP antes de permitirlo y guardar.')
+        self.mcp_permission_label.setText(text)
+        if hasattr(self, 'buttons'):
+            waiting = self.mcp_status == 'checking' and selected and not saved
+            save = self.buttons.button(QDialogButtonBox.StandardButton.Save)
+            save.setEnabled(not waiting and not self.mcp_preparation.active
+                            and self.mcp_status != 'preparing' and self._pending_close is None)
+            save.setToolTip(msg('Espera a que termine la verificación MCP antes de guardar el permiso.') if waiting else '')
 
     def _check_mcp(self):
-        if self.mcp_probe.active:
+        if self.mcp_probe.active or self.mcp_preparation.active or self._pending_close is not None:
             return
         previous = self.window._features.enabled('mcp_server')
         self.window._features.refresh()
@@ -84,28 +171,161 @@ class SettingsDialog(QDialog):
         if current != previous:
             with QSignalBlocker(self.controls['mcp_server']):
                 self.controls['mcp_server'].setChecked(current)
+        self._refresh_mcp_permission()
         self.mcp_status = 'checking'
+        self._refresh_mcp_permission()
+        self.mcp_command = None
         self.mcp_check_button.setEnabled(False)
+        self.mcp_prepare_button.setEnabled(False)
+        self.mcp_help_button.setEnabled(False)
+        self.mcp_cancel_button.setText(msg('Cancelar verificación MCP'))
+        self.mcp_cancel_button.setEnabled(True)
+        self.mcp_cancel_button.show()
         self.mcp_status_label.setText(msg('Verificando componentes locales de MCP…'))
         self.mcp_probe.start()
 
     def _mcp_checked(self, status):
+        self.mcp_cancel_button.hide()
+        self.mcp_command = self.mcp_probe.command if status == 'available' else None
+        self._show_mcp_status(status)
+        self._finish_pending_close()
+
+    def _show_mcp_status(self, status):
         self.mcp_status = status
-        self.mcp_check_button.setEnabled(True)
+        if status not in {'available', 'prepared'}:
+            self.mcp_command = None
+        idle = not self.mcp_preparation.active and not self.mcp_probe.active
+        self.mcp_check_button.setEnabled(idle)
+        self.mcp_prepare_button.setEnabled(idle and status not in {'available', 'prepared'})
+        self.mcp_prepare_button.setToolTip(msg('MCP ya está disponible. Usa Verificar disponibilidad local de MCP para comprobarlo de nuevo.') if status in {'available', 'prepared'} else '')
+        self.mcp_help_button.setEnabled(idle)
         messages = {
             'available': 'MCP disponible en este entorno. El cliente inicia el servidor; Guardar no lo inicia.',
+            'prepared': 'Complemento MCP preparado y verificado. El permiso no ha cambiado. Puedes conectar un cliente y activar MCP por separado con Guardar.',
             'missing_sdk': 'Falta el SDK MCP opcional en este entorno. No se ha instalado nada.',
             'incompatible_sdk': 'Versión MCP incompatible. Se requiere mcp 1.30.0; no se ha cambiado nada.',
             'frozen_unsupported': 'Este EXE no incluye el servidor MCP opcional. Usa el código fuente y un entorno Python separado según MCP_OPTIONAL.md.',
+            'missing_bundle': 'El complemento MCP no está incluido en esta compilación. Usa una distribución que lo incluya o consulta la ruta de desarrollo en MCP_OPTIONAL.md.',
+            'missing_component': 'El complemento MCP aún no está preparado. Pulsa Preparar complemento MCP y revisa la confirmación.',
+            'unsupported_platform': 'Este complemento MCP requiere Windows de 64 bits. Consulta MCP_OPTIONAL.md para desarrollo desde código fuente.',
+            'invalid_manifest': 'No se pudo validar el paquete MCP. Obtén una distribución verificada de SORTH; no se instalará este paquete.',
+            'integrity_error': 'La integridad del complemento MCP no coincide. No se ejecutará. Obtén una distribución verificada de SORTH o consulta soporte antes de reparar archivos.',
+            'incompatible_component': 'El complemento MCP no corresponde a esta versión de SORTH. Prepara el complemento incluido en esta compilación.',
+            'busy': 'Otra preparación MCP está en curso. Espera a que termine y vuelve a intentarlo.',
+            'io_error': 'No se pudo preparar el complemento MCP. Revisa el espacio disponible y los permisos de la carpeta de datos e inténtalo de nuevo.',
+            'cleanup_failed': 'No se pudieron retirar todos los archivos temporales de la preparación MCP. El permiso no ha cambiado; consulta soporte antes de limpiar archivos manualmente.',
+            'probe_failed': 'El complemento MCP no superó su verificación. No está listo; revisa MCP_OPTIONAL.md antes de reintentar.',
             'runtime_error': 'No se pudieron cargar los componentes MCP. Revisa el entorno siguiendo MCP_OPTIONAL.md.',
             'timeout': 'La verificación MCP agotó el tiempo. Puedes volver a intentarlo.',
-            'cancelled': 'Verificación MCP cancelada.',
+            'cancelled': 'Operación MCP cancelada. El permiso no ha cambiado.',
         }
-        self.mcp_status_label.setText(msg(messages[status]))
+        self.mcp_status_label.setText(msg(messages.get(status, messages['runtime_error'])))
+        if status == 'prepared':
+            self.mcp_status = 'available'
+        self._refresh_mcp_permission()
+
+    def _confirm_mcp_preparation(self, manifest, destination):
+        confirmation = QMessageBox(self)
+        confirmation.setWindowTitle(msg('Preparar complemento MCP'))
+        confirmation.setIcon(QMessageBox.Icon.Question)
+        confirmation.setTextFormat(Qt.TextFormat.PlainText)
+        confirmation.setText(msg('Se copiará el complemento MCP {version} incluido con SORTH a:\n{path}\n\nSe comprobará su integridad y se ejecutará una prueba local sin iniciar el servidor. No usa red ni pip y no instala en Python del sistema. Se aplica inmediatamente; Cancelar configuración no elimina el complemento. El permiso MCP y los clientes no cambian. ¿Preparar ahora?',
+                                 version=manifest['version'], path=str(destination)))
+        confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        confirmation.button(QMessageBox.StandardButton.Yes).setText(msg('Preparar complemento MCP'))
+        confirmation.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        return confirmation.exec() == QMessageBox.StandardButton.Yes
+
+    def _prepare_mcp(self):
+        if self.mcp_preparation.active or self.mcp_probe.active or self._pending_close is not None:
+            return
+        try:
+            manifest = mcp_component.bundle_info()
+            destination = mcp_component.component_install_path()
+        except mcp_component.ComponentError as error:
+            self._show_mcp_status(error.code)
+            return
+        except Exception:
+            self._show_mcp_status('runtime_error')
+            return
+        if not self._confirm_mcp_preparation(manifest, destination):
+            return
+        self.mcp_status = 'preparing'
+        self.mcp_command = None
+        self.mcp_check_button.setEnabled(False)
+        self.mcp_prepare_button.setEnabled(False)
+        self.mcp_help_button.setEnabled(False)
+        self.mcp_cancel_button.setText(msg('Cancelar preparación MCP'))
+        self.mcp_cancel_button.setEnabled(True)
+        self.mcp_cancel_button.show()
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setEnabled(False)
+        self.calendar_button.setEnabled(False)
+        self._mcp_progress('verifying')
+        self.mcp_preparation.start()
+
+    def _mcp_progress(self, state):
+        if self._pending_close is not None or not self.mcp_cancel_button.isEnabled():
+            return
+        messages = {
+            'verifying': 'Comprobando integridad del paquete MCP…',
+            'extracting': 'Preparando archivos del complemento MCP…',
+            'checking': 'Verificando el complemento MCP preparado…',
+            'committing': 'Finalizando la preparación MCP…',
+        }
+        self.mcp_status_label.setText(msg(messages.get(state, messages['verifying'])))
+
+    def _cancel_mcp_operation(self):
+        if self.mcp_probe.active:
+            self.mcp_cancel_button.setEnabled(False)
+            self.mcp_status_label.setText(msg('Cancelando la verificación MCP de forma segura…'))
+            self.mcp_probe.cancel()
+        elif self.mcp_preparation.active:
+            self._cancel_mcp_preparation()
+
+    def _cancel_mcp_preparation(self):
+        self.mcp_cancel_button.setEnabled(False)
+        self.mcp_status_label.setText(msg('Cancelando la preparación MCP de forma segura…'))
+        self.mcp_preparation.cancel()
+
+    def _mcp_prepared(self, status, result):
+        self.mcp_cancel_button.hide()
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setEnabled(True)
+        self.calendar_button.setEnabled(self.controls['project_calendar'].isChecked()
+                                        and not self.window._busy and not self.window._restore_failed)
+        self.mcp_command = result['command'] if status == 'available' and result else None
+        self._show_mcp_status('prepared' if status == 'available' else status)
+        self._finish_pending_close()
+
+    def _show_mcp_help(self):
+        self._refresh_mcp_permission()
+        # Read for presentation only: keep the preference store's expected
+        # generation intact so a later Save still detects external changes.
+        saved = mcp_permission_enabled(self.window._features.path)
+        McpClientHelp(self.mcp_command, self, permission_enabled=saved,
+                      pending_permission=self.controls['mcp_server'].isChecked() != saved).exec()
+
+    def _finish_pending_close(self):
+        if self._pending_close is not None and not self.mcp_preparation.active and not self.mcp_probe.active:
+            result, self._pending_close = self._pending_close, None
+            super().done(result)
 
     def done(self, result):
-        self.mcp_probe.cancel()
+        if self.mcp_preparation.active or self.mcp_probe.active:
+            self._pending_close = result
+            self.buttons.setEnabled(False)
+            self.mcp_preparation.cancel()
+            self.mcp_probe.cancel()
+            self.mcp_status_label.setText(msg('Terminando la operación MCP de forma segura antes de cerrar…'))
+            self._finish_pending_close()
+            return
         super().done(result)
+
+    def closeEvent(self, event):
+        if self.mcp_preparation.active or self.mcp_probe.active:
+            event.ignore()
+            self.reject()
+        else:
+            super().closeEvent(event)
 
     def open_calendar(self):
         self.accept()
@@ -134,7 +354,12 @@ class SettingsDialog(QDialog):
         self.recover_button.hide()
 
     def accept(self):
+        if self.mcp_preparation.active or self._pending_close is not None:
+            return
         values = {key: control.isChecked() for key, control in self.controls.items()}
+        if (self.mcp_status == 'checking' and values['mcp_server']
+                and not mcp_permission_enabled(self.window._features.path)):
+            return
         if (values['mcp_server'] and not self.window._features.enabled('mcp_server')
                 and self.mcp_status != 'available'):
             QMessageBox.warning(self, msg('Configuración'), msg('Verifica que MCP esté disponible antes de activarlo. No se han guardado cambios.'))
@@ -179,6 +404,7 @@ class SettingsDialog(QDialog):
         except McpPreferenceConflict:
             with QSignalBlocker(self.controls['mcp_server']):
                 self.controls['mcp_server'].setChecked(self.window._features.enabled('mcp_server'))
+            self._refresh_mcp_permission()
             QMessageBox.warning(self, msg('Configuración'), msg('El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.'))
             return
         except (OSError, ValueError):

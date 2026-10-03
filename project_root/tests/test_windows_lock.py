@@ -53,3 +53,15 @@ def test_review_workflow_does_not_publish_or_use_write_tokens():
     assert '--require-hashes' in workflow
     assert '--smoke-test' in workflow
     assert 'source_commit' in (root / 'project_root/tools/package_windows.py').read_text()
+
+def test_windows_lock_follows_requested_transitive_extras(tmp_path):
+    def wheel(name, requirements=''):
+        with zipfile.ZipFile(tmp_path / f'{name}-1.0-py3-none-any.whl', 'w') as zf:
+            zf.writestr(f'{name}-1.0.dist-info/METADATA',
+                        f'Name: {name}\nVersion: 1.0\n{requirements}')
+    wheel('app', 'Requires-Dist: token[crypto]>=1\n')
+    wheel('token', 'Requires-Dist: crypto>=1; extra == "crypto"\n')
+    with pytest.raises(ValueError, match='Windows dependency'):
+        make_lock(tmp_path, tmp_path / 'lock')
+    wheel('crypto')
+    assert make_lock(tmp_path, tmp_path / 'lock') == 3

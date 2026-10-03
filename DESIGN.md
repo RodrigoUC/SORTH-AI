@@ -126,3 +126,55 @@ Assignment requires an explicit selection, fresh-input fingerprint and independe
 validation. Changed inputs recalculate and clear selection. The accepted action
 uses the same persistence-first command path as manual assignment and supports undo.
 Closing, hiding the feature or failed persistence preserves schedule and pins.
+
+## Optional MCP preparation
+
+Settings keeps the existing native Save/Cancel preference contract. A separate
+**Preparar complemento MCP / Prepare MCP add-on** action opens a plain-text,
+default-Cancel confirmation with validated version and destination. Preparation
+copies only the bundled companion, checks integrity and runs a bounded local
+probe. Static progress text avoids fabricated percentages and respects reduced
+motion without introducing animation. Cancel/close requests cooperative cleanup
+and waits asynchronously before releasing the worker; a committed component stays
+prepared. Preparation never toggles the permission checkbox or starts a server.
+
+Status is selectable by mouse/keyboard. ES/EN messages distinguish missing bundle,
+unprepared component, integrity/version errors, cancellation and ready state. A
+native client selector shows read-only, keyboard-copyable JSON using the verified
+absolute companion command. OpenCode V2 defaults disconnected; Claude guidance
+warns that client restart may start the process. ChatGPT shows manual HTTPS/tunnel
+requirements rather than an invalid local config. Copy is explicit and does not
+modify client files. Real Qt offscreen lifecycle tests and ES/EN renders cover
+these views; native Windows host/packaged acceptance remains a separate gate.
+
+
+### Guided MCP setup refinement
+The existing MCP section uses three native, numbered step headings because the
+sequence matters: prepare/check, save local permission, then configure a client.
+Saved and pending permission are separate text states. A ready add-on disables
+redundant preparation while keeping the read-only check available. Verification
+has its own cancellation action. Save waits for a new permission check; selecting
+OFF remains saveable without a successful check. No permission or client changes
+are inferred from preparation or copying configuration.
+
+The client guide uses the existing localized native combo, labels, JSON text area
+and Close button. Numbered instructions retain protocol/configuration details,
+commercial-host caveats and separate ChatGPT authorization. At narrow sizes only
+the guide body scrolls; Close stays outside, and Tab leaves the JSON area for Copy.
+Read-only permission snapshots never replace the preference store's expected
+revision. The established stale-save guard still reconciles external changes.
+The native Qt/i18n wrappers and theme.py remain the canonical control, focus,
+typography and scrollbar owners; no palette or global styling changes are needed.
+
+Settings action labels reflow using native multiline button/checkbox text when
+platform font metrics exceed the scroll viewport. The localized source Message,
+full accessible name, font size, click target and native keyboard behavior remain
+intact. Widening the window or switching ES/EN reflows from the original message;
+no caption is clipped, abbreviated, or progressively wrapped. Save/Cancel remain
+outside the scroller. Geometry tests cover native-default/Fusion/Windows styles
+at 460×420, including enlarged font metrics and narrow→wide→narrow transitions.
+The first Settings show, viewport resize and locale change reflow synchronously;
+zero timers only coalesce later layout/style work. Save/Cancel use a native
+vertical button box when their horizontal minimum cannot fit, including width-only
+font changes. Qt layout tests wait for bounded, stable native geometry and retain
+zero-overflow, exact-window-size and complete-action-visibility assertions.

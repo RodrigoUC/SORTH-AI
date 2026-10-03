@@ -145,3 +145,24 @@ def test_byte_limit_evicts_oldest_commands_without_exceeding_bound():
     current = h.undo(current, lambda _: None)
     assert current['courses'][0].name == 'First'
     assert not h.can_undo and h.can_redo
+
+
+def test_group_feedback_normalization_is_detached_idempotent_and_preserves_sources():
+    from src.application.edit_history import normalized_group_feedback
+    from src.scheduling.validation import ValidationNotice
+
+    candidate = state()
+    candidate['courses'][0].number_of_groups = 4
+    saved_reason = ValidationNotice('Synthetic reason for {gid}', gid='BIO-G2')
+    candidate['group_feedback'] = {'BIO-G1': 'stale assigned reason', 'BIO-G2': saved_reason,
+                                   'BIO-G3': '', 'removed-session': 'stale'}
+    before = fingerprint(candidate)
+    feedback = normalized_group_feedback(candidate)
+    assert feedback['BIO-G1'] == ''
+    assert feedback['BIO-G2'] is saved_reason
+    assert feedback['BIO-G3'] == ''
+    assert feedback['BIO-G4']
+    assert 'removed-session' not in feedback
+    assert fingerprint(candidate) == before
+    assert normalized_group_feedback({**candidate, 'group_feedback': feedback}) == feedback
+    assert normalized_group_feedback({**candidate, 'schedule_present': False}) == {}

@@ -291,3 +291,150 @@ def test_last_assignment_removal_retains_empty_room_filter(window):
     assert viewer._room_filter.currentData() == 'R'
     assert viewer.classroom_selector.currentText() == 'R'
     assert not window.current_schedule
+
+
+@pytest.mark.parametrize('kind', ['remove_assignment', 'pinned_course_edit', 'calendar_pending'])
+def test_pending_feedback_is_canonical_before_history_and_supports_redo(window, kind):
+    from src.application.calendar_transition import preview_calendar_change
+    from src.scheduling.project_calendar import ProjectCalendar
+    from src.gui.i18n import language_manager
+
+    if kind == 'pinned_course_edit':
+        window._toggle_pin('BIO-G1')
+    before = fingerprint(window._capture_edit_state())
+    before_disk = fingerprint(window._repo.load_session())
+    if kind == 'remove_assignment':
+        window._on_group_removed('BIO-G1')
+    elif kind == 'pinned_course_edit':
+        course = deepcopy(window.course_manager.courses[0])
+        course.number_of_groups = 2
+        assert window._commit_course_edit([course], 'add group')
+    else:
+        calendar = ProjectCalendar(('Martes',), 480, 660, ())
+        preview = preview_calendar_change(window.calendar, calendar, window.current_schedule,
+                                          window.current_groups, window._validation_classrooms())
+        assert window._apply_calendar(calendar, preview)
+
+    after_state = window._capture_edit_state()
+    after = fingerprint(after_state)
+    after_disk = fingerprint(window._repo.load_session())
+    assert any(group.unassigned_reason for group in window.current_groups if not group.assignment)
+    assert window._history._undo[-1].after['group_feedback'] == after_state['group_feedback']
+    assert window._history._expected == after
+    manager = language_manager()
+    language = manager.language
+    try:
+        manager.set_language('en' if language == 'es' else 'es', persist=False)
+        assert fingerprint(window._capture_edit_state()) == after
+        for _ in range(2):
+            assert window._travel_history(True)
+            assert fingerprint(window._capture_edit_state()) == before
+            assert fingerprint(window._repo.load_session()) == before_disk
+            assert window._travel_history(False)
+            assert fingerprint(window._capture_edit_state()) == after
+            assert fingerprint(window._repo.load_session()) == after_disk
+    finally:
+        manager.set_language(language, persist=False)
+
+
+def test_real_feedback_mutation_still_invalidates_history(window):
+    window._on_group_removed('BIO-G1')
+    assert window._history._expected == fingerprint(window._capture_edit_state())
+    disk = fingerprint(window._repo.load_session())
+    window.current_groups[0].unassigned_reason = 'Synthetic out-of-band feedback change'
+    assert not window._travel_history(True)
+    assert not window._history.can_undo and not window._history.can_redo
+    assert window._history.reset_reason == 'external_change'
+    assert fingerprint(window._repo.load_session()) == disk
+
+
+def test_combined_calendar_resource_manual_history_reopen_and_export(window, tmp_path, monkeypatch):
+    import pandas as pd
+    from PyQt6.QtCore import QItemSelectionModel, QTime
+    from src.application.calendar_transition import preview_calendar_change
+    from src.application.scenario_comparison import scenario_metadata, session_fingerprint
+    from src.gui.project_dialog import ProjectDialog
+    from src.infrastructure.schedule_exporter import ScheduleExporter
+    from src.scheduling.project_calendar import ProjectCalendar
+    from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
+    from src.scheduling.time_model import TimeModel
+
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.Yes)
+    window.course_manager.load_courses_from_excel([Course('BIO', 2, 60, 'REGULAR')])
+    window.resources = SchedulingResources((ResourceCatalog('teacher', True,
+        (Resource('t', 'Synthetic alias', ((2, 480, 660),)),), (('BIO-G1', ('t',)),)),))
+    window._on_schedule_done({'BIO-G1': ('R', 2, 480, 540)},
+                             window.course_manager.courses[0].generate_groups())
+    window._toggle_pin('BIO-G1')
+    window._reset_edit_history()
+    initial = session_fingerprint(window._repo.load_session())
+    project_dialog = ProjectDialog(window)
+    _, original_id = project_dialog.catalog.create_project('Original', 'Original', window._repo,
+                                                           scenario_metadata('test', window.calendar))
+    project_dialog.close()
+
+    def consistent():
+        data = window._repo.load_session()
+        assert data['assignments'] == (window.current_schedule or None)
+        assert data['resources'] == window.resources
+        assert data['calendar'] == window.calendar
+        assert data['pinned_group_ids'] == window.pinned_group_ids
+
+    calendar = ProjectCalendar(('Martes', 'Jueves'), 480, 660, ())
+    preview = preview_calendar_change(window.calendar, calendar, window.current_schedule,
+        window.current_groups, window._validation_classrooms(), resources=window.resources)
+    assert window._apply_calendar(calendar, preview)
+    consistent()
+    window._toggle_pin('BIO-G1')
+    consistent()
+
+    def assign(dialog):
+        dialog.room.setCurrentIndex(dialog.room.findData('R'))
+        dialog.day.setCurrentIndex(dialog.day.findData(1))
+        dialog.start.setTime(QTime(9, 0))
+        dialog._submit()
+        assert dialog.result_assignment == ('R', 1, 540, 600)
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(ManualAssignmentDialog, 'exec', assign)
+    window._manual_assignment('BIO-G1')
+    consistent()
+    window._toggle_pin('BIO-G1')
+    consistent()
+    assert window._commit_course_edit([Course('BIO', 3, 60, 'REGULAR')], 'Add group')
+    consistent()
+    final = session_fingerprint(window._repo.load_session())
+    for _ in range(5):
+        assert window._travel_history(True)
+        consistent()
+    assert session_fingerprint(window._repo.load_session()) == initial
+    for _ in range(5):
+        assert window._travel_history(False)
+        consistent()
+    assert session_fingerprint(window._repo.load_session()) == final
+
+    window._restore_session_if_exists(confirm=False, show_status=False)
+    assert not window._restore_failed
+    consistent()
+    assert session_fingerprint(window._repo.load_session()) == final
+    exporter = ScheduleExporter(TimeModel.from_calendar(window.calendar))
+    for suffix in ('csv', 'xlsx'):
+        path = tmp_path / f'result.{suffix}'
+        if suffix == 'csv':
+            exporter.to_csv(window.current_schedule, str(path), groups=window.current_groups)
+            table = pd.read_csv(path)
+        else:
+            exporter.to_excel(window.current_schedule, str(path), groups=window.current_groups)
+            table = pd.read_excel(path, sheet_name='Asignaciones')
+        assert list(table['Día']) == ['Martes']
+        assert list(table['Hora Inicio']) == ['09:00']
+
+    project_dialog = ProjectDialog(window)
+    row = next(index for index, item in enumerate(project_dialog.rows) if item['id'] == original_id)
+    project_dialog.table.selectionModel().select(project_dialog.table.model().index(row, 0),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+    assert project_dialog.selected()[0]['id'] == original_id
+    project_dialog.open_selected()
+    consistent()
+    assert session_fingerprint(window._repo.load_session()) == initial
+    project_dialog.close()

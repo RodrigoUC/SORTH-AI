@@ -47,6 +47,9 @@ jobs:
       - name: Audit optional MCP inventory when present
         if: ${{ !cancelled() && (hashFiles('project_root/requirements-mcp.txt') != '' || hashFiles('project_root/requirements-mcp.lock') != '' || hashFiles('project_root/requirements-mcp-dev.txt') != '') }}
         run: .venv-security/bin/python tools/security_review.py optional-dependencies --output-dir build/security/optional
+      - name: Audit isolated Windows MCP companion inventory
+        if: ${{ !cancelled() && (hashFiles('project_root/requirements-mcp-build.txt') != '' || hashFiles('project_root/requirements-mcp-windows.lock') != '') }}
+        run: .venv-security/bin/python tools/security_review.py companion-dependencies --output-dir build/security/companion
       - name: Preserve findings and failure status
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sys
+from pathlib import Path
 
 import anyio
 
@@ -11,9 +12,17 @@ TIMEOUT_SECONDS = 10
 
 
 class PreviewExecutor:
-    def __init__(self, timeout=TIMEOUT_SECONDS):
+    def __init__(self, timeout=TIMEOUT_SECONDS, *, packaged=False):
         self.timeout = timeout
+        self.packaged = packaged
         self._lock = asyncio.Lock()
+
+    def worker_command(self):
+        if getattr(sys, 'frozen', False):
+            if not self.packaged:
+                raise ContractError('WORKER_FAILED', 'request', 'Use the verified MCP companion.')
+            return [sys.executable, '--worker']
+        return [sys.executable, '-B', '-m', 'src.mcp_adapter.worker']
 
     async def generate(self, request):
         if self._lock.locked():
@@ -23,9 +32,10 @@ class PreviewExecutor:
             if len(encoded) > MAX_INPUT_BYTES:
                 raise ContractError("INPUT_LIMIT", "request", "Reduce the request below 128 KiB.")
             spawning = asyncio.create_task(asyncio.create_subprocess_exec(
-                sys.executable, "-B", "-m", "src.mcp_adapter.worker",
+                *self.worker_command(),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,
+                cwd=None if getattr(sys, 'frozen', False) else str(Path(__file__).resolve().parents[2]),
             ))
             try:
                 process = await asyncio.shield(spawning)

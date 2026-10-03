@@ -5,9 +5,9 @@ always literal, including user-entered data equal to a catalog key. The same
 widgets/items remain alive, preserving focus, input, selection and scroll state.
 """
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QEvent, Qt
+from PyQt6.QtCore import QEvent, Qt, QObject, QTimer
 from PyQt6 import sip
-from PyQt6.QtGui import QAction as QtAction
+from PyQt6.QtGui import QAction as QtAction, QTextLayout, QTextOption
 from .i18n import Message, msg, language_manager, _render
 
 
@@ -29,7 +29,12 @@ class _Localized:
 
     def retranslate(self):
         for method, arguments in list(self._messages.values()):
-            getattr(super(), method)(*[_render(value) for value in arguments])
+            rendered = [_render(value) for value in arguments]
+            # Rendering may run callbacks or GC. A Python wrapper can outlive
+            # its Qt object, so check after rendering and before the native call.
+            if sip.isdeleted(self):
+                return
+            getattr(super(), method)(*rendered)
 
 
 def _localized_setter(method):
@@ -52,12 +57,109 @@ class QLabel(_Localized, QtW.QLabel):
         super().clear()
 
 
-class QPushButton(_Localized, QtW.QPushButton):
+class _ResponsiveButtonText:
+    def wrapPresentationText(self, available_width):
+        """Wrap only the native display; keep the complete Message binding intact."""
+        binding = self._messages.get('setText')
+        if binding is None:
+            return
+        source = binding[1][0]
+        full_text = str(_render(source))
+        self.setAccessibleName(source)
+        # Ask the current native style for its indicator, border and padding.
+        # Use the current display width, including any previous line breaks.
+        metrics = self.fontMetrics()
+        current_text_width = metrics.size(Qt.TextFlag.TextShowMnemonic, self.text()).width()
+        chrome = max(0, self.minimumSizeHint().width() - current_text_width)
+        text_width = max(1, available_width - chrome - 4)
+        lines = []
+        for paragraph in full_text.split('\n'):
+            # QTextLine offsets count UTF-16 code units; Python slices count
+            # Unicode code points. Slice the same representation Qt measured.
+            utf16 = paragraph.encode('utf-16-le')
+            text_layout = QTextLayout(paragraph, self.font())
+            option = QTextOption()
+            option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+            text_layout.setTextOption(option)
+            text_layout.beginLayout()
+            while True:
+                line = text_layout.createLine()
+                if not line.isValid():
+                    break
+                line.setLineWidth(text_width)
+                start = line.textStart() * 2
+                end = start + line.textLength() * 2
+                lines.append(utf16[start:end].decode('utf-16-le').strip())
+            text_layout.endLayout()
+            if not paragraph:
+                lines.append('')
+        display = '\n'.join(lines)
+        if display != self.text():
+            # Bypass the localization setter deliberately: replacing the Message
+            # with this literal would lose live translation and accumulate wraps.
+            QtW.QAbstractButton.setText(self, display)
+
+
+class QPushButton(_ResponsiveButtonText, _Localized, QtW.QPushButton):
     pass
 
 
-class QCheckBox(_Localized, QtW.QCheckBox):
+class QCheckBox(_ResponsiveButtonText, _Localized, QtW.QCheckBox):
     pass
+
+
+class ResponsiveActionLabels(QObject):
+    """Fit full native button/checkbox labels to a scroll area's viewport."""
+    def __init__(self, scroll, controls, parent=None):
+        super().__init__(parent or scroll)
+        self.scroll = scroll
+        self.viewport = scroll.viewport()
+        self.content = scroll.widget()
+        self.controls = tuple(controls)
+        self._reflowing = False
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self._rewrap)
+        scroll.viewport().installEventFilter(self)
+        scroll.widget().installEventFilter(self)
+        language_manager().changed.connect(self._rewrap)
+        self._schedule()
+
+    def _schedule(self, *_):
+        if not sip.isdeleted(self.timer):
+            self.timer.start(0)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show) and watched is self.viewport:
+            # A zero timer need not fire in the first processEvents pass on
+            # Windows. First-show/resize must not depend on timer delivery.
+            self._rewrap()
+        elif event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.FontChange,
+                              QEvent.Type.StyleChange):
+            self._schedule()
+        return super().eventFilter(watched, event)
+
+    def _rewrap(self, *_):
+        if (self._reflowing or sip.isdeleted(self.scroll)
+                or sip.isdeleted(self.viewport) or sip.isdeleted(self.content)
+                or sip.isdeleted(self.timer)):
+            return
+        self.timer.stop()
+        self._reflowing = True
+        try:
+            margins = self.scroll.widget().layout().contentsMargins()
+            width = self.scroll.viewport().width() - margins.left() - margins.right()
+            if width <= 0:
+                return
+            for control in self.controls:
+                control.wrapPresentationText(width)
+            content = self.scroll.widget()
+            content.layout().activate()
+            content.resize(max(self.scroll.viewport().width(), content.minimumSizeHint().width()),
+                           content.height())
+        finally:
+            self._reflowing = False
+
 
 
 class QListWidget(_Localized, QtW.QListWidget):
@@ -226,6 +328,71 @@ class _LocalizedButtons:
 
 class QDialogButtonBox(_LocalizedButtons, _Localized, QtW.QDialogButtonBox):
     pass
+
+
+class ResponsiveDialogButtonBox(QDialogButtonBox):
+    """Retain native action buttons, stacking them only when a row cannot fit."""
+    def __init__(self, *args, **kwargs):
+        self._fitting = False
+        self._fit_signature = None
+        self._metric_change_pending = False
+        super().__init__(*args, **kwargs)
+        self._metric_timer = QTimer(self)
+        self._metric_timer.setSingleShot(True)
+        self._metric_timer.timeout.connect(self._after_metric_change)
+        # The footer may reflow rather than raising the dialog's minimum width.
+        self.setSizePolicy(QtW.QSizePolicy.Policy.Ignored, QtW.QSizePolicy.Policy.Minimum)
+
+    def _fit_actions(self):
+        if self._fitting:
+            return
+        signature = (self.width(), tuple((button.text(), button.minimumSizeHint().width(),
+                                          button.minimumSizeHint().height()) for button in self.buttons()))
+        if signature == self._fit_signature:
+            return
+        self._fit_signature = signature
+        self._fitting = True
+        try:
+            self.setOrientation(Qt.Orientation.Horizontal)
+            if self.minimumSizeHint().width() > self.width():
+                self.setOrientation(Qt.Orientation.Vertical)
+            self.updateGeometry()
+            parent = self.parentWidget()
+            if parent is not None and parent.layout() is not None:
+                parent.layout().activate()
+            self.layout().activate()
+        finally:
+            self._fitting = False
+
+    def _after_metric_change(self):
+        self._metric_change_pending = False
+        self._fit_actions()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+                self._metric_change_pending = True
+            timer = getattr(self, '_metric_timer', None)
+            if timer is not None:
+                # Never activate ancestor layouts while QApplication is
+                # replacing a native style and unpolishing its widget tree.
+                timer.start(0)
+        return result
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not self._metric_change_pending:
+            self._fit_actions()
+
+    def showEvent(self, event):
+        self._metric_change_pending = False
+        self._fit_actions()
+        super().showEvent(event)
+
+    def retranslate(self):
+        super().retranslate()
+        self._fit_actions()
 
 
 class QMessageBox(_LocalizedButtons, _Localized, QtW.QMessageBox):
