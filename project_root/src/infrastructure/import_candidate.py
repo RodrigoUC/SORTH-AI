@@ -50,7 +50,13 @@ def _read_candidate(path, cancelled, previous, checkpoint):
                 raise ExcelImportError('El libro supera el límite de importación. Divídalo en archivos más pequeños.')
             chunks.append(chunk)
         after = os.fstat(source.fileno())
-        current = os.stat(path)
+        # Compare handle metadata with handle metadata. On Windows CPython
+        # 3.12, path stat reports creation time as ctime while fstat reports
+        # change time, so mixing those APIs rejects unchanged workbooks.
+        # Reopening the name also detects replacement of the path while the
+        # original handle remains open; keep every identity/change field.
+        with open(path, 'rb') as current_source:
+            current = os.fstat(current_source.fileno())
         identity = lambda stat: (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
         if identity(before) != identity(after) or identity(after) != identity(current):
             raise ExcelImportError('El archivo cambió mientras se leía. Selecciónelo nuevamente.')

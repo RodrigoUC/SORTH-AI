@@ -286,12 +286,15 @@ def test_file_changed_during_read_is_rejected(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from src.infrastructure import import_candidate
     path = workbook(tmp_path/'input.xlsx')
-    original = import_candidate.os.stat
-    def changed(path, *args, **kwargs):
-        result = original(path, *args, **kwargs)
+    original = import_candidate.os.fstat
+    calls = []
+    def changed(fd):
+        result = original(fd)
+        calls.append(fd)
         return SimpleNamespace(st_dev=result.st_dev, st_ino=result.st_ino, st_size=result.st_size,
-                               st_mtime_ns=result.st_mtime_ns+1, st_ctime_ns=result.st_ctime_ns)
-    monkeypatch.setattr(import_candidate.os, 'stat', changed)
+                               st_mtime_ns=result.st_mtime_ns + (len(calls) == 3),
+                               st_ctime_ns=result.st_ctime_ns)
+    monkeypatch.setattr(import_candidate.os, 'fstat', changed)
     with pytest.raises(ExcelImportError, match='cambió mientras'):
         read_candidate(path, lambda: False)
 

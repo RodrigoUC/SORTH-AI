@@ -184,6 +184,13 @@ def test_import_cancel_and_validation_preserve_complete_session(window, tmp_path
 
 def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
     import pandas as pd
+    unexpected_dialogs = []
+    def unexpected(*args):
+        unexpected_dialogs.append(args)
+        return QMessageBox.StandardButton.Cancel
+    # Fail with the captured dialog instead of hanging inside Qt's modal loop.
+    for method in ('critical', 'warning', 'exec'):
+        monkeypatch.setattr(QMessageBox, method, unexpected)
     load_inputs(window)
     path = tmp_path / 'input.xlsx'
     with pd.ExcelWriter(path) as writer:
@@ -193,6 +200,7 @@ def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
     window._load_excel()
     from tests.test_gui.import_helpers import wait_for_import
     wait_for_import(window)
+    assert not unexpected_dialogs
     assert window.excel_path == str(path)
     assert set(window._classrooms) == {'NEW'}
     assert window.course_manager.get_courses()[0].code == 'NEW'
