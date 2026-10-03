@@ -1864,15 +1864,21 @@ class MainWindow(QMainWindow):
                 self._update_compact_overview()
 
     def closeEvent(self, event):
+        # Import cancellation can leave its reader draining while generation
+        # starts. Cancel both immediately, regardless of which finishes first.
+        if self._worker is not None and self._worker.isRunning():
+            self._close_after_generation = True
+            self._cancel_generation()
         if hasattr(self, "_import") and not self._import.prepare_close():
             event.ignore()
             return
         if self._worker is not None and self._worker.isRunning():
             self._import.closing = False
-            self._close_after_generation = True
-            self._cancel_generation()
             event.ignore()
             return
+        # No worker owns the UI now; Cancel in a failed-save prompt must leave
+        # the accepted session editable rather than stranded in shutdown busy.
+        self._set_import_busy(False)
         self._motion.finish()
         if not self._unsaved:
             event.accept()
