@@ -6,6 +6,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 from zipfile import ZipFile
+from xml.etree import ElementTree
 
 from openpyxl import Workbook, load_workbook
 import pytest
@@ -34,6 +35,19 @@ def read_book(assignments=None, **kwargs):
     return load_workbook(BytesIO(payload))
 
 
+def assert_same_xml(left, right, member='worksheet.xml'):
+    # XML 1.0 §2.11 normalizes literal CRLF/CR before parsing. Windows' text
+    # worksheet writer and the memory writer may therefore emit different bytes
+    # for the same line break: https://www.w3.org/TR/xml/#sec-line-ends
+    # Canonicalization retains text whitespace, character-reference CRs, child
+    # order/counts, attributes, namespaces, comments and processing instructions.
+    # Do not use raw replace/strip/splitlines: those can hide actual data loss.
+    left_xml = ElementTree.canonicalize(left, with_comments=True, strip_text=False)
+    right_xml = ElementTree.canonicalize(right, with_comments=True, strip_text=False)
+    if left_xml != right_xml:
+        pytest.fail(f'{member}: parsed XML data, styles or layout differ', pytrace=False)
+
+
 @pytest.mark.parametrize('include_grid', [False, True])
 @pytest.mark.parametrize('assignments', [{}, ASSIGNMENTS])
 def test_memory_workbook_has_identical_data_styles_and_layout_to_file(tmp_path, include_grid, assignments):
@@ -42,12 +56,55 @@ def test_memory_workbook_has_identical_data_styles_and_layout_to_file(tmp_path, 
     exporter().to_excel(assignments, target, **kwargs)
     payload = exporter().to_excel_bytes(assignments, **kwargs)
     with ZipFile(target) as disk, ZipFile(BytesIO(payload)) as memory:
+        assert len(disk.namelist()) == len(set(disk.namelist()))
+        assert len(memory.namelist()) == len(set(memory.namelist()))
         assert set(disk.namelist()) == set(memory.namelist())
         for name in disk.namelist():
             if name.startswith('xl/'):
-                assert memory.read(name) == disk.read(name), name
+                if name.endswith(('.xml', '.rels')):
+                    assert_same_xml(memory.read(name), disk.read(name), name)
+                else:
+                    assert memory.read(name) == disk.read(name), name
     book = load_workbook(BytesIO(payload))
     assert 'Asignaciones' in book and 'Por Aula' in book
+
+
+_COMPARISON_XML = (
+    b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    b'<sheetData><row r="1" ht="34"><c r="A1" s="2" t="inlineStr">'
+    b'<is><t xml:space="preserve"> Course\nGroup &#13;\t </t></is></c>'
+    b'<c r="B1" s="3"><v>2</v></c></row></sheetData>'
+    b'<mergeCells count="1"><mergeCell ref="A1:A2"/></mergeCells></worksheet>'
+)
+
+
+@pytest.mark.parametrize('line_ending', [b'\r\n', b'\r'])
+def test_xml_comparison_accepts_only_equivalent_literal_line_endings(line_ending):
+    windows_xml = _COMPARISON_XML.replace(b'\n', line_ending)
+    assert windows_xml != _COMPARISON_XML
+    assert_same_xml(windows_xml, _COMPARISON_XML)
+    root = ElementTree.fromstring(windows_xml)
+    text = root.find('.//{*}t').text
+    assert text == ' Course\nGroup \r\t '  # Encoded CR and surrounding whitespace survive.
+
+
+@pytest.mark.parametrize('before,after', [
+    (b'Course\nGroup', b'CourseGroup'),  # A missing visual line break is data loss.
+    (b'&#13;', b'\n'),  # A character-reference CR is not a literal XML CR.
+    (b' Course', b'Course'),
+    (b'\t ', b' '),
+    (b's="2"', b's="9"'),
+    (b'ht="34"', b'ht="35"'),
+    (b'<v>2</v>', b'<v>3</v>'),
+    (b'<c r="B1" s="3"><v>2</v></c>', b''),
+    (b'ref="A1:A2"', b'ref="A1:A3"'),
+    (b'count="1"', b'count="2"'),
+])
+def test_xml_comparison_rejects_changes_to_content_styles_layout_and_counts(before, after):
+    changed = _COMPARISON_XML.replace(before, after)
+    assert changed != _COMPARISON_XML
+    with pytest.raises(pytest.fail.Exception, match='parsed XML data, styles or layout differ'):
+        assert_same_xml(_COMPARISON_XML, changed)
 
 
 def test_complete_export_includes_explicit_counts_empty_pending_and_scope_notes():
