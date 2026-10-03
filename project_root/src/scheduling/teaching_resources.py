@@ -100,6 +100,12 @@ class ResourceCatalog:
 
     def placement_issues(self, group_id, day, start, end, assignments):
         """Single source for candidate admission and final independent validation."""
+        return self._placement_issues(group_id, day, start, end,
+                                      lambda _resource_id: assignments.items())
+
+    def _placement_issues(self, group_id, day, start, end, assignments_for_resource):
+        # The caller may supply a local index, but availability, half-open
+        # overlap rules and notice ordering remain shared with admission.
         issues = []
         if not self.enabled:
             return issues
@@ -115,7 +121,7 @@ class ResourceCatalog:
                         covered = we
                 if covered < end:
                     issues.append(ResourceIssue('OUTSIDE_DECLARED_AVAILABILITY', tid, group_id))
-            for other_id, placement in assignments.items():
+            for other_id, placement in assignments_for_resource(tid):
                 if other_id == group_id or tid not in self.ids_for(other_id):
                     continue
                 if (not isinstance(placement, (list, tuple)) or len(placement) != 4
@@ -128,15 +134,21 @@ class ResourceCatalog:
 
     def validate(self, assignments, groups, time_model):
         issues = self.structure_issues({g.group_id for g in groups}, time_model)
-        if issues:
+        if issues or not self.enabled:
             return issues
+        # This index is scoped to one validation snapshot. Distinct resources
+        # and days cannot overlap; do not scan all unrelated prior assignments.
+        # Each bucket preserves assignment insertion order, so notices retain
+        # exactly the same per-resource order as the unindexed admission rule.
         seen = {}
         for gid, placement in assignments.items():
             if (isinstance(placement, (tuple, list)) and len(placement) == 4
                     and all(type(v) is int for v in placement[1:])):
                 _, day, start, end = placement
-                issues.extend(self.placement_issues(gid, day, start, end, seen))
-                seen[gid] = placement
+                issues.extend(self._placement_issues(gid, day, start, end,
+                    lambda resource_id: seen.get((resource_id, day), {}).items()))
+                for resource_id in self.ids_for(gid):
+                    seen.setdefault((resource_id, day), {})[gid] = placement
         return issues
 
     def to_data(self):
