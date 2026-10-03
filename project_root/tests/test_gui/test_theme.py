@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from src.gui.theme import COLORS, STYLESHEET
 from src.scheduling.schedule_grid import COURSE_COLORS, GRID_TEXT_COLOR
+from src.scheduling.course_style import COURSE_STYLES
 
 
 def contrast(a, b):
@@ -38,6 +39,13 @@ def test_controls_and_focus_contrast(foreground, background):
 
 def test_course_palette_keeps_readable_labels():
     assert all(contrast(GRID_TEXT_COLOR, color) >= 4.5 for color in COURSE_COLORS)
+
+
+def test_course_edges_keep_non_text_contrast_against_fill_and_gutter():
+    for style in COURSE_STYLES:
+        assert contrast(style.accent, style.fill) >= 3
+        assert contrast(style.accent, COLORS['surface']) >= 3
+        assert style.fill not in (COLORS['danger_soft'][1:], COLORS['warning_soft'][1:])
 
 
 def test_qss_resolved_and_sort_icons_exist():

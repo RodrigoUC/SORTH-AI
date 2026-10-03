@@ -178,3 +178,30 @@ zero timers only coalesce later layout/style work. Save/Cancel use a native
 vertical button box when their horizontal minimum cannot fit, including width-only
 font changes. Qt layout tests wait for bounded, stable native geometry and retain
 zero-overflow, exact-window-size and complete-action-visibility assertions.
+
+## Distinct course blocks
+
+`src/scheduling/course_style.py` is the Qt-free source for course fills, accents
+and markers shared with printable schedules. Sixteen muted blue, teal, violet,
+sage and neutral pairs extend the established identity. CRC32 of the literal
+course code chooses a permanent pair and an independent solid, dashed, dotted or
+double marker; rooms, sort order, filters, language and process restarts cannot
+reassign it. A finite palette can repeat: the code/name, marker and physical
+boundaries identify courses without relying only on color. Red remains reserved
+for room conflicts; pinned-session wording remains explicit.
+
+The classroom grid uses one native item delegate, never per-cell child widgets.
+Each session span has a 3px white inset, contrasting 1px outline and course edge.
+Bold session code, exact time and course name are left aligned for scanning;
+long names wrap to two lines and elide only in paint. Full plain text remains in
+the model, tooltip and accessible text, and the detailed list stays available.
+Selection uses a violet ring with a white separator without erasing course color.
+Native keyboard navigation, exact minute boundaries and schedule data are retained.
+Runtime-font-derived minimum heights keep short sessions readable. Text contrast
+is at least 4.5:1; accents against fill and white gutters are at least 3:1.
+
+Real Qt paint tests cover gutters, repeated fills with different markers,
+selection, conflicts, filtering, multiple rooms, restart identity and ES/EN.
+Synthetic Fusion/offscreen captures cover 1440×1060, 1200×900 and 960×720 plus
+empty/filtered/short-session states. This remains development evidence rather
+than native Windows or screen-reader acceptance.

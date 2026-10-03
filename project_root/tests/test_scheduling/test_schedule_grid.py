@@ -91,4 +91,4 @@ def test_course_colors_are_stable_palette_members_in_any_lookup_order():
     assert forward == reverse
     assert all(color in COURSE_COLORS for color in forward.values())
     # Lock the stable mapping rather than Python's process-randomized hash.
-    assert course_color('BIO') == 'DDEBF7'
+    assert course_color('BIO') == 'D5ECE4'
