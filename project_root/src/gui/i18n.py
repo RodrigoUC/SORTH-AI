@@ -137,7 +137,7 @@ class LanguageManager(QObject):
         super().__init__()
         self.settings = settings if settings is not None else QSettings('SORTH', 'SORTH')
         saved = self.settings.value('interface/language', DEFAULT_LANGUAGE)
-        self.language = saved if saved in LANGUAGES else DEFAULT_LANGUAGE
+        self.language = saved if isinstance(saved, str) and saved in LANGUAGES else DEFAULT_LANGUAGE
         self._objects = {}
         # A pre-application manager must not create an unowned translator that
         # could later be collected inside an unrelated translation callback.
@@ -188,7 +188,7 @@ class LanguageManager(QObject):
         self._objects[identity] = weakref.ref(obj, forget)
 
     def set_language(self, language, persist=True):
-        language = language if language in LANGUAGES else DEFAULT_LANGUAGE
+        language = language if isinstance(language, str) and language in LANGUAGES else DEFAULT_LANGUAGE
         if persist:
             self.settings.setValue('interface/language', language)
             self.settings.sync()
