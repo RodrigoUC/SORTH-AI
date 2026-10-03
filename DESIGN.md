@@ -259,3 +259,10 @@ Qt widget rectangles. CI writes untruncated settings-geometry JSON reports with
 section, visible child hints, actual font DPI, viewport and fixed-chrome sizes.
 A larger logical-DPI144/20pt stress run is additional evidence, not a substitute
 for the native Windows run.
+
+Settings checkboxes reserve a transparent 2px border in their resting state;
+focus changes only its color. This keeps Qt's Fusion native/style-sheet sizing
+paths consistent during retranslation and focus changes without fixed heights.
+The regression compares fresh native CT_CheckBox sizing and text-content height
+as well as cached minimumSizeHint, because the latter can hide a stale focus-state
+size on some platforms. Other application checkboxes retain their existing chrome.

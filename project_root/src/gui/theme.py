@@ -28,6 +28,8 @@ QFrame#settingsHeader { background: $navy; border-radius: 7px; }
 QLabel#settingsTitle { color: $on_navy; background: transparent; font-size: 14pt; font-weight: 700; }
 QLabel#settingsSubtitle { color: $on_navy_muted; background: transparent; }
 QWidget#settingsContent { background: $surface; border-radius: 7px; }
+QWidget#settingsContent QCheckBox { border: 2px solid transparent; }
+QWidget#settingsContent QCheckBox:focus { border-color: $focus; }
 QLabel#settingsSectionTitle { color: $navy; font-size: 12pt; font-weight: 700; }
 QLabel#settingsStepTitle { color: $navy; font-weight: 600; }
 QFrame#settingsDivider { background: $divider; border: 0; }
