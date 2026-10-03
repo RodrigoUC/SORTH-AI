@@ -96,5 +96,9 @@ $outputExe = if ($OneFile) { 'dist/SORTH.exe' } else { 'dist/SORTH/SORTH.exe' }
 if (-not (Test-Path -LiteralPath $outputExe -PathType Leaf)) {
     throw "No se encontro la salida esperada: $outputExe"
 }
+if (-not $OneFile) {
+    & $pythonExe tools/prune_unused_qt_pdf.py
+    if ($LASTEXITCODE -ne 0) { throw 'Qt PDF dependency review failed; do not distribute.' }
+}
 Write-Host 'Compilacion local sin firma. Aun requiere validacion de Windows y revision de distribucion.'
 Get-FileHash -LiteralPath $outputExe -Algorithm SHA256

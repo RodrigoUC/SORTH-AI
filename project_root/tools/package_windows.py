@@ -18,7 +18,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 LEGAL_FILES = ('LICENSE', 'LICENSING.md', 'CREDITS.md', 'SUPPORT.md', 'SECURITY.md',
                'docs/LICENSING_REVIEW.md', 'docs/SOURCE_AVAILABILITY.md',
                'PRIVACY.md', 'docs/QUICKSTART.md', 'docs/KNOWN_LIMITATIONS.md',
-               'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'project_root/SESSION_RECOVERY.md',
+               'docs/WINDOWS_RELEASE_ACCEPTANCE.md', 'docs/WINDOWS_ACCEPTANCE_RECORD.md',
+               'project_root/tools/collect_windows_acceptance.ps1', 'project_root/SESSION_RECOVERY.md',
                'project_root/SCHEDULING_VALIDATION.md', 'project_root/MANUAL_USUARIO.md',
                'project_root/PDF_EXPORT_NOTES.md', 'project_root/README.md', 'project_root/WINDOWS_DISTRIBUTION.md')
 
@@ -41,6 +42,8 @@ def package(app_dir: Path, manual: Path, output_dir: Path, commit: str) -> Path:
     if json.loads(identity_path.read_text(encoding='utf-8')) != expected_identity:
         raise ValueError('Frozen build identity does not match requested source/version.')
     files = sorted(path for path in app_dir.rglob('*') if path.is_file())
+    if any(path.name.lower() in {'qpdf.dll', 'qt6pdf.dll'} for path in files):
+        raise ValueError('Unexpected Qt PDF native dependency; run the reviewed onedir pruning step.')
     for path in files:
         if path.is_symlink() or path.suffix.lower() in FORBIDDEN_SUFFIXES:
             raise ValueError(f'Refusing to package local session/cache data: {path.name}')

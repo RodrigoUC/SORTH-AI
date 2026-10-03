@@ -6,30 +6,11 @@ Use a new output directory. Keep the full original data directory (including
 WAL/SHM files) private and intact until the recovered session is verified.
 """
 import argparse
-import os
 from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.infrastructure.session_repository import SessionRepository
-
-
-def recover_candidate(source: Path, output: Path) -> Path:
-    source, output = source.resolve(), output.absolute()
-    if output.exists():
-        raise FileExistsError(f'Refusing to overwrite {output}')
-    # The snapshot API opens the source read-only, includes committed WAL, and
-    # checks SQLite integrity. All migrations/validation occur on our own copy.
-    staged = SessionRepository._snapshot(source, output.parent, '.recovery-')
-    try:
-        repo = SessionRepository(str(staged))
-        if repo.load_session() is None:
-            raise ValueError('No saved session in this backup; choose another backup.')
-        # Atomic no-clobber publication also protects against a competing output.
-        os.link(staged, output)
-        return output
-    finally:
-        staged.unlink(missing_ok=True)
+from src.application.recovery_command import recover_candidate
 
 
 def main():

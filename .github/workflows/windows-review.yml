@@ -76,6 +76,27 @@ jobs:
           }
           $env:PATH = $oldPath
           Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."
+      - name: Validate no-Python recovery command on synthetic smoke data
+        run: |
+          $tokens = $null; $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'tools/collect_windows_acceptance.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          $source = Join-Path $PWD 'build/reports/packaged-smoke/smoke-session.db'
+          $candidate = Join-Path $PWD 'build/reports/recovered-session.db'
+          $report = Join-Path $PWD 'build/reports/recovery-command.json'
+          $sourceHash = (Get-FileHash -LiteralPath $source).Hash
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+            $env:PYTHONHOME = $null
+            $env:PYTHONPATH = $null
+            $p = Start-Process -FilePath 'dist/SORTH/SORTH.exe' -ArgumentList @('--recover-session', '--source', "`"$source`"", '--output', "`"$candidate`"", '--report', "`"$report`"") -PassThru
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Recovery command timed out.' }
+            if ($p.ExitCode -ne 0) { throw 'Recovery command failed.' }
+            $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+            if (-not $result.ok -or $result.activated -or -not (Test-Path -LiteralPath $candidate)) { throw 'Invalid recovery evidence.' }
+            if ((Get-FileHash -LiteralPath $source).Hash -ne $sourceHash) { throw 'Recovery changed original data.' }
+          } finally { $env:PATH = $oldPath }
       - name: Prepare unsigned review ZIP and checksums
         run: |
           .\.venv-build\Scripts\python.exe tools/package_windows.py --commit $env:SOURCE_COMMIT
