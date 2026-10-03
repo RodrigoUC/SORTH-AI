@@ -25,8 +25,9 @@ Activa el entorno con `.venv\Scripts\Activate.ps1` en PowerShell o `source .venv
 python -m pip install -r requirements-dev.txt
 python -m pip check
 python gui_app.py
-python -m pytest -q
 ```
+
+Para las pruebas, sigue la [suite completa en cuatro procesos](docs/development/WORKFLOW.md#suite-completa-en-cuatro-procesos): incluye colección completa, cuatro lotes en serie, verificación de cobertura y configuración offscreen por shell. No uses un único `pytest` sin selección como sustituto de ese procedimiento. Los comandos focalizados siguen siendo útiles durante el desarrollo; no certifican la suite completa.
 
 En un entorno sin pantalla, ejecuta los tests con `QT_QPA_PLATFORM=offscreen` (PowerShell: `$env:QT_QPA_PLATFORM="offscreen"`; Linux/macOS: `export QT_QPA_PLATFORM=offscreen`). Esto no sustituye la revisión visual en un escritorio real. En Windows offscreen, configure además `QT_QPA_FONTDIR` con la carpeta de fuentes del sistema antes de arrancar Qt; ese backend no usa el descubrimiento nativo de fuentes de Windows. No copie ni redistribuya esas fuentes. El CI lo configura y comprueba glifos/rásteres automáticamente.
 
@@ -40,7 +41,7 @@ referencia. Consulta el [mapa y límites](docs/architecture/ARCHITECTURE.md) y e
 dependencias y coordinar cambios grandes en etapas.
 
 Desde `project_root`, ejecuta también `python tools/check_architecture.py` y
-`python -m pytest -q tests/test_architecture tests/test_documentation`. Estas
+`python -m pytest -c pytest.ini --rootdir=. -q tests/test_architecture tests/test_documentation`. Estas
 pruebas forman parte de la suite completa; comprueban los límites estáticos, las
 rutas públicas y los enlaces locales de la documentación.
 

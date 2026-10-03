@@ -17,12 +17,12 @@ from PyQt6.QtGui import (
 from .theme import COLORS
 from .schedule_grid_delegate import (
     COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard, ScheduleGridDelegate,
-    COURSE_CONFLICT_ACCENT, COURSE_CONFLICT_FILL,
 )
 from ..scheduling.course_style import course_style
+from .course_presentation import course_presentation
 from ..scheduling.time_model import TimeModel
 from ..scheduling.quality import QualitySnapshot, analyze_quality
-from ..scheduling.schedule_grid import build_schedule_grid, course_color, COURSE_COLORS, GRID_TEXT_COLOR
+from ..scheduling.schedule_grid import build_schedule_grid
 
 from .i18n import msg, plural, language_manager
 from .i18n_widgets import (
@@ -116,7 +116,6 @@ class ScheduleViewerWidget(QWidget):
     pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
     filters_changed = pyqtSignal()
-    _COLOR_PALETTE = [QColor("#" + color) for color in COURSE_COLORS]
 
     def __init__(self):
         super().__init__()
@@ -152,9 +151,13 @@ class ScheduleViewerWidget(QWidget):
         """Recolor cached interface brushes without rebuilding schedule data.
 
         Item identities, filters, selection, sorting and scroll positions remain
-        intact. Course fills and conflict cards keep the fixed printable palette;
-        their delegate reads the current interface focus color while painting.
+        intact. Identity stays immutable while fills, markers and conflict roles
+        follow the active surface. The delegate resolves its colors on each paint.
         """
+        self._course_colors.update({
+            code: QColor(course_presentation(course_style(code), COLORS["surface"]).fill)
+            for code in self._course_colors
+        })
         for table in (self.list_table, self.classroom_table):
             with QSignalBlocker(table):
                 for row in range(table.rowCount()):
@@ -170,7 +173,18 @@ class ScheduleViewerWidget(QWidget):
                 if item:
                     item.setBackground(QColor(COLORS["primary_soft"]))
                     item.setForeground(QColor(COLORS["on_primary_soft"]))
+                for column in range(1, self.grid_table.columnCount()):
+                    item = self.grid_table.item(row, column)
+                    if item and isinstance(item.data(COURSE_CARD_ROLE), CourseCard):
+                        self._apply_card_brushes(item)
         self.grid_table.viewport().update()
+
+    @staticmethod
+    def _apply_card_brushes(item):
+        card = item.data(COURSE_CARD_ROLE)
+        presentation = course_presentation(card.style, COLORS["surface"])
+        item.setBackground(QColor(COLORS["danger_soft"] if card.conflict_label else presentation.fill))
+        item.setForeground(QColor(COLORS["danger"] if card.conflict_label else presentation.text))
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -445,7 +459,7 @@ class ScheduleViewerWidget(QWidget):
         for gid in self._known_gids:
             self._name_map.setdefault(gid, course_name_by_code.get(self._code(gid), ""))
         codes = sorted({self._code(gid) for gid in self._known_gids})
-        self._course_colors = {code: QColor("#" + course_color(code))
+        self._course_colors = {code: QColor(course_presentation(course_style(code), COLORS["surface"]).fill)
                                for code in codes}
         self._refresh_assignments()
         for classroom in sorted(self._classroom_assignments, key=_natural_key):
@@ -678,9 +692,7 @@ class ScheduleViewerWidget(QWidget):
             item.setData(COURSE_CARD_ROLE, CourseCard(
                 course_style(self._code(block.entries[0][0])), tuple(sections),
                 str(msg('Conflicto de aula\n')).strip() if conflict else ""))
-            item.setBackground(QColor(COURSE_CONFLICT_FILL) if conflict else
-                               self._course_colors[self._code(block.entries[0][0])])
-            item.setForeground(QColor(COURSE_CONFLICT_ACCENT) if conflict else QColor("#" + GRID_TEXT_COLOR))
+            self._apply_card_brushes(item)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             col = tm.days.index(tm.to_day_name(block.day)) + 1
             table.setItem(block.row, col, item)

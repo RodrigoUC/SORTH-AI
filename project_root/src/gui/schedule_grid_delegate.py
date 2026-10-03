@@ -11,15 +11,15 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QTextLayou
 from PyQt6.QtWidgets import QStyle, QStyledItemDelegate
 
 from .theme import COLORS
-from .theme_contract import COURSE_GUTTER
-from ..scheduling.course_style import CourseStyle, GRID_TEXT_COLOR
+from .course_presentation import course_presentation
+from ..scheduling.course_style import CourseStyle
 
 
 COURSE_CARD_ROLE = int(Qt.ItemDataRole.UserRole) + 1
 GRID_BLOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
 
-# Course blocks are a fixed printable palette, independent of interface themes.
-# Keep conflict red legible against both its fixed pale fill and white gutters.
+# Compatibility constants for the original light palette. Live painting uses
+# the active semantic conflict roles, including in isolated theme previews.
 COURSE_CONFLICT_ACCENT = "#A12D46"
 COURSE_CONFLICT_FILL = "#FCE8EC"
 
@@ -49,27 +49,29 @@ class ScheduleGridDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
 
+        colors = self._colors if self._colors is not None else COLORS
+        presentation = course_presentation(card.style, colors["surface"])
+        gutter = colors["surface"]
         painter.save()
         painter.setClipRect(option.rect)
-        painter.fillRect(option.rect, QColor(COURSE_GUTTER))
+        painter.fillRect(option.rect, QColor(gutter))
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = QRectF(option.rect).adjusted(self.GUTTER, self.GUTTER,
                                           -self.GUTTER, -self.GUTTER)
-        accent = QColor(COURSE_CONFLICT_ACCENT if card.conflict_label else "#" + card.style.accent)
-        fill = QColor(COURSE_CONFLICT_FILL if card.conflict_label else "#" + card.style.fill)
-        foreground = QColor(COURSE_CONFLICT_ACCENT if card.conflict_label else "#" + GRID_TEXT_COLOR)
+        accent = QColor(colors["danger"] if card.conflict_label else presentation.accent)
+        fill = QColor(colors["danger_soft"] if card.conflict_label else presentation.fill)
+        foreground = QColor(colors["danger"] if card.conflict_label else presentation.text)
         painter.setBrush(fill)
         painter.setPen(QPen(accent, 1))
         painter.drawRoundedRect(rect, 4, 4)
         self._draw_marker(painter, rect, accent, 0 if card.conflict_label else card.style.marker)
 
-        # A selection ring never replaces the course fill or its marker. White
-        # separation keeps the violet ring legible even on a violet category.
+        # A selection ring never replaces the course fill or its marker. The
+        # theme surface separates it from the fill; focus/surface is validated.
         if option.state & (QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_HasFocus):
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QPen(QColor(COURSE_GUTTER), 4))
+            painter.setPen(QPen(QColor(gutter), 4))
             painter.drawRoundedRect(rect, 4, 4)
-            colors = self._colors if self._colors is not None else COLORS
             painter.setPen(QPen(QColor(colors["focus"]), 2))
             painter.drawRoundedRect(rect, 4, 4)
 

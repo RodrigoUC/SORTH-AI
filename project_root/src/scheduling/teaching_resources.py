@@ -176,8 +176,11 @@ class ResourceCatalog:
                 raise ValueError('Malformed availability')
             resources.append(Resource(t['id'], t['label'], None if windows is None else tuple(tuple(w) for w in windows)))
         for member in data['memberships']:
+            # Session IDs are references generated from course codes, not
+            # resource names. Preserve their full identity; the structural
+            # validator checks that they exist in the supplied course set.
             if (not isinstance(member, dict) or set(member) != {'group_id', 'resource_ids'}
-                    or not _visible(member['group_id'])
+                    or not isinstance(member['group_id'], str) or not member['group_id']
                     or (member['resource_ids'] is not None and (not isinstance(member['resource_ids'], list)
                         or any(not _visible(r) for r in member['resource_ids'])))):
                 raise ValueError('Malformed session membership')

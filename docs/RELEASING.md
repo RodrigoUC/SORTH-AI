@@ -19,7 +19,7 @@ Cada versión debe identificar un único commit, fecha, plataforma validada, cam
 
 ## Verificación del commit exacto
 
-- [ ] Ejecutar `python -m pip check` y toda la suite `python -m pytest -q` desde `project_root` en entorno limpio.
+- [ ] Ejecutar `python -m pip check` y la [suite completa en cuatro procesos con verificación de inventarios](development/WORKFLOW.md#suite-completa-en-cuatro-procesos) desde `project_root` en entorno limpio.
 - [ ] Verificar CI Windows del mismo commit: pruebas, manual generado, empaquetado y smoke test del ejecutable.
 - [ ] En Windows real sin Python, extraer la carpeta completa y probar inicio, carga válida/inválida/cancelada, edición, generación repetida, exportación y reapertura de sesión.
 - [ ] Validar archivos Excel/CSV exportados y vista previa de impresión; contrastar asignaciones y totales con la aplicación.

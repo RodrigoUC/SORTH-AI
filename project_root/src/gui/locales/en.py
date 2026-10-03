@@ -1,6 +1,14 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
+    'Comparación pendiente': 'Comparison pending',
+    'Comparación actualizada. La sesión sigue guardada.': 'Comparison updated. The session remains saved.',
+    'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}': 'Session saved. The scenario snapshot could not be compared. Retry the comparison. {detail}',
+
+    'Confirmar reemplazo': 'Confirm replacement',
+    'El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?': 'The file already exists:\n{path}\n\nDo you want to replace it?',
+    'La generación cambió u omitió grupos solicitados. Se conserva el horario anterior.': 'Generation changed or omitted requested groups. The previous schedule is preserved.',
     'Crear un tema con IA…': 'Create a theme with AI…',
     'Crear un tema con IA': 'Create a theme with AI',
     'No se pudo preparar la especificación. No se ha aplicado ningún cambio.': 'The specification could not be prepared. No changes have been applied.',
@@ -49,7 +57,7 @@ MESSAGES = {
     'Matemáticas · Aula 101': 'Mathematics · Room 101',
     'Bloque de curso de ejemplo': 'Sample course block',
     'MAT101 · 08:00–09:00 · Matemáticas · Aula 101': 'MAT101 · 08:00–09:00 · Mathematics · Room 101',
-    'Los colores de los cursos se conservan.': 'Course colors stay the same.',
+    'Tonos adaptados; identidad y patrones estables.': 'Adapted tones; stable identity and patterns.',
     'Aviso de ejemplo: revisa las sesiones pendientes.': 'Sample warning: review pending sessions.',
     'Error de ejemplo: hay un cruce de horario.': 'Sample error: there is a timetable conflict.',
     'Acción de ejemplo completada. Tu horario no ha cambiado.': 'Sample action completed. Your timetable has not changed.',
@@ -61,7 +69,7 @@ MESSAGES = {
     'Conservar archivo inválido y reemplazarlo al aplicar': 'Preserve invalid file and replace it when applying',
     'Estado del tema': 'Theme status',
     'Detalles del error de tema': 'Theme error details',
-    'El tema no cambia horarios, colores de cursos, permisos MCP ni animaciones. Los selectores de archivos y los bordes de ventana siguen al sistema operativo.': 'Themes do not change timetables, course colors, MCP permissions or motion. File pickers and window borders follow the operating system.',
+    'El tema adapta los tonos de pantalla; PDF y Excel conservan su paleta para papel blanco. No cambia horarios, permisos MCP ni animaciones.': 'Themes adapt screen colors; PDF and Excel keep their white-paper palette. Timetables, MCP permissions and motion stay unchanged.',
     'Restaurar original': 'Restore original',
     'Selecciona Original claro en la vista previa. Pulsa Aplicar para guardarlo.': 'Selects Original light in the preview. Choose Apply to save it.',
     'Aplicar': 'Apply',

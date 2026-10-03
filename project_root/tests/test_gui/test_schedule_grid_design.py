@@ -6,6 +6,7 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QStyle, QStyleOptionViewItem
 
 from src.gui.i18n import language_manager
+from src.gui.course_presentation import course_presentation
 from src.gui.schedule_grid_delegate import COURSE_CARD_ROLE, GRID_BLOCK_ROLE, CourseCard
 from src.gui.schedule_viewer_widget import ScheduleViewerWidget
 from src.gui.theme import COLORS, apply_theme
@@ -95,16 +96,17 @@ def test_style_survives_room_filter_sort_reloading_and_language(viewer):
         manager.set_language(original, persist=False)
 
 
-def test_real_paint_has_white_gutters_and_selection_preserves_fill(viewer):
+def test_real_paint_has_theme_gutters_and_selection_preserves_fill(viewer):
     populate(viewer)
     item = item_for(viewer, 'QUI-G1')
     plain, selected = paint_card(viewer, item), paint_card(viewer, item, selected=True)
+    presentation = course_presentation(course_style('QUI'), COLORS['surface'])
     for image in (plain, selected):
         assert image.pixelColor(1, 60).name() == COLORS['surface'].lower()
         assert image.pixelColor(198, 60).name() == COLORS['surface'].lower()
-        assert image.pixelColor(160, 105).name() == '#' + course_style('QUI').fill.lower()
+        assert image.pixelColor(160, 105).name() == presentation.fill.lower()
     assert selected.pixelColor(100, 3).name() == COLORS['focus'].lower()
-    assert plain.pixelColor(7, 65).name() == '#' + course_style('QUI').accent.lower()
+    assert plain.pixelColor(7, 65).name() == presentation.accent.lower()
 
 
 def test_conflict_keeps_reserved_treatment_and_all_session_ids(viewer):

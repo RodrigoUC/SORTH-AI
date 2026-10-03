@@ -250,11 +250,16 @@ def test_removing_last_room_session_keeps_filtered_grid_label(viewer):
     assert viewer.summary_data['unassigned'] == 3
 
 
-def test_course_colors_match_excel_and_survive_removal(viewer, tmp_path):
+def test_course_colors_keep_shared_identity_and_survive_removal(viewer, tmp_path):
     from openpyxl import load_workbook
     from src.infrastructure.schedule_exporter import ScheduleExporter
+    from src.scheduling.course_style import course_style
+    from src.gui.course_presentation import course_presentation
+    from src.gui.theme import COLORS
     assignments = populated(viewer)
+    identity = course_style('ZOO')
     color = viewer._course_colors['ZOO'].name()[1:].upper()
+    assert color == course_presentation(identity, COLORS['surface']).fill[1:].upper()
     viewer._remove_group('BIO-G2')
     viewer._remove_group('BIO-G10')
     assert viewer._course_colors['ZOO'].name()[1:].upper() == color
@@ -264,7 +269,9 @@ def test_course_colors_match_excel_and_survive_removal(viewer, tmp_path):
     cells = [cell for row in workbook['Aula A10'] for cell in row
              if isinstance(cell.value, str) and cell.value.startswith('ZOO-G1-P')]
     assert cells
-    assert all(cell.fill.fgColor.rgb[-6:] == color for cell in cells)
+    assert all(cell.fill.fgColor.rgb[-6:] == identity.fill for cell in cells)
+    assert all(cell.border.left.style == ('medium', 'mediumDashed', 'dotted', 'double')[identity.marker]
+               for cell in cells)
     workbook.close()
 
 

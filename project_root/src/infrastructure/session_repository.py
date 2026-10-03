@@ -213,7 +213,9 @@ class SessionRepository:
                 # same transaction as the schema change and after the backup.
                 con.execute("INSERT OR IGNORE INTO scheduling_resources VALUES (1, ?)",
                             (json.dumps(SchedulingResources().to_data()),))
-            self._read_resource_contract(con)
+            # Validate the migrated snapshot before accepting any DDL or header
+            # changes. A separate reader cannot see these uncommitted tables.
+            self._load_session(con)
             con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
@@ -330,80 +332,84 @@ class SessionRepository:
         with self._connect() as con:
             # All tables belong to one consistent snapshot, including in WAL mode.
             con.execute("BEGIN")
-            resources = self._read_resource_contract(con)
-            row = con.execute("SELECT * FROM session WHERE id = 1").fetchone()
-            if not row:
-                return None
+            return self._load_session(con)
 
-            # Classrooms
-            classrooms = {}
-            for r in con.execute("SELECT * FROM classrooms"):
-                c = Classroom(r["name"], r["capacity"], r["room_type"],
-                              r["description"], r["campus"])
-                classrooms[c.name] = c
+    def _load_session(self, con):
+        """Deserialize and validate within the caller's read/write transaction."""
+        resources = self._read_resource_contract(con)
+        row = con.execute("SELECT * FROM session WHERE id = 1").fetchone()
+        if not row:
+            return None
 
-            # Per-group suggestions grouped by course
-            suggestions_by_code: dict[str, list] = {}
-            for r in con.execute(
-                "SELECT * FROM course_group_suggestions ORDER BY course_code, group_index"
-            ):
-                suggestions_by_code.setdefault(r["course_code"], []).append({
-                    "aula":                r["aula"],
-                    "preferred_day":       r["preferred_day"],
-                    "preferred_start_min": r["preferred_start_min"],
-                })
+        # Classrooms
+        classrooms = {}
+        for r in con.execute("SELECT * FROM classrooms"):
+            c = Classroom(r["name"], r["capacity"], r["room_type"],
+                          r["description"], r["campus"])
+            classrooms[c.name] = c
 
-            # Courses
-            courses = []
-            for r in con.execute("SELECT * FROM courses"):
-                fs_raw = r["force_split"]
-                force_split = None if fs_raw is None else bool(fs_raw)
-                courses.append(Course(
-                    code=r["code"],
-                    name=r["name"],
-                    number_of_groups=r["number_of_groups"],
-                    duration_min=r["duration_min"],
-                    required_room_type=r["required_room_type"],
-                    size=r["size"],
-                    suggested_classroom=r["suggested_classroom"],
-                    preferred_day=r["preferred_day"],
-                    preferred_start_min=r["preferred_start_min"],
-                    force_split=force_split,
-                    group_suggestions=suggestions_by_code.get(r["code"], []),
-                ))
+        # Per-group suggestions grouped by course
+        suggestions_by_code: dict[str, list] = {}
+        for r in con.execute(
+            "SELECT * FROM course_group_suggestions ORDER BY course_code, group_index"
+        ):
+            suggestions_by_code.setdefault(r["course_code"], []).append({
+                "aula":                r["aula"],
+                "preferred_day":       r["preferred_day"],
+                "preferred_start_min": r["preferred_start_min"],
+            })
 
-            # Restrictions
-            restrictions: dict[str, set[str]] = {}
-            for r in con.execute("SELECT * FROM restrictions"):
-                restrictions.setdefault(r["classroom_name"], set()).add(r["course_code"])
+        # Courses
+        courses = []
+        for r in con.execute("SELECT * FROM courses"):
+            fs_raw = r["force_split"]
+            force_split = None if fs_raw is None else bool(fs_raw)
+            courses.append(Course(
+                code=r["code"],
+                name=r["name"],
+                number_of_groups=r["number_of_groups"],
+                duration_min=r["duration_min"],
+                required_room_type=r["required_room_type"],
+                size=r["size"],
+                suggested_classroom=r["suggested_classroom"],
+                preferred_day=r["preferred_day"],
+                preferred_start_min=r["preferred_start_min"],
+                force_split=force_split,
+                group_suggestions=suggestions_by_code.get(r["code"], []),
+            ))
 
-            # Assignments
-            assignments = {}
-            lab_overrides = set()
-            pinned_group_ids = set()
-            for r in con.execute("SELECT * FROM assignments"):
-                if r["pinned"]:
-                    pinned_group_ids.add(r["group_id"])
-                if r["lab_override"]:
-                    lab_overrides.add(r["group_id"])
-                assignments[r["group_id"]] = (
-                    r["classroom_name"], r["day"], r["start_min"], r["end_min"]
-                )
+        # Restrictions
+        restrictions: dict[str, set[str]] = {}
+        for r in con.execute("SELECT * FROM restrictions"):
+            restrictions.setdefault(r["classroom_name"], set()).add(r["course_code"])
 
-            calendar = self._read_calendar_contract(con)
-            self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
-            return {
-                "calendar": calendar,
-                "resources": resources,
-                "excel_path":   row["excel_path"],
-                "seed":         row["seed"],
-                "classrooms":   classrooms,
-                "courses":      courses,
-                "restrictions": restrictions,
-                "assignments":  assignments if assignments else None,
-                "lab_overrides": lab_overrides,
-                "pinned_group_ids": pinned_group_ids,
-            }
+        # Assignments
+        assignments = {}
+        lab_overrides = set()
+        pinned_group_ids = set()
+        for r in con.execute("SELECT * FROM assignments"):
+            if r["pinned"]:
+                pinned_group_ids.add(r["group_id"])
+            if r["lab_override"]:
+                lab_overrides.add(r["group_id"])
+            assignments[r["group_id"]] = (
+                r["classroom_name"], r["day"], r["start_min"], r["end_min"]
+            )
+
+        calendar = self._read_calendar_contract(con)
+        self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
+        return {
+            "calendar": calendar,
+            "resources": resources,
+            "excel_path":   row["excel_path"],
+            "seed":         row["seed"],
+            "classrooms":   classrooms,
+            "courses":      courses,
+            "restrictions": restrictions,
+            "assignments":  assignments if assignments else None,
+            "lab_overrides": lab_overrides,
+            "pinned_group_ids": pinned_group_ids,
+        }
 
     def has_session(self) -> bool:
         """Even a classroom-only or deliberately empty saved session is recoverable."""

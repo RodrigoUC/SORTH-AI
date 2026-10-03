@@ -4,6 +4,7 @@ from typing import Protocol
 from .preview_contract import (CAPABILITIES, MAX_CANDIDATES, MAX_SESSIONS,
                                OUTPUT_SCHEMA, ContractError, normalized_request, validate_shape)
 from .scheduling_service import SchedulingService
+from .schedule_result import matches_requested_groups
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
 from ..scheduling.time_model import TimeModel
@@ -56,13 +57,8 @@ def generate_preview(request, scheduler: SchedulingPort | None = None):
         validation_rooms[room].set_allowed_courses(allowed)
     # Do not trust a port to redefine the requested population or constraints.
     # Canonical groups were built before invoking it and are never handed over.
-    immutable = ("group_id", "duration_min", "required_room_type", "size",
-                 "suggested_classroom", "course_code", "preferred_start_min",
-                 "preferred_day", "course_name", "parent_group_id",
-                 "subgroup_index", "total_subgroups")
-    signature = lambda group: tuple(getattr(group, field, None) for field in immutable)
-    if (not isinstance(assignments, dict) or not isinstance(groups, list)
-            or [signature(group) for group in groups] != [signature(group) for group in expected_groups]):
+    if (not isinstance(assignments, dict)
+            or not matches_requested_groups(groups, expected_groups, ordered=True)):
         raise ContractError("INVALID_RESULT", "result", "Scheduler changed or omitted requested groups; no proposal was returned or saved.")
     errors = validate_schedule(assignments, expected_groups, validation_rooms, TimeModel.default())
     if errors:

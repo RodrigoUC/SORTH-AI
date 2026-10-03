@@ -8,6 +8,7 @@ import posixpath
 from xml.parsers import expat
 from io import BytesIO
 from pathlib import Path
+from collections import Counter
 from dataclasses import dataclass
 from typing import Dict
 from openpyxl.xml.constants import XLSX, XLSM, XLTX, XLTM
@@ -495,7 +496,7 @@ class ExcelReader:
 
             aula_raw = self._get(row, col_map, "aula")
             aula = self._identifier(aula_raw) if aula_raw is not None else None
-            if aula and aula.lower() in ("nan", "-", ""):
+            if aula == "-":
                 aula = None
             # Ignore aula references that don't exist in the classrooms sheet
             if aula and aula not in known_classrooms:
@@ -579,7 +580,7 @@ class ExcelReader:
             code = str(code_raw).strip()
             aula = self._identifier(aula_raw)
 
-            if not code or not aula or aula.lower() in ("nan", "-", ""):
+            if not code or not aula or aula == "-":
                 continue
             if aula not in known_classrooms:
                 continue
@@ -689,7 +690,7 @@ class ExcelReader:
         return None
 
     # ------------------------------------------------------------------
-    # Aggregation helpers (most common value across group rows)
+    # Aggregation helpers (most common value; ties follow workbook row order)
     # ------------------------------------------------------------------
 
     def _most_common_duration(self, rows: list[dict]) -> int:
@@ -699,22 +700,22 @@ class ExcelReader:
                 durations.append(r["end_min"] - r["start_min"])
         if not durations:
             return 60  # default 1 hour
-        return max(set(durations), key=durations.count)
+        return Counter(durations).most_common(1)[0][0]
 
     def _most_common_aula(self, rows: list[dict]) -> str | None:
         aulas = [r["aula"] for r in rows if r["aula"]]
         if not aulas:
             return None
-        return max(set(aulas), key=aulas.count)
+        return Counter(aulas).most_common(1)[0][0]
 
     def _most_common_day(self, rows: list[dict]) -> str | None:
         days = [d for r in rows for d in r["days"]]
         if not days:
             return None
-        return max(set(days), key=days.count)
+        return Counter(days).most_common(1)[0][0]
 
     def _most_common_start(self, rows: list[dict]) -> int | None:
         starts = [r["start_min"] for r in rows if r["start_min"] is not None]
         if not starts:
             return None
-        return max(set(starts), key=starts.count)
+        return Counter(starts).most_common(1)[0][0]

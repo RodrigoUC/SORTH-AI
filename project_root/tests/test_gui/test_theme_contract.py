@@ -182,10 +182,12 @@ def test_reports_actual_failing_pair_without_mutation(data):
     assert json.dumps(data) == before
 
 
-def test_dark_focus_must_also_work_against_fixed_course_gutter():
+def test_dark_focus_uses_actual_surface_not_fixed_white_course_gutter():
     data = json.loads((SKILL / "assets" / "midnight-dark.sorth-theme.json").read_text())
     data["colors"]["focus"] = "#FFFFFF"
-    with pytest.raises(ThemeValidationError, match="focus on #FFFFFF"):
+    validate_theme(data)
+    data["colors"]["focus"] = data["colors"]["surface"]
+    with pytest.raises(ThemeValidationError, match="focus on surface"):
         validate_theme(data)
 
 

@@ -124,6 +124,7 @@ class ProjectDialog(QDialog):
         self.window._scenario_name = row['project_name'] + ' / ' + row['name']
         self.window._scenario_baseline = session_fingerprint(self.catalog.read(scenario_id)[0])
         self.window._scenario_dirty = False
+        self.window._scenario_comparison_error = None
         self.window._update_save_state()
         self.feedback.setText(msg('Escenario guardado. Las ediciones posteriores no cambian esta copia.'))
 

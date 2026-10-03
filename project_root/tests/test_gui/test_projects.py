@@ -73,6 +73,34 @@ def test_comparison_and_catalog_localize(window):
     language_manager().set_language('es')
 
 
+@pytest.mark.parametrize('language,label', [('es', 'Sesiones fijas'), ('en', 'Pinned sessions')])
+def test_comparison_discloses_different_pinned_times(window, language, label):
+    from copy import deepcopy
+    from PyQt6.QtWidgets import QLabel
+
+    left = window._repo.load_session()
+    left['assignments'] = {'BIO-G1': ('A', 1, 480, 540)}
+    left['pinned_group_ids'] = {'BIO-G1'}
+    right = deepcopy(left)
+    right['assignments']['BIO-G1'] = ('A', 2, 540, 600)
+    metadata = scenario_metadata('sorth-scheduler-v2')
+    result = compare_scenarios((left, metadata), (right, metadata))
+    manager = language_manager()
+    previous = manager.language
+    try:
+        manager.set_language(language, persist=False)
+        dialog = ComparisonDialog(window, {'name': 'First'}, {'name': 'Second'}, result)
+        labels = [widget.text() for widget in dialog.findChildren(QLabel)]
+        assert any(label in text for text in labels)
+        warning = ('No son directamente comparables' if language == 'es'
+                   else 'Not directly comparable')
+        assert any(warning in text for text in labels)
+        details = dialog._difference_detail.toPlainText()
+        assert 'BIO-G1' in details and '480' in details and '600' in details
+    finally:
+        manager.set_language(previous, persist=False)
+
+
 def test_failed_working_write_does_not_create_snapshot(window, monkeypatch):
     dialog = ProjectDialog(window)
     before = dialog.catalog.list_scenarios()

@@ -128,7 +128,9 @@ save keeps the previous theme and the dialog open. Invalid saved preferences fal
 back to Original light without replacing their bytes; recovery requires explicitly
 checking the preserve-and-replace option, which creates a backup first.
 
-Themes preserve timetable data, course colors, exports, MCP permissions, optional
-tools, language and motion settings. Native file pickers and window borders follow
+Course colors adapt to the screen background while keeping their hue families,
+labels and edge patterns. PDF/XLSX retain a stable palette for white paper. Themes
+preserve timetable data, exports, MCP permissions, optional tools, language and
+motion settings. Native file pickers and window borders follow
 the operating system. Contrast validation and Linux Qt previews do not certify
 complete accessibility or packaged Windows behavior.

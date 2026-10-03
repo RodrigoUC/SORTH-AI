@@ -55,7 +55,7 @@ file paths from a theme. Updating a palette must not remove trusted resources.
 
 ## Contrast requirements
 
-The canonical validator tests 52 concrete text/boundary adjacencies. Its report
+The canonical validator tests concrete text/boundary adjacencies. Its report
 names the foreground, background, actual ratio, minimum and purpose. Use that
 report instead of duplicating the pair list in an AI prompt or another validator.
 
@@ -63,9 +63,8 @@ report instead of duplicating the pair list in an AI prompt or another validator
   a readability baseline, even though inactive components are exempt under WCAG.
 - Meaningful component boundaries and focus use at least 3:1 against their real
   neighboring surfaces. `divider` is decorative and is not required to reach 3:1.
-- The course-card gutter/separator remains fixed `#FFFFFF`. Theme `focus` must
-  contrast with it at 3:1 as well as with themed surfaces. A dark theme may need a
-  mid-luminance focus hue rather than a very bright one.
+- Course-card gutters and selection separators use the actual theme `surface`.
+  Theme `focus` must contrast with its neighboring themed surfaces at 3:1.
 - Ratios are compared before rounding. Revalidate changed dependent roles.
 
 This borrows the numeric thresholds from
@@ -77,10 +76,11 @@ focus geometry, non-color cues, screen-reader support or complete WCAG conforman
 
 ## Academic identity and exports
 
-`src/scheduling/course_style.py` owns stable course colors and markers, selected
-deterministically from a literal course code. The interface, Excel and PDF share
-that identity independently of the user's interface theme. Do not hash or
-reassign a course based on its position, room, filter, language or theme.
+`src/scheduling/course_style.py` owns stable course identities and the white-paper
+palette, selected deterministically from a literal course code. Screen tones adapt
+to the actual reading surface while keeping hue families, markers and labels.
+Excel and PDF retain the stable printable palette. Do not hash or reassign a
+course based on its position, room, filter, language or theme.
 
 V1 does not export an interface's dark reading surface into print. Printable
 course identity remains stable. An explicitly requested export-style change
@@ -98,7 +98,8 @@ If applying/previewing is requested and the target version has an importer:
 2. Inspect representative controls, Settings, dialogs, tables, filters, empty
    states, hover/pressed/disabled states, text selection, semantic notices and
    keyboard focus. Check light/dark native palettes and custom-painted course
-   cards, not just the root stylesheet. Retain white course separators.
+   cards, not just the root stylesheet. Check themed course separators and
+   candidate-preview isolation.
 3. Check large fonts and narrow windows, locale switching, restart persistence,
    reduced motion and readable errors for invalid imports. Ensure the course
    identity is unchanged in screen, reopened Excel and reopened PDF.

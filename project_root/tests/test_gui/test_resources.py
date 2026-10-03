@@ -276,3 +276,28 @@ def test_postcommit_settings_presentation_failure_is_locked_and_truthful(window,
     assert not window._repo.load_session()['resources'].catalog('teacher').enabled
     assert not window.resources.catalog('teacher').enabled
     assert 'se guardó' in window.status_bar.currentMessage() or 'saved' in window.status_bar.currentMessage()
+
+
+@pytest.mark.parametrize('kind', RESOURCE_KINDS)
+def test_resource_edits_for_long_course_codes_survive_reopen(window, kind):
+    from src.gui.course_manager_widget import CourseDialog
+
+    editor = CourseDialog(window)
+    editor.code_edit.setText('SYNTHETIC-' + 'X' * 120)
+    editor.accept()
+    course = editor.get_course()
+    assert editor.result() == QDialog.DialogCode.Accepted
+    window.course_manager.load_courses_from_excel([course])
+    groups = course.generate_groups()
+    gid = groups[0].group_id
+    assignments = {gid: ('R1', 1, 480, 480 + course.duration_min)}
+    window._on_schedule_done(assignments, groups)
+    resource = Resource('demo-resource', 'Synthetic alias')
+    catalog = ResourceCatalog(kind, True, (resource,), ((gid, (resource.id,)),))
+    assert window._commit_resource_change(SchedulingResources((catalog,)))
+    assert window._repo.load_session()['resources'].catalog(kind) == catalog
+    window._restore_session_if_exists(confirm=False, show_status=False)
+    assert not window._restore_failed
+    assert window.resources.catalog(kind) == catalog
+    assert window.current_schedule == assignments
+    assert window._features.enabled(kind)

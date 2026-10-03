@@ -8,6 +8,8 @@ from PyQt6.QtCore import Qt, QItemSelectionModel, QSignalBlocker
 from PyQt6.QtWidgets import QApplication, QHeaderView
 from PyQt6 import sip
 
+from .schedule_grid_delegate import GRID_BLOCK_ROLE
+
 
 @dataclass
 class TableViewState:
@@ -58,6 +60,49 @@ class TableViewState:
         table.horizontalScrollBar().setValue(self.horizontal)
 
 
+@dataclass
+class GridViewState:
+    room: str
+    block: tuple | None
+    vertical: int
+    horizontal: int
+
+    @classmethod
+    def capture(cls, viewer):
+        table = viewer.grid_table
+        item = table.currentItem()
+        block = (item.data(GRID_BLOCK_ROLE)
+                 if item is not None and viewer._selected_grid_gids() else None)
+        return cls(viewer.classroom_selector.currentText(), block,
+                   table.verticalScrollBar().value(), table.horizontalScrollBar().value())
+
+    def restore(self, viewer):
+        table = viewer.grid_table
+        table.clearSelection()
+        table.setCurrentItem(None)
+        # Row boundaries change when off-grid sessions are removed; the old
+        # coordinates can now belong to an unrelated session. Match the complete
+        # block, including its room and conflict segment, or leave it unselected.
+        if (self.block is not None and not viewer._grid_dirty
+                and viewer.classroom_selector.currentText() == self.room):
+            for row in range(table.rowCount()):
+                if table.isRowHidden(row):
+                    continue
+                for column in range(1, table.columnCount()):
+                    item = table.item(row, column)
+                    if (not table.isColumnHidden(column) and item is not None
+                            and item.data(GRID_BLOCK_ROLE) == self.block):
+                        table.setCurrentItem(item)
+                        break
+                else:
+                    continue
+                break
+        viewer._update_grid_action()
+        table.doItemsLayout()
+        table.verticalScrollBar().setValue(self.vertical)
+        table.horizontalScrollBar().setValue(self.horizontal)
+
+
 class EditViewState:
     @classmethod
     def capture(cls, window):
@@ -71,8 +116,7 @@ class EditViewState:
             viewer._room_filter, viewer._day_filter, viewer._status_filter))
         state.room = viewer.classroom_selector.currentText()
         state.tabs = window.tabs.currentIndex(), viewer.tabs.currentIndex()
-        state.grid = (viewer.grid_table.currentRow(), viewer.grid_table.currentColumn(),
-                      viewer.grid_table.verticalScrollBar().value(), viewer.grid_table.horizontalScrollBar().value())
+        state.grid = GridViewState.capture(viewer)
         state.focus = QApplication.focusWidget()
         state.status = window.status_bar.currentMessage()
         return state
@@ -104,12 +148,7 @@ class EditViewState:
         viewer.tabs.setCurrentIndex(self.tabs[1])
         for table in self.tables:
             table.restore()
-        row, column, vertical, horizontal = self.grid
-        if 0 <= row < viewer.grid_table.rowCount() and 0 <= column < viewer.grid_table.columnCount():
-            viewer.grid_table.setCurrentCell(row, column)
-        viewer.grid_table.doItemsLayout()
-        viewer.grid_table.verticalScrollBar().setValue(vertical)
-        viewer.grid_table.horizontalScrollBar().setValue(horizontal)
+        self.grid.restore(viewer)
         if self.focus is not None and not sip.isdeleted(self.focus) and self.focus.isEnabled() and self.focus.isVisible():
             self.focus.setFocus(Qt.FocusReason.OtherFocusReason)
         window.status_bar.showMessage(self.status)

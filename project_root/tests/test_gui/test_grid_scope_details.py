@@ -302,34 +302,49 @@ def test_empty_and_removed_grid_selection_disable_details(viewer, app):
 
 
 def test_language_and_theme_keep_grid_and_dialog_identity(viewer, app):
-    from src.gui.schedule_grid_delegate import GRID_BLOCK_ROLE
+    from src.gui.schedule_grid_delegate import COURSE_CARD_ROLE, GRID_BLOCK_ROLE
+    from src.gui.course_presentation import course_presentation
     from src.gui.theme import builtin_themes, theme_manager
     original, _, _ = populate_scope(viewer)
     open_grid(viewer, app)
     item = select_grid_gids(viewer, ['CUR01-G1'])
     identity = item.data(GRID_BLOCK_ROLE)
-    color = item.background().color().name()
+    card_identity = item.data(COURSE_CARD_ROLE).style
+    filters = viewer._filter_spec()
+    scroll = (viewer.grid_table.horizontalScrollBar().value(),
+              viewer.grid_table.verticalScrollBar().value())
     viewer._show_grid_details()
     dialog = viewer._grid_details_dialog
     manager = theme_manager()
     initial_theme = manager.current
-    for language, choice in zip(('en', 'es', 'en'), builtin_themes()):
-        language_manager().set_language(language, persist=False)
-        manager._apply(choice.spec)
+    try:
+        for language, choice in zip(('en', 'es', 'en'), builtin_themes()):
+            language_manager().set_language(language, persist=False)
+            manager._apply(choice.spec)
+            app.processEvents()
+            assert viewer._grid_details_dialog is dialog
+            assert dialog.session_selector.currentData() == 'CUR01-G1'
+            assert viewer.grid_table.currentItem().data(GRID_BLOCK_ROLE) == identity
+            current = viewer.grid_table.currentItem()
+            assert current.isSelected()
+            assert current.data(COURSE_CARD_ROLE).style == card_identity
+            expected = course_presentation(card_identity, choice.spec.colors['surface'])
+            assert current.background().color().name() == expected.fill.lower()
+            assert current.foreground().color().name() == expected.text.lower()
+            assert viewer._filter_spec() == filters
+            assert (viewer.grid_table.horizontalScrollBar().value(),
+                    viewer.grid_table.verticalScrollBar().value()) == scroll
+            assert viewer._assignments == original
+            assert ('Monday' if language == 'en' else 'Lunes') in dialog.details.toPlainText()
+            assert ('Session:' if language == 'en' else 'Sesión:') in dialog.details.toPlainText()
+        assert dialog._valid()
+        dialog.view_in_list.click()
         app.processEvents()
-        assert viewer._grid_details_dialog is dialog
-        assert dialog.session_selector.currentData() == 'CUR01-G1'
-        assert viewer.grid_table.currentItem().data(GRID_BLOCK_ROLE) == identity
-        assert viewer.grid_table.currentItem().background().color().name() == color
-        assert ('Monday' if language == 'en' else 'Lunes') in dialog.details.toPlainText()
-        assert ('Session:' if language == 'en' else 'Sesión:') in dialog.details.toPlainText()
-    assert dialog._valid()
-    dialog.view_in_list.click()
-    app.processEvents()
-    assert viewer._selected_gid(viewer.list_table) == 'CUR01-G1'
-    assert viewer.list_table.hasFocus()
-    manager._apply(initial_theme)
-    assert viewer._assignments == original
+        assert viewer._selected_gid(viewer.list_table) == 'CUR01-G1'
+        assert viewer.list_table.hasFocus()
+        assert viewer._assignments == original
+    finally:
+        manager._apply(initial_theme)
 
 
 def test_native_double_click_opens_details(viewer, app):

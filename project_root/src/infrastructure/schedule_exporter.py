@@ -236,7 +236,7 @@ class ScheduleExporter:
         ws.append(columns)
         for gid, value in ordered:
             row = self._detail_row(gid, value, name_map)
-            ws.append([row[column] for column in columns])
+            ws.append([self._excel_text(row[column]) for column in columns])
         codes = [self._group_parts(gid)[0] for gid, _ in ordered]
         self._style_table(ws, widths, codes)
 
@@ -265,7 +265,7 @@ class ScheduleExporter:
         ws.append(["Sesiones pendientes", len(pending)])
         ws.append(["Sesiones totales", len(assignments) + len(pending)])
         for note in notes:
-            ws.append(["Nota", self._safe_text(note)])
+            ws.append(["Nota", self._excel_text(note)])
         self._style_table(ws, [28, 80], [""] * (4 + len(notes)))
         for row in range(3, 6):
             ws.cell(row, 2).number_format = "0"
@@ -279,7 +279,7 @@ class ScheduleExporter:
             gid = item["group_id"]
             code = self._group_parts(gid)[0]
             codes.append(code)
-            ws.append([self._safe_text(value) for value in
+            ws.append([self._excel_text(value) for value in
                        [code, name_map.get(gid, ""), gid, item["reason"]]])
         self._style_table(ws, [18, 44, 24, 72], codes)
 
@@ -302,6 +302,10 @@ class ScheduleExporter:
                 cell.font = Font(name="Calibri", size=11, color=GRID_TEXT_COLOR)
                 cell.alignment = Alignment(vertical="center", wrap_text=True)
                 cell.number_format = "@"
+                # Text formatting alone does not undo openpyxl's automatic
+                # interpretation of literal labels such as #N/A as errors.
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"
                 cell.fill = fill
                 cell.border = Border(bottom=Side(style="thin", color="D7E0E9"))
                 max_lines = max(max_lines, self._line_count(cell.value, width - 2))
@@ -343,12 +347,12 @@ class ScheduleExporter:
         ws.sheet_properties.tabColor = "1967D2"
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
         room_label = str(classroom) if str(classroom).casefold().startswith("aula ") else f"Aula {classroom}"
-        ws.cell(1, 1, self._safe_text(f"Horario · {room_label}"))
+        ws.cell(1, 1, self._excel_text(f"Horario · {room_label}"))
         ws.cell(1, 1).font = Font(name="Calibri", size=16, bold=True, color=GRID_TEXT_COLOR)
         ws.cell(1, 1).alignment = Alignment(vertical="center", wrap_text=True)
         ws.row_dimensions[1].height = max(34, self._line_count(classroom, 100) * 20)
         for column, label in enumerate(["Hora"] + days, 1):
-            cell = ws.cell(header_row, column, self._safe_text(label))
+            cell = ws.cell(header_row, column, self._excel_text(label))
             self._style_header(cell)
         ws.row_dimensions[header_row].height = 27
         center = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -390,7 +394,7 @@ class ScheduleExporter:
             for block_row in range(row, row + block.span):
                 ws.cell(block_row, column).fill = fill
                 ws.cell(block_row, column).border = border
-            cell = ws.cell(row, column, self._safe_text(text))
+            cell = ws.cell(row, column, self._excel_text(text))
             cell.font = Font(name="Calibri", bold=True, size=10,
                              color="9C2F21" if conflict else GRID_TEXT_COLOR)
             cell.alignment = center
@@ -498,13 +502,29 @@ class ScheduleExporter:
         """
         if not isinstance(value, str) or not value:
             return value
-        candidate = value.lstrip(" \t\r\n\v\f\ufeff")
-        unsafe = value.startswith(("\t", "\r", "\n")) or candidate.startswith(("=", "+", "-", "@"))
         # XML 1.0 cannot encode these pasted control characters. Normalize
-        # identically in CSV so both exported tables retain the same values.
+        # identically in CSV before detecting formula prefixes: a leading
+        # control must not hide an operator that normalization exposes.
         value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", " ", value)
         value = value.replace("\r\n", "\n").replace("\r", "\n")
+        candidate = value.lstrip(" \t\r\n\v\f\ufeff")
+        unsafe = value.startswith(("\t", "\r", "\n")) or candidate.startswith(("=", "+", "-", "@"))
         return "'" + value if unsafe else value
+
+    @classmethod
+    def _excel_text(cls, value):
+        """Fail before openpyxl silently truncates a serialized cell value.
+
+        Include the formula-safe apostrophe and any combined grid decoration
+        in the bound. CSV remains available for the complete original text.
+        """
+        value = cls._safe_text(value)
+        if isinstance(value, str) and len(value) > 32767:
+            raise ValueError(
+                "Un texto supera el límite de 32767 caracteres por celda Excel. "
+                "Use CSV o reduzca el texto."
+            )
+        return value
 
     @staticmethod
     def _natural_key(value):

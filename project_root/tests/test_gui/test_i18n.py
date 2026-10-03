@@ -138,6 +138,33 @@ print(manager.language)
     assert run('') == 'es'
 
 
+
+@pytest.mark.parametrize('saved', [['en', 'es'], {'language': 'en'}, 7, True, None])
+def test_malformed_language_preference_falls_back_without_rewriting(tmp_path, saved):
+    path = tmp_path / 'malformed-language.ini'
+    settings = QSettings(str(path), QSettings.Format.IniFormat)
+    settings.setValue('interface/language', saved)
+    settings.sync()
+    original = path.read_bytes()
+    script = """
+from PyQt6.QtCore import QSettings
+from src.gui.i18n import LanguageManager
+settings = QSettings(%r, QSettings.Format.IniFormat)
+manager = LanguageManager(settings)
+print(manager.language)
+"""
+    assert subprocess.check_output([sys.executable, '-c', script % str(path)], text=True).strip() == 'es'
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize('language', [['en'], {'language': 'en'}, None])
+def test_malformed_runtime_language_falls_back_safely(manager, language):
+    manager.set_language('en', persist=False)
+    manager.set_language(language, persist=False)
+    assert manager.language == 'es'
+    assert msg('Código') == 'Código'
+
+
 def test_runtime_switch_preserves_schedule_filters_selection_and_input(app, manager, window):
     viewer = window.schedule_viewer
     viewer._list_search.setText('biologia')

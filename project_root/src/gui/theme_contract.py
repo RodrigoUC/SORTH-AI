@@ -16,7 +16,7 @@ import unicodedata
 
 SCHEMA_VERSION = 1
 MAX_THEME_BYTES = 16 * 1024
-COURSE_GUTTER = "#FFFFFF"
+COURSE_GUTTER = "#FFFFFF"  # Original/print reference; live course gutters use surface.
 COLOR_ROLES = (
     "canvas", "surface", "surface_alt",
     "header", "header_hover", "on_header", "on_header_muted",
@@ -101,7 +101,6 @@ _BOUNDARY_PAIRS = (
       ("canvas", "surface", "surface_alt")),
     *(("focus", bg, "keyboard focus") for bg in
       ("canvas", "surface", "surface_alt", "primary_soft", "accent_soft")),
-    ("focus", COURSE_GUTTER, "course selection against fixed white separator"),
     *((fg, bg, "filled action boundary") for fg in
       ("primary", "primary_hover", "primary_pressed") for bg in ("canvas", "surface")),
     ("primary", "primary_soft", "hovered control border/progress chunk"),

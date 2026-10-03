@@ -79,7 +79,7 @@ class ImportController(QObject):
             self.worker.requestInterruption()
         if self.review is not None:
             self.review.reject()
-        if restore_controls:
+        if restore_controls and not self.closing:
             self.window._set_import_busy(False)
         if announce:
             self.window.status_bar.showMessage(
@@ -213,8 +213,12 @@ class ImportController(QObject):
     def prepare_close(self):
         self.closing = True
         if self.active or self.worker is not None:
-            self.cancel(announce=False)
+            self.cancel(announce=False, restore_controls=False)
         if self.worker is not None:
+            # A cancelled reader can still be draining after editing was enabled.
+            # Keep Close exclusive until every worker has retired.
+            self.window._set_busy(True)
+            self.window._cancel_import_button.hide()
             self.window.status_bar.showMessage(msg('Cancelando importación antes de cerrar…'))
             return False
         return True

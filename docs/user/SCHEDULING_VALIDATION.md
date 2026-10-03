@@ -35,6 +35,14 @@ application/service flows must validate domain constraints before calling it.
 
 ## Partial, empty, failed, and exported results
 
+The GUI also checks the worker's complete group population against the requested
+courses, including every split-session part, before accepting its result. Missing,
+extra, duplicate, or changed request-derived group metadata rejects the result
+and preserves the previous schedule. Reordering groups is allowed. This is a
+defensive result-boundary check, not evidence that the normal scheduler omits
+groups. A partial assignment set remains valid when all requested groups are
+present, so unscheduled sessions retain their pending status.
+
 A nonempty set of assignments does not imply completeness. The status explicitly
 labels a partial result (including zero assigned with expected groups) and shows
 assigned/expected counts. Pending sessions remain visible in the detailed list.
@@ -53,6 +61,19 @@ placement. Greedy failure is not proof of mathematical infeasibility. A fixed
 seed supports reproduction, not completeness or optimality. Cancelling export
 leaves the current result and filters unchanged; a generation exception remains
 an error, not an infeasibility claim.
+
+## Export filenames and replacement
+
+The save picker retains the system's native behavior and Excel, CSV and PDF
+filters. Only supported extensions (`.xlsx`, `.csv`, `.pdf`, case-insensitive)
+override the selected format. Otherwise SORTH retains the entered basename and
+appends the selected format's extension, including for version/date names such
+as `horario.v2` or `horario.2026.10.03` and unknown extensions such as `.txt`. If that resolved destination already exists, SORTH asks before
+replacing it; No is the default, and dismissing the question preserves the file,
+schedule, filters and previous export status. Supported explicit extensions keep the
+existing dispatch behavior and the picker's own overwrite confirmation, without
+a second prompt. A successful export replaces its destination atomically; a
+failed write preserves the prior file and reports the failure.
 
 ## Reproducible verification
 

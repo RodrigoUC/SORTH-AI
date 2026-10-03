@@ -98,6 +98,7 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 | DEM111L | Laboratorio de modelos (ejemplo)  | —                  | 0700-0930 | L-DEMO-1 | I    |
 
 - **Cada fila = un grupo sugerido**. Dos filas con el mismo código → 2 grupos de ese curso, cada uno con su propia sugerencia de aula/día/hora
+- Los valores predeterminados del curso usan el valor más frecuente; si hay empate, se conserva el primero según el orden de las filas. Esto también estabiliza el tipo de aula inferido al volver a importar el mismo archivo.
 - `Horas`: formato `HHMM-HHMM` (ej: `0800-1055`). Vacío o `-` = sin preferencia
 - `Días`: `L`=Lunes, `I`=Martes, `M`=Miércoles, `J`=Jueves, `V`=Viernes, `S`=Sábado. Puede ser múltiple: `L,M`
 - `Aula` y `Días` son opcionales — vacío = sin preferencia
@@ -263,15 +264,16 @@ Las sesiones divididas deben cumplir:
 
 ## Pruebas
 
-```powershell
-# Todos los tests
-pytest
+Ejecuta desde `project_root` con el entorno de desarrollo activado. La suite
+completa usa [cuatro procesos en serie y verificación de inventarios](../docs/development/WORKFLOW.md#suite-completa-en-cuatro-procesos).
+Esa guía incluye la configuración offscreen para PowerShell y Bash/POSIX.
+El aislamiento es la invocación validada; no demuestra que esté corregido el
+problema intermitente de ciclo de vida de la suite Qt monolítica.
 
-# Solo dominio scheduling
-pytest tests/test_scheduling/ -v
+Para pruebas focalizadas, por ejemplo sólo el dominio scheduling:
 
-# Con detalle de fallos
-pytest --tb=short
+```sh
+python -m pytest -c pytest.ini --rootdir=. tests/test_scheduling/ -v --tb=short
 ```
 
 ---

@@ -25,6 +25,8 @@ Texto que pudiera interpretarse como fórmula recibe un apóstrofo inicial en am
 
 Excel y CSV se escriben primero en un archivo temporal del mismo directorio y reemplazan el destino únicamente al terminar correctamente. Un fallo de escritura, cierre, sincronización o reemplazo conserva el archivo anterior y elimina el temporal.
 
+Excel conserva como texto los nombres, códigos y aulas que coincidan con errores como `#N/A` o `#REF!`. La protección de fórmulas se aplica después de normalizar los caracteres de control, de forma idéntica en Excel y CSV. Si un valor final supera los 32.767 caracteres por celda, la exportación Excel se rechaza sin recortar datos ni reemplazar el archivo anterior. Este límite también incluye las etiquetas combinadas de la cuadrícula y la protección de fórmulas. Use CSV para conservar textos mayores; las llamadas programáticas pueden omitir la cuadrícula con `include_grid=False` cuando sólo su etiqueta combinada supera el límite.
+
 Excel incorpora encabezados repetidos al imprimir, filtros, paneles congelados, filas alternas, texto ajustado y orientación horizontal A4. Cada aula imprime solo su rango ocupado para evitar páginas iniciales vacías; no elimina sesiones ni modifica el horario. Las celdas combinadas reciben alturas explícitas.
 
 Las cuadrículas incorporan saltos de página explícitos y dividen las celdas combinadas en cada salto. Si una sesión continúa en otra página, se repite su etiqueta completa con el mismo horario original. Esto evita recortar texto al imprimir sin reducir el tamaño de letra; no añade asignaciones a las tablas ni al CSV.
