@@ -15,6 +15,43 @@ from src.gui.settings_dialog import SettingsDialog
 from src.infrastructure.session_repository import SessionRepository
 
 
+def settings_layout_snapshot(dialog):
+    scroll = dialog.findChild(QScrollArea)
+    return {
+        'dialog': (dialog.width(), dialog.height()),
+        'viewport': (scroll.viewport().width(), scroll.viewport().height()),
+        'content': (scroll.widget().width(), scroll.widget().height()),
+        'content_minimum': scroll.widget().minimumSizeHint().width(),
+        'horizontal_maximum': scroll.horizontalScrollBar().maximum(),
+        'timer_active': dialog._responsive_actions.timer.isActive(),
+        'footer_timer_active': dialog.buttons._metric_timer.isActive(),
+        'footer': (dialog.buttons.width(), dialog.buttons.height(),
+                   dialog.buttons.minimumSizeHint().width(), dialog.buttons.orientation().name),
+        'actions': [(button.text(), button.minimumSizeHint().width(),
+                     button.minimumSizeHint().height(), button.width(), button.height())
+                    for button in dialog._responsive_actions.controls],
+    }
+
+
+def settle_settings_layout(dialog, timeout=2):
+    """Observe stable native layout; never force wrapping or change dimensions."""
+    deadline = time.monotonic() + timeout
+    previous = None
+    stable_turns = 0
+    while time.monotonic() < deadline:
+        QApplication.processEvents()
+        snapshot = settings_layout_snapshot(dialog)
+        stable_turns = (stable_turns + 1 if snapshot == previous
+                        and not snapshot['timer_active'] and not snapshot['footer_timer_active'] else 0)
+        if stable_turns >= 2:
+            return snapshot
+        previous = snapshot
+        # processEvents alone does not promise delivery of newly queued native
+        # layout requests or zero timers. Yield a real bounded Qt event turn.
+        QTest.qWait(1)
+    pytest.fail(f'Native Settings layout did not settle: {settings_layout_snapshot(dialog)!r}')
+
+
 @pytest.fixture
 def window(tmp_path):
     q = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
@@ -135,9 +172,10 @@ def test_settings_small_window_reaches_guide_and_keeps_save_visible(window):
     dialog.resize(460, 420)
     dialog.show()
     QApplication.processEvents()
-    assert dialog.width() <= 460 and dialog.height() <= 420
+    snapshot = settle_settings_layout(dialog)
+    assert dialog.width() <= 460 and dialog.height() <= 420, snapshot
     scroll = dialog.findChild(QScrollArea)
-    assert scroll.horizontalScrollBar().maximum() == 0
+    assert scroll.horizontalScrollBar().maximum() == 0, snapshot
     scroll.ensureWidgetVisible(dialog.mcp_help_button)
     assert scroll.viewport().rect().contains(dialog.mcp_help_button.mapTo(scroll.viewport(), dialog.mcp_help_button.rect().center()))
     save = dialog.buttons.button(QDialogButtonBox.StandardButton.Save)
@@ -282,17 +320,20 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         controls = dialog._responsive_actions.controls
 
         def inspect_geometry():
-            assert dialog.width() == 460 and dialog.height() == 420
-            widths = {button.accessibleName(): button.minimumSizeHint().width() for button in controls}
-            assert scroll.horizontalScrollBar().maximum() == 0, widths
+            snapshot = settle_settings_layout(dialog)
+            assert dialog.width() == 460 and dialog.height() == 420, snapshot
+            assert scroll.horizontalScrollBar().maximum() == 0, snapshot
             for button in controls:
                 source = button._messages['setText'][1][0]
                 assert ' '.join(button.text().split()) == str(source.render())
                 assert button.accessibleName() == source.render()
                 assert button.width() >= button.minimumSizeHint().width()
                 assert button.height() >= button.minimumSizeHint().height()
-            save = dialog.buttons.button(QDialogButtonBox.StandardButton.Save)
-            assert dialog.rect().contains(save.mapTo(dialog, save.rect().center()))
+            for action in dialog.buttons.buttons():
+                assert action.width() >= action.minimumSizeHint().width(), snapshot
+                assert action.height() >= action.minimumSizeHint().height(), snapshot
+                assert dialog.rect().contains(action.mapTo(dialog, action.rect().topLeft())), snapshot
+                assert dialog.rect().contains(action.mapTo(dialog, action.rect().bottomRight())), snapshot
 
         inspect_geometry()
         if expanded_metrics:
@@ -307,7 +348,7 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         inspect_geometry()
         assert checkbox.isChecked() and checkbox.hasFocus()
         dialog.resize(900, 420)
-        QApplication.processEvents()
+        settle_settings_layout(dialog)
         assert '\n' not in dialog.calendar_button.text()
         assert dialog.calendar_button.text() == dialog.calendar_button._messages['setText'][1][0].render()
         dialog.resize(460, 420)
@@ -327,9 +368,154 @@ def test_wrapped_native_captions_keep_supplementary_unicode_characters(kind):
     button = getattr(i18n_widgets, kind)(msg(caption))
     button.wrapPresentationText(120)
     assert '\n' in button.text()
-    assert ' '.join(button.text().split()) == caption
+    # Soft wrapping may split a long word; it must preserve every non-space
+    # code point, while the accessible name/binding preserve exact whitespace.
+    assert ''.join(button.text().split()) == ''.join(caption.split())
     assert button.accessibleName() == caption
     assert button._messages['setText'][1][0].render() == caption
     button.wrapPresentationText(2000)
     assert button.text() == caption
     button.deleteLater()
+
+
+
+def test_settings_show_and_resize_reflow_without_zero_timer_delivery(window, monkeypatch):
+    from src.gui.i18n_widgets import ResponsiveActionLabels
+    monkeypatch.setattr(ResponsiveActionLabels, '_schedule', lambda *args: None)
+    dialog = SettingsDialog(window)
+    try:
+        dialog.setStyleSheet('QPushButton, QCheckBox { font-size: 20pt; }')
+        dialog.resize(460, 420)
+        dialog.show()
+        snapshot = settle_settings_layout(dialog)
+        assert not dialog._responsive_actions.timer.isActive()
+        assert snapshot['horizontal_maximum'] == 0, snapshot
+        assert '\n' in dialog.calendar_button.text()
+        dialog.resize(900, 420)
+        snapshot = settle_settings_layout(dialog)
+        assert snapshot['horizontal_maximum'] == 0, snapshot
+        assert '\n' not in dialog.calendar_button.text()
+        dialog.resize(460, 420)
+        snapshot = settle_settings_layout(dialog)
+        assert snapshot['horizontal_maximum'] == 0, snapshot
+    finally:
+        dialog.reject()
+
+
+def test_settings_footer_stacks_without_enlarging_or_clipping(window):
+    dialog = SettingsDialog(window)
+    try:
+        # Isolate the native footer's width constraint from content wrapping.
+        for action in dialog.buttons.buttons():
+            action.setMinimumWidth(250)
+        dialog.resize(460, 420)
+        dialog.show()
+        snapshot = settle_settings_layout(dialog)
+        assert dialog.width() == 460 and dialog.height() == 420, snapshot
+        assert dialog.buttons.orientation() == Qt.Orientation.Vertical, snapshot
+        for action in dialog.buttons.buttons():
+            assert action.width() >= action.minimumSizeHint().width(), snapshot
+            assert dialog.rect().contains(action.mapTo(dialog, action.rect().topLeft())), snapshot
+            assert dialog.rect().contains(action.mapTo(dialog, action.rect().bottomRight())), snapshot
+        dialog.resize(900, 420)
+        snapshot = settle_settings_layout(dialog)
+        assert dialog.buttons.orientation() == Qt.Orientation.Horizontal, snapshot
+    finally:
+        dialog.reject()
+
+
+
+def test_settings_footer_reflows_on_width_only_font_metric_change(window):
+    dialog = SettingsDialog(window)
+    try:
+        dialog.resize(460, 420)
+        dialog.show()
+        settle_settings_layout(dialog)
+        for action in dialog.buttons.buttons():
+            font = action.font()
+            font.setStretch(400)
+            action.setFont(font)
+        snapshot = settle_settings_layout(dialog)
+        assert dialog.width() == 460, snapshot
+        assert dialog.buttons.orientation() == Qt.Orientation.Vertical, snapshot
+        for action in dialog.buttons.buttons():
+            assert action.width() >= action.minimumSizeHint().width(), snapshot
+            assert dialog.rect().contains(action.mapTo(dialog, action.rect().bottomRight())), snapshot
+    finally:
+        dialog.reject()
+
+
+def test_native_reflow_survives_scroll_area_disposal():
+    import subprocess
+    script = """
+from PyQt6.QtCore import QCoreApplication, QEvent
+from PyQt6.QtWidgets import QApplication, QWidget, QScrollArea, QVBoxLayout
+from src.gui.i18n import msg
+from src.gui.i18n_widgets import QPushButton, ResponsiveActionLabels
+app = QApplication([])
+root = QWidget()
+outer = QVBoxLayout(root)
+scroll = QScrollArea()
+content = QWidget()
+body = QVBoxLayout(content)
+button = QPushButton(msg('Preparar complemento MCP'))
+body.addWidget(button)
+scroll.setWidget(content)
+outer.addWidget(scroll)
+helper = ResponsiveActionLabels(scroll, [button], root)
+root.show()
+app.processEvents()
+scroll.deleteLater()
+QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+app.processEvents()
+root.deleteLater()
+QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+app.processEvents()
+print('disposed safely')
+"""
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert 'disposed safely' in result.stdout
+
+
+
+def test_footer_never_queries_native_metrics_during_global_style_replacement(window, monkeypatch):
+    from PyQt6.QtWidgets import QStyleFactory
+    from src.gui.i18n_widgets import ResponsiveDialogButtonBox
+    app = QApplication.instance()
+    original_style = app.style().objectName()
+    dialog = SettingsDialog(window)
+    dialog.resize(460, 420)
+    dialog.show()
+    settle_settings_layout(dialog)
+    state = {'changing': False}
+    unsafe_calls = []
+    original_fit = ResponsiveDialogButtonBox._fit_actions
+
+    def checked_fit(box):
+        if state['changing']:
+            # Record instead of raising through a Qt virtual call or querying
+            # native buttons while the old style is being deleted.
+            unsafe_calls.append('metrics requested during QApplication.setStyle')
+            return
+        original_fit(box)
+
+    monkeypatch.setattr(ResponsiveDialogButtonBox, '_fit_actions', checked_fit)
+    try:
+        styles = [style for style in ('Windows', 'Fusion') if style in QStyleFactory.keys()]
+        for style in [*styles, original_style, *styles, original_style]:
+            state['changing'] = True
+            try:
+                app.setStyle(style)
+            finally:
+                state['changing'] = False
+            snapshot = settle_settings_layout(dialog)
+            assert snapshot['horizontal_maximum'] == 0, snapshot
+            assert not unsafe_calls, unsafe_calls
+    finally:
+        dialog.reject()
+        state['changing'] = True
+        try:
+            app.setStyle(original_style)
+        finally:
+            state['changing'] = False

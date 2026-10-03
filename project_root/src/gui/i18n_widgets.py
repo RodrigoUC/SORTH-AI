@@ -108,37 +108,52 @@ class ResponsiveActionLabels(QObject):
     def __init__(self, scroll, controls, parent=None):
         super().__init__(parent or scroll)
         self.scroll = scroll
+        self.viewport = scroll.viewport()
+        self.content = scroll.widget()
         self.controls = tuple(controls)
+        self._reflowing = False
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._rewrap)
         scroll.viewport().installEventFilter(self)
         scroll.widget().installEventFilter(self)
-        language_manager().changed.connect(self._schedule)
+        language_manager().changed.connect(self._rewrap)
         self._schedule()
 
     def _schedule(self, *_):
-        self.timer.start(0)
+        if not sip.isdeleted(self.timer):
+            self.timer.start(0)
 
     def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
-                            QEvent.Type.FontChange, QEvent.Type.StyleChange):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show) and watched is self.viewport:
+            # A zero timer need not fire in the first processEvents pass on
+            # Windows. First-show/resize must not depend on timer delivery.
+            self._rewrap()
+        elif event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.FontChange,
+                              QEvent.Type.StyleChange):
             self._schedule()
         return super().eventFilter(watched, event)
 
-    def _rewrap(self):
-        margins = self.scroll.widget().layout().contentsMargins()
-        width = self.scroll.viewport().width() - margins.left() - margins.right()
-        if width <= 0:
+    def _rewrap(self, *_):
+        if (self._reflowing or sip.isdeleted(self.scroll)
+                or sip.isdeleted(self.viewport) or sip.isdeleted(self.content)
+                or sip.isdeleted(self.timer)):
             return
-        for control in self.controls:
-            control.wrapPresentationText(width)
-        # Relayout now so native styles do not retain the old unwrapped minimum
-        # for another event-loop turn (and briefly create horizontal overflow).
-        content = self.scroll.widget()
-        content.layout().activate()
-        content.resize(max(self.scroll.viewport().width(), content.minimumSizeHint().width()),
-                       content.height())
+        self.timer.stop()
+        self._reflowing = True
+        try:
+            margins = self.scroll.widget().layout().contentsMargins()
+            width = self.scroll.viewport().width() - margins.left() - margins.right()
+            if width <= 0:
+                return
+            for control in self.controls:
+                control.wrapPresentationText(width)
+            content = self.scroll.widget()
+            content.layout().activate()
+            content.resize(max(self.scroll.viewport().width(), content.minimumSizeHint().width()),
+                           content.height())
+        finally:
+            self._reflowing = False
 
 
 
@@ -308,6 +323,71 @@ class _LocalizedButtons:
 
 class QDialogButtonBox(_LocalizedButtons, _Localized, QtW.QDialogButtonBox):
     pass
+
+
+class ResponsiveDialogButtonBox(QDialogButtonBox):
+    """Retain native action buttons, stacking them only when a row cannot fit."""
+    def __init__(self, *args, **kwargs):
+        self._fitting = False
+        self._fit_signature = None
+        self._metric_change_pending = False
+        super().__init__(*args, **kwargs)
+        self._metric_timer = QTimer(self)
+        self._metric_timer.setSingleShot(True)
+        self._metric_timer.timeout.connect(self._after_metric_change)
+        # The footer may reflow rather than raising the dialog's minimum width.
+        self.setSizePolicy(QtW.QSizePolicy.Policy.Ignored, QtW.QSizePolicy.Policy.Minimum)
+
+    def _fit_actions(self):
+        if self._fitting:
+            return
+        signature = (self.width(), tuple((button.text(), button.minimumSizeHint().width(),
+                                          button.minimumSizeHint().height()) for button in self.buttons()))
+        if signature == self._fit_signature:
+            return
+        self._fit_signature = signature
+        self._fitting = True
+        try:
+            self.setOrientation(Qt.Orientation.Horizontal)
+            if self.minimumSizeHint().width() > self.width():
+                self.setOrientation(Qt.Orientation.Vertical)
+            self.updateGeometry()
+            parent = self.parentWidget()
+            if parent is not None and parent.layout() is not None:
+                parent.layout().activate()
+            self.layout().activate()
+        finally:
+            self._fitting = False
+
+    def _after_metric_change(self):
+        self._metric_change_pending = False
+        self._fit_actions()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+                self._metric_change_pending = True
+            timer = getattr(self, '_metric_timer', None)
+            if timer is not None:
+                # Never activate ancestor layouts while QApplication is
+                # replacing a native style and unpolishing its widget tree.
+                timer.start(0)
+        return result
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not self._metric_change_pending:
+            self._fit_actions()
+
+    def showEvent(self, event):
+        self._metric_change_pending = False
+        self._fit_actions()
+        super().showEvent(event)
+
+    def retranslate(self):
+        super().retranslate()
+        self._fit_actions()
 
 
 class QMessageBox(_LocalizedButtons, _Localized, QtW.QMessageBox):

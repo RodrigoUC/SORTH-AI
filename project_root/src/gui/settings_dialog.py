@@ -1,6 +1,6 @@
 """Transactional preferences plus a separately confirmed local MCP preparation."""
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
-from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels
+from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
 from PyQt6.QtCore import QSignalBlocker, Qt
@@ -70,7 +70,7 @@ class SettingsDialog(QDialog):
         note = QLabel(msg('Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.'))
         note.setWordWrap(True)
         layout.addWidget(note)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)

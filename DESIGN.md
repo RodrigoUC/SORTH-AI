@@ -173,3 +173,8 @@ intact. Widening the window or switching ES/EN reflows from the original message
 no caption is clipped, abbreviated, or progressively wrapped. Save/Cancel remain
 outside the scroller. Geometry tests cover native-default/Fusion/Windows styles
 at 460×420, including enlarged font metrics and narrow→wide→narrow transitions.
+The first Settings show, viewport resize and locale change reflow synchronously;
+zero timers only coalesce later layout/style work. Save/Cancel use a native
+vertical button box when their horizontal minimum cannot fit, including width-only
+font changes. Qt layout tests wait for bounded, stable native geometry and retain
+zero-overflow, exact-window-size and complete-action-visibility assertions.
