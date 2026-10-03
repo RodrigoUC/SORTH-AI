@@ -186,7 +186,7 @@ class ScheduleViewerWidget(QWidget):
         self._export_scope_hint.setVisible(not compact)
         self.setAccessibleDescription(self._export_scope_hint.text())
         self.setToolTip(self._export_scope_hint.text())
-        tab_style = 'QTabBar::tab { padding-top: 6px; padding-bottom: 6px; }' if compact else ''
+        tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
         if self.tabs.styleSheet() != tab_style:
             self.tabs.setStyleSheet(tab_style)
 
