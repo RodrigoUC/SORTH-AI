@@ -38,6 +38,8 @@ La interfaz cambia de idioma, pero los archivos conservan el formato compatible:
 
 **Reducir animaciones** elimina las transiciones y utiliza un indicador estático durante la generación. La preferencia se guarda localmente; no cambia el resultado del planificador.
 
+Para elegir o importar un tema desde Configuración, consulta [Apariencia y temas propios](APPEARANCE.md).
+
 ## 4. Flujo de uso paso a paso
 
 ### Paso 1 - Cargar el archivo Excel

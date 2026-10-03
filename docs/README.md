@@ -12,6 +12,7 @@ Los comandos de aplicación, pruebas y compilación siguen ejecutándose desde
 - [Exportar Excel/CSV](user/SCHEDULE_EXPORT_NOTES.md) y [PDF](user/PDF_EXPORT_NOTES.md)
 - [Calidad del horario](user/QUALITY_METRICS.md)
 - [Guardado y recuperación](user/SESSION_RECOVERY.md)
+- [Apariencia y temas propios](user/APPEARANCE.md)
 - [Funciones opcionales](user/OPTIONAL_FEATURES.md): [calendario](user/PROJECT_CALENDAR.md),
   [recursos docentes](user/OPTIONAL_RESOURCES.md), [escenarios](user/PROJECT_SCENARIOS.md),
   [edición reversible](user/REVERSIBLE_EDITS.md), [sesiones fijadas](user/PINNED_SESSIONS.md)
