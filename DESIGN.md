@@ -438,3 +438,13 @@ Unavailable, rejected or unreadable copies show localized retry/manual-selection
 guidance in the existing selectable status. Clipboard contents and native error
 details are never retained or displayed. The specification remains read-only and
 keyboard-copyable; the copy button keeps focus and can be retried.
+
+### Readable session-identity headers
+Both schedule lists reserve the native header-size hint for their **Grupo / sesión**
+column, including the current font, section padding and sort-indicator allowance.
+The section remains interactively resizable above that content-derived floor;
+wider user choices survive view-state restoration and language changes. Only this
+identity column gains the floor. The course-name stretch column, all other widths,
+row heights, captions and sorting behavior remain unchanged. Narrow windows retain
+native horizontal scrolling. Font/style changes refit through the ordinary Qt
+layout-request queue, without timers or nested event-loop processing.
