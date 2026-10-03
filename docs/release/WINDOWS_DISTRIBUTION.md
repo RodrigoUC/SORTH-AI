@@ -97,6 +97,22 @@ aceptaciones por separado. No hay publicación ni firma automática.
 
 `Windows review build` ejecuta el commit exacto del PR en Windows x64, con permisos de lectura y acciones fijadas a SHA. Instala el lock base con verificación de hashes, ejecuta la suite, genera el PDF y prepara el compañero en un entorno aislado con su propio lock. Compila la GUI con `-McpPrepared`, ejecuta los controles del compañero y abre la GUI en Qt offscreen. La prueba importa el Excel incluido, genera en QThread, exporta Excel/CSV, verifica SQLite y captura la ventana, usando una sesión temporal separada.
 
+La misma prueba usa un perfil sintético separado para apariencia, QSettings y
+preferencias opcionales; nunca escribe preferencias normales del usuario. Comprueba
+los temas integrados con Vista previa/Cancelar/Aplicar, importa un tema JSON local,
+rechaza contenido no permitido y conserva los bytes de la sesión, permisos MCP,
+idioma y reducción de movimiento. Después inicia dos procesos nuevos del mismo
+`SORTH.exe`: uno recupera el tema personalizado sin el archivo importado, y otro
+muestra Original claro con aviso al encontrar preferencias de apariencia dañadas,
+sin reescribirlas. Los informes `theme-*-restart.json` y capturas acompañan a
+`smoke-result.json`. También se ejecuta esta secuencia desde la aplicación instalada.
+
+Estos controles desde `python gui_app.py --smoke-test` son evidencia **de fuentes**:
+los informes deben indicar `frozen: false`. Sólo ejecutar el EXE construido en
+Windows y comprobar `frozen: true` en el informe principal y ambos reinicios valida
+ese paquete. Qt offscreen sigue sin sustituir la revisión visual, DPI, SmartScreen
+ni la aceptación en una PC limpia. No se conecta un proveedor de IA ni se habilita MCP.
+
 Después crea un ZIP **sin firma**, `SHA256SUMS.txt`, un inventario con el commit y el manual actual. Los artefactos `SORTH-windows-review-*` y `SORTH-windows-checks-*` se conservan siete días en la ejecución de Actions. Se necesitan permisos de lectura de la ejecución para descargarlos. No se crea una GitHub Release, no se firma, no se despliega y no se modifica la protección de Windows.
 
 Las pruebas automatizadas no sustituyen probar interactivamente en un Windows limpio sin Python, con un usuario estándar y las protecciones activas. En particular, no se presentan como análisis de Defender ni prueba de reputación de descarga SmartScreen.

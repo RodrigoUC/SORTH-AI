@@ -85,7 +85,12 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
                                      'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
                                      'course_dialog_edit_save', 'new_window_restore',
                                      'reopened_export_content', 'invalid_input_preserves_session',
-                                     'large_workbook_schedule_export'}
+                                     'large_workbook_schedule_export',
+                                     'theme_builtin_preview_cancel', 'theme_builtin_apply',
+                                     'theme_unsafe_json_rejected', 'theme_custom_import_apply',
+                                     'theme_custom_fresh_process_restart',
+                                     'theme_corrupt_fresh_process_fallback',
+                                     'theme_preserves_session_and_preferences'}
     assert (output / 'schedule.png').is_file()
     assert (output / 'plugin-check.png').is_file()
     for language, text in [('es', 'Horario completo'), ('en', 'Complete schedule')]:

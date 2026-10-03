@@ -1,14 +1,15 @@
 """Opt-in executable validation against bundled sample data and an isolated session.
 
-Never opens or modifies the normal user's session. Results go to the explicitly
-requested output directory; the CI launcher enforces its own timeout as well.
+Never opens or modifies the normal user's session or preferences. Results go to
+the explicitly requested output directory; the CI launcher enforces its own timeout as well.
 """
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QSettings, QTimer
 
 from ..gui.main_window import MainWindow
 from ..gui.i18n import language_manager
@@ -19,12 +20,112 @@ from ..infrastructure.session_repository import SessionRepository
 from ..scheduling.time_model import TimeModel
 
 
-def run_smoke_test(app, output_dir: Path) -> int:
+def configure_smoke_profile(output_dir, *, create):
+    """Redirect every default preference store before constructing any UI.
+
+    This is process-local, opt-in diagnostic setup, never a normal-app setting.
+    Both QSettings scopes are redirected so registry/system fallbacks cannot leak
+    into the synthetic fixture. Refuse an unexpected path before the first write.
+    """
+    profile = Path(output_dir).resolve() / 'smoke-profile'
+    if create:
+        profile.mkdir()  # A previous profile must never be reused as fresh evidence.
+    elif not profile.is_dir():
+        raise ValueError('Theme restart requires an existing synthetic smoke profile.')
+    for key, folder in (('HOME', 'home'), ('USERPROFILE', 'home'),
+                        ('LOCALAPPDATA', 'config'), ('APPDATA', 'config'),
+                        ('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data')):
+        os.environ[key] = str(profile / folder)
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    for scope, folder in ((QSettings.Scope.UserScope, 'qt-user'),
+                          (QSettings.Scope.SystemScope, 'qt-system')):
+        QSettings.setPath(QSettings.Format.IniFormat, scope, str(profile / folder))
+    settings = QSettings('SORTH', 'SORTH')
+    from ..gui.theme_preferences import default_theme_path
+    from .mcp_preferences import default_path
+    paths = (Path(settings.fileName()), default_path(), default_theme_path())
+    if not all(path.resolve().is_relative_to(profile) for path in paths):
+        raise RuntimeError('Smoke preferences escaped the isolated profile.')
+    if create:
+        settings.setValue('interface/language', 'es')
+        settings.setValue('interface/reduced_motion', True)
+        settings.sync()
+        if settings.status() != QSettings.Status.NoError:
+            raise RuntimeError('Could not seed isolated smoke preferences.')
+        paths[1].parent.mkdir(parents=True, exist_ok=True)
+        paths[1].write_text(json.dumps({'version': 1, 'features': {
+            'mcp_server': False, 'import_diff_preview': True},
+            'mcp_generation': '0' * 32}), encoding='utf-8')
+    return paths
+
+
+def run_theme_probe(app, output_dir, phase):
+    """Fresh-process startup verification; reports cannot impersonate frozen runs."""
+    from ..gui import theme
+    from ..gui.theme_preferences import default_theme_path
+    from .packaged_workflow import smoke_preserved_files
+    from .edit_history import fingerprint
+    from PyQt6.QtWidgets import QApplication, QDialog
+    report = {'ok': False, 'phase': phase, 'pid': os.getpid(),
+              'frozen': bool(getattr(sys, 'frozen', False))}
+    window = None
+    try:
+        configure_smoke_profile(output_dir, create=False)
+        expected = json.loads((output_dir / 'theme-expected.json').read_text(encoding='utf-8'))
+        before = smoke_preserved_files(output_dir)
+        appearance = default_theme_path().read_bytes()
+        def accept_restore():
+            dialog = QApplication.activeModalWidget()
+            if isinstance(dialog, QDialog):
+                dialog.accept()
+        QTimer.singleShot(0, accept_restore)
+        window = MainWindow(repo=SessionRepository(str(output_dir / 'smoke-session.db')))
+        if fingerprint(window._capture_edit_state()) != expected['domain']:
+            raise RuntimeError('Fresh-process restore changed the saved schedule or inputs.')
+        window.show()
+        app.processEvents()
+        manager = theme.theme_manager()
+        if phase == 'custom':
+            if (manager.current_key != 'custom' or manager.current.to_dict() != expected['theme']
+                    or manager.recovery_issue or manager.startup_issue):
+                raise RuntimeError('Custom appearance was not restored in the fresh process.')
+        elif (manager.current_key != 'original' or not manager.recovery_issue
+              or window._theme_recovery_notice.isHidden()):
+            raise RuntimeError('Corrupt appearance did not show a preserved-file fallback.')
+        if (language_manager().language != 'es' or not window._motion.reduced
+                or window._features.enabled('mcp_server')
+                or not window._features.enabled('import_diff_preview')):
+            raise RuntimeError('Restart changed isolated language, motion or optional permissions.')
+        from PyQt6.QtGui import QPalette
+        if app.palette().color(QPalette.ColorRole.Window).name() != manager.current.colors['canvas'].lower():
+            raise RuntimeError('Restart did not apply the saved/fallback native palette.')
+        if not window.grab().save(str(output_dir / f'theme-{phase}-restart.png')):
+            raise RuntimeError('Could not capture the restarted appearance.')
+        window.close()
+        if (default_theme_path().read_bytes() != appearance
+                or smoke_preserved_files(output_dir) != before):
+            raise RuntimeError('Startup changed preferences or synthetic schedule data.')
+        report.update(ok=True, selected=manager.current_key,
+                      appearance_preserved=True, session_and_preferences_preserved=True)
+    except Exception:
+        report['error'] = traceback.format_exc()
+    finally:
+        if window is not None:
+            window.close()
+    (output_dir / f'theme-{phase}-restart.json').write_text(
+        json.dumps(report, indent=2), encoding='utf-8')
+    return 0 if report['ok'] else 1
+
+
+def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    if theme_probe is not None:
+        return run_theme_probe(app, output_dir, theme_probe)
     result_path = output_dir / 'smoke-result.json'
     if result_path.exists() or (output_dir / 'smoke-session.db').exists():
         raise ValueError('Use a fresh smoke-output directory to avoid stale results.')
+    configure_smoke_profile(output_dir, create=True)
     source_root = Path(sys._MEIPASS) if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[2]
     result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': []}
     if result['frozen']:
@@ -100,6 +201,8 @@ def run_smoke_test(app, output_dir: Path) -> int:
             result['stages'].append('qt_render')
             from .packaged_workflow import verify_workflow
             verify_workflow(window, output_dir, result)
+            from .packaged_workflow import verify_theme_workflow
+            verify_theme_workflow(window, output_dir, result)
             finish()
         except Exception:
             finish(traceback.format_exc())
@@ -118,6 +221,8 @@ def run_smoke_test(app, output_dir: Path) -> int:
             sample = source_root / 'data/input/Cursos_Ejemplo.xlsx'
             reader = ExcelReader(str(sample))
             window._classrooms = reader.load_classrooms()
+            window._classroom_course_map = reader.load_course_classroom_map(
+                known_classrooms=set(window._classrooms))
             window.course_manager.load_courses_from_excel(reader.load_courses(known_classrooms=set(window._classrooms)))
             window.excel_path = str(sample)
             window.excel_path_label.setText(sample.name)
