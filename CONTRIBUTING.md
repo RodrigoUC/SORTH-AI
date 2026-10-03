@@ -29,6 +29,8 @@ python gui_app.py
 
 Para las pruebas, sigue la [suite completa en cuatro procesos](docs/development/WORKFLOW.md#suite-completa-en-cuatro-procesos): incluye colección completa, cuatro lotes en serie, verificación de cobertura y configuración offscreen por shell. No uses un único `pytest` sin selección como sustituto de ese procedimiento. Los comandos focalizados siguen siendo útiles durante el desarrollo; no certifican la suite completa.
 
+En un entorno sin pantalla, ejecuta los tests con `QT_QPA_PLATFORM=offscreen` (PowerShell: `$env:QT_QPA_PLATFORM="offscreen"`; Linux/macOS: `export QT_QPA_PLATFORM=offscreen`). Esto no sustituye la revisión visual en un escritorio real. En Windows offscreen, configure además `QT_QPA_FONTDIR` con la carpeta de fuentes del sistema antes de arrancar Qt; ese backend no usa el descubrimiento nativo de fuentes de Windows. No copie ni redistribuya esas fuentes. El CI lo configura y comprueba glifos/rásteres automáticamente.
+
 Para reproducir el paquete Windows, sigue [WINDOWS_DISTRIBUTION.md](docs/release/WINDOWS_DISTRIBUTION.md): usa el lock con hashes en `.venv-build`, no el entorno genérico anterior.
 
 ## Organización y revisión
