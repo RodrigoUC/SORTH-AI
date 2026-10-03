@@ -1,6 +1,7 @@
 """Read-only schedule consultation with consistent filters and stable row identities."""
 
 import re
+import math
 from dataclasses import replace
 import unicodedata
 
@@ -9,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
-    QColor
+    QColor, QFontMetricsF
 )
 
 from .theme import COLORS
@@ -156,10 +157,10 @@ class ScheduleViewerWidget(QWidget):
         self._status_filter.addItem(msg('Asignados'), "assigned")
         self._status_filter.addItem(msg('Sin asignar'), "unassigned")
         filters.addStretch()
+        layout.addLayout(filters)
         self._result_label = QLabel()
         self._result_label.setWordWrap(True)
-        filters.addWidget(self._result_label, 1)
-        layout.addLayout(filters)
+        layout.addWidget(self._result_label)
 
         self.tabs = QTabWidget()
         self.list_table, self._btn_edit_list, self._btn_remove_list = self._make_list_tab(
@@ -179,6 +180,8 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_selector.currentTextChanged.connect(self._request_grid_render)
         grid_row.addWidget(grid_label)
         grid_row.addWidget(self.classroom_selector)
+        self._grid_count = QLabel()
+        grid_row.addWidget(self._grid_count)
         self._grid_hint = QLabel()
         self._grid_hint.setWordWrap(True)
         grid_row.addWidget(self._grid_hint, 1)
@@ -199,23 +202,24 @@ class ScheduleViewerWidget(QWidget):
             msg('Asignaciones ordenadas por aula'))
         self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
-        scope = self._export_scope_hint = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope = self._export_scope_hint = QLabel(msg('El aula de la cuadrícula no cambia la exportación filtrada.'))
+        scope.setToolTip(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope.setAccessibleDescription(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
 
     def set_compact_layout(self, compact):
         # Reserve room for actual timetable rows at native Windows metrics.
-        # Explanatory copy remains available through accessible descriptions and
-        # tooltips; every filter and action retains its normal font and target.
+        # The concise export scope stays visible; longer supporting copy remains
+        # in accessible descriptions and tooltips. Controls keep normal targets.
         self.layout().setContentsMargins(*(4, 2, 4, 2) if compact else (9, 9, 9, 9))
         for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
             hint.setVisible(not compact)
             table.setAccessibleDescription(hint.text())
             table.setToolTip(hint.text())
-        self._export_scope_hint.setVisible(not compact)
-        self.setAccessibleDescription(self._export_scope_hint.text())
-        self.setToolTip(self._export_scope_hint.text())
+        self.setAccessibleDescription(self._export_scope_hint.toolTip())
+        self.setToolTip(self._export_scope_hint.toolTip())
         tab_style = 'QTabBar::tab { padding-top: 7px; padding-bottom: 7px; }' if compact else ''
         if self.tabs.styleSheet() != tab_style:
             self.tabs.setStyleSheet(tab_style)
@@ -342,6 +346,7 @@ class ScheduleViewerWidget(QWidget):
         self._refreshing = False
         self._summary_label.setText(msg('Genere un horario para consultar sus sesiones y exportar los resultados.'))
         self._grid_hint.clear()
+        self._grid_count.clear()
         self._btn_summary.setEnabled(False)
         self._btn_clear_schedule.setEnabled(False)
         self._apply_filters()
@@ -565,9 +570,11 @@ class ScheduleViewerWidget(QWidget):
             day = tm.to_day_index(tm.days[col - 1])
             table.setColumnHidden(col, self._day_filter.currentData() not in (None, day))
         conflicts = sum(len(block.entries) > 1 for block in grid.blocks)
+        self._grid_count.setText(msg('Sesiones en esta aula: {count}', count=len(entries)))
+        self.classroom_selector.setToolTip(classroom)
         if entries:
             suffix = msg(' · {p1} tramo(s) con conflicto', p1=conflicts) if conflicts else ""
-            self._grid_hint.setText(msg('{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.', p0=len(entries), p2=suffix))
+            self._grid_hint.setText(suffix)
         else:
             self._grid_hint.setText(msg('Sin sesiones para esta aula y estos filtros.'))
         self._update_result_label()
@@ -660,19 +667,21 @@ class ScheduleViewerWidget(QWidget):
     def _update_result_label(self, *_):
         if not hasattr(self, "classroom_table"):
             return
-        index = self.tabs.currentIndex()
-        if index == 1:
-            room = self.classroom_selector.currentText()
-            visible = sum(gid in self._matching_gids and data[0] == room for gid, data in self._assignments.items())
-            total = len(self._assignments)
-        else:
-            table = self.list_table if index == 0 else self.classroom_table
-            visible = sum(not table.isRowHidden(r) for r in range(table.rowCount()))
-            total = table.rowCount()
-        text = plural('result_count', total, visible=visible)
+        # Use polished native metrics, including font/theme changes. The second
+        # line reserves pending/no-match guidance without moving the timetable.
+        self._result_label.ensurePolished()
+        metrics = QFontMetricsF(self._result_label.font(), self._result_label)
+        self._result_label.setMinimumHeight(2 * math.ceil(metrics.height()))
+        # Shared filters define the export set in every view. The grid-local
+        # classroom count belongs beside its selector, never in this label.
+        visible = len(self._matching_gids)
+        total = len(self._known_gids)
+        assigned = len(self._matching_gids & self._assignments.keys())
+        text = msg('Filtros globales · Asignadas exportables: {assigned} · Pendientes: {pending} · Sesiones: {visible}/{total}',
+                   assigned=assigned, pending=visible - assigned, visible=visible, total=total)
         if total and not visible:
             text += msg('. No hay coincidencias; cambie o restablezca los filtros.')
-        if index != 0 and self._status_filter.currentData() == "unassigned":
+        if self.tabs.currentIndex() != 0 and self._status_filter.currentData() == "unassigned":
             text += msg(' Consulte las sesiones sin asignar en Lista detallada.')
         self._result_label.setText(text)
 

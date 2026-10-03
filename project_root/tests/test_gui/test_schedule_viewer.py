@@ -432,7 +432,7 @@ def test_inactive_grid_coalesces_and_latest_filter_renders_on_entry(viewer, monk
     assert set(viewer.filtered_assignments()) == {'BIO-G2', 'BIO-G10'}
     viewer.tabs.setCurrentIndex(1)
     assert calls == ['A2']
-    assert '2 sesiones' in viewer._grid_hint.text()
+    assert 'Sesiones en esta aula: 2' in viewer._grid_count.text()
     viewer.tabs.setCurrentIndex(0)
     viewer.tabs.setCurrentIndex(1)
     assert len(calls) == 1  # Unchanged tab navigation reuses the grid.
@@ -445,7 +445,7 @@ def test_inactive_grid_coalesces_and_latest_filter_renders_on_entry(viewer, monk
     assert len(calls) == 2
     viewer.tabs.setCurrentIndex(1)
     assert calls[-1] == 'A10'
-    assert '2 sesiones' in viewer._grid_hint.text()
+    assert 'Sesiones en esta aula: 2' in viewer._grid_count.text()
 
 
 def test_filter_normalizes_once_per_pass_and_retains_identity(viewer, monkeypatch):
