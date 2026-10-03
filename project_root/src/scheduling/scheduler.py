@@ -113,7 +113,15 @@ class Scheduler:
                     checkpoint(self._cancelled)
                     restricted_to.setdefault(code, set()).add(cls.name)
 
-        start_candidates: dict[tuple[int, int | None], list[int]] = {}
+        # Pins/manual placements may use exact minutes outside the coarse grid.
+        # Every remaining sibling must still be offered that family's start.
+        family_starts = {}
+        for sibling in self._all_groups or groups:
+            placement = state.assignments.get(sibling.group_id)
+            if sibling.parent_group_id and placement is not None:
+                family_starts.setdefault(sibling.parent_group_id, set()).add(placement[2])
+
+        start_candidates = {}
         for group in groups:
             checkpoint(self._cancelled)
             domain = []
@@ -126,13 +134,15 @@ class Scheduler:
                     # so don't force it into the restricted set
                     course_allowed_classrooms = None
             pref_start = group.preferred_start_min if strict_preferences else None
-            start_key = (group.duration_min, pref_start)
+            exact_starts = tuple(sorted(set(additional_starts) |
+                family_starts.get(group.parent_group_id, set())))
+            start_key = (group.duration_min, pref_start, exact_starts)
             if start_key not in start_candidates:
                 start_candidates[start_key] = state.time_model.generate_start_candidates(
                     group.duration_min, pref_start)
-                if additional_starts:
+                if exact_starts:
                     start_candidates[start_key] = sorted(set(start_candidates[start_key]) | {
-                        start for start in additional_starts if type(start) is int
+                        start for start in exact_starts if type(start) is int
                         and state.time_model.is_valid_interval(1, start, start + group.duration_min)
                         and not state.time_model.overlaps_lunch(start, start + group.duration_min)})
             days = [day for day in range(1, state.time_model.days_count + 1)

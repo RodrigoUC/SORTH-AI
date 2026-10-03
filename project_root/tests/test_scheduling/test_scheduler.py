@@ -315,3 +315,18 @@ def test_greedy_pass_scores_only_currently_feasible_slots():
     assert scheduler.scored == {"G1": 3, "G2": 1}
     assert groups[0].assignment == ("A1", 1, 420, 480)
     assert groups[1].assignment == ("A1", 1, 480, 540)
+
+
+def test_pinned_split_siblings_preserve_exact_starts_per_family():
+    from src.application.scheduling_service import SchedulingService
+    from src.scheduling.course import Course
+    from src.scheduling.validation import validate_schedule
+    courses = [Course(code, 1, 240, 'REGULAR', force_split=True) for code in ('A', 'B')]
+    rooms = {'R': Classroom('R', 20, 'REGULAR')}
+    pins = {'A-G1-P1': ('R', 1, 421, 541), 'B-G1-P1': ('R', 1, 551, 671)}
+    assignments, groups = SchedulingService(None).run(courses, classrooms=rooms, pinned_assignments=pins)
+    assert len(assignments) == 4
+    assert all(assignments[gid] == slot for gid, slot in pins.items())
+    assert assignments['A-G1-P2'][2] == 421
+    assert assignments['B-G1-P2'][2] == 551
+    assert not validate_schedule(assignments, groups, rooms, TimeModel.default())
