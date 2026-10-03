@@ -411,9 +411,10 @@ class MainWindow(QMainWindow):
         if self._restore_failed:
             self._block_for_recovery()
 
-    def _commit_import(self, candidate, retained_pins):
+    def _commit_import(self, candidate, retained_pins, resources=None):
         """Present and persist one accepted import, rolling both back on failure."""
         imported = candidate.imported
+        resources = self.resources if resources is None else resources
         assignments = {gid: value for gid, value in (self.current_schedule or {}).items()
                        if gid in retained_pins} or None
         overrides = {g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in retained_pins}
@@ -428,7 +429,7 @@ class MainWindow(QMainWindow):
                 group.assignment = (assignments or {}).get(group.group_id)
                 group.pinned = group.group_id in retained_pins
                 group.lab_override = group.group_id in overrides
-            preview_schedule.display_schedule(assignments or {}, TimeModel.default(), groups,
+            preview_schedule.display_schedule(assignments or {}, TimeModel.from_calendar(self.calendar), groups,
                                               classrooms=imported.classrooms)
         finally:
             preview.deleteLater()
@@ -436,7 +437,8 @@ class MainWindow(QMainWindow):
         previous = {name: getattr(self, name) for name in (
             'pinned_group_ids', '_classroom_course_map', '_classrooms', 'excel_path',
             'classroom_restrictions', 'current_schedule', 'current_groups',
-            '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty')}
+            '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty', 'resources')}
+        previous_history = deepcopy(vars(self._history))
         previous_courses = self.course_manager.courses
         previous_search = self.course_manager._search.text()
         previous_label = self.excel_path_label.text()
@@ -454,6 +456,7 @@ class MainWindow(QMainWindow):
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
 
         def present():
+            self.resources = resources
             self.pinned_group_ids = set(retained_pins)
             self._classroom_course_map = imported.classroom_course_map
             self._classrooms = imported.classrooms
@@ -470,6 +473,7 @@ class MainWindow(QMainWindow):
             self._scenario_dirty = bool(self._scenario_name)
             self._update_save_state()
             self._update_feature_notice()
+            self._reset_edit_history('import')
             self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
                                       p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
@@ -480,12 +484,14 @@ class MainWindow(QMainWindow):
                                    classrooms=imported.classrooms, courses=imported.courses,
                                    restrictions={}, assignments=assignments,
                                    pinned_group_ids=retained_pins, lab_overrides=overrides,
-                                   before_commit=present)
+                                   resources=resources, calendar=self.calendar, before_commit=present)
         except Exception:
             # Restore the underlying state first, independently of rendering APIs.
             # In particular, don't call the failing import loader a second time.
             for name, value in previous.items():
                 setattr(self, name, value)
+            vars(self._history).clear()
+            vars(self._history).update(previous_history)
             self.course_manager.courses = previous_courses
             try:
                 self.course_manager._search.setText(previous_search)
@@ -495,7 +501,7 @@ class MainWindow(QMainWindow):
                     viewer._clear()
                 else:
                     viewer.display_schedule(
-                        self.current_schedule or {}, TimeModel.default(), self.current_groups,
+                        self.current_schedule or {}, TimeModel.from_calendar(self.calendar), self.current_groups,
                         {c.code: c.name for c in previous_courses if c.name}, classrooms=self._classrooms)
                 viewer._list_search.setText(previous_filters[0])
                 for combo, value in zip((viewer._room_filter, viewer._day_filter, viewer._status_filter),
@@ -514,6 +520,7 @@ class MainWindow(QMainWindow):
                     table.horizontalScrollBar().setValue(horizontal)
                 self._refresh_overview()
                 self._update_save_state()
+                self._update_history_actions()
                 self.status_bar.showMessage(previous_status)
             except Exception as recovery_error:
                 # SQL and domain data remain original; a damaged view is explicitly
@@ -1533,7 +1540,7 @@ class MainWindow(QMainWindow):
                 errors.append(ValidationNotice('La estructura dividida de {gid} cambió.', gid=group.group_id))
         return errors
 
-    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None, commit=True):
+    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None, commit=True, resources=None):
         """Review proposed inputs before committing. Cancel changes nothing."""
         if self._loading or not self.pinned_group_ids:
             return True

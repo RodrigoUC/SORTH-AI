@@ -1,4 +1,6 @@
 """Latest-request-wins import coordinator. All GUI access occurs on Qt's thread."""
+from dataclasses import replace
+from ..scheduling.teaching_resources import SchedulingResources
 from PyQt6.QtCore import QObject, QTimer, Qt
 from .import_worker import ImportWorker
 from .import_preview_dialog import ImportPreviewDialog
@@ -18,6 +20,7 @@ class ImportController(QObject):
         self.closing = False
         self.review = None
         self.retained_pins = set()
+        self.retained_resources = None
 
     def start(self, path):
         if self.closing:
@@ -74,7 +77,7 @@ class ImportController(QObject):
             return
         if verified:
             try:
-                self.window._commit_import(candidate, self.retained_pins)
+                self.window._commit_import(candidate, self.retained_pins, self.retained_resources)
             except Exception as error:
                 self._error(token, error)
                 return
@@ -112,11 +115,33 @@ class ImportController(QObject):
             review.deleteLater()
             if not accepted or not self._current(token):
                 return False
+        # Resource relationships are reviewed on a private candidate. Never
+        # mutate accepted catalogs before verification and the SQL transaction.
+        resources = window.resources
+        known = {group.group_id for course in imported.courses for group in course.generate_groups()}
+        orphaned = {gid for catalog in resources.catalogs for gid, _ids in catalog.memberships if gid not in known}
+        if orphaned:
+            review = self.review = QMessageBox(window)
+            review.setWindowTitle(msg('Recursos por revisar'))
+            review.setTextFormat(Qt.TextFormat.PlainText)
+            review.setText(msg('Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?', count=len(orphaned)))
+            review.setDetailedText('\n'.join(sorted(orphaned)))
+            review.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+            review.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            accepted = review.exec() == QMessageBox.StandardButton.Yes
+            self.review = None
+            review.deleteLater()
+            if not accepted or not self._current(token):
+                return False
+            resources = SchedulingResources(tuple(replace(catalog,
+                memberships=tuple((gid, ids) for gid, ids in catalog.memberships if gid in known))
+                for catalog in resources.catalogs))
+        self.retained_resources = resources
         # Use the existing pin guard in review-only mode. Cancellation/verification
         # failures must not clear pins before a durable import has succeeded.
-        errors = window._pin_input_errors(imported.courses, imported.classrooms, {})
+        errors = window._pin_input_errors(imported.courses, imported.classrooms, {}, resources)
         if not window._confirm_pin_inputs(courses=imported.courses, classrooms=imported.classrooms,
-                                          restrictions={}, commit=False):
+                                          restrictions={}, commit=False, resources=resources):
             return False
         if not self._current(token):
             return False
