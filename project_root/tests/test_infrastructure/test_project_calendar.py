@@ -70,6 +70,13 @@ def test_missing_saved_calendar_never_silently_reverts_to_defaults(tmp_path):
     path=tmp_path/'calendar.db';repo=SessionRepository(str(path))
     repo.save_session(None,42,{},[],{},None,calendar=ProjectCalendar(('Martes',),480,600,()))
     with sqlite3.connect(path) as db:db.execute('delete from project_calendar')
-    reopened=SessionRepository(str(path))
-    with pytest.raises(ValueError,match='missing'): reopened.load_session()
-    with pytest.raises(ValueError,match='missing'): reopened.save_session(None,43,{},[],{},None)
+    original = path.read_bytes()
+    with pytest.raises(sqlite3.DatabaseError, match='missing'):
+        SessionRepository(str(path))
+    with pytest.raises(sqlite3.DatabaseError, match='missing'):
+        repo.load_session()
+    with pytest.raises(sqlite3.DatabaseError, match='missing'):
+        repo.save_session(None,43,{},[],{},None)
+    with pytest.raises(sqlite3.DatabaseError, match='missing'):
+        repo.save_session(None,43,{},[],{},None,calendar=ProjectCalendar())
+    assert path.read_bytes() == original
