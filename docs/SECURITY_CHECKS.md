@@ -22,7 +22,7 @@ credenciales persistentes, ningún secreto ni permisos de escritura. No usa
   paso independiente; nunca se instala dentro del entorno Windows principal.
   Un manifiesto opcional sin su lock bloquea el check.
 - `requirements-mcp-build.txt`: manifiesto de compilación del compañero, con
-  `requirements-mcp-windows.lock` separado. Fija 38 paquetes mediante hashes de
+  `requirements-mcp-windows.lock` separado. Fija 40 paquetes mediante hashes de
   wheels exactos para CPython 3.12/Windows x64; no se instala en la GUI.
   `third_party/mcp/` conserva los avisos e inventario del compañero. Su auditoría
   `companion-dependencies` verifica inventario y requisitos directos por separado;

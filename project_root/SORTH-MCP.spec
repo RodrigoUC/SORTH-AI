@@ -19,7 +19,7 @@ a = Analysis(
     hiddenimports=['src.mcp_adapter.server', 'src.mcp_adapter.execution',
                    'src.mcp_adapter.worker', 'mcp', 'mcp.server.lowlevel'],
     hookspath=[], hooksconfig={}, runtime_hooks=[],
-    excludes=['PyQt6', 'PySide6', 'pandas', 'numpy', 'openpyxl', 'openai',
+    excludes=['PyQt6', 'PySide6', 'pandas', 'numpy', 'openai',
               'anthropic', 'torch', 'pytest', 'pip'],
     noarchive=False, optimize=0,
 )

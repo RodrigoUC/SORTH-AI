@@ -47,7 +47,7 @@ def test_real_stdio_initialize_list_call(tmp_path):
                 assert init.serverInfo.name == "sorth-preview"
                 assert init.protocolVersion in ("2025-06-18", "2025-11-25")
                 listed = await session.list_tools()
-                assert {tool.name for tool in listed.tools} == {"validate_configuration", "generate_preview"}
+                assert {tool.name for tool in listed.tools} == {"prepare_configuration", "validate_configuration", "generate_preview", "generate_excel"}
                 for tool in listed.tools:
                     assert tool.inputSchema["additionalProperties"] is False
                     assert tool.annotations.readOnlyHint and not tool.annotations.openWorldHint
@@ -303,7 +303,7 @@ def test_hash_lock_covers_actual_platform_dependency_closure():
     from packaging.utils import canonicalize_name
     locked = _locked_requirements()
     environment = default_environment()
-    pending = [("mcp", frozenset()), ("pytest", frozenset())]
+    pending = [("mcp", frozenset()), ("pytest", frozenset()), ("openpyxl", frozenset())]
     visited = set()
     while pending:
         name, extras = pending.pop()

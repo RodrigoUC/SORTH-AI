@@ -6,6 +6,8 @@ This is CI evidence, not a clean Windows machine certification.
 """
 import argparse
 import asyncio
+import base64
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -52,7 +54,7 @@ async def sdk_contract(executable, preferences, environment, directory):
             initialized = await session.initialize()
             require(initialized.serverInfo.name == 'sorth-preview', 'Unexpected MCP server')
             listed = await session.list_tools()
-            require({t.name for t in listed.tools} == {'validate_configuration', 'generate_preview'},
+            require({t.name for t in listed.tools} == {'prepare_configuration', 'validate_configuration', 'generate_preview', 'generate_excel'},
                     'Unexpected MCP tool inventory')
             checked = await session.call_tool('validate_configuration', request())
             require(not checked.isError, 'Frozen validation failed')
@@ -61,6 +63,18 @@ async def sdk_contract(executable, preferences, environment, directory):
                     'Frozen scheduling worker failed')
             repeated = await session.call_tool('generate_preview', request())
             require(repeated.structuredContent == generated.structuredContent, 'Nondeterministic frozen worker')
+            missing = await session.call_tool('prepare_configuration', {'courses': [{'code': 'BIO'}]})
+            require(not missing.isError and missing.structuredContent['status'] == 'needs_input',
+                    'Frozen missing-field clarification failed')
+            exported = await session.call_tool('generate_excel', dict(request(), scope_confirmed=True,
+                                                                       classroom_restrictions=[]))
+            require(not exported.isError and exported.structuredContent['preview']['status'] == 'complete',
+                    'Frozen Excel worker failed')
+            resource = (await session.read_resource(exported.structuredContent['artifact']['uri'])).contents[0]
+            from openpyxl import load_workbook
+            workbook = load_workbook(BytesIO(base64.b64decode(resource.blob, validate=True)))
+            require(workbook['Asignaciones'].max_row == 3 and workbook['Estado']['B2'].value == 'complete',
+                    'Frozen Excel did not reopen with the expected schedule')
             set_enabled(preferences, False)
             disabled = await session.call_tool('generate_preview', request())
             require(disabled.isError and disabled.structuredContent['error']['code'] == 'MCP_DISABLED',

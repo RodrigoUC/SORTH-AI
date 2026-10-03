@@ -1,8 +1,8 @@
 # Isolated MCP companion notices
 
-This directory records all 38 verified Windows x64 CPython 3.12 wheels in
+This directory records all 40 verified Windows x64 CPython 3.12 wheels in
 `project_root/requirements-mcp-windows.lock`: optional MCP 1.30.0, its transitive
-runtime dependencies and isolated PyInstaller build tools. It excludes GUI,
+runtime dependencies, openpyxl/et-xmlfile for in-memory Excel, and isolated PyInstaller build tools. It excludes GUI,
 model-provider and test dependencies. Wheel hashes were verified against the
 existing reviewed optional and Windows locks before generating this lock.
 `tools/lock_windows.py` also verifies Windows markers and requested extras.
