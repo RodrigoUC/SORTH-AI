@@ -1,6 +1,6 @@
 """Minimum-height layout with all advanced tool families visible."""
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtTest import QTest
 import pytest
 from src.gui.i18n import language_manager
@@ -10,10 +10,15 @@ from src.scheduling.teaching_resources import ResourceCatalog, SchedulingResourc
 from tests.test_gui.test_background_import import window
 
 
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'], ids=['native-default', 'Fusion', 'Windows'])
 @pytest.mark.parametrize('language', ['es', 'en'])
-def test_compact_schedule_retains_four_readable_rows_and_actions(window, language):
+def test_compact_schedule_retains_four_readable_rows_and_actions(window, language, style_name):
     manager = language_manager()
     previous = manager.language
+    app = QApplication.instance()
+    previous_style = app.style().objectName()
+    if style_name is not None:
+        app.setStyle(style_name)
     try:
         manager.set_language(language, persist=False)
         window.resources = SchedulingResources(tuple(ResourceCatalog(kind, True) for kind in RESOURCE_KINDS))
@@ -25,9 +30,15 @@ def test_compact_schedule_retains_four_readable_rows_and_actions(window, languag
         window.tabs.setCurrentIndex(1)
         QApplication.processEvents()
         table = window.schedule_viewer.list_table
-        assert window.height() == 640
+        assert window.size() == QSize(960, 640)
         assert table.viewport().height() >= 4 * table.rowHeight(0)
         assert window.overview_label.isHidden()
+        assert all(hint.isHidden() for hint in window.schedule_viewer._selection_hints)
+        assert table.accessibleDescription()
+        assert window.schedule_viewer.accessibleDescription()
+        assert window.schedule_viewer.toolTip()
+        assert window.tabs.tabBar().height() >= 30
+        assert window.schedule_viewer.tabs.tabBar().height() >= 30
         assert not window._compact_tools.isHidden()
         assert ('Calendario personalizado' if language == 'es' else 'Custom calendar') in window._compact_summary.text()
         assert ('Parámetros activos: 3' if language == 'es' else 'Active parameters: 3') in window._compact_summary.text()
@@ -47,6 +58,13 @@ def test_compact_schedule_retains_four_readable_rows_and_actions(window, languag
         for button in window.schedule_viewer._suggestion_controls + window.schedule_viewer._pin_controls:
             assert not button.isHidden()
             assert button.height() >= 30
+        window.resize(1200, 800)
+        QApplication.processEvents()
+        assert not window.schedule_viewer._export_scope_hint.isHidden()
+        assert all(not hint.isHidden() for hint in window.schedule_viewer._selection_hints)
+        window.resize(960, 640)
+        QApplication.processEvents()
+        assert table.viewport().height() >= 4 * table.rowHeight(0)
         window.tabs.setCurrentIndex(0)
         assert not window.overview_label.isHidden()
         settings = SettingsDialog(window)
@@ -56,4 +74,5 @@ def test_compact_schedule_retains_four_readable_rows_and_actions(window, languag
         assert settings.buttons.geometry().bottom() < settings.height()
         settings.reject()
     finally:
+        app.setStyle(previous_style)
         manager.set_language(previous, persist=False)

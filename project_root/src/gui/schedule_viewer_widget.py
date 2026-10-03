@@ -60,6 +60,7 @@ class ScheduleViewerWidget(QWidget):
         super().__init__()
         self._pin_controls = []
         self._suggestion_controls = []
+        self._selection_hints = []
         self._assignments = {}
         self._search_keys = {}
         self._matching_gids = set()
@@ -168,10 +169,26 @@ class ScheduleViewerWidget(QWidget):
             msg('Asignaciones ordenadas por aula'))
         self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
-        scope = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
+        scope = self._export_scope_hint = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
+
+    def set_compact_layout(self, compact):
+        # Reserve room for actual timetable rows at native Windows metrics.
+        # Explanatory copy remains available through accessible descriptions and
+        # tooltips; every filter and action retains its normal font and target.
+        self.layout().setContentsMargins(*(4, 2, 4, 2) if compact else (9, 9, 9, 9))
+        for hint, table in zip(self._selection_hints, (self.list_table, self.classroom_table)):
+            hint.setVisible(not compact)
+            table.setAccessibleDescription(hint.text())
+            table.setToolTip(hint.text())
+        self._export_scope_hint.setVisible(not compact)
+        self.setAccessibleDescription(self._export_scope_hint.text())
+        self.setToolTip(self._export_scope_hint.text())
+        tab_style = 'QTabBar::tab { padding-top: 6px; padding-bottom: 6px; }' if compact else ''
+        if self.tabs.styleSheet() != tab_style:
+            self.tabs.setStyleSheet(tab_style)
 
     def _make_filter(self, layout, text, accessible_name):
         label = QLabel(text)
@@ -241,6 +258,9 @@ class ScheduleViewerWidget(QWidget):
         hint = QLabel(msg('Seleccione una fila para editar o quitar.'))
         hint.setWordWrap(True)
         hint.setObjectName("mutedText")
+        self._selection_hints.append(hint)
+        table.setAccessibleDescription(hint.text())
+        table.setToolTip(hint.text())
         actions.addWidget(hint)
         layout.addLayout(actions)
         details = QLabel("")

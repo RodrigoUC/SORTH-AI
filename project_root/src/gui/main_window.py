@@ -1663,6 +1663,10 @@ class MainWindow(QMainWindow):
         self._feature_notice.setVisible(not compact and bool(self._feature_notice.text()))
         self._compact_tools.setVisible(compact)
         viewer = self.schedule_viewer
+        viewer.set_compact_layout(compact)
+        tab_style = 'QTabBar::tab { padding-top: 6px; padding-bottom: 6px; }' if compact else ''
+        if self.tabs.styleSheet() != tab_style:
+            self.tabs.setStyleSheet(tab_style)
         for control in (viewer._summary_label, viewer._btn_summary, viewer._btn_clear_schedule):
             control.setVisible(not compact)
         for kind, button in self.resource_buttons.items():
