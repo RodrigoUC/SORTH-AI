@@ -24,6 +24,112 @@ from tests.test_gui.test_appearance_dialog import manager, window, show, write_t
 from tests.test_gui.test_mcp_setup_ux import settle_settings_layout
 
 
+COPY_FAILED = ('No se pudo confirmar la copia. Inténtalo de nuevo o selecciona '
+               'el texto de la especificación y cópialo manualmente.')
+COPY_SUCCEEDED = 'Especificación copiada. Pégala en la IA que elijas; el tema sigue sin aplicarse.'
+
+
+class SyntheticClipboard:
+    """Exercise Qt's void-returning failure without reading a system clipboard."""
+
+    def __init__(self, failure):
+        self.failure = failure
+        self.calls = []
+        self.value = 'SYNTHETIC_PRIOR_CLIPBOARD_NEVER_DISPLAY'
+
+    def setText(self, text):
+        self.calls.append('write')
+        if self.failure == 'write_error':
+            raise RuntimeError('SYNTHETIC_CLIPBOARD_ERROR_NEVER_DISPLAY')
+        if self.failure != 'rejected':
+            self.value = text
+
+    def text(self):
+        self.calls.append('read')
+        if self.failure == 'read_error':
+            raise RuntimeError('SYNTHETIC_CLIPBOARD_ERROR_NEVER_DISPLAY')
+        return self.value
+
+
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('failure', ['rejected', 'unavailable', 'lookup_error', 'write_error', 'read_error'])
+def test_copy_failure_is_truthful_private_and_retryable(manager, monkeypatch, capsys, locale, failure):
+    language = language_manager()
+    previous = language.language
+    language.set_language(locale, persist=False)
+    clipboard = SyntheticClipboard(failure)
+    lookups = []
+    def get_clipboard():
+        lookups.append(True)
+        if clipboard.failure == 'lookup_error':
+            raise RuntimeError('SYNTHETIC_CLIPBOARD_ERROR_NEVER_DISPLAY')
+        return None if clipboard.failure == 'unavailable' else clipboard
+    monkeypatch.setattr(QApplication, 'clipboard', get_clipboard)
+    dialog = ThemeCreationDialog(theme.builtin_themes()[0].spec)
+    dialog.show()
+    try:
+        settle_settings_layout(dialog)
+        assert not lookups and not clipboard.calls
+        specification = dialog.specification.toPlainText()
+        dialog.copy_button.setFocus()
+        QTest.keyClick(dialog.copy_button, Qt.Key.Key_Space)
+        assert dialog.copy_status.text() == str(msg(COPY_FAILED))
+        assert dialog.copy_status.isVisible()
+        assert dialog.copy_status.textFormat() == Qt.TextFormat.PlainText
+        assert QApplication.focusWidget() is dialog.copy_button
+        expected_calls = ([] if failure in ('unavailable', 'lookup_error') else ['write'] if failure == 'write_error'
+                          else ['write', 'read'])
+        assert clipboard.calls == expected_calls
+        assert dialog.specification.toPlainText() == specification
+        assert dialog.specification.isReadOnly()
+        assert not manager.preferences.path.exists()
+        # Retry can replace a failure, and a later failed click cannot leave a
+        # stale success visible. No previous content or exception is displayed.
+        clipboard.failure = None
+        dialog.copy_button.click()
+        assert dialog.copy_status.text() == str(msg(COPY_SUCCEEDED))
+        assert clipboard.value == specification
+        clipboard.failure = 'read_error'
+        dialog.copy_button.click()
+        assert dialog.copy_status.text() == str(msg(COPY_FAILED))
+        language.set_language('en' if locale == 'es' else 'es', persist=False)
+        settle_settings_layout(dialog)
+        assert dialog.copy_status.text() == str(msg(COPY_FAILED))
+        assert len(lookups) == 3  # Translation does not touch the clipboard.
+        output = capsys.readouterr()
+        assert 'SYNTHETIC_' not in dialog.copy_status.text() + output.out + output.err
+        QTest.keyClick(dialog, Qt.Key.Key_Escape)
+        assert not dialog.isVisible()
+    finally:
+        dialog.reject()
+        dialog.deleteLater()
+        language.set_language(previous, persist=False)
+
+
+def test_manual_native_copy_remains_available_after_failed_button(manager, monkeypatch):
+    # Tests run with Qt's isolated offscreen clipboard and only synthetic data.
+    clipboard = QApplication.clipboard()
+    clipboard.setText('synthetic initial value')
+    dialog = ThemeCreationDialog(theme.builtin_themes()[0].spec)
+    dialog.show()
+    try:
+        settle_settings_layout(dialog)
+        with monkeypatch.context() as fault:
+            fault.setattr(QApplication, 'clipboard', lambda: None)
+            dialog.copy_button.click()
+        assert dialog.copy_status.text() == str(msg(COPY_FAILED))
+        dialog.specification.setFocus()
+        QTest.keyClick(dialog.specification, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+        QTest.keyClick(dialog.specification, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
+        assert clipboard.text() == dialog.specification.toPlainText()
+        QTest.keyClick(dialog.specification, Qt.Key.Key_Tab)
+        assert QApplication.focusWidget() is dialog.copy_button
+        assert not manager.preferences.path.exists()
+    finally:
+        dialog.reject()
+        dialog.deleteLater()
+
+
 def payload_sections(text):
     instructions, rest = text.split('\n\nSORTH TEMPLATE\n')
     template, rest = rest.split('\n\nSORTH JSON SCHEMA\n')
@@ -214,7 +320,9 @@ def test_import_handoff_uses_existing_validator_and_requires_explicit_apply(mana
 @pytest.mark.parametrize('locale', ['es', 'en'])
 @pytest.mark.parametrize('style', ['Fusion', 'Windows'])
 @pytest.mark.parametrize('expanded', [False, True])
-def test_compact_guide_keyboard_resize_and_locale_have_no_scroll_traps(manager, locale, style, expanded):
+@pytest.mark.parametrize('copy_accepted', [False, True])
+def test_compact_guide_keyboard_resize_and_locale_have_no_scroll_traps(
+        manager, monkeypatch, locale, style, expanded, copy_accepted):
     app = QApplication.instance()
     previous_style = app.style().objectName()
     previous_language = language_manager().language
@@ -225,9 +333,13 @@ def test_compact_guide_keyboard_resize_and_locale_have_no_scroll_traps(manager, 
     dialog = ThemeCreationDialog(theme.builtin_themes()[0].spec)
     dialog.show()
     try:
+        if not copy_accepted:
+            clipboard = SyntheticClipboard('rejected')
+            monkeypatch.setattr(QApplication, 'clipboard', lambda: clipboard)
         if expanded:
             dialog.setStyleSheet(dialog.styleSheet() + 'QWidget { font-size: 20pt; }')
         dialog.copy_button.click()
+        assert dialog.copy_status.text() == str(msg(COPY_SUCCEEDED if copy_accepted else COPY_FAILED))
         for width, height in ((460, 420), (820, 760), (460, 420)):
             dialog.resize(width, height)
             snapshot = settle_settings_layout(dialog)

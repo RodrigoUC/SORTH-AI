@@ -166,8 +166,24 @@ class ThemeCreationDialog(QDialog):
         self.intro.setFocus(Qt.FocusReason.TabFocusReason)
 
     def _copy(self):
-        QApplication.clipboard().setText(self.specification.toPlainText())
-        self.copy_status.setText(msg('Especificación copiada. Pégala en la IA que elijas; el tema sigue sin aplicarse.'))
+        expected = self.specification.toPlainText()
+        copied = False
+        try:
+            clipboard = QApplication.clipboard()
+            if clipboard is not None:
+                # Qt's void setText can return after a native clipboard failure.
+                # Compare only after this explicit write; never retain or expose
+                # whatever another application may have left in the clipboard.
+                clipboard.setText(expected)
+                copied = clipboard.text() == expected
+        except RuntimeError:
+            # An unavailable/deleted native wrapper also leaves manual copying
+            # available. Native error details may contain unrelated private data.
+            copied = False
+        if copied:
+            self.copy_status.setText(msg('Especificación copiada. Pégala en la IA que elijas; el tema sigue sin aplicarse.'))
+        else:
+            self.copy_status.setText(msg('No se pudo confirmar la copia. Inténtalo de nuevo o selecciona el texto de la especificación y cópialo manualmente.'))
         self.copy_status.show()
 
     def _retranslate_specification(self, *_):

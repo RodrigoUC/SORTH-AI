@@ -401,3 +401,10 @@ bounded JSON picker/validator; validation errors remain selectable in Appearance
 The guide explicitly says AI output can be invalid. Opening, copying, canceling,
 and rejected imports do not save or apply anything. Appearance's existing
 Apply/Cancel/Restore and atomic recovery contracts remain the only commit path.
+
+Copy success requires an immediate exact readback after the explicit write,
+because Qt can return from its void clipboard setter after a native failure.
+Unavailable, rejected or unreadable copies show localized retry/manual-selection
+guidance in the existing selectable status. Clipboard contents and native error
+details are never retained or displayed. The specification remains read-only and
+keyboard-copyable; the copy button keeps focus and can be retried.
