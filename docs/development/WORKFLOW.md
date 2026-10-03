@@ -40,13 +40,11 @@ Prepara el entorno con [CONTRIBUTING.md](../../CONTRIBUTING.md). Desde `project_
 ```sh
 python -m pip check
 python tools/check_architecture.py
-python -m pytest -q tests/test_architecture tests/test_documentation
-python -m pytest -q
+python -m pytest -c pytest.ini --rootdir=. -q tests/test_architecture tests/test_documentation
 ```
 
-Sin pantalla, define `QT_QPA_PLATFORM=offscreen` antes de pytest. En PowerShell:
-`$env:QT_QPA_PLATFORM="offscreen"`; en Linux/macOS:
-`export QT_QPA_PLATFORM=offscreen`. Además, ejecuta `git diff --check`.
+Para la suite completa, sigue [los cuatro lotes](#suite-completa-en-cuatro-procesos)
+de abajo. Además, ejecuta `git diff --check`.
 
 - Dominio: resultado reproducible con semilla fija, restricciones e invariantes.
 - Importación/exportación: mínimos, vacíos, inválidos, límites y reapertura del
@@ -65,3 +63,90 @@ Sin pantalla, define `QT_QPA_PLATFORM=offscreen` antes de pytest. En PowerShell:
 
 En el PR distingue pruebas aprobadas, fallidas y no ejecutadas. No llames completa
 la aceptación de una plataforma o release porque pasaron los tests de Python.
+
+## Suite completa en cuatro procesos
+
+Desde la raíz del repositorio, entra en `project_root` (`cd project_root`) y usa
+el Python del entorno de desarrollo activado. Todos los comandos siguientes se
+ejecutan allí: `-c pytest.ini --rootdir=.` fija la configuración y la raíz; `tests`
+selecciona la colección completa. Para reproducir Windows, usa el entorno con
+lock de [la guía de distribución](../release/WINDOWS_DISTRIBUTION.md) y sustituye
+`python` por `.\.venv-build\Scripts\python.exe` en cada comando.
+
+Antes de iniciar pytest sin pantalla, configura Qt según tu shell:
+
+```sh
+# Linux/macOS: Bash o shell POSIX
+export QT_QPA_PLATFORM=offscreen
+```
+
+```powershell
+# Windows: PowerShell
+$env:QT_QPA_PLATFORM="offscreen"
+$env:QT_QPA_FONTDIR=[Environment]::GetFolderPath([Environment+SpecialFolder]::Fonts)
+```
+
+Windows offscreen necesita las fuentes instaladas en esa carpeta; no las copies
+ni redistribuyas. Esto no sustituye la revisión visual en un escritorio real.
+
+Ejecuta primero la colección, después cada lote **en serie, en un proceso nuevo**
+y finalmente el verificador. El plugin existente crea el directorio de informes si hace falta.
+Las cadenas detienen la secuencia si falla un comando. No ejecutes sólo la última
+línea para decidir si la suite pasó.
+
+```sh
+# Bash/POSIX: ejecutar como una sola cadena
+python -m pytest -c pytest.ini --rootdir=. tests --collect-only -q -p tools.windows_test_batches --test-inventory=build/reports/tests-all-inventory.json &&
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=gui --test-inventory=build/reports/tests-gui-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui.xml &&
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=gui-layout --test-inventory=build/reports/tests-gui-layout-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui-layout.xml &&
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=theme-runtime --test-inventory=build/reports/tests-theme-runtime-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-theme-runtime.xml &&
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=remaining --test-inventory=build/reports/tests-remaining-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-remaining.xml &&
+python tools/windows_test_batches.py --verify build/reports
+```
+
+```powershell
+# PowerShell: ejecutar el bloque completo; comprobar cada proceso nativo
+& {
+python -m pytest -c pytest.ini --rootdir=. tests --collect-only -q -p tools.windows_test_batches --test-inventory=build/reports/tests-all-inventory.json
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=gui --test-inventory=build/reports/tests-gui-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui.xml
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=gui-layout --test-inventory=build/reports/tests-gui-layout-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui-layout.xml
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=theme-runtime --test-inventory=build/reports/tests-theme-runtime-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-theme-runtime.xml
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+python -m pytest -c pytest.ini --rootdir=. tests -vv -p tools.windows_test_batches --regression-batch=remaining --test-inventory=build/reports/tests-remaining-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-remaining.xml
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+python tools/windows_test_batches.py --verify build/reports
+if ($LASTEXITCODE -ne 0) { throw "Falló la validación de tests (salida $LASTEXITCODE)." }
+}
+```
+
+La colección, los cuatro lotes y la verificación deben terminar con código 0.
+Si falla un paso, conserva el error y corrígelo antes de repetir la secuencia
+completa. Usa informes generados en esta misma ejecución, con el mismo commit,
+entorno y configuración, sin filtros `-k`, `-m` ni selecciones de archivos
+adicionales. No reutilices informes de una ejecución anterior como evidencia.
+
+Cada lote recoge toda la suite y selecciona su partición; los tests deseleccionados
+se ejecutan en otro lote. El verificador exige inventarios disjuntos cuya unión
+coincida exactamente con la colección completa y rechaza duplicados, omisiones,
+pruebas inesperadas o mal asignadas. Su éxito sólo comprueba cobertura de la
+selección, no que las pruebas hayan pasado: los inventarios se escriben al
+terminar la colección, antes de ejecutar los tests. Conserva también los resultados
+y skips de cada lote; un skip no cuenta como aprobado.
+
+Este es el procedimiento de aislamiento validado y coincide con los lotes del
+[workflow Windows](../../.github/workflows/windows-review.yml), aunque el plugin
+puede ejecutarse también en Linux/macOS. La ejecución monolítica de toda la suite
+Qt en un único `pytest` puede sufrir cierres nativos intermitentes observados en
+Linux/offscreen. El aislamiento no demuestra una corrección de ese problema de
+ciclo de vida ni identifica su causa; tampoco certifica otras plataformas.
+
+Para iterar sobre una prueba o módulo, sigue usando pytest directamente, por ejemplo:
+
+```sh
+python -m pytest -c pytest.ini --rootdir=. tests/test_scheduling/ -v --tb=short
+```
+
+Un resultado focalizado no equivale a una ejecución completa de los cuatro lotes.

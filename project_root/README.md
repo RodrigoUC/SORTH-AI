@@ -263,15 +263,16 @@ Las sesiones divididas deben cumplir:
 
 ## Pruebas
 
-```powershell
-# Todos los tests
-pytest
+Ejecuta desde `project_root` con el entorno de desarrollo activado. La suite
+completa usa [cuatro procesos en serie y verificación de inventarios](../docs/development/WORKFLOW.md#suite-completa-en-cuatro-procesos).
+Esa guía incluye la configuración offscreen para PowerShell y Bash/POSIX.
+El aislamiento es la invocación validada; no demuestra que esté corregido el
+problema intermitente de ciclo de vida de la suite Qt monolítica.
 
-# Solo dominio scheduling
-pytest tests/test_scheduling/ -v
+Para pruebas focalizadas, por ejemplo sólo el dominio scheduling:
 
-# Con detalle de fallos
-pytest --tb=short
+```sh
+python -m pytest -c pytest.ini --rootdir=. tests/test_scheduling/ -v --tb=short
 ```
 
 ---
