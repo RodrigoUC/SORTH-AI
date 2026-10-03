@@ -98,8 +98,12 @@ class MainWindow(QMainWindow):
 
     def _refresh_theme_recovery_notice(self, _theme=None):
         notice = self._theme_recovery_notice
-        notice.setText(msg('No se pudo leer la apariencia guardada. Se muestra Original claro y el archivo original se conserva. Abra Configuración → Apariencia para revisarlo o recuperarlo.'))
-        notice.setVisible(bool(theme_manager().recovery_issue))
+        manager = theme_manager()
+        if manager.startup_issue:
+            notice.setText(msg('No se pudo preparar la apariencia guardada. Se muestra Original claro sin cambiar el archivo guardado. Abra Configuración → Apariencia para intentarlo de nuevo.'))
+        else:
+            notice.setText(msg('No se pudo leer la apariencia guardada. Se muestra Original claro y el archivo original se conserva. Abra Configuración → Apariencia para revisarlo o recuperarlo.'))
+        notice.setVisible(bool(manager.recovery_issue or manager.startup_issue))
 
     def _init_ui(self):
         self.setWindowTitle(msg('SORTH - Sistema de Organización de Horarios'))
@@ -278,7 +282,7 @@ class MainWindow(QMainWindow):
             self.status_bar.currentMessage(), self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
             self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(),
-            self._theme_recovery_notice.text() if theme_manager().recovery_issue else '', self._save_error))))
+            self._theme_recovery_notice.text() if (theme_manager().recovery_issue or theme_manager().startup_issue) else '', self._save_error))))
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)

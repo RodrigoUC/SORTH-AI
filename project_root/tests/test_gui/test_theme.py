@@ -1,5 +1,6 @@
 """Palette contracts, trusted assets and immutable native theme choices."""
 from pathlib import Path
+from PyQt6.QtCore import QFile, QIODevice
 from dataclasses import FrozenInstanceError
 import pytest
 from src.gui.theme import COLORS, STYLESHEET, builtin_themes, stylesheet_for, trusted_assets
@@ -36,9 +37,13 @@ def test_qss_resolved_and_assets_separate_from_color_values():
     assert '$' not in STYLESHEET
     assert set(COLORS) == set(COLOR_ROLES)
     for choice in builtin_themes():
-        for path in trusted_assets(choice.spec).values():
-            assert Path(path).is_file()
-            assert choice.spec.colors['on_header'].lower() in Path(path).read_text().lower()
+        for name, path in trusted_assets(choice.spec).items():
+            file = QFile(path)
+            assert file.open(QIODevice.OpenModeFlag.ReadOnly)
+            data = bytes(file.readAll()).decode('ascii')
+            assert data.startswith('<svg')
+            if name.startswith('sort_'):
+                assert choice.spec.colors['on_header'].lower() in data.lower()
 
 
 def test_direct_theme_construction_detaches_color_dictionary():

@@ -295,8 +295,10 @@ data. Native system file pickers and window chrome can retain the operating
 system's appearance. Palette tests do not establish full accessibility compliance.
 
 Sort-arrow paths are trusted internal assets separate from imported color roles.
-The runtime draws arrows using validated on-header into its own temporary files,
-retaining bundled white arrows for the original palette. No external paths or
+The runtime draws arrows using validated on-header into in-memory Qt resources,
+retaining bundled white sort arrows for the original palette. Trusted checkmarks
+and input arrows likewise use validated foreground roles and require no writable
+temporary directory. No external paths or
 content are read from a theme. Course category fills, accents, markers, text and
 export palettes remain owned by the scheduling/export code. Classroom course
 cards retain an explicit white gutter/separator and a fixed dark-red/pale-red

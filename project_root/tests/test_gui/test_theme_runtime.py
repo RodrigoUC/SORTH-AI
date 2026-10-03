@@ -15,10 +15,11 @@ from src.gui import theme_preferences
 def manager(tmp_path, monkeypatch):
     app = QApplication.instance()
     old = theme.current_theme()
+    old_prepared = theme.stylesheet_for(old), theme.palette_for(old)
     value = theme.ThemeManager(app, ThemePreferences(tmp_path / 'appearance.json'))
     monkeypatch.setattr(app, '_sorth_theme_manager', value, raising=False)
     yield value
-    value._apply(old)
+    value._apply(old, prepared=old_prepared)
     value.deleteLater()
 
 
@@ -275,3 +276,54 @@ def test_postcommit_refresh_failure_is_distinct_and_remaining_widgets_update(man
         broken.deleteLater(); healthy.deleteLater()
         from PyQt6.QtCore import QCoreApplication, QEvent
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def test_icons_preview_and_startup_need_no_writable_temporary_directory(manager, tmp_path, monkeypatch):
+    import tempfile
+    def unavailable(*args, **kwargs):
+        raise OSError('No writable temporary directory')
+    monkeypatch.setattr(tempfile, 'TemporaryDirectory', unavailable)
+    monkeypatch.setattr(tempfile, 'mkdtemp', unavailable)
+    data = theme.builtin_themes()[1].spec.to_dict()
+    data['name'] = 'Uncached in-memory arrows'
+    data['colors']['on_header'] = '#F4F7FB'
+    spec = parse_theme(json.dumps(data))
+    sample = QWidget()
+    try:
+        theme.preview_theme(sample, spec)
+        manager.save_and_apply(spec)
+        reopened = ThemePreferences(manager.preferences.path)
+        restarted = theme.ThemeManager(QApplication.instance(), reopened)
+        assert restarted.current == spec
+        assert theme.trusted_assets(spec)['sort_up'].startswith(':/sorth_theme_')
+        restarted.deleteLater()
+    finally:
+        sample.close()
+
+
+def test_preview_preparation_failure_does_not_partially_mutate_subtree(manager, monkeypatch):
+    sample = QWidget()
+    before = sample.palette(), sample.styleSheet(), sample.property('sorthThemePreview')
+    def unavailable(spec):
+        raise OSError('injected preparation failure')
+    monkeypatch.setattr(theme, 'stylesheet_for', unavailable)
+    with pytest.raises(OSError, match='preparation'):
+        theme.preview_theme(sample, theme.builtin_themes()[1].spec)
+    assert before == (sample.palette(), sample.styleSheet(), sample.property('sorthThemePreview'))
+    sample.close()
+
+
+def test_startup_preparation_failure_falls_back_without_rewriting_valid_record(manager, monkeypatch):
+    choice = theme.builtin_themes()[1]
+    manager.save_and_apply(choice.spec, choice.key)
+    original_bytes = manager.preferences.path.read_bytes()
+    def unavailable(spec):
+        raise OSError('injected startup preparation failure')
+    monkeypatch.setattr(theme, 'stylesheet_for', unavailable)
+    restarted = theme.ThemeManager(QApplication.instance(), ThemePreferences(manager.preferences.path))
+    assert restarted.current_key == 'original'
+    assert restarted.startup_issue
+    assert not restarted.recovery_issue
+    assert restarted.preferences.current_key == 'nocturno'
+    assert manager.preferences.path.read_bytes() == original_bytes
+    restarted.deleteLater()
