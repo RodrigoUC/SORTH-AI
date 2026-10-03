@@ -49,7 +49,7 @@ Al rechazar la restauración y cerrar sin editar, la sesión anterior se conserv
 
 El estado **Sesión no disponible** bloquea la edición y mantiene los archivos intactos. **Reintentar** vuelve a comprobar la lectura y ofrece restaurar cuando sea posible. No hay borrado, reparación destructiva ni selección automática de una copia más antigua.
 
-Para una recuperación manual, cierre SORTH y conserve primero una copia de la carpeta completa, incluidos archivos `-wal` y `-shm` si existen. Con ayuda técnica, identifique una copia válida y sustitúyala sólo tras preservar el archivo afectado. No borre una base dañada para intentar que el programa arranque. Las copias contienen datos de la sesión: manténgalas privadas.
+Para una recuperación manual, cierre SORTH y conserve primero una copia de la carpeta completa, incluidos archivos `-wal` y `-shm` si existen. Con ayuda técnica, identifique una copia válida y sustitúyala sólo tras preservar el archivo afectado. No borre una base dañada para intentar que el programa arranque. Las copias contienen datos de la sesión, incluidos recursos personales cuando existan: manténgalas privadas. Incluya también `sorth_projects.db` para conservar escenarios; editar la sesión no modifica esas copias. Consulte [Privacidad y datos locales](../PRIVACY.md) para configuración separada y eliminación.
 
 ## Verificación
 
@@ -57,7 +57,7 @@ Las pruebas cubren migración y prioridad de rutas, WAL, copias independientes, 
 
 ## Esquema, recuperación verificable y vuelta a una versión anterior
 
-El esquema se identifica mediante `PRAGMA user_version` (versión actual: 1). Una base antigua con versión 0 se copia a `schema-session-*.db` antes de migrar; la migración y su número de versión se confirman en una sola transacción. La matrícula y las excepciones manuales de laboratorio se conservan cuando existen; en esquemas que no tenían esos campos se inicializan a 0/sin excepción. Abrir nuevamente no repite la migración ni crea copias adicionales. Si falla la copia, no comienza la migración. Una versión de esquema más nueva se rechaza antes de modificarla.
+El esquema se identifica mediante `PRAGMA user_version` (versión actual: 4). Una base existente de esquema anterior se copia a `schema-session-*.db` antes de migrar; la migración y su número de versión se confirman en una sola transacción. La matrícula y las excepciones manuales de laboratorio se conservan cuando existen; en esquemas que no tenían esos campos se inicializan a 0/sin excepción. Abrir nuevamente no repite la migración ni crea copias adicionales. Si falla la copia, no comienza la migración. Una versión de esquema más nueva se rechaza antes de modificarla.
 
 También se ofrece restaurar una sesión que sólo contiene aulas o una sesión vacía guardada intencionalmente. No se interpreta la ausencia de cursos como permiso para reemplazar datos.
 

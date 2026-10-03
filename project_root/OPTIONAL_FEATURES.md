@@ -43,9 +43,9 @@ working controls and behavior, never as a placeholder for an unfinished feature.
 
 New advanced tools must start off, retain domain data when disabled, explain any
 remaining effects in the main-window notice, and never bypass safety rules.
-Bulk editing, undo, import preview, placement suggestions and calendar
-configuration are not listed until their implementations are integrated. Resources
-are now implemented as independent parameters, described below.
+Bulk editing and undo are documented in [Reversible edits](REVERSIBLE_EDITS.md);
+placement suggestions in [Placement suggestions](PLACEMENT_SUGGESTIONS.md).
+Import preview, calendar and resource parameters are described below.
 
 ## Verification
 
@@ -74,3 +74,6 @@ ocultar herramientas, apagarlos desactiva sus restricciones efectivas tras
 confirmación y retirada del resultado actual. Conserva recursos y relaciones.
 Los parámetros efectivos viajan con las sesiones/escenarios; las preferencias de
 interfaz no pueden omitir la validación de un snapshot. Véase OPTIONAL_RESOURCES.md.
+
+Consulta [Privacidad y datos locales](../PRIVACY.md) para ubicaciones, datos
+conservados, exportaciones, respaldos y diferencia entre desactivar y borrar.

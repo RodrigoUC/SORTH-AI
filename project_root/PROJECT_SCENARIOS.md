@@ -29,7 +29,7 @@ el catálogo; escenario dentro del proyecto), también ante llamadas concurrente
 
 El catálogo guarda la copia SQLite completa como BLOB, no una selección parcial de
 columnas. Incluye cursos, aulas, restricciones, semilla, asignaciones, excepciones,
-y marcas fijas cuando el esquema las soporta. `SessionRepository` sigue siendo el
+marcas fijas, calendario y recursos/relaciones/parámetros cuando el esquema los soporta. `SessionRepository` sigue siendo el
 único dueño del esquema de sesión y sus migraciones. La API de backup incluye WAL.
 Abrir/migrar una copia trabaja sobre un archivo temporal; el BLOB original permanece
 intacto. No se cambia el esquema de la sesión para introducir los proyectos.
@@ -82,3 +82,6 @@ localización ES/EN e incompatibilidad previa a cualquier escritura.
 La revisión Qt offscreen en Linux no sustituye pruebas nativas de Windows ni una
 validación con lector de pantalla. No cerrar el issue solamente por este documento;
 registrar el resultado de tests/CI del commit final y los controles no ejecutados.
+
+Consulta [Privacidad y datos locales](../PRIVACY.md) para ubicaciones, datos
+conservados, exportaciones, respaldos y diferencia entre desactivar y borrar.
