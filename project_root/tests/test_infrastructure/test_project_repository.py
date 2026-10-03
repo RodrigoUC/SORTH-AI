@@ -107,10 +107,10 @@ def test_comparison_shared_metrics_unknown_version_and_differences(repo, tmp_pat
 
 
 def test_snapshot_carries_extra_schema_fields_without_schema_ownership(repo, tmp_path):
-    # Independent repository extension represents a newer pin-aware session.
+    # An unknown future extension is preserved alongside the real pin column.
     with sqlite3.connect(repo._db_path) as con:
-        con.execute('ALTER TABLE assignments ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
-        con.execute('UPDATE assignments SET pinned=1')
+        con.execute('ALTER TABLE assignments ADD COLUMN future_marker INTEGER NOT NULL DEFAULT 0')
+        con.execute('UPDATE assignments SET future_marker=1')
     catalog = ProjectRepository(tmp_path/'projects.db')
     _, scenario = catalog.create_project('P', 'Pinned', repo, scenario_metadata())
     with sqlite3.connect(catalog.path) as con:
@@ -118,7 +118,7 @@ def test_snapshot_carries_extra_schema_fields_without_schema_ownership(repo, tmp
     snapshot = tmp_path/'snapshot.db'
     snapshot.write_bytes(blob)
     with sqlite3.connect(snapshot) as con:
-        assert con.execute('SELECT pinned FROM assignments').fetchone()[0] == 1
+        assert con.execute('SELECT future_marker FROM assignments').fetchone()[0] == 1
 
 
 def test_failed_rename_preserves_both_snapshots(repo, tmp_path):

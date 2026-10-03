@@ -134,3 +134,30 @@ def test_unrenderable_seed_preserves_disk_and_gui(window, monkeypatch):
     assert window.course_manager.get_courses() == courses
     assert not window._restore_failed
     dialog.close()
+
+
+def test_open_scenario_restores_pins_and_explicit_lab_exceptions(window, monkeypatch):
+    window.course_manager.load_courses_from_excel([Course('LAB', 1, 60, 'LAB')])
+    groups = window.course_manager.get_courses()[0].generate_groups()
+    assignments = {'LAB-G1': ('A', 1, 480, 540)}
+    groups[0].assignment = assignments['LAB-G1']
+    groups[0].lab_override = True
+    window._on_schedule_done(assignments, groups)
+    window._toggle_pin('LAB-G1')
+    dialog = ProjectDialog(window)
+    monkeypatch.setattr(project_dialog, 'ask_name', lambda *args: 'Pinned LAB')
+    dialog.create()
+    scenario = window._scenario_id
+    window._toggle_pin('LAB-G1')
+    assert window._scenario_dirty
+    dialog.refresh()
+    dialog.table.selectRow(next(i for i, row in enumerate(dialog.rows) if row['id'] == scenario))
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.Yes)
+    dialog.open_selected()
+    assert window.pinned_group_ids == {'LAB-G1'}
+    assert window.current_schedule == assignments
+    assert window.current_groups[0].pinned and window.current_groups[0].lab_override
+    saved = window._repo.load_session()
+    assert saved['pinned_group_ids'] == saved['lab_overrides'] == {'LAB-G1'}
+    assert not window._scenario_dirty
+    dialog.close()
