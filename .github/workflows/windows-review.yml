@@ -46,11 +46,31 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Dependency validation failed.' }
           New-Item -ItemType Directory -Force build/reports | Out-Null
           .\.venv-build\Scripts\python.exe -m pip freeze | Out-File -Encoding utf8 build/reports/build-environment.txt
-      - name: Run all regression tests
+      - name: Collect full regression inventory
+        id: regression-inventory
+        timeout-minutes: 2
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest --collect-only -q -p tools.windows_test_batches --test-inventory=build/reports/tests-all-inventory.json
+          if ($LASTEXITCODE -ne 0) { throw 'Full regression collection failed.' }
+      - name: Run GUI regression tests
         timeout-minutes: 8
         run: |
-          .\.venv-build\Scripts\python.exe -m pytest -vv -o faulthandler_timeout=120 --junitxml=build/reports/tests.xml
-          if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=gui --test-inventory=build/reports/tests-gui-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-gui.xml
+          if ($LASTEXITCODE -ne 0) { throw 'GUI regression tests failed.' }
+      - name: Run remaining regression tests
+        # Collect evidence from both batches even if GUI tests fail; a failed
+        # step still blocks every subsequent build and packaging step.
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 4
+        run: |
+          .\.venv-build\Scripts\python.exe -m pytest -vv -p tools.windows_test_batches --regression-batch=remaining --test-inventory=build/reports/tests-remaining-inventory.json -o faulthandler_timeout=120 --junitxml=build/reports/tests-remaining.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Remaining regression tests failed.' }
+      - name: Verify exact regression batch coverage
+        if: ${{ !cancelled() && steps.regression-inventory.outcome == 'success' }}
+        timeout-minutes: 1
+        run: |
+          .\.venv-build\Scripts\python.exe tools/windows_test_batches.py --verify build/reports
+          if ($LASTEXITCODE -ne 0) { throw 'Regression batch coverage verification failed.' }
       - name: Generate current manual
         run: |
           .\.venv-build\Scripts\python.exe tools/build_manual.py --output build/docs/MANUAL_USUARIO.pdf

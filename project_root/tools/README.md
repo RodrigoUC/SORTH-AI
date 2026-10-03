@@ -9,6 +9,15 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 
 - `check_architecture.py`: guard AST de los límites del README.
   Comando: `python tools/check_architecture.py`; no importa ni ejecuta la app.
+- `windows_test_batches.py`: plugin pytest que divide la suite Windows en dos
+  lotes seriales, GUI (`tests/test_gui/`) y el resto, sin excluir tests nuevos.
+  El workflow recoge primero el inventario completo; cada lote conserva sus IDs
+  seleccionados y su JUnit. `python tools/windows_test_batches.py --verify
+  build/reports` exige una unión exacta sin IDs duplicados, faltantes ni ajenos.
+  El lote GUI conserva el límite de ocho minutos; el resto tiene cuatro minutos.
+  Ambos mantienen los diagnósticos de bloqueo a los 120 segundos.
+  Aunque falle GUI, se ejecuta el resto para reunir evidencia;
+  cualquier fallo de tests o inventario bloquea la construcción del paquete.
 
 ## Medición y diagnóstico
 
