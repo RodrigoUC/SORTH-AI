@@ -3,7 +3,7 @@
 MESSAGES = {
     'El permiso MCP cambió fuera de este diálogo. Se ha actualizado su casilla; revisa los cambios antes de guardar.': 'MCP permission changed outside this dialog. Its checkbox has been refreshed; review the changes before saving.',
     'Espera a que termine la operación o recupera la sesión antes de guardar la configuración.': 'Wait for the operation to finish or recover the session before saving settings.',
-    'Guarda primero los cambios de recursos y después activa MCP. No se han guardado cambios.': 'Save resource changes first, then enable MCP. No changes have been saved.',
+    'Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.': 'Save resource changes and the MCP permission separately. No changes have been saved.',
 
     'Permitir servidor MCP local': 'Allow local MCP server',
     'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.': 'Allow a client to start the stdio server. This does not start processes, connect models or install components.',

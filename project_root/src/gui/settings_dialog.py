@@ -159,8 +159,8 @@ class SettingsDialog(QDialog):
         if self.window._busy or self.window._restore_failed:
             QMessageBox.warning(self, msg('Configuración'), msg('Espera a que termine la operación o recupera la sesión antes de guardar la configuración.'))
             return
-        if values['mcp_server'] and not self.window._features.enabled('mcp_server') and changes:
-            QMessageBox.warning(self, msg('Configuración'), msg('Guarda primero los cambios de recursos y después activa MCP. No se han guardado cambios.'))
+        if values['mcp_server'] != self.window._features.enabled('mcp_server') and changes:
+            QMessageBox.warning(self, msg('Configuración'), msg('Guarda los cambios de recursos y el permiso MCP por separado. No se han guardado cambios.'))
             return
         previous = self.window._features.values()
         try:

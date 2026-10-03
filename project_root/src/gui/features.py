@@ -5,7 +5,7 @@ import os
 import tempfile
 
 from PyQt6.QtCore import QIODevice, QSaveFile, QSettings
-from ..application.mcp_preferences import default_path, read_record
+from ..application.mcp_preferences import default_path, read_record, preferences_lock, update_permission
 from ..application.optional_features import Feature, FEATURES
 
 
@@ -60,7 +60,7 @@ class FeaturePreferences:
         return {feature.key: self.enabled(feature.key) for feature in FEATURES}
 
     def _write_atomic(self, record):
-        data = (json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n').encode('utf-8')
+        data = (json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False) + '\n').encode('utf-8')
         if len(data) > self.MAX_BYTES:
             raise ValueError('Preferences exceed the supported size')
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,18 +83,21 @@ class FeaturePreferences:
         known = {feature.key for feature in FEATURES}
         if set(values) != known or any(type(value) is not bool for value in values.values()):
             raise ValueError('Expected exactly the registered boolean feature preferences')
-        try:
-            record = self._read()
-        except (OSError, ValueError, TypeError) as error:
-            self.load_error = str(error)
-            raise OSError('Preferences require explicit recovery') from error
-        if (record['features'].get('mcp_server', False) !=
-                self._record['features'].get('mcp_server', False)):
-            self._record = record
-            self.load_error = None
-            raise McpPreferenceConflict('MCP permission changed externally; review before saving')
-        record['features'].update(values)
-        self._write_atomic(record)
+        with preferences_lock(self.path):
+            try:
+                record = self._read()
+            except (OSError, ValueError, TypeError) as error:
+                self.load_error = str(error)
+                raise OSError('Preferences require explicit recovery') from error
+            if (record['features'].get('mcp_server', False) !=
+                    self._record['features'].get('mcp_server', False)
+                    or record.get('mcp_generation') != self._record.get('mcp_generation')):
+                self._record = record
+                self.load_error = None
+                raise McpPreferenceConflict('MCP permission changed externally; review before saving')
+            update_permission(record, values['mcp_server'])
+            record['features'].update(values)
+            self._write_atomic(record)
 
     def recover_defaults(self, preserved_values=None):
         """Explicit user-confirmed recovery; retain exact original bytes first."""
@@ -104,14 +107,17 @@ class FeaturePreferences:
                     or any(type(v) is not bool for v in preserved_values.values())):
                 raise ValueError('Invalid preserved preferences')
             defaults.update(preserved_values)
-        backup = None
-        if self.path.exists():
-            raw = self.path.read_bytes()
-            with tempfile.NamedTemporaryFile(mode='wb', prefix=self.path.name + '.preserved-',
-                                             suffix='.bak', dir=self.path.parent, delete=False) as stream:
-                stream.write(raw)
-                stream.flush()
-                os.fsync(stream.fileno())
-                backup = Path(stream.name)
-        self._write_atomic({'version': self.VERSION, 'features': defaults})
-        return backup
+        with preferences_lock(self.path):
+            backup = None
+            if self.path.exists():
+                raw = self.path.read_bytes()
+                with tempfile.NamedTemporaryFile(mode='wb', prefix=self.path.name + '.preserved-',
+                                                 suffix='.bak', dir=self.path.parent, delete=False) as stream:
+                    stream.write(raw)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                    backup = Path(stream.name)
+            record = {'version': self.VERSION, 'features': defaults}
+            update_permission(record, defaults['mcp_server'])
+            self._write_atomic(record)
+            return backup

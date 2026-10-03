@@ -10,7 +10,7 @@ from ..application.schedule_preview import validate_configuration
 
 
 def build_server(preferences_path=None):
-    from ..application.mcp_preferences import enabled
+    from ..application.mcp_preferences import permission_generation
     # Delayed optional imports keep all normal app/import paths SDK independent.
     import mcp.types as types
     from mcp.server.lowlevel import Server
@@ -34,13 +34,14 @@ def build_server(preferences_path=None):
     @server.call_tool(validate_input=False)
     async def call_tool(name, arguments):
         try:
-            if not enabled(preferences_path):
+            generation = permission_generation(preferences_path)
+            if generation is None:
                 raise ContractError("MCP_DISABLED", "server", "MCP is disabled or preferences are unreadable.")
             if name not in descriptions:
                 raise ContractError("UNKNOWN_TOOL", "tool", "Use validate_configuration or generate_preview.")
             validated = validate_configuration(arguments)
             result = validated if name == "validate_configuration" else await executor.generate(validated["normalized"])
-            if not enabled(preferences_path):
+            if permission_generation(preferences_path) != generation:
                 raise ContractError("MCP_DISABLED", "server", "MCP was disabled; the pending result was discarded.")
             return result
         except ContractError as exc:

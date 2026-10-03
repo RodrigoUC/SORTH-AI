@@ -12,8 +12,9 @@ versión incompatible (se admite exactamente `mcp==1.30.0`), error de carga y ti
 agotado. La comprobación es asíncrona, se cancela al cerrar y no instala nada.
 Solo se puede guardar una nueva activación si la comprobación tuvo éxito.
 Guardar no inicia el servidor ni configura un cliente/modelo. Cancelar no activa
-nada. Guarda cambios de recursos por separado antes de habilitar MCP para no
-publicar un permiso durante una transacción de recursos fallida.
+nada. Guarda los cambios de recursos y el permiso MCP por separado, tanto al
+activar como al desactivar, para que una transacción de recursos fallida nunca
+revierta una revocación o publique una activación parcial.
 
 El **EXE estándar no incluye el SDK ni un servidor MCP ejecutable**: la opción
 muestra esa limitación y no se puede activar desde ese entorno. Nunca se lanza
@@ -28,8 +29,12 @@ GUI y servidor comparten un único registro `features.mcp_server` en
 proveedores ni datos de horarios. El servidor lee ese permiso al iniciar, al
 recibir cada llamada y antes de devolver el resultado. Ausencia, corrupción,
 versión de archivo desconocida o permiso desactivado cierran el acceso. Desactivar
-bloquea nuevos inicios y llamadas y descarta una propuesta pendiente; no mata el
-proceso que pertenece al cliente. Una generación ya iniciada puede terminar
+bloquea nuevos inicios y llamadas y descarta una propuesta pendiente, incluso si
+vuelves a activar MCP antes de que termine. Un identificador de generación
+`mcp_generation` dentro del mismo registro cambia en cada transición de permiso;
+las preferencias antiguas sin identificador se migran en la siguiente escritura
+explícita, sin escrituras al leer. Un identificador inválido también cierra el
+acceso. No mata el proceso que pertenece al cliente. Una generación ya iniciada puede terminar
 internamente con su límite existente de diez segundos. Cierra el proceso desde
 el cliente. No se revocan copias de resultados entregados previamente.
 
@@ -38,8 +43,15 @@ y conserva sus demás preferencias mediante reemplazo atómico. `--preferences`
 permite elegir explícitamente otro archivo; úsalo **igual** al configurar el
 servidor y el CLI. La GUI refresca el permiso al abrir o comprobar Configuración y bloquea un guardado
 si el CLI cambió el permiso desde la última lectura; revisa la casilla antes de
-volver a guardar. No edites el archivo concurrentemente desde la GUI y el CLI.
-Los errores preservan el original y no lo reparan silenciosamente. Ejecutar el
+volver a guardar, incluso tras una secuencia OFF→ON. GUI, CLI y recuperación
+usarán un bloqueo del SO no bloqueante durante toda la lectura y escritura: si
+otro escritor lo tiene, el guardado falla sin cambiar las preferencias y puede
+reintentarse después. El archivo auxiliar `.lock` permanece para conservar el
+mismo bloqueo; no contiene preferencias, no lo borres para forzar un desbloqueo.
+El SO libera el bloqueo al cerrar el proceso. Editores externos que no usen este
+protocolo no están coordinados; no edites el JSON manualmente mientras se usa.
+Los errores preservan el original y no lo reparan silenciosamente. El lector
+rechaza claves duplicadas, valores no finitos y profundidad superior a 32 niveles. Ejecutar el
 CLI con `--enable` es una autorización explícita; la comprobación de disponibilidad
 se hace al arrancar el servidor y puede hacerse por separado sin activarlo.
 

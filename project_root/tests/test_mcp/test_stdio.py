@@ -372,3 +372,33 @@ def test_off_blocks_existing_client_and_discards_inflight_result(tmp_path, monke
         response = await handler(request_message)
         assert response.root.structuredContent['error']['code'] == 'MCP_DISABLED'
     asyncio.run(exercise())
+
+
+def test_revocation_then_reenable_discards_previous_generation(tmp_path, monkeypatch):
+    from src.application.mcp_preferences import set_enabled
+    from src.application.schedule_preview import generate_preview
+    from src.mcp_adapter.server import build_server
+    from mcp.types import CallToolRequest, CallToolRequestParams
+    path = tmp_path / 'preferences.json'
+    set_enabled(path, True)
+    handler = build_server(path).request_handlers[CallToolRequest]
+    result = generate_preview(request())
+    async def revoke_and_reenable(self, value):
+        set_enabled(path, False)
+        await asyncio.sleep(0)
+        set_enabled(path, True)
+        return result
+    monkeypatch.setattr(PreviewExecutor, 'generate', revoke_and_reenable)
+    async def exercise():
+        message = CallToolRequest(method='tools/call', params=CallToolRequestParams(
+            name='generate_preview', arguments=request()))
+        response = await handler(message)
+        assert response.root.isError
+        assert response.root.structuredContent['error']['code'] == 'MCP_DISABLED'
+        async def next_generation(self, value):
+            return result
+        monkeypatch.setattr(PreviewExecutor, 'generate', next_generation)
+        response = await handler(message)
+        assert not response.root.isError
+        assert response.root.structuredContent['status'] == 'complete'
+    asyncio.run(exercise())

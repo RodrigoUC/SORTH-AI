@@ -180,3 +180,114 @@ def test_opening_and_checking_refresh_external_permission(window, monkeypatch):
     dialog._check_mcp()
     assert not dialog.controls['mcp_server'].isChecked()
     dialog.reject()
+
+
+@pytest.mark.parametrize('initial', [False, True])
+def test_mcp_transition_and_resource_change_are_separate_transactions(window, monkeypatch, initial):
+    monkeypatch.setattr(McpAvailabilityProbe, 'start', lambda self: self.finished.emit('available'))
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args))
+    window._features.save({**window._features.values(), 'mcp_server': initial})
+    before = window._features.path.read_bytes()
+    dialog = SettingsDialog(window)
+    dialog.controls['mcp_server'].setChecked(not initial)
+    dialog.controls['teacher'].setChecked(True)
+    monkeypatch.setattr(window, '_apply_resource_parameters', lambda *args: pytest.fail('No mixed transaction'))
+    dialog.accept()
+    assert warnings and window._features.path.read_bytes() == before
+    assert enabled(window._features.path) == initial
+    dialog.reject()
+
+
+def test_gui_lock_covers_read_and_commit_against_cli(window, monkeypatch):
+    import subprocess
+    from pathlib import Path
+    from src.application.mcp_preferences import permission_generation, set_enabled
+    window._features.save({**window._features.values(), 'mcp_server': True})
+    generation = permission_generation(window._features.path)
+    root = Path(__file__).resolve().parents[2]
+    outcomes = []
+    def compete():
+        result = subprocess.run([sys.executable, '-B', '-S', '-m', 'src.application.mcp_preferences',
+                                 '--preferences', str(window._features.path), '--disable'], cwd=root,
+                                capture_output=True, text=True, timeout=5)
+        outcomes.append(result.returncode)
+    original_read, original_write = window._features._read, window._features._write_atomic
+    def read():
+        compete()
+        return original_read()
+    def write(record):
+        compete()
+        return original_write(record)
+    monkeypatch.setattr(window._features, '_read', read)
+    monkeypatch.setattr(window._features, '_write_atomic', write)
+    window._features.save({**window._features.values(), 'placement_suggestions': True})
+    assert outcomes == [2, 2]
+    assert permission_generation(window._features.path) == generation
+    monkeypatch.setattr(window._features, '_read', original_read)
+    monkeypatch.setattr(window._features, '_write_atomic', original_write)
+    set_enabled(window._features.path, False)
+    from src.gui.features import McpPreferenceConflict
+    with pytest.raises(McpPreferenceConflict):
+        window._features.save(window._features.values())
+    assert not enabled(window._features.path)
+
+
+def test_cli_lock_blocks_gui_save_and_recovery_without_changing_files(window):
+    import subprocess
+    from pathlib import Path
+    window._features.save({**window._features.values(), 'mcp_server': True})
+    before = window._features.path.read_bytes()
+    original_generation = window._features._record['mcp_generation']
+    root = Path(__file__).resolve().parents[2]
+    # Pause a real CLI writer inside its atomic replace while the OS lock is held.
+    script = '''import sys
+from src.application import mcp_preferences as prefs
+original = prefs._write_atomic
+def pause(path, record):
+    print('locked', flush=True)
+    sys.stdin.readline()
+    original(path, record)
+prefs._write_atomic = pause
+prefs.set_enabled(sys.argv[1], False)
+'''
+    process = subprocess.Popen([sys.executable, '-B', '-S', '-c', script, str(window._features.path)],
+                               cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        assert process.stdout.readline() == b'locked\n'
+        with pytest.raises(OSError):
+            window._features.save({**window._features.values(), 'placement_suggestions': True})
+        with pytest.raises(OSError):
+            window._features.recover_defaults()
+        assert window._features.path.read_bytes() == before
+        assert window._features._record['mcp_generation'] == original_generation
+        assert not list(window._features.path.parent.glob('*.preserved-*.bak'))
+        stdout, stderr = process.communicate(b'continue\n', timeout=5)
+        assert process.returncode == 0, stderr
+        assert not enabled(window._features.path)
+        assert Path(str(window._features.path) + '.lock').exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.communicate(timeout=5)
+
+
+def test_off_on_cli_sequence_conflicts_with_stale_gui_snapshot(window):
+    from src.application.mcp_preferences import set_enabled
+    from src.gui.features import McpPreferenceConflict
+    window._features.save({**window._features.values(), 'mcp_server': True})
+    set_enabled(window._features.path, False)
+    set_enabled(window._features.path, True)
+    with pytest.raises(McpPreferenceConflict):
+        window._features.save({**window._features.values(), 'placement_suggestions': True})
+    assert not window._features.enabled('placement_suggestions')
+
+
+@pytest.mark.parametrize('value', ['', 'relative-config-directory'])
+def test_empty_or_relative_xdg_config_matches_qt_fallback(monkeypatch, value):
+    from pathlib import Path
+    if sys.platform in {'win32', 'darwin'}:
+        pytest.skip('XDG fallback is a Linux/Unix configuration convention')
+    monkeypatch.setenv('XDG_CONFIG_HOME', value)
+    assert default_path().is_absolute()
+    assert default_path() == Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.GenericConfigLocation)) / 'SORTH' / 'optional-features.json'
