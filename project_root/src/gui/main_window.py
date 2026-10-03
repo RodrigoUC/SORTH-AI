@@ -553,6 +553,8 @@ class MainWindow(QMainWindow):
             self._update_save_state()
             self._update_feature_notice()
             self._reset_edit_history('import')
+            self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
+                                      p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
         self._loading = True
         signal_guard = QSignalBlocker(self.course_manager)
@@ -591,9 +593,6 @@ class MainWindow(QMainWindow):
         finally:
             signal_guard.unblock()
             self._loading = False
-        # Announce success only after the atomic transaction has committed.
-        self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
-                                  p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
     def _add_classroom(self):
         dialog = AddClassroomDialog(self)

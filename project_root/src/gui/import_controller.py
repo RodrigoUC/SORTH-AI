@@ -183,6 +183,8 @@ class ImportController(QObject):
         failed_token = self.token
         failure = msg('No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.',
                       filename=failed_name)
+        # Replace any rolled-back presentation before the modal can enter a
+        # nested event loop. Keep the accepted import's atomic boundary intact.
         self.window.status_bar.showMessage(failure)
         QMessageBox.critical(self.window, msg('Error'), msg('Error al cargar archivo Excel:\n{p1}',
                              p1=error.render(msg) if isinstance(error, ExcelImportError) else str(error)))

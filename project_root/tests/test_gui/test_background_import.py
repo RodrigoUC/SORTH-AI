@@ -712,13 +712,20 @@ def test_changed_candidate_review_identity_and_rejection(window, tmp_path, monke
     assert session(window) == before and (tmp_path / 'session.db').read_bytes() == disk
 
 
-@pytest.mark.parametrize('failure', ['malformed', 'commit'])
+@pytest.mark.parametrize('failure', ['malformed', 'presentation', 'commit'])
 def test_import_error_replaces_previous_success_and_preserves_identity_and_session(window, tmp_path, monkeypatch, failure):
     from contextlib import contextmanager
     from src.gui.i18n import msg
     path = workbook(tmp_path / 'failed-latest.xlsx', hours='bad' if failure == 'malformed' else '0800-0900')
     window.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)', p1='old-success.xlsx', p3=1, p5=1))
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
+    if failure == 'presentation':
+        original_status = window.status_bar.showMessage
+        def fail_success(message, *args):
+            if 'Excel cargado:' in str(message):
+                raise RuntimeError('synthetic private presentation detail')
+            return original_status(message, *args)
+        monkeypatch.setattr(window.status_bar, 'showMessage', fail_success)
     if failure == 'commit':
         original = window._repo._connect
         @contextmanager
@@ -737,7 +744,7 @@ def test_import_error_replaces_previous_success_and_preserves_identity_and_sessi
     assert len(modal_statuses) == 1 and 'No se pudo importar failed-latest.xlsx' in modal_statuses[0]
     status = read_f6(window)
     assert 'No se pudo importar failed-latest.xlsx' in status
-    assert 'old-success.xlsx' not in status and 'synthetic private commit detail' not in status
+    assert 'old-success.xlsx' not in status and 'synthetic private' not in status
     assert window._import.candidate_name is None and not window._import_candidate_row.isVisible()
     assert session(window) == before and (tmp_path / 'session.db').read_bytes() == disk
 
