@@ -105,14 +105,25 @@ class LocalizedNumber:
 
 
 class _StandardTranslator(QTranslator):
-    """Qt-owned standard labels; no extra .qm resources needed by PyInstaller."""
+    """Application-owned standard labels, independent of manager GC lifetime.
 
-    def __init__(self, manager):
-        super().__init__(manager)
-        self.manager = manager
+    Qt holds its translation read lock during this Python callback. Destroying
+    a QTranslator (even one already removed) takes the matching write lock, so
+    translators must not be collected with retired cyclic Python managers here.
+    The application owns their native lifetime; the manager reference is weak.
+    """
+
+    def __init__(self, manager, application):
+        super().__init__(application)
+        self._manager_ref = weakref.ref(manager)
 
     def translate(self, context, sourceText, disambiguation=None, n=-1):
-        return LANGUAGES[self.manager.language].qt_messages.get(sourceText, '')
+        manager = self._manager_ref()
+        if manager is None or sip.isdeleted(manager):
+            return None
+        # None becomes a null QString (not found). An empty Python string is a
+        # successful empty translation and prevents Qt's source-text fallback.
+        return LANGUAGES[manager.language].qt_messages.get(sourceText)
 
     def isEmpty(self):
         return False
@@ -127,7 +138,9 @@ class LanguageManager(QObject):
         saved = self.settings.value('interface/language', DEFAULT_LANGUAGE)
         self.language = saved if saved in LANGUAGES else DEFAULT_LANGUAGE
         self._objects = {}
-        self._translator = _StandardTranslator(self)
+        # A pre-application manager must not create an unowned translator that
+        # could later be collected inside an unrelated translation callback.
+        self._translator = None
         self._translator_installed = False
         self._install_translator()
 
@@ -143,7 +156,12 @@ class LanguageManager(QObject):
 
     def _install_translator(self):
         app = QCoreApplication.instance()
-        if app is not None and not self._translator_installed:
+        if app is None:
+            return
+        if self._translator is None or sip.isdeleted(self._translator):
+            self._translator = _StandardTranslator(self, app)
+            self._translator_installed = False
+        if not self._translator_installed:
             app.installTranslator(self._translator)
             self._translator_installed = True
 
@@ -159,7 +177,14 @@ class LanguageManager(QObject):
         self._install_translator()
         self._set_widget_locale(obj)
         identity = id(obj)
-        self._objects[identity] = weakref.ref(obj, lambda _: self._objects.pop(identity, None))
+        manager_ref = weakref.ref(self)
+
+        def forget(_):
+            manager = manager_ref()
+            if manager is not None:
+                manager._objects.pop(identity, None)
+
+        self._objects[identity] = weakref.ref(obj, forget)
 
     def set_language(self, language, persist=True):
         language = language if language in LANGUAGES else DEFAULT_LANGUAGE
@@ -171,6 +196,7 @@ class LanguageManager(QObject):
         self.language = language
         app = QCoreApplication.instance()
         if app is not None:
+            self._install_translator()
             # Qt sends LanguageChange to its own standard dialogs/controls.
             app.removeTranslator(self._translator)
             app.installTranslator(self._translator)

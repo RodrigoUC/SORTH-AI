@@ -12,6 +12,7 @@ Spanish remains the default; English is the first additional locale.
 - QSettings stores `interface/language` under organization/application `SORTH/SORTH`, separately from SQLite. Unsupported values fall back to Spanish. Missing keys, missing plural forms and invalid placeholder translations fall back to the Spanish catalog; unknown keys display their source ID.
 - Regional numbers use `LocalizedNumber`; date/time presentation helpers use the registered `QLocale`. Each owned widget gets that locale directly. The OS locale and `QLocale` global default are never changed. Domain IDs and explicit HH:mm schedule times are not localized.
 - Catalogs are Python modules imported explicitly by the registry, so PyInstaller discovers them without extra runtime dependencies or a translation compiler. Qt-owned standard button/context-menu translations have their own catalog. Native system file dialogs retain platform language.
+- Standard Qt translators are created only after the application exists and are owned by that application until shutdown. Their manager reference is weak; a retired manager stops supplying translations. This prevents Python garbage collection from destroying a translator while Qt holds its translation lock. Registered-widget cleanup callbacks also keep only weak manager references. No garbage-collection setting or bilingual native label is disabled.
 
 ## Adding a language
 
