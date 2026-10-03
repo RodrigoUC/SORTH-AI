@@ -190,3 +190,311 @@ def test_widget_owners_survive_translation_and_deleted_blockers_are_dismissed(mo
                             capture_output=True, text=True, timeout=12)
     assert result.returncode == 0, result.stderr
     assert 'translation owner lifecycle passed' in result.stdout
+
+
+NATIVE_OWNER_LIFETIME_SCRIPT = r'''
+import gc, sys, weakref
+from PyQt6 import sip
+from PyQt6.QtCore import QCoreApplication, QEvent
+from PyQt6.QtWidgets import QApplication, QWidget, QDialog, QTableWidget
+from src.gui.i18n import msg, language_manager
+from src.gui import i18n_widgets as iw
+
+kind, entry, mode = sys.argv[1:]
+app = QApplication([])
+manager = language_manager()
+manager.set_language('es', persist=False)
+owner = QWidget()
+owner.cycle = owner
+# Include an intermediate dialog/window: window() alone would retain that
+# dialog, but not its owning QWidget, which can still delete the whole tree.
+parent = QDialog(owner)
+owner_ref = weakref.ref(owner)
+parent_ref = weakref.ref(parent)
+if kind in {'QLabel', 'QAction'}:
+    child = getattr(iw, kind)(msg('Código'), parent)
+    button = None
+elif kind == 'QTableWidgetItem':
+    table = QTableWidget(1, 1, parent)
+    child = iw.QTableWidgetItem(msg('Código'))
+    table.setItem(0, 0, child)
+    del table
+    button = None
+else:
+    widget_class = getattr(iw, kind)
+    if entry in {'nested-native', 'style-native', 'sibling-native', 'sibling-style'}:
+        class NestedButtonBox(widget_class):
+            armed = False
+            nested = False
+            def changeEvent(self, event):
+                super().changeEvent(event)
+                if (self.armed and not self.nested and event.type() in
+                        (QEvent.Type.LanguageChange, QEvent.Type.StyleChange)):
+                    self.nested = True
+                    QCoreApplication.sendEvent(getattr(self, 'peer', self),
+                                               QEvent(QEvent.Type.LanguageChange))
+        child = NestedButtonBox(parent)
+    else:
+        child = widget_class(parent)
+    child.setStandardButtons(child.StandardButton.Save | child.StandardButton.Cancel)
+    child.setButtonText(child.StandardButton.Save, msg('Guardar'))
+    button = child.button(child.StandardButton.Save)
+    if entry.startswith('sibling-'):
+        child.peer = iw.QDialogButtonBox(iw.QDialogButtonBox.StandardButton.Save |
+                                           iw.QDialogButtonBox.StandardButton.Cancel, parent)
+    child.armed = True
+# Keep the cycle rooted until the precise tested rendering/fitting boundary.
+holder = [owner]
+del owner, parent
+observed = []
+original_render = iw._render
+expected = None
+
+def boundary():
+    if observed:
+        return
+    observed.append(True)
+    holder.clear()
+    if mode in {'gc-owner', 'gc-fit'}:
+        gc.collect()
+        assert owner_ref() is not None and not sip.isdeleted(child)
+    elif mode == 'delete-owner':
+        sip.delete(owner_ref())
+        assert sip.isdeleted(child)
+    elif mode == 'delete-button':
+        sip.delete(button)
+    elif mode == 'delete-child':
+        sip.delete(child)
+    elif mode == 'render-error-deleted':
+        sip.delete(child)
+        raise RuntimeError('native translation failure sentinel')
+    elif mode == 'render-error':
+        raise RuntimeError('native translation failure sentinel')
+    else:
+        raise AssertionError(mode)
+
+def render(value):
+    result = original_render(value)
+    if mode != 'gc-fit':
+        boundary()
+    return result
+
+iw._render = render
+if mode == 'gc-fit' and entry == 'timer':
+    original_hint = button.minimumSizeHint
+    def hint():
+        boundary()
+        return original_hint()
+    button.minimumSizeHint = hint
+elif mode == 'gc-fit':
+    original_fit = child._fit_actions
+    def fit():
+        boundary()
+        original_fit()
+    child._fit_actions = fit
+# A Qt virtual dispatch reports Python errors to sys.excepthook, rather than
+# raising them to sendEvent's caller. Capture that boundary without swallowing
+# renderer failures in production or letting Qt abort this test subprocess.
+errors = []
+def report_error(kind, error, traceback):
+    errors.append((kind, str(error)))
+    print(kind.__name__ + ': ' + str(error), flush=True)
+sys.excepthook = report_error
+assert gc.isenabled()
+try:
+    if entry in {'native', 'nested-native', 'sibling-native'}:
+        QCoreApplication.sendEvent(child, QEvent(QEvent.Type.LanguageChange))
+    elif entry in {'style-native', 'sibling-style'}:
+        child.setStyleSheet('QPushButton { font-size: 20pt; }')
+    elif entry == 'timer':
+        child._fit_signature = None
+        child._metric_timer.start(0)
+        app.processEvents()
+    elif entry == 'direct':
+        child.retranslate()
+    elif entry == 'setter':
+        if button is None:
+            child.setText(msg('Código'))
+        else:
+            child.setButtonText(child.StandardButton.Save, msg('Guardar'))
+    else:
+        raise AssertionError(entry)
+except RuntimeError as error:
+    errors.append((type(error), str(error)))
+assert observed
+assert gc.isenabled()
+if mode.startswith('render-error'):
+    assert errors == [(RuntimeError, 'native translation failure sentinel')], errors
+else:
+    assert not errors, errors
+    if mode in {'gc-owner', 'gc-fit'}:
+        assert not sip.isdeleted(child)
+        if button is None:
+            assert child.text() == 'Código'
+        else:
+            assert button.text() == 'Guardar'
+    elif mode in {'delete-owner', 'delete-child'}:
+        assert sip.isdeleted(child)
+    else:
+        assert sip.isdeleted(button)
+        assert child.button(child.StandardButton.Cancel).text() == 'Cancelar'
+# No global owner retention, GC disabling, or leaked decorator traceback refs.
+gc.collect()
+assert owner_ref() is None and parent_ref() is None
+assert sip.isdeleted(child)
+print('native owner lifecycle passed', flush=True)
+'''
+
+
+@pytest.mark.parametrize('kind', ['QDialogButtonBox', 'ResponsiveDialogButtonBox', 'QMessageBox'])
+@pytest.mark.parametrize('entry', ['native', 'direct', 'setter'])
+@pytest.mark.parametrize('mode', ['gc-owner', 'delete-owner', 'delete-child', 'delete-button',
+                                 'render-error', 'render-error-deleted'])
+def test_native_button_translation_lifetime(tmp_path, kind, entry, mode):
+    _run_native_owner_lifetime(tmp_path, kind, entry, mode)
+
+
+@pytest.mark.parametrize('kind', ['QLabel', 'QAction', 'QTableWidgetItem'])
+@pytest.mark.parametrize('entry', ['direct', 'setter'])
+@pytest.mark.parametrize('mode', ['gc-owner', 'delete-owner', 'delete-child',
+                                 'render-error', 'render-error-deleted'])
+def test_direct_localized_property_lifetime(tmp_path, kind, entry, mode):
+    _run_native_owner_lifetime(tmp_path, kind, entry, mode)
+
+
+@pytest.mark.parametrize('entry', ['direct', 'native', 'timer'])
+def test_responsive_translation_retains_owner_through_fitting(tmp_path, entry):
+    _run_native_owner_lifetime(tmp_path, 'ResponsiveDialogButtonBox', entry, 'gc-fit')
+
+
+@pytest.mark.parametrize('kind', ['QDialogButtonBox', 'ResponsiveDialogButtonBox', 'QMessageBox'])
+@pytest.mark.parametrize('entry', ['nested-native', 'style-native', 'sibling-native', 'sibling-style'])
+@pytest.mark.parametrize('mode', ['gc-owner', 'delete-owner', 'delete-child',
+                                 'render-error', 'render-error-deleted'])
+def test_nested_native_translation_waits_for_outer_event(tmp_path, kind, entry, mode):
+    _run_native_owner_lifetime(tmp_path, kind, entry, mode)
+
+
+def _run_native_owner_lifetime(tmp_path, kind, entry, mode):
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, '-B', '-X', 'faulthandler', '-c', NATIVE_OWNER_LIFETIME_SCRIPT,
+         kind, entry, mode], cwd=root,
+        env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'XDG_CONFIG_HOME': str(tmp_path)},
+        capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'native owner lifecycle passed' in result.stdout
+
+
+STYLE_TRANSLATION_SCRIPT = r'''
+import sys
+from PyQt6.QtCore import QCoreApplication, QEvent
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QStyleFactory
+from src.gui.i18n_widgets import ResponsiveDialogButtonBox
+
+app = QApplication([])
+class ReentrantButtonBox(ResponsiveDialogButtonBox):
+    in_metric_event = False
+    armed = False
+    fitted = 0
+    translated = 0
+    def changeEvent(self, event):
+        if self.armed and event.type() in (QEvent.Type.StyleChange, QEvent.Type.FontChange):
+            self.in_metric_event = True
+            try:
+                # Reproduce native LanguageChange while style/font propagation
+                # is still on the stack, before event() returns from super().
+                QCoreApplication.sendEvent(self, QEvent(QEvent.Type.LanguageChange))
+                self.translated += 1
+                super().changeEvent(event)
+            finally:
+                self.in_metric_event = False
+        else:
+            super().changeEvent(event)
+    def _fit_actions(self):
+        assert not self.in_metric_event, 'layout fitting during native metric replacement'
+        self.fitted += 1
+        super()._fit_actions()
+
+owner = QWidget()
+layout = QVBoxLayout(owner)
+box = ReentrantButtonBox(ResponsiveDialogButtonBox.StandardButton.Save |
+                         ResponsiveDialogButtonBox.StandardButton.Cancel, owner)
+layout.addWidget(box)
+owner.show()
+app.processEvents()
+box.armed = True
+before = box.fitted
+if sys.argv[1] == 'stylesheet':
+    owner.setStyleSheet('QPushButton { font-size: 20pt; }')
+else:
+    style = sys.argv[1]
+    assert style in QStyleFactory.keys()
+    app.setStyle(style)
+assert box.translated > 0
+assert box._metric_change_pending
+for _ in range(3):
+    app.processEvents()
+assert not box._metric_change_pending
+assert box.fitted > before
+assert box.button(box.StandardButton.Save).text() == 'Guardar'
+assert box.button(box.StandardButton.Cancel).text() == 'Cancelar'
+owner.close()
+print('native style translation passed', flush=True)
+'''
+
+
+@pytest.mark.parametrize('style', ['stylesheet', 'Fusion', 'Windows'])
+def test_native_style_retranslation_defers_layout_until_metric_change_finishes(tmp_path, style):
+    from PyQt6.QtWidgets import QStyleFactory
+    if style != 'stylesheet' and style not in QStyleFactory.keys():
+        pytest.skip(f'{style} style is unavailable')
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, '-B', '-X', 'faulthandler', '-c', STYLE_TRANSLATION_SCRIPT, style],
+        cwd=root,
+        env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'XDG_CONFIG_HOME': str(tmp_path)},
+        capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'native style translation passed' in result.stdout
+
+
+REENTRANT_CAPTION_SCRIPT = r'''
+import sys
+from PyQt6.QtCore import QCoreApplication, QEvent
+from PyQt6.QtWidgets import QApplication
+from src.gui import i18n_widgets as iw
+
+app = QApplication([])
+box = getattr(iw, sys.argv[1])()
+box.setStandardButtons(box.StandardButton.Save | box.StandardButton.Cancel)
+box.setButtonText(box.StandardButton.Cancel, 'Keep my literal cancel caption')
+buttons = tuple(box.buttons())
+original = iw._render
+observed = []
+def render(value):
+    result = original(value)
+    if not observed and getattr(value, 'source', None) == 'Guardar':
+        observed.append(True)
+        QCoreApplication.sendEvent(box, QEvent(QEvent.Type.LanguageChange))
+    return result
+iw._render = render
+QCoreApplication.sendEvent(box, QEvent(QEvent.Type.LanguageChange))
+assert observed
+assert box.button(box.StandardButton.Cancel).text() == 'Keep my literal cancel caption'
+assert tuple(box.buttons()) == buttons
+assert iw._native_translations is None
+print('reentrant custom caption passed', flush=True)
+'''
+
+
+@pytest.mark.parametrize('kind', ['QDialogButtonBox', 'ResponsiveDialogButtonBox', 'QMessageBox'])
+def test_language_event_during_render_preserves_previously_applied_custom_caption(tmp_path, kind):
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, '-B', '-X', 'faulthandler', '-c', REENTRANT_CAPTION_SCRIPT, kind],
+        cwd=root,
+        env={**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'XDG_CONFIG_HOME': str(tmp_path)},
+        capture_output=True, text=True, timeout=12)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'reentrant custom caption passed' in result.stdout
