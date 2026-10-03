@@ -69,6 +69,9 @@ class _ResponsiveButtonText:
         text_width = max(1, available_width - chrome - 4)
         lines = []
         for paragraph in full_text.split('\n'):
+            # QTextLine offsets count UTF-16 code units; Python slices count
+            # Unicode code points. Slice the same representation Qt measured.
+            utf16 = paragraph.encode('utf-16-le')
             text_layout = QTextLayout(paragraph, self.font())
             option = QTextOption()
             option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
@@ -79,7 +82,9 @@ class _ResponsiveButtonText:
                 if not line.isValid():
                     break
                 line.setLineWidth(text_width)
-                lines.append(paragraph[line.textStart():line.textStart() + line.textLength()].strip())
+                start = line.textStart() * 2
+                end = start + line.textLength() * 2
+                lines.append(utf16[start:end].decode('utf-16-le').strip())
             text_layout.endLayout()
             if not paragraph:
                 lines.append('')

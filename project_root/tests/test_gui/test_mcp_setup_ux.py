@@ -317,3 +317,19 @@ def test_settings_native_action_labels_reflow_without_horizontal_overflow(window
         dialog.reject()
         app.setStyle(original_style)
         manager.set_language(original_language, persist=False)
+
+
+@pytest.mark.parametrize('kind', ['QPushButton', 'QCheckBox'])
+def test_wrapped_native_captions_keep_supplementary_unicode_characters(kind):
+    from src.gui import i18n_widgets
+    from src.gui.i18n import msg
+    caption = 'Preparar 🚀 conexión del cliente 𠮷 y verificar todos los componentes'
+    button = getattr(i18n_widgets, kind)(msg(caption))
+    button.wrapPresentationText(120)
+    assert '\n' in button.text()
+    assert ' '.join(button.text().split()) == caption
+    assert button.accessibleName() == caption
+    assert button._messages['setText'][1][0].render() == caption
+    button.wrapPresentationText(2000)
+    assert button.text() == caption
+    button.deleteLater()
