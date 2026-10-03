@@ -1,0 +1,3 @@
+# Opt-in local stdio adapter only; never included in core/Windows requirements.
+# Supported maintenance line, pinned and protocol-tested; review updates explicitly.
+mcp==1.30.0

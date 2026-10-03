@@ -1,0 +1,54 @@
+name: Optional MCP contract
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-optional-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stdio-contract:
+    name: stdio-contract (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: .venv-mcp/bin/python
+          - os: windows-2025
+            python: .venv-mcp/Scripts/python.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: project_root
+        shell: bash
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12.10'
+      - name: Install isolated optional environment without GUI dependencies
+        run: |
+          python -m venv .venv-mcp
+          ${{ matrix.python }} -m pip install --require-hashes --only-binary=:all: -r requirements-mcp.lock
+          ${{ matrix.python }} -m pip check
+      - name: Confirm SDK is installed and GUI/model dependencies are absent
+        run: |
+          ${{ matrix.python }} -c "import importlib.util, mcp; assert importlib.util.find_spec('PyQt6') is None; assert importlib.util.find_spec('pandas') is None; assert importlib.util.find_spec('openai') is None"
+      - name: Test pure contract and real local stdio without model/provider
+        run: ${{ matrix.python }} -B -m pytest tests/test_mcp -q -rs
