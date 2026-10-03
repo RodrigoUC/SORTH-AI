@@ -1,6 +1,6 @@
 """Transactional preferences plus a separately confirmed local MCP preparation."""
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
-from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton
+from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
 from PyQt6.QtCore import QSignalBlocker, Qt
@@ -74,6 +74,11 @@ class SettingsDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)
+        self._responsive_actions = ResponsiveActionLabels(scroll, [
+            *self.controls.values(), self.recover_button, self.calendar_button,
+            self.mcp_check_button, self.mcp_prepare_button, self.mcp_cancel_button,
+            self.mcp_help_button,
+        ], self)
         self._refresh_mcp_permission()
         self.setTabOrder(self.mcp_status_label, self.mcp_check_button)
         self.setTabOrder(self.mcp_check_button, self.mcp_prepare_button)

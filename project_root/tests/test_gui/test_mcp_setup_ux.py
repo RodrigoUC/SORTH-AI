@@ -248,3 +248,72 @@ def test_saved_permission_can_be_revoked_while_health_check_is_running(window, m
     dialog.accept()
     assert not enabled(window._features.path)
     assert not dialog.mcp_probe.active
+
+
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'], ids=['native-default', 'Fusion', 'Windows'])
+@pytest.mark.parametrize('locale', ['es', 'en'])
+@pytest.mark.parametrize('expanded_metrics', [False, True], ids=['normal-font', 'expanded-font'])
+def test_settings_native_action_labels_reflow_without_horizontal_overflow(window, style_name, locale, expanded_metrics):
+    from PyQt6.QtWidgets import QStyleFactory
+    from src.gui.i18n import msg
+    app = QApplication.instance()
+    original_style = app.style().objectName()
+    manager = language_manager()
+    original_language = manager.language
+    if style_name is not None and style_name not in QStyleFactory.keys():
+        pytest.skip(f'{style_name} is unavailable')
+    if style_name is not None:
+        app.setStyle(style_name)
+    manager.set_language(locale, persist=False)
+    dialog = SettingsDialog(window)
+    try:
+        # Exercise wider native font metrics without depending on a CI machine's
+        # installed fonts or DPI. The application itself never shrinks its text.
+        if expanded_metrics:
+            dialog.setStyleSheet('QPushButton, QCheckBox { font-size: 20pt; }')
+        dialog.recovery_label.show()
+        dialog.recover_button.show()
+        dialog.mcp_cancel_button.setText(msg('Cancelar verificación MCP'))
+        dialog.mcp_cancel_button.show()
+        dialog.resize(460, 420)
+        dialog.show()
+        QApplication.processEvents()
+        scroll = dialog.findChild(QScrollArea)
+        controls = dialog._responsive_actions.controls
+
+        def inspect_geometry():
+            assert dialog.width() == 460 and dialog.height() == 420
+            widths = {button.accessibleName(): button.minimumSizeHint().width() for button in controls}
+            assert scroll.horizontalScrollBar().maximum() == 0, widths
+            for button in controls:
+                source = button._messages['setText'][1][0]
+                assert ' '.join(button.text().split()) == str(source.render())
+                assert button.accessibleName() == source.render()
+                assert button.width() >= button.minimumSizeHint().width()
+                assert button.height() >= button.minimumSizeHint().height()
+            save = dialog.buttons.button(QDialogButtonBox.StandardButton.Save)
+            assert dialog.rect().contains(save.mapTo(dialog, save.rect().center()))
+
+        inspect_geometry()
+        if expanded_metrics:
+            assert '\n' in dialog.calendar_button.text()
+        checkbox = dialog.controls['project_scenarios']
+        checkbox.setFocus()
+        QTest.keyClick(checkbox, Qt.Key.Key_Space)
+        assert checkbox.isChecked()
+        # Retranslation keeps the original Message, checked state and focus.
+        manager.set_language('en' if locale == 'es' else 'es', persist=False)
+        QApplication.processEvents()
+        inspect_geometry()
+        assert checkbox.isChecked() and checkbox.hasFocus()
+        dialog.resize(900, 420)
+        QApplication.processEvents()
+        assert '\n' not in dialog.calendar_button.text()
+        assert dialog.calendar_button.text() == dialog.calendar_button._messages['setText'][1][0].render()
+        dialog.resize(460, 420)
+        QApplication.processEvents()
+        inspect_geometry()
+    finally:
+        dialog.reject()
+        app.setStyle(original_style)
+        manager.set_language(original_language, persist=False)

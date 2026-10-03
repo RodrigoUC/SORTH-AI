@@ -5,9 +5,9 @@ always literal, including user-entered data equal to a catalog key. The same
 widgets/items remain alive, preserving focus, input, selection and scroll state.
 """
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QEvent, Qt
+from PyQt6.QtCore import QEvent, Qt, QObject, QTimer
 from PyQt6 import sip
-from PyQt6.QtGui import QAction as QtAction
+from PyQt6.QtGui import QAction as QtAction, QTextLayout, QTextOption
 from .i18n import Message, msg, language_manager, _render
 
 
@@ -52,12 +52,89 @@ class QLabel(_Localized, QtW.QLabel):
         super().clear()
 
 
-class QPushButton(_Localized, QtW.QPushButton):
+class _ResponsiveButtonText:
+    def wrapPresentationText(self, available_width):
+        """Wrap only the native display; keep the complete Message binding intact."""
+        binding = self._messages.get('setText')
+        if binding is None:
+            return
+        source = binding[1][0]
+        full_text = str(_render(source))
+        self.setAccessibleName(source)
+        # Ask the current native style for its indicator, border and padding.
+        # Use the current display width, including any previous line breaks.
+        metrics = self.fontMetrics()
+        current_text_width = metrics.size(Qt.TextFlag.TextShowMnemonic, self.text()).width()
+        chrome = max(0, self.minimumSizeHint().width() - current_text_width)
+        text_width = max(1, available_width - chrome - 4)
+        lines = []
+        for paragraph in full_text.split('\n'):
+            text_layout = QTextLayout(paragraph, self.font())
+            option = QTextOption()
+            option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+            text_layout.setTextOption(option)
+            text_layout.beginLayout()
+            while True:
+                line = text_layout.createLine()
+                if not line.isValid():
+                    break
+                line.setLineWidth(text_width)
+                lines.append(paragraph[line.textStart():line.textStart() + line.textLength()].strip())
+            text_layout.endLayout()
+            if not paragraph:
+                lines.append('')
+        display = '\n'.join(lines)
+        if display != self.text():
+            # Bypass the localization setter deliberately: replacing the Message
+            # with this literal would lose live translation and accumulate wraps.
+            QtW.QAbstractButton.setText(self, display)
+
+
+class QPushButton(_ResponsiveButtonText, _Localized, QtW.QPushButton):
     pass
 
 
-class QCheckBox(_Localized, QtW.QCheckBox):
+class QCheckBox(_ResponsiveButtonText, _Localized, QtW.QCheckBox):
     pass
+
+
+class ResponsiveActionLabels(QObject):
+    """Fit full native button/checkbox labels to a scroll area's viewport."""
+    def __init__(self, scroll, controls, parent=None):
+        super().__init__(parent or scroll)
+        self.scroll = scroll
+        self.controls = tuple(controls)
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self._rewrap)
+        scroll.viewport().installEventFilter(self)
+        scroll.widget().installEventFilter(self)
+        language_manager().changed.connect(self._schedule)
+        self._schedule()
+
+    def _schedule(self, *_):
+        self.timer.start(0)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                            QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._schedule()
+        return super().eventFilter(watched, event)
+
+    def _rewrap(self):
+        margins = self.scroll.widget().layout().contentsMargins()
+        width = self.scroll.viewport().width() - margins.left() - margins.right()
+        if width <= 0:
+            return
+        for control in self.controls:
+            control.wrapPresentationText(width)
+        # Relayout now so native styles do not retain the old unwrapped minimum
+        # for another event-loop turn (and briefly create horizontal overflow).
+        content = self.scroll.widget()
+        content.layout().activate()
+        content.resize(max(self.scroll.viewport().width(), content.minimumSizeHint().width()),
+                       content.height())
+
 
 
 class QListWidget(_Localized, QtW.QListWidget):

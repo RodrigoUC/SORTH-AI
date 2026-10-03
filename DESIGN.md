@@ -165,3 +165,11 @@ Read-only permission snapshots never replace the preference store's expected
 revision. The established stale-save guard still reconciles external changes.
 The native Qt/i18n wrappers and theme.py remain the canonical control, focus,
 typography and scrollbar owners; no palette or global styling changes are needed.
+
+Settings action labels reflow using native multiline button/checkbox text when
+platform font metrics exceed the scroll viewport. The localized source Message,
+full accessible name, font size, click target and native keyboard behavior remain
+intact. Widening the window or switching ES/EN reflows from the original message;
+no caption is clipped, abbreviated, or progressively wrapped. Save/Cancel remain
+outside the scroller. Geometry tests cover native-default/Fusion/Windows styles
+at 460×420, including enlarged font metrics and narrow→wide→narrow transitions.
