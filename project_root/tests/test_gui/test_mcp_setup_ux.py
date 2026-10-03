@@ -231,3 +231,20 @@ def test_read_only_status_observes_external_permission_without_changing_baseline
     assert 'Unsaved change' in dialog.mcp_permission_label.text()
     assert window._features._record == baseline
     dialog.reject()
+
+
+def test_saved_permission_can_be_revoked_while_health_check_is_running(window, monkeypatch):
+    from src.application.mcp_preferences import enabled
+    values = window._features.values()
+    values['mcp_server'] = True
+    window._features.save(values)
+    dialog = SettingsDialog(window)
+    original = dialog.mcp_probe.process.start
+    monkeypatch.setattr(dialog.mcp_probe.process, 'start', lambda *args: original(sys.executable, ['-c', 'import time; time.sleep(10)']))
+    dialog._check_mcp()
+    assert dialog.mcp_probe.active and enabled(window._features.path)
+    dialog.controls['mcp_server'].setChecked(False)
+    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Save).isEnabled()
+    dialog.accept()
+    assert not enabled(window._features.path)
+    assert not dialog.mcp_probe.active
