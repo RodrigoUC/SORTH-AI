@@ -180,14 +180,18 @@ def analyze_quality(snapshot: QualitySnapshot) -> dict:
         row["teaching_minutes_ratio"] = _ratio(row["teaching_minutes"], all_minutes)
 
     room_usage = []
+    # Local to this immutable analysis: scanning the entire schedule for every
+    # room/day makes comparisons grow with inventory times assignment count.
+    room_day_intervals = {}
+    for room, day, start, end in assignments.values():
+        room_day_intervals.setdefault((room, day), []).append((start, end))
     unknown_rooms = sorted({slot[0] for slot in assignments.values()
                             if rooms is None or slot[0] not in rooms})
     for room in sorted(rooms or {}):
         daily = []
         for day, _ in snapshot.days:
             available = _available(snapshot, room, day)
-            scheduled = _union((start, end) for name, index, start, end in assignments.values()
-                               if name == room and index == day)
+            scheduled = _union(room_day_intervals.get((room, day), ()))
             occupied = _union((max(a, start), min(b, end)) for a, b in available
                               for start, end in scheduled if max(a, start) < min(b, end))
             available_min = sum(end - start for start, end in available)
