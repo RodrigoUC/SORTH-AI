@@ -54,6 +54,8 @@ def test_import_cancel_or_failure_preserves_complete_state_and_disk(window, tmp_
         monkeypatch.setattr(ExcelReader, 'load_validated', lambda self: ExcelImport({}, [], {}, [notice('warning')]))
         monkeypatch.setattr(QMessageBox, 'exec', lambda self: QMessageBox.StandardButton.Cancel)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert snapshot(window) == before
     assert open(window._repo._db_path, 'rb').read() == disk
 

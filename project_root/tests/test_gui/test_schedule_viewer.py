@@ -91,6 +91,7 @@ def test_combined_filters_apply_to_all_views_and_reset(viewer):
     viewer._room_filter.setCurrentIndex(viewer._room_filter.findData('A2'))
     assert viewer.classroom_selector.currentText() == 'A2'
     assert not viewer.classroom_selector.isEnabled()
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.isColumnHidden(1)
     assert not viewer.grid_table.isColumnHidden(2)
     assert viewer._assignments == original
@@ -199,6 +200,7 @@ def test_grid_preserves_short_adjacent_sessions_and_conflicts(viewer):
     assignments = {'BIO-G1': ('A1', 1, 480, 490), 'BIO-G2': ('A1', 1, 490, 510),
                    'ZOO-G1': ('A1', 1, 500, 520)}
     viewer.display_schedule(assignments, TimeModel.default())
+    viewer.tabs.setCurrentIndex(1)
     cells = [viewer.grid_table.item(r, 1) for r in range(viewer.grid_table.rowCount())]
     texts = '\n'.join(cell.text() for cell in cells if cell)
     assert 'BIO-G1' in texts and 'BIO-G2' in texts and 'ZOO-G1' in texts
@@ -210,6 +212,7 @@ def test_grid_preserves_short_adjacent_sessions_and_conflicts(viewer):
 def test_grid_uses_custom_operating_hours(viewer):
     tm = TimeModel(['Lunes'], day_start=360, day_end=1380)
     viewer.display_schedule({'BIO-G1': ('A1', 1, 360, 420), 'BIO-G2': ('A1', 1, 1320, 1380)}, tm)
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.item(0, 0).text() == '06:00'
     assert viewer.grid_table.item(viewer.grid_table.rowCount() - 1, 0).text() == '22:30'
     assert viewer.grid_table.columnCount() == 2
@@ -240,6 +243,7 @@ def test_removing_last_room_session_keeps_filtered_grid_label(viewer):
     viewer._remove_group('BIO-G2')
     viewer._remove_group('BIO-G10')
     assert viewer.classroom_selector.currentText() == 'A2'
+    viewer.tabs.setCurrentIndex(1)
     assert 'Sin sesiones' in viewer._grid_hint.text()
     assert visible_ids(viewer.list_table) == []
     viewer._reset_filters()
@@ -362,3 +366,132 @@ def test_export_cancel_preserves_schedule_and_filters(app, tmp_path, monkeypatch
     assert window.schedule_viewer._list_search.text() == 'ZOO'
     assert not list(tmp_path.glob('*.xlsx'))
     window.close()
+
+
+def test_cached_filter_matches_uncached_reference_after_mutations(viewer):
+    from src.gui.schedule_viewer_widget import _search_key
+    original = populated(viewer)
+
+    def expected():
+        words = _search_key(viewer._list_search.text().strip()).split()
+        status = viewer._status_filter.currentData()
+        room, day = viewer._room_filter.currentData(), viewer._day_filter.currentData()
+        result = set()
+        for gid in viewer._known_gids:
+            assignment = viewer._assignments.get(gid)
+            if status == 'assigned' and assignment is None:
+                continue
+            if status == 'unassigned' and assignment is not None:
+                continue
+            if room is not None and (assignment is None or assignment[0] != room):
+                continue
+            if day is not None and (assignment is None or assignment[1] != day):
+                continue
+            key = _search_key(' '.join((gid, viewer._name_map.get(gid, ''), assignment[0] if assignment else '')))
+            if all(word in key for word in words):
+                result.add(gid)
+        return result
+
+    for removed in (None, 'BIO-G2'):
+        if removed:
+            viewer._remove_group(removed)
+        for query in ('', 'BIOLOGÍA', 'biologia A2', 'botánica', 'G1 P2', 'no-match'):
+            viewer._list_search.setText(query)
+            for status in range(3):
+                viewer._status_filter.setCurrentIndex(status)
+                for room in range(viewer._room_filter.count()):
+                    viewer._room_filter.setCurrentIndex(room)
+                    for day in range(viewer._day_filter.count()):
+                        viewer._day_filter.setCurrentIndex(day)
+                        matches = expected()
+                        assert set(visible_ids(viewer.list_table)) == matches
+                        assigned = matches & viewer._assignments.keys()
+                        assert set(visible_ids(viewer.classroom_table)) == assigned
+                        assert set(viewer.filtered_assignments()) == assigned
+    assert original['BIO-G2'] == ('A2', 2, 480, 540)
+    viewer._clear()
+    assert viewer._search_keys == {}
+    assert viewer.filtered_assignments() == {}
+    viewer.display_schedule({'NEW-G1': ('B1', 1, 480, 540)}, TimeModel.default(), [group('NEW-G1', 'Straße')])
+    viewer._list_search.setText('STRASSE B1')
+    assert visible_ids(viewer.list_table) == ['NEW-G1']
+    assert 'BIO-G2' not in viewer._search_keys
+
+
+def test_inactive_grid_coalesces_and_latest_filter_renders_on_entry(viewer, monkeypatch):
+    calls = []
+    render = viewer._render_grid
+    def counted(room):
+        calls.append(room)
+        render(room)
+    monkeypatch.setattr(viewer, '_render_grid', counted)
+    populated(viewer)
+    for query in ('b', 'bi', 'bio', 'biologia A2'):
+        viewer._list_search.setText(query)
+    assert not calls
+    assert set(viewer.filtered_assignments()) == {'BIO-G2', 'BIO-G10'}
+    viewer.tabs.setCurrentIndex(1)
+    assert calls == ['A2']
+    assert '2 sesiones' in viewer._grid_hint.text()
+    viewer.tabs.setCurrentIndex(0)
+    viewer.tabs.setCurrentIndex(1)
+    assert len(calls) == 1  # Unchanged tab navigation reuses the grid.
+    viewer._list_search.setText('no-match')
+    assert len(calls) == 2
+    assert 'Sin sesiones' in viewer._grid_hint.text()
+    viewer.tabs.setCurrentIndex(2)
+    viewer._reset_filters()
+    viewer.classroom_selector.setCurrentText('A10')
+    assert len(calls) == 2
+    viewer.tabs.setCurrentIndex(1)
+    assert calls[-1] == 'A10'
+    assert '2 sesiones' in viewer._grid_hint.text()
+
+
+def test_filter_normalizes_once_per_pass_and_retains_identity(viewer, monkeypatch):
+    import src.gui.schedule_viewer_widget as module
+    populated(viewer)
+    select_gid(viewer.list_table, 'BIO-G2')
+    viewer.list_table.sortItems(2, Qt.SortOrder.DescendingOrder)
+    viewer._groups['BIO-G2'].pinned = True
+    viewer.refresh_pin_marks()
+    calls = []
+    original = module._search_key
+    def counted(text):
+        calls.append(text)
+        return original(text)
+    monkeypatch.setattr(module, '_search_key', counted)
+    viewer._list_search.setText('biologia')
+    assert calls == ['biologia']
+    assert viewer._selected_gid(viewer.list_table) == 'BIO-G2'
+    assert viewer._groups['BIO-G2'].pinned
+    viewer._list_search.setText('botanica')
+    assert viewer._selected_gid(viewer.list_table) is None
+    assert viewer._groups['BIO-G2'].pinned
+
+
+def test_language_change_keeps_search_scope_and_refreshes_lazy_grid(viewer):
+    from src.gui.i18n import language_manager
+    manager = language_manager()
+    previous = manager.language
+    try:
+        populated(viewer)
+        viewer._groups['BIO-G2'].pinned = True
+        viewer.refresh_pin_marks()
+        viewer._list_search.setText('biología A2')
+        exported = viewer.filtered_assignments()
+        viewer.tabs.setCurrentIndex(1)
+        viewer.tabs.setCurrentIndex(0)
+        manager.set_language('en')
+        assert viewer._grid_dirty
+        assert viewer.filtered_assignments() == exported
+        assert viewer._list_search.text() == 'biología A2'
+        viewer.tabs.setCurrentIndex(1)
+        assert not viewer._grid_dirty
+        texts = '\n'.join(viewer.grid_table.item(r, c).text()
+                          for r in range(viewer.grid_table.rowCount())
+                          for c in range(viewer.grid_table.columnCount()) if viewer.grid_table.item(r, c))
+        assert 'Pinned' in texts
+        assert viewer._groups['BIO-G2'].pinned
+    finally:
+        manager.set_language(previous)

@@ -15,7 +15,7 @@ def test_disable_tools_preserves_active_pin_scenario_and_enforcement(tmp_path,mo
     repo=SessionRepository(str(tmp_path/'session.db'))
     q=QSettings(str(tmp_path/'preferences.ini'),QSettings.Format.IniFormat)
     w=MainWindow(repo,restore_session=False,feature_settings=q)
-    w._features.save({'pinned_sessions':True,'project_scenarios':True});w._apply_feature_preferences()
+    w._features.save({**w._features.values(), 'pinned_sessions':True,'project_scenarios':True});w._apply_feature_preferences()
     w._classrooms={'R':Classroom('R',30,'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('A',1,60,'REGULAR')])
     groups=w.course_manager.get_courses()[0].generate_groups()

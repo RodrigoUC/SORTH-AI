@@ -4,6 +4,7 @@ import pandas as pd
 import unicodedata
 import re
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict
@@ -59,6 +60,10 @@ class ExcelImport:
     warnings: list[ImportNotice]
 
 
+class ImportCancelled(Exception):
+    """Cooperative cancellation; never reported as a malformed workbook."""
+
+
 class ExcelReader:
     # Bound work before openpyxl inflates workbook XML/shared strings. Oversized
     # inputs are rejected, never partially imported or silently truncated.
@@ -68,18 +73,30 @@ class ExcelReader:
     MAX_DATA_ROWS = 10000
 
     def _check_workbook_size(self):
-        if Path(self.file_path).stat().st_size > self.MAX_FILE_BYTES:
+        self._checkpoint()
+        size = len(self._source_bytes) if self._source_bytes is not None else Path(self.file_path).stat().st_size
+        if size > self.MAX_FILE_BYTES:
             raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
-        with zipfile.ZipFile(self.file_path) as archive:
+        with zipfile.ZipFile(self._source()) as archive:
             entries = archive.infolist()
             if (len(entries) > self.MAX_ARCHIVE_MEMBERS or
                     sum(entry.file_size for entry in entries) > self.MAX_EXPANDED_BYTES):
                 raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
 
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, *, source_bytes=None, cancelled=None):
         self.file_path = file_path
+        self._source_bytes = source_bytes
+        self._cancelled = cancelled or (lambda: False)
         self._sheets = None
+
+    def _source(self):
+        return BytesIO(self._source_bytes) if self._source_bytes is not None else self.file_path
+
+    def _checkpoint(self):
+        if self._cancelled():
+            raise ImportCancelled()
+
 
     def _read_sheet(self, name):
         # Read a single snapshot, preserving raw headers so duplicate names are
@@ -89,17 +106,22 @@ class ExcelReader:
                 raise ExcelImportError("Use un archivo .xlsx. En Excel, elija Guardar como → Libro de Excel (.xlsx).")
             try:
                 self._check_workbook_size()
-                with pd.ExcelFile(self.file_path, engine="openpyxl") as workbook:
+                with pd.ExcelFile(self._source(), engine="openpyxl") as workbook:
+                    self._checkpoint()
                     missing = [n for n in ("Aulas", "Cursos") if n not in workbook.sheet_names]
                     if missing:
                         raise ExcelImportError(
                             notice("Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}",
                                    missing=", ".join(missing), found=", ".join(workbook.sheet_names)))
-                    raw = {n: pd.read_excel(workbook, sheet_name=n, header=None, dtype=object,
-                                            keep_default_na=False, nrows=self.MAX_DATA_ROWS + 2) for n in ("Aulas", "Cursos")}
+                    raw = {}
+                    for n in ("Aulas", "Cursos"):
+                        self._checkpoint()
+                        raw[n] = pd.read_excel(workbook, sheet_name=n, header=None, dtype=object,
+                                               keep_default_na=False, nrows=self.MAX_DATA_ROWS + 2)
+                        self._checkpoint()
                     if any(len(data) > self.MAX_DATA_ROWS + 1 for data in raw.values()):
                         raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
-            except ExcelImportError:
+            except (ExcelImportError, ImportCancelled):
                 raise
             except FileNotFoundError as exc:
                 raise ExcelImportError("No se encontró el archivo. Selecciónelo nuevamente.") from exc
@@ -109,6 +131,7 @@ class ExcelReader:
                 raise ExcelImportError("No se pudo leer el libro. Ábralo en Excel y guarde una copia .xlsx sin contraseña.") from exc
             sheets = {}
             for sheet, data in raw.items():
+                self._checkpoint()
                 if data.empty:
                     raise ExcelImportError(notice("Hoja {sheet}: agregue los encabezados en la fila 1.", sheet=sheet))
                 headers = [str(v).strip() for v in data.iloc[0]]
@@ -136,6 +159,7 @@ class ExcelReader:
         errors = []
         seen = set()
         for index, row in self._read_sheet("Aulas").iterrows():
+            self._checkpoint()
             name = self._identifier(row.get("# de aula"))
             if not name:
                 if any(str(row.get(c, "")).strip() for c in ("descripcion", "campus", "capacidad")):
@@ -156,6 +180,7 @@ class ExcelReader:
                     errors.append(notice("Aulas, fila {row}: CAPACIDAD debe ser un entero mayor o igual a 0.", row=index + 1))
         course_count = 0
         for index, row in self._read_sheet("Cursos").iterrows():
+            self._checkpoint()
             code = self._identifier(row.get("curso"))
             if not code:
                 if any(not self._blank(row.get(c)) for c in ("nombre de curso", "horas", "aula", "dias")):
@@ -215,6 +240,7 @@ class ExcelReader:
 
         classrooms = {}
         for _, row in df.iterrows():
+            self._checkpoint()
             raw_name = row.get("# de aula")
             if pd.isna(raw_name):
                 continue
@@ -270,6 +296,7 @@ class ExcelReader:
         course_rows: dict[str, list[dict]] = {}
 
         for _, row in df.iterrows():
+            self._checkpoint()
             code_raw = self._get(row, col_map, "curso")
             if code_raw is None:
                 continue
@@ -306,6 +333,7 @@ class ExcelReader:
 
         courses = []
         for code, rows in course_rows.items():
+            self._checkpoint()
             name = next((r["name"] for r in rows if r["name"]), None)
             number_of_groups = len(rows)
             duration_min = self._most_common_duration(rows)
@@ -358,6 +386,7 @@ class ExcelReader:
 
         classroom_courses: dict[str, list[str]] = {}
         for _, row in df.iterrows():
+            self._checkpoint()
             code_raw = self._get(row, col_map, "curso")
             aula_raw = self._get(row, col_map, "aula")
 

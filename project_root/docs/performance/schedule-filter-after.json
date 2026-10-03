@@ -1,0 +1,138 @@
+{
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "pyqt": "6.11.0",
+    "qt": "6.11.0",
+    "qpa": "offscreen",
+    "style": "fusion"
+  },
+  "results": [
+    {
+      "groups": 100,
+      "assigned": 80,
+      "load_ms": 43.292,
+      "list": {
+        "filter_through_events": {
+          "median_ms": 3.283,
+          "p95_ms": 6.426,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 2.734,
+          "p95_ms": 5.827,
+          "samples": 30
+        }
+      },
+      "grid": {
+        "filter_through_events": {
+          "median_ms": 4.224,
+          "p95_ms": 6.752,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 1.922,
+          "p95_ms": 4.668,
+          "samples": 30
+        }
+      },
+      "classroom": {
+        "filter_through_events": {
+          "median_ms": 2.908,
+          "p95_ms": 5.798,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 2.412,
+          "p95_ms": 5.257,
+          "samples": 30
+        }
+      },
+      "process_peak_rss_kib": 64348
+    },
+    {
+      "groups": 1000,
+      "assigned": 800,
+      "load_ms": 318.184,
+      "list": {
+        "filter_through_events": {
+          "median_ms": 9.109,
+          "p95_ms": 20.632,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 4.932,
+          "p95_ms": 8.99,
+          "samples": 30
+        }
+      },
+      "grid": {
+        "filter_through_events": {
+          "median_ms": 10.695,
+          "p95_ms": 12.601,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 4.681,
+          "p95_ms": 5.584,
+          "samples": 30
+        }
+      },
+      "classroom": {
+        "filter_through_events": {
+          "median_ms": 7.64,
+          "p95_ms": 10.079,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 3.771,
+          "p95_ms": 4.669,
+          "samples": 30
+        }
+      },
+      "process_peak_rss_kib": 91612
+    },
+    {
+      "groups": 5000,
+      "assigned": 4000,
+      "load_ms": 1733.848,
+      "list": {
+        "filter_through_events": {
+          "median_ms": 36.469,
+          "p95_ms": 59.239,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 5.036,
+          "p95_ms": 7.004,
+          "samples": 30
+        }
+      },
+      "grid": {
+        "filter_through_events": {
+          "median_ms": 36.884,
+          "p95_ms": 62.05,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 5.259,
+          "p95_ms": 7.207,
+          "samples": 30
+        }
+      },
+      "classroom": {
+        "filter_through_events": {
+          "median_ms": 34.807,
+          "p95_ms": 56.163,
+          "samples": 30
+        },
+        "events_only": {
+          "median_ms": 3.946,
+          "p95_ms": 5.469,
+          "samples": 30
+        }
+      },
+      "process_peak_rss_kib": 202712
+    }
+  ]
+}

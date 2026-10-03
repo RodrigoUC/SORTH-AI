@@ -59,6 +59,9 @@ class ScheduleViewerWidget(QWidget):
         super().__init__()
         self._pin_controls = []
         self._assignments = {}
+        self._search_keys = {}
+        self._matching_gids = set()
+        self._grid_dirty = True
         self._known_gids = set()
         self._groups = {}
         self._name_map = {}
@@ -72,6 +75,7 @@ class ScheduleViewerWidget(QWidget):
         self._refreshing = False
         self._init_ui()
         self._clear()
+        language_manager().changed.connect(self._request_grid_render)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -136,7 +140,7 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_selector.setMinimumContentsLength(12)
         self.classroom_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         grid_label.setBuddy(self.classroom_selector)
-        self.classroom_selector.currentTextChanged.connect(self._render_grid)
+        self.classroom_selector.currentTextChanged.connect(self._request_grid_render)
         grid_row.addWidget(grid_label)
         grid_row.addWidget(self.classroom_selector)
         self._grid_hint = QLabel()
@@ -156,7 +160,7 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_table, self._btn_edit_cls, self._btn_remove_cls = self._make_list_tab(
             msg('Por aula'), [msg('Aula'), msg('Grupo / sesión'), msg('Nombre del curso'), msg('Día'), msg('Inicio'), msg('Fin')],
             msg('Asignaciones ordenadas por aula'))
-        self.tabs.currentChanged.connect(self._update_result_label)
+        self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
         scope = QLabel(msg('Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.'))
         scope.setWordWrap(True)
@@ -246,6 +250,9 @@ class ScheduleViewerWidget(QWidget):
     def _clear(self):
         self._refreshing = True
         self._assignments = {}
+        self._search_keys = {}
+        self._matching_gids = set()
+        self._grid_dirty = True
         self._known_gids = set()
         self._groups = {}
         self._name_map = {}
@@ -309,6 +316,13 @@ class ScheduleViewerWidget(QWidget):
         return gid.rsplit("-G", 1)[0]
 
     def _refresh_assignments(self):
+        # Domain text only: independent of language and pinned presentation marks.
+        # Rebuild when schedule/name/room data changes, never per keystroke.
+        self._search_keys = {
+            gid: _search_key(" ".join((gid, self._name_map.get(gid, ""),
+                                      self._assignments.get(gid, ("",))[0])))
+            for gid in self._known_gids
+        }
         self._classroom_assignments = {}
         for gid, (room, day, start, end) in self._assignments.items():
             self._classroom_assignments.setdefault(room, []).append((gid, day, start, end))
@@ -397,14 +411,25 @@ class ScheduleViewerWidget(QWidget):
         if current in classrooms:
             self.classroom_selector.setCurrentText(current)
         self.classroom_selector.blockSignals(False)
-        self._render_grid(self.classroom_selector.currentText())
+        self._grid_dirty = True
+
+    def _request_grid_render(self, *_):
+        self._grid_dirty = True
+        if self.tabs.currentIndex() == 1:
+            self._render_grid(self.classroom_selector.currentText())
+
+    def _on_view_changed(self, *_):
+        if self.tabs.currentIndex() == 1 and self._grid_dirty:
+            self._render_grid(self.classroom_selector.currentText())
+        self._update_result_label()
 
     def _render_grid(self, classroom):
         if self._refreshing or self._time_model is None:
             return
+        self._grid_dirty = False
         tm = self._time_model
         entries = [entry for entry in self._classroom_assignments.get(classroom, [])
-                   if self._matches_gid(entry[0])]
+                   if entry[0] in self._matching_gids]
         grid = build_schedule_grid(entries, tm.day_start, tm.day_end)
         table = self.grid_table
         table.clearSpans()
@@ -463,29 +488,35 @@ class ScheduleViewerWidget(QWidget):
             self._grid_hint.setText(msg('Sin sesiones para esta aula y estos filtros.'))
         self._update_result_label()
 
-    def _matches_gid(self, gid):
+    def _filter_spec(self):
+        return (self._status_filter.currentData(), self._room_filter.currentData(),
+                self._day_filter.currentData(),
+                tuple(_search_key(self._list_search.text().strip()).split()))
+
+    def _matches_gid(self, gid, spec=None):
+        status, room, day, words = self._filter_spec() if spec is None else spec
         assignment = self._assignments.get(gid)
-        status = self._status_filter.currentData()
         if status == "assigned" and assignment is None:
             return False
         if status == "unassigned" and assignment is not None:
             return False
-        room, day = self._room_filter.currentData(), self._day_filter.currentData()
         if room is not None and (assignment is None or assignment[0] != room):
             return False
         if day is not None and (assignment is None or assignment[1] != day):
             return False
-        query = _search_key(self._list_search.text().strip())
-        searchable = " ".join((gid, self._name_map.get(gid, ""), assignment[0] if assignment else ""))
-        return all(word in _search_key(searchable) for word in query.split())
+        return all(word in self._search_keys.get(gid, "") for word in words)
 
     def _apply_filters(self, *_):
         if self._refreshing or not hasattr(self, "classroom_table"):
             return
+        spec = self._filter_spec()
+        self._matching_gids = {gid for gid in self._known_gids if self._matches_gid(gid, spec)}
         for table in (self.list_table, self.classroom_table):
             for row in range(table.rowCount()):
                 item = table.item(row, 0)
-                table.setRowHidden(row, not self._matches_gid(item.data(Qt.ItemDataRole.UserRole)))
+                hidden = item.data(Qt.ItemDataRole.UserRole) not in self._matching_gids
+                if table.isRowHidden(row) != hidden:
+                    table.setRowHidden(row, hidden)
             if table.currentRow() >= 0 and table.isRowHidden(table.currentRow()):
                 table.clearSelection()
                 table.setCurrentItem(None)
@@ -495,7 +526,7 @@ class ScheduleViewerWidget(QWidget):
             self.classroom_selector.blockSignals(True)
             self.classroom_selector.setCurrentText(room)
             self.classroom_selector.blockSignals(False)
-        self._render_grid(self.classroom_selector.currentText())
+        self._request_grid_render()
         self._btn_reset_filters.setEnabled(bool(self._list_search.text()) or
                                            any(combo.currentIndex() > 0 for combo in
                                                (self._room_filter, self._day_filter, self._status_filter)))
@@ -520,12 +551,15 @@ class ScheduleViewerWidget(QWidget):
         The grid's local classroom selector and current tab do not narrow this
         scope. Use the shared Aula filter when exporting a single classroom.
         """
+        spec = self._filter_spec()
         return {gid: value for gid, value in self._assignments.items()
-                if self._matches_gid(gid)}
+                if self._matches_gid(gid, spec)}
 
     def _filter_list(self, text):
-        self._list_search.setText(text)
-        self._apply_filters()
+        if self._list_search.text() == text:
+            self._apply_filters()
+        else:
+            self._list_search.setText(text)
 
     def _filter_cls(self, text):
         self._filter_list(text)
@@ -545,7 +579,7 @@ class ScheduleViewerWidget(QWidget):
         index = self.tabs.currentIndex()
         if index == 1:
             room = self.classroom_selector.currentText()
-            visible = sum(self._matches_gid(gid) and data[0] == room for gid, data in self._assignments.items())
+            visible = sum(gid in self._matching_gids and data[0] == room for gid, data in self._assignments.items())
             total = len(self._assignments)
         else:
             table = self.list_table if index == 0 else self.classroom_table

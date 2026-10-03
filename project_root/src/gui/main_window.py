@@ -6,7 +6,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtGui import (
     QIcon
 )
@@ -21,6 +21,7 @@ from ..scheduling.classroom import Classroom
 
 from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
+from .import_controller import ImportController
 from .theme import apply_theme, COLORS
 from .motion import MotionController, update_busy_indicator
 from .features import FeaturePreferences
@@ -70,6 +71,7 @@ class MainWindow(QMainWindow):
         self._features = FeaturePreferences(feature_settings)
         self._motion = MotionController(self)
         self._init_ui()
+        self._import = ImportController(self)
         self._update_save_state()
         if self._restore_failed:
             self._record_save_error(self._save_error)
@@ -134,6 +136,12 @@ class MainWindow(QMainWindow):
         self._cancel_button.clicked.connect(self._cancel_generation)
         self._cancel_button.setVisible(False)
         self.status_bar.addPermanentWidget(self._cancel_button)
+
+        self._cancel_import_button = QPushButton(msg('Cancelar importación'))
+        self._cancel_import_button.setAccessibleName(msg('Cancelar importación'))
+        self._cancel_import_button.clicked.connect(lambda: self._import.cancel())
+        self._cancel_import_button.setVisible(False)
+        self.status_bar.addPermanentWidget(self._cancel_import_button)
 
         self.chk_reduce_motion = QCheckBox(msg('Reducir animaciones'))
         self.chk_reduce_motion.setToolTip(msg('Desactiva las transiciones y el indicador animado.'))
@@ -335,67 +343,142 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _load_excel(self):
-        if self._busy:
+        if (self._busy and not self._import.active) or self._import.closing:
             return
+        if self._import.active:
+            self._import.cancel()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, msg('Seleccionar archivo Excel'), "",
-            msg('Libro de Excel (*.xlsx)')
-        )
-        if not file_path:
-            return
+            self, msg('Seleccionar archivo Excel'), "", msg('Libro de Excel (*.xlsx)'))
+        if file_path:
+            self._import.start(file_path)
 
+    def _set_import_busy(self, busy):
+        self._set_busy(busy)
+        # Loading another file supersedes the current reader; editing stays locked.
+        self.btn_load.setEnabled(True)
+        self.btn_settings.setEnabled(not busy)
+        self.btn_projects.setEnabled(not busy)
+        self._retry_save_button.setEnabled(not busy)
+        self._cancel_import_button.setVisible(busy)
+        self.btn_generate.setText(msg('Generar horario'))
+        self._progress.setAccessibleName(msg('Progreso de importación') if busy else msg('Progreso de generación'))
+        if self._restore_failed:
+            self._block_for_recovery()
+
+    def _commit_import(self, candidate, retained_pins):
+        """Present and persist one accepted import, rolling both back on failure."""
+        imported = candidate.imported
+        assignments = {gid: value for gid, value in (self.current_schedule or {}).items()
+                       if gid in retained_pins} or None
+        overrides = {g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in retained_pins}
+        # Preflight expensive typed presentation without touching the live session.
+        # No dialogs, signals to the window, repository writes or event pumping.
+        preview = CourseManagerWidget()
+        preview_schedule = ScheduleViewerWidget()
         try:
-            reader = ExcelReader(file_path)
-            imported = reader.load_validated()
-            classrooms = imported.classrooms
-            courses = imported.courses
-            classroom_course_map = imported.classroom_course_map
-            if imported.warnings:
-                review = QMessageBox(self)
-                review.setWindowTitle(msg('Revisar importación'))
-                review.setIcon(QMessageBox.Icon.Warning)
-                review.setTextFormat(Qt.TextFormat.PlainText)
-                review.setText(msg('Avisos del archivo: {count}', count=len(imported.warnings)))
-                review.setInformativeText(join_messages('\n', (item.render(msg) for item in imported.warnings[:3])) + msg('\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.'))
-                review.setDetailedText(join_messages('\n', (item.render(msg) for item in imported.warnings)))
-                review.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-                review.setDefaultButton(QMessageBox.StandardButton.Cancel)
-                review.setButtonText(QMessageBox.StandardButton.Ok, msg('Importar con avisos'))
-                review.setButtonText(QMessageBox.StandardButton.Cancel, msg('Cancelar'))
-                if review.exec() != QMessageBox.StandardButton.Ok:
-                    return
-            if not self._confirm_pin_inputs(courses=courses, classrooms=classrooms, restrictions={}):
-                return
-            self._loading = True
-            self._classroom_course_map = classroom_course_map
-            self._classrooms = classrooms
+            preview.load_courses_from_excel(imported.courses)
+            groups = [group for course in imported.courses for group in course.generate_groups()]
+            for group in groups:
+                group.assignment = (assignments or {}).get(group.group_id)
+                group.pinned = group.group_id in retained_pins
+                group.lab_override = group.group_id in overrides
+            preview_schedule.display_schedule(assignments or {}, TimeModel.default(), groups,
+                                              classrooms=imported.classrooms)
+        finally:
+            preview.deleteLater()
+            preview_schedule.deleteLater()
+        previous = {name: getattr(self, name) for name in (
+            'pinned_group_ids', '_classroom_course_map', '_classrooms', 'excel_path',
+            'classroom_restrictions', 'current_schedule', 'current_groups',
+            '_preserve_previous', '_unsaved', '_save_error', '_scenario_dirty')}
+        previous_courses = self.course_manager.courses
+        previous_search = self.course_manager._search.text()
+        previous_label = self.excel_path_label.text()
+        previous_status = self.status_bar.currentMessage()
+        viewer = self.schedule_viewer
+        previous_filters = (viewer._list_search.text(), viewer._room_filter.currentData(),
+                            viewer._day_filter.currentData(), viewer._status_filter.currentData(),
+                            viewer.classroom_selector.currentText(), viewer.tabs.currentIndex())
+        previous_tables = [(table, table.currentRow(), table.currentColumn(),
+                            [(item.row(), item.column()) for item in table.selectedItems()],
+                            table.verticalScrollBar().value(), table.horizontalScrollBar().value())
+                           for table in (self.course_manager.table, viewer.list_table, viewer.classroom_table)]
+        if self._preserve_previous:
+            self._repo.backup_session()
+        seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
 
-            self.excel_path = file_path
-            self.excel_path_label.setText(Path(file_path).name)
-            self.excel_path_label.setStyleSheet("color: green;")
-
-            # Load courses into the manager widget
-            self.course_manager.load_courses_from_excel(courses)
-
-            # Reset restrictions when a new file is loaded
+        def present():
+            self.pinned_group_ids = set(retained_pins)
+            self._classroom_course_map = imported.classroom_course_map
+            self._classrooms = imported.classrooms
+            self.excel_path = candidate.path
+            self.excel_path_label.setText(Path(candidate.path).name)
+            if self.course_manager.load_courses_from_excel(imported.courses) is False:
+                raise ValueError('The accepted import could not be presented')
             self.classroom_restrictions = {}
-
-            self._loading = False
             self._invalidate_schedule()
             self._refresh_overview()
-            self.btn_generate.setEnabled(bool(courses and classrooms))
-            self.btn_restrictions.setEnabled(bool(self._classroom_course_map))
+            self._preserve_previous = False
+            self._unsaved = False
+            self._save_error = None
+            self._scenario_dirty = bool(self._scenario_name)
+            self._update_save_state()
+            self._update_feature_notice()
+            self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
+                                      p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
-            self.status_bar.showMessage(
-                msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)', p1=Path(file_path).name, p3=len(classrooms), p5=len(courses))
-            )
-            self._save_session()
-
-        except Exception as e:
-            QMessageBox.critical(self, msg('Error'),
-                                 msg('Error al cargar archivo Excel:\n{p1}', p1=e.render(msg) if isinstance(e, ExcelImportError) else str(e)))
+        self._loading = True
+        signal_guard = QSignalBlocker(self.course_manager)
+        try:
+            self._repo.save_session(excel_path=candidate.path, seed=seed,
+                                   classrooms=imported.classrooms, courses=imported.courses,
+                                   restrictions={}, assignments=assignments,
+                                   pinned_group_ids=retained_pins, lab_overrides=overrides,
+                                   before_commit=present)
+        except Exception:
+            # Restore the underlying state first, independently of rendering APIs.
+            # In particular, don't call the failing import loader a second time.
+            for name, value in previous.items():
+                setattr(self, name, value)
+            self.course_manager.courses = previous_courses
+            try:
+                self.course_manager._search.setText(previous_search)
+                self.course_manager._refresh_table()
+                self.excel_path_label.setText(previous_label)
+                if self.current_groups is None:
+                    viewer._clear()
+                else:
+                    viewer.display_schedule(
+                        self.current_schedule or {}, TimeModel.default(), self.current_groups,
+                        {c.code: c.name for c in previous_courses if c.name}, classrooms=self._classrooms)
+                viewer._list_search.setText(previous_filters[0])
+                for combo, value in zip((viewer._room_filter, viewer._day_filter, viewer._status_filter),
+                                        previous_filters[1:4]):
+                    combo.setCurrentIndex(max(0, combo.findData(value)))
+                viewer.classroom_selector.setCurrentText(previous_filters[4])
+                viewer.tabs.setCurrentIndex(previous_filters[5])
+                for table, row, column, selected, vertical, horizontal in previous_tables:
+                    table.setCurrentCell(row, column)
+                    table.clearSelection()
+                    for selected_row, selected_column in selected:
+                        item = table.item(selected_row, selected_column)
+                        if item is not None:
+                            item.setSelected(True)
+                    table.verticalScrollBar().setValue(vertical)
+                    table.horizontalScrollBar().setValue(horizontal)
+                self._refresh_overview()
+                self._update_save_state()
+                self.status_bar.showMessage(previous_status)
+            except Exception as recovery_error:
+                # SQL and domain data remain original; a damaged view is explicitly
+                # locked so it cannot overwrite the preserved session on disk.
+                self._restore_failed = True
+                self._record_save_error(recovery_error)
+                self._block_for_recovery()
+            raise
+        finally:
+            signal_guard.unblock()
             self._loading = False
-            self.status_bar.showMessage(msg('No se cargó el archivo. La sesión anterior se conserva.'))
 
     def _add_classroom(self):
         dialog = AddClassroomDialog(self)
@@ -970,10 +1053,10 @@ class MainWindow(QMainWindow):
         self.schedule_viewer.refresh_pin_marks()
         self._save_session()
 
-    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None):
-        """Review proposed inputs before committing. Cancel changes nothing."""
-        if self._loading or not self.pinned_group_ids:
-            return True
+    def _pin_input_errors(self, courses=None, classrooms=None, restrictions=None):
+        """Pure validation shared by edits and staged Excel replacement."""
+        if not self.pinned_group_ids:
+            return []
         courses = self.course_manager.get_courses() if courses is None else courses
         rooms = deepcopy(self._classrooms if classrooms is None else classrooms)
         restrictions = self.classroom_restrictions if restrictions is None else restrictions
@@ -991,6 +1074,13 @@ class MainWindow(QMainWindow):
                     previous.parent_group_id, previous.total_subgroups, previous.subgroup_index):
                 from ..scheduling.validation import ValidationNotice
                 errors.append(ValidationNotice('La estructura dividida de {gid} cambió.', gid=group.group_id))
+        return errors
+
+    def _confirm_pin_inputs(self, courses=None, classrooms=None, restrictions=None, commit=True):
+        """Review proposed inputs before committing. Cancel changes nothing."""
+        if self._loading or not self.pinned_group_ids:
+            return True
+        errors = self._pin_input_errors(courses, classrooms, restrictions)
         if not errors:
             return True
         answer = QMessageBox.warning(
@@ -1001,7 +1091,8 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Cancel)
         if answer != QMessageBox.StandardButton.Yes:
             return False
-        self.pinned_group_ids.clear()
+        if commit:
+            self.pinned_group_ids.clear()
         return True
 
     def _invalidate_schedule(self):
@@ -1065,7 +1156,11 @@ class MainWindow(QMainWindow):
             self._file_layout.setSpacing(4 if compact else 16)
 
     def closeEvent(self, event):
+        if hasattr(self, "_import") and not self._import.prepare_close():
+            event.ignore()
+            return
         if self._worker is not None and self._worker.isRunning():
+            self._import.closing = False
             self.status_bar.showMessage(msg('Espere a que termine la generación antes de cerrar.'))
             event.ignore()
             return
@@ -1085,6 +1180,7 @@ class MainWindow(QMainWindow):
                 event.accept()
                 return
             if choice != QMessageBox.StandardButton.Retry:
+                self._import.closing = False
                 event.ignore()
                 return
         event.accept()

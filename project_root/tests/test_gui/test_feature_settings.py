@@ -26,7 +26,7 @@ def window(tmp_path):
 
 def test_default_registry_contains_only_implemented_extras(tmp_path):
     prefs = FeaturePreferences(settings_at(tmp_path/'preferences.ini'))
-    assert prefs.values() == {'pinned_sessions': False, 'project_scenarios': False}
+    assert prefs.values() == {feature.key: False for feature in FEATURES}
     assert not prefs.enabled('unknown_future_feature')
 
 
@@ -41,9 +41,9 @@ def test_restart_and_future_keys_preserved(tmp_path):
     path = tmp_path/'preferences.ini'
     settings = settings_at(path)
     settings.setValue('features/future_feature', 'preserved')
-    FeaturePreferences(settings).save({'pinned_sessions': True, 'project_scenarios': False})
+    FeaturePreferences(settings).save({feature.key: feature.key == 'pinned_sessions' for feature in FEATURES})
     prefs = FeaturePreferences(settings_at(path))
-    assert prefs.values() == {'pinned_sessions': True, 'project_scenarios': False}
+    assert prefs.values() == {feature.key: feature.key == 'pinned_sessions' for feature in FEATURES}
     assert prefs.settings.value('features/future_feature') == 'preserved'
     assert not prefs.enabled('future_feature')
     with pytest.raises(ValueError):
@@ -75,7 +75,7 @@ def test_save_shows_features_then_restart_restores(window, tmp_path):
 
 
 def test_disabled_pins_preserved_enforced_and_explained(window, monkeypatch, tmp_path):
-    window._features.save({'pinned_sessions': True, 'project_scenarios': False})
+    window._features.save({feature.key: feature.key == 'pinned_sessions' for feature in FEATURES})
     window._apply_feature_preferences()
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])

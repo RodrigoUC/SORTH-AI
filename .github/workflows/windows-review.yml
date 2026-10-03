@@ -2,7 +2,7 @@ name: Windows review build
 
 on:
   pull_request:
-    branches: [main, feat/optional-mcp-preview]
+    branches: [main, feat/optional-mcp-preview, feat/product-controls-and-scenarios]
   push:
     branches: [main]
   workflow_dispatch:
@@ -47,8 +47,9 @@ jobs:
           New-Item -ItemType Directory -Force build/reports | Out-Null
           .\.venv-build\Scripts\python.exe -m pip freeze | Out-File -Encoding utf8 build/reports/build-environment.txt
       - name: Run all regression tests
+        timeout-minutes: 8
         run: |
-          .\.venv-build\Scripts\python.exe -m pytest -q --junitxml=build/reports/tests.xml
+          .\.venv-build\Scripts\python.exe -m pytest -vv -o faulthandler_timeout=120 --junitxml=build/reports/tests.xml
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
       - name: Generate current manual
         run: |

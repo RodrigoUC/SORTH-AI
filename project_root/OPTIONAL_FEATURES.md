@@ -53,3 +53,8 @@ on a new window, cancellation, language switching, hidden controls, preserved pi
 state and enforcement after disabling and restart. Linux screenshots verify the
 960×640 main window and native settings dialog. Native Windows appearance and
 screen-reader behavior still require platform acceptance.
+
+- `import_diff_preview`: revisión de cursos/aulas añadidos, modificados y
+  eliminados, restricciones y asignaciones antes de reemplazar una sesión.
+  Desactivada inicialmente; ocultar esta revisión no desactiva validación,
+  protección de fijaciones, carga en segundo plano ni cancelación segura.

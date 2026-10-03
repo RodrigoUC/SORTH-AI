@@ -57,6 +57,8 @@ def test_failed_import_preserves_previous_inputs(window, monkeypatch):
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: ('missing.xlsx', ''))
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: None)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path == 'previous.xlsx'
     assert window.course_manager.get_courses()[0].code == 'BIO'
     assert 'A1' in window._classrooms
@@ -124,6 +126,7 @@ def test_grid_includes_last_hour(window):
     from src.scheduling.time_model import TimeModel
     viewer = window.schedule_viewer
     viewer.display_schedule({'BIO-G1': ('A1', 1, 1260, 1320)}, TimeModel.default())
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.rowCount() == 30
     assert viewer.grid_table.item(28, 1).text()
 
@@ -166,6 +169,8 @@ def test_import_cancel_and_validation_preserve_complete_session(window, tmp_path
     monkeypatch.setattr(QMessageBox, 'critical', lambda *a: None)
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Cancel)
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
     assert window.excel_path == 'previous.xlsx'
     assert set(window._classrooms) == {'A1'}
     assert window.course_manager.get_courses()[0].code == 'BIO'
@@ -179,6 +184,13 @@ def test_import_cancel_and_validation_preserve_complete_session(window, tmp_path
 
 def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
     import pandas as pd
+    unexpected_dialogs = []
+    def unexpected(*args):
+        unexpected_dialogs.append(args)
+        return QMessageBox.StandardButton.Cancel
+    # Fail with the captured dialog instead of hanging inside Qt's modal loop.
+    for method in ('critical', 'warning', 'exec'):
+        monkeypatch.setattr(QMessageBox, method, unexpected)
     load_inputs(window)
     path = tmp_path / 'input.xlsx'
     with pd.ExcelWriter(path) as writer:
@@ -186,6 +198,9 @@ def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
         pd.DataFrame({'Curso': ['NEW'], 'Aula': ['NEW']}).to_excel(writer, sheet_name='Cursos', index=False)
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
     window._load_excel()
+    from tests.test_gui.import_helpers import wait_for_import
+    wait_for_import(window)
+    assert not unexpected_dialogs
     assert window.excel_path == str(path)
     assert set(window._classrooms) == {'NEW'}
     assert window.course_manager.get_courses()[0].code == 'NEW'
