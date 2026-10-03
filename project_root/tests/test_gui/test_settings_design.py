@@ -2,7 +2,7 @@
 import pytest
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QScrollArea, QStyleFactory
+from PyQt6.QtWidgets import QApplication, QScrollArea, QStyleFactory, QStyle, QStyleOptionComboBox
 
 from src.gui.features import FEATURES
 from src.gui.i18n import language_manager
@@ -94,6 +94,16 @@ def test_each_section_fits_small_native_window_with_large_fonts(window, locale, 
             assert dialog.intro_label.isHidden()
             assert dialog.section_selector.isVisible()
             assert dialog.section_selector.width() >= dialog.section_selector.minimumSizeHint().width()
+            # A combo's minimum-content hint deliberately permits long future
+            # locales to elide. Current ES/EN section titles must fit in full
+            # inside the actual native edit field, including its arrow gutter.
+            selector = dialog.section_selector
+            option = QStyleOptionComboBox()
+            selector.initStyleOption(option)
+            text_rect = selector.style().subControlRect(
+                QStyle.ComplexControl.CC_ComboBox, option,
+                QStyle.SubControl.SC_ComboBoxEditField, selector)
+            assert selector.fontMetrics().horizontalAdvance(selector.currentText()) <= text_rect.width()
             actions = [dialog.controls[key] for key in feature_keys]
             if section == 'advanced':
                 actions.append(dialog.calendar_button)
