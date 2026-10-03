@@ -847,7 +847,8 @@ class MainWindow(QMainWindow):
             # The native picker approved its returned path, not this newly
             # resolved destination. Confirm only this extra collision; an
             # explicit suffix has already been handled by the picker.
-            if Path(file_path).exists() and QMessageBox.question(
+            destination = Path(file_path)
+            if (destination.exists() or destination.is_symlink()) and QMessageBox.question(
                     self, msg('Confirmar reemplazo'),
                     msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,

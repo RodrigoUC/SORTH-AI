@@ -73,7 +73,7 @@ def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
 @pytest.mark.parametrize('existing', [False, True])
 @pytest.mark.parametrize('name', ['report.{ext}', 'report.{upper}',
-                                  'report.release.{ext}', 'report.other'])
+                                  'report.release.{ext}', 'report.csv', 'report.other'])
 def test_explicit_destination_keeps_picker_approval_and_dispatch(
         window, tmp_path, monkeypatch, extension, existing, name):
     path = tmp_path / name.format(ext=extension, upper=extension.upper())
@@ -194,3 +194,35 @@ def test_approved_resolved_overwrite_still_preserves_bytes_on_atomic_failure(
     assert target.name in window.status_bar.currentMessage()
     assert ('No se pudo exportar' in window.status_bar.currentMessage()
             or 'Could not export' in window.status_bar.currentMessage())
+
+
+@pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
+@pytest.mark.parametrize('dangling', [False, True])
+@pytest.mark.parametrize('approve', [False, True])
+def test_resolved_symlink_destination_needs_consent(
+        window, tmp_path, monkeypatch, extension, dangling, approve):
+    referent = tmp_path / f'linked.{extension}'
+    if not dangling:
+        referent.write_bytes(b'linked original')
+    target = tmp_path / f'report.{extension}'
+    try:
+        target.symlink_to(referent)
+    except (OSError, NotImplementedError):
+        pytest.skip('Creating symlinks is unavailable on this host')
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName',
+                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+    prompts = []
+    def confirm(*args):
+        prompts.append(str(args[2]))
+        return QMessageBox.StandardButton.Yes if approve else QMessageBox.StandardButton.No
+    monkeypatch.setattr(QMessageBox, 'question', confirm)
+    monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
+    window._export_schedule()
+    assert len(prompts) == 1 and str(target) in prompts[0]
+    if approve:
+        assert not target.is_symlink() and target.stat().st_size
+    else:
+        assert target.is_symlink() and target.readlink() == referent
+    assert referent.exists() is not dangling
+    if not dangling:
+        assert referent.read_bytes() == b'linked original'
