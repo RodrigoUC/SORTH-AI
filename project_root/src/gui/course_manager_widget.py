@@ -31,10 +31,7 @@ def _confirm(parent, title: str, message: str) -> bool:
     outer.setSpacing(0)
 
     header = QLabel(msg('  ⚠️  {p1}', p1=title))
-    header.setStyleSheet(
-        "background-color: #BF360C; color: #FFFFFF; "
-        "font-size: 12pt; font-weight: bold; padding: 14px 20px;"
-    )
+    header.setObjectName("dialogWarningHeader")
     outer.addWidget(header)
 
     body = QWidget()
@@ -224,10 +221,15 @@ class CourseDialog(QDialog):
         code = self.code_edit.text().strip().upper()
         if code.endswith("L") or code.endswith("P"):
             self.room_type_label.setText(msg('🔬 LAB (detectado automáticamente)'))
-            self.room_type_label.setStyleSheet("color: #1565C0;")
+            self.room_type_label.setObjectName("headingText")
         else:
             self.room_type_label.setText(msg('🏫 REGULAR (detectado automáticamente)'))
-            self.room_type_label.setStyleSheet("color: #2E7D32;")
+            self.room_type_label.setObjectName("successText")
+        # Qt does not automatically repolish a changed object-name selector.
+        # This changes only presentation; draft fields remain untouched.
+        self.room_type_label.style().unpolish(self.room_type_label)
+        self.room_type_label.style().polish(self.room_type_label)
+        self.room_type_label.update()
 
     def _toggle_pref_time(self, enabled: bool):
         self.pref_time_edit.setEnabled(enabled)
@@ -307,7 +309,8 @@ class CourseManagerWidget(QWidget):
         layout.addWidget(info)
         self._empty_label = QLabel(msg('Aún no hay cursos. Cargue un Excel o agregue su primer curso.'))
         self._empty_label.setWordWrap(True)
-        self._empty_label.setStyleSheet("color: #526175; padding: 8px 0;")
+        self._empty_label.setObjectName("mutedText")
+        self._empty_label.setStyleSheet("padding: 8px 0;")
         layout.addWidget(self._empty_label)
 
         # Table

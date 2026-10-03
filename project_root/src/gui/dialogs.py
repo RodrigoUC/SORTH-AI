@@ -40,10 +40,7 @@ class ClassroomRestrictionsDialog(QDialog):
             msg('Active un aula para restringirla. Luego marque los cursos que pueden usarla (los desmarcados quedan libres).')
         )
         info.setWordWrap(True)
-        info.setStyleSheet(
-            "background-color: #1F2937; color: #E5E7EB; "
-            "padding: 8px; border-left: 4px solid #3B82F6; border-radius: 4px;"
-        )
+        info.setObjectName("helpText")
         outer.addWidget(info)
 
         split = QHBoxLayout()
@@ -260,13 +257,9 @@ class _InfoDialog(QDialog):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        header_color = "#8D2000" if warning else "#1967D2"
         icon = "\u26a0\ufe0f" if warning else "\u2705"
         header = QLabel(msg('  {p1}  {p3}', p1=icon, p3=title))
-        header.setStyleSheet(
-            f"background-color: {header_color}; color: #FFFFFF; "
-            "font-size: 12pt; font-weight: bold; padding: 14px 20px;"
-        )
+        header.setObjectName("dialogWarningHeader" if warning else "dialogInfoHeader")
         outer.addWidget(header)
 
         body = QWidget()

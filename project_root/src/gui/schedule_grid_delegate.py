@@ -11,11 +11,17 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QTextLayou
 from PyQt6.QtWidgets import QStyle, QStyledItemDelegate
 
 from .theme import COLORS
+from .theme_contract import COURSE_GUTTER
 from ..scheduling.course_style import CourseStyle, GRID_TEXT_COLOR
 
 
 COURSE_CARD_ROLE = int(Qt.ItemDataRole.UserRole) + 1
 GRID_BLOCK_ROLE = int(Qt.ItemDataRole.UserRole) + 2
+
+# Course blocks are a fixed printable palette, independent of interface themes.
+# Keep conflict red legible against both its fixed pale fill and white gutters.
+COURSE_CONFLICT_ACCENT = "#A12D46"
+COURSE_CONFLICT_FILL = "#FCE8EC"
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,12 @@ class ScheduleGridDelegate(QStyledItemDelegate):
     GUTTER = 3
     INSET = 13
 
+    def __init__(self, parent=None, *, colors=None):
+        super().__init__(parent)
+        # An isolated preview can supply its immutable candidate palette.
+        # Ordinary views keep reading the live interface mapping on every paint.
+        self._colors = colors
+
     def paint(self, painter, option, index):
         card = index.data(COURSE_CARD_ROLE)
         if not isinstance(card, CourseCard):
@@ -39,13 +51,13 @@ class ScheduleGridDelegate(QStyledItemDelegate):
 
         painter.save()
         painter.setClipRect(option.rect)
-        painter.fillRect(option.rect, QColor(COLORS["surface"]))
+        painter.fillRect(option.rect, QColor(COURSE_GUTTER))
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = QRectF(option.rect).adjusted(self.GUTTER, self.GUTTER,
                                           -self.GUTTER, -self.GUTTER)
-        accent = QColor(COLORS["danger"] if card.conflict_label else "#" + card.style.accent)
-        fill = QColor(COLORS["danger_soft"] if card.conflict_label else "#" + card.style.fill)
-        foreground = QColor(COLORS["danger"] if card.conflict_label else "#" + GRID_TEXT_COLOR)
+        accent = QColor(COURSE_CONFLICT_ACCENT if card.conflict_label else "#" + card.style.accent)
+        fill = QColor(COURSE_CONFLICT_FILL if card.conflict_label else "#" + card.style.fill)
+        foreground = QColor(COURSE_CONFLICT_ACCENT if card.conflict_label else "#" + GRID_TEXT_COLOR)
         painter.setBrush(fill)
         painter.setPen(QPen(accent, 1))
         painter.drawRoundedRect(rect, 4, 4)
@@ -55,9 +67,10 @@ class ScheduleGridDelegate(QStyledItemDelegate):
         # separation keeps the violet ring legible even on a violet category.
         if option.state & (QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_HasFocus):
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QPen(QColor(COLORS["surface"]), 4))
+            painter.setPen(QPen(QColor(COURSE_GUTTER), 4))
             painter.drawRoundedRect(rect, 4, 4)
-            painter.setPen(QPen(QColor(COLORS["focus"]), 2))
+            colors = self._colors if self._colors is not None else COLORS
+            painter.setPen(QPen(QColor(colors["focus"]), 2))
             painter.drawRoundedRect(rect, 4, 4)
 
         text_rect = rect.adjusted(self.INSET, 7, -8, -7)
