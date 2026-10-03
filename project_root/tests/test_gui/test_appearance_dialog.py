@@ -294,7 +294,7 @@ def test_compact_preview_footer_and_keyboard_reveal(manager, locale, style, expa
                         focused.mapTo(dialog.scroll.viewport(), focused.rect().center())), focused
             else:
                 pytest.fail('Native tab traversal never returned to the theme selector')
-            for control in (dialog.import_button, dialog.preview.input, dialog.preview.focus_button,
+            for control in (dialog.import_button, dialog.guide_button, dialog.preview.input, dialog.preview.focus_button,
                             dialog.preview.primary, dialog.preview.table, dialog.preview.course,
                             dialog.restore_button, dialog.cancel_button, dialog.apply_button):
                 assert control in seen
