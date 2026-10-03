@@ -117,6 +117,8 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
         viewer = reopened.schedule_viewer
         original = dict(viewer._assignments)
         original_font = viewer.list_table.font().pointSizeF()
+        # Four complete list rows define the shared 120px reading-area floor.
+        # Time-grid sections retain their duration/content-dependent heights.
         original_row_height = viewer.list_table.rowHeight(0)
         reopened.tabs.setCurrentIndex(1)
         reopened.show()
@@ -140,7 +142,12 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
                     snapshot = {
                         'theme': choice.key, 'size': [reopened.width(), reopened.height()],
                         'tab': index, 'viewport_height': table.viewport().height(),
-                        'row_height': original_row_height, 'font': table.font().pointSizeF(),
+                        'reference_list_row_height': original_row_height,
+                        'actual_row_heights': [table.rowHeight(row) for row in range(table.rowCount())],
+                        'actual_section_sizes': [table.verticalHeader().sectionSize(row)
+                                                 for row in range(table.rowCount())],
+                        'default_section_size': table.verticalHeader().defaultSectionSize(),
+                        'font': table.font().pointSizeF(),
                         'scope_visible': viewer._export_scope_hint.isVisible(),
                         'compact_tools': reopened._compact_tools.isVisible(),
                         'table_focused': table.hasFocus(),
@@ -186,7 +193,7 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
 @pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
 @pytest.mark.parametrize('language', ['es', 'en'])
 def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name):
-    """A small native header metric change must not consume the fourth row.
+    """A native header change must retain the four-list-row reference budget.
 
     Native Segoe UI exposed a height deficit that Linux font metrics concealed.
     Keep real widget fonts and rows, and give every header a four-pixel larger
