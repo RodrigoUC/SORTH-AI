@@ -458,3 +458,60 @@ def test_import_failure_preserves_consultation_state(window, tmp_path, monkeypat
     assert (view._list_search.text(), view._day_filter.currentData(),
             window.course_manager._search.text(), window.course_manager.table.currentRow(),
             window.course_manager.table.currentColumn()) == before
+
+
+def test_unpinned_import_does_not_materialize_unused_schedule(window, tmp_path, monkeypatch):
+    from src.gui import main_window
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
+    def unused_view(*args, **kwargs):
+        raise AssertionError('An unpinned import must clear, not materialize a schedule')
+    monkeypatch.setattr(main_window, 'ScheduleViewerWidget', unused_view)
+    monkeypatch.setattr(window.schedule_viewer, 'display_schedule', unused_view)
+    window._commit_import(candidate, set())
+    assert window.current_groups is None and window.current_schedule is None
+    assert not window.pinned_group_ids
+    saved = window._repo.load_session()
+    assert saved['courses'][0].code == 'NEW'
+    assert not saved['assignments'] and not saved['pinned_group_ids']
+
+
+def test_pinned_import_preflight_matches_real_partial_schedule(window, tmp_path, monkeypatch):
+    from src.gui.schedule_viewer_widget import ScheduleViewerWidget
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', count=2), lambda: False)
+    original = ScheduleViewerWidget.display_schedule
+    presentations = []
+    def record(view, assignments, time_model, groups, *args, **kwargs):
+        presentations.append((view is window.schedule_viewer, deepcopy(assignments),
+                              deepcopy([vars(group) for group in groups])))
+        return original(view, assignments, time_model, groups, *args, **kwargs)
+    monkeypatch.setattr(ScheduleViewerWidget, 'display_schedule', record)
+    window._commit_import(candidate, {'BIO-G1'})
+    assert len(presentations) == 2
+    assert [entry[0] for entry in presentations] == [False, True]
+    assert presentations[0][1:] == presentations[1][1:]
+    assert len(window.current_groups) == 2
+    assert window.current_groups[0].pinned
+    assert not window.current_groups[1].assignment
+    assert window.current_groups[1].unassigned_reason
+
+
+@pytest.mark.parametrize('fail_preflight', [True, False])
+def test_retained_pin_render_failure_preserves_transaction(window, tmp_path, monkeypatch, fail_preflight):
+    from src.gui.schedule_viewer_widget import ScheduleViewerWidget
+    candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', count=2), lambda: False)
+    before = session(window)
+    disk = (tmp_path/'session.db').read_bytes()
+    original = ScheduleViewerWidget.display_schedule
+    failed = []
+    def fail_once(view, *args, **kwargs):
+        if not failed and (view is not window.schedule_viewer) == fail_preflight:
+            failed.append(True)
+            raise RuntimeError('retained-pin presentation failure')
+        return original(view, *args, **kwargs)
+    monkeypatch.setattr(ScheduleViewerWidget, 'display_schedule', fail_once)
+    with pytest.raises(RuntimeError, match='retained-pin presentation failure'):
+        window._commit_import(candidate, {'BIO-G1'})
+    assert failed
+    assert (tmp_path/'session.db').read_bytes() == disk
+    assert session(window) == before
+    assert not window._restore_failed

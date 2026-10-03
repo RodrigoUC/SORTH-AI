@@ -92,3 +92,27 @@ La revisión de atomicidad añade una previsualización interna de tablas antes 
 confirmar. Las mediciones anteriores preceden ese refuerzo; deben repetirse
 para comparar la latencia de la versión final. La presentación final sigue
 siendo sincrónica y no se afirma ausencia de pausas.
+
+La previsualización interna ahora prepara solo la vista que realmente se aplica:
+una importación sin sesiones fijadas vacía el horario, por lo que no construye
+una tabla oculta de todas las sesiones pendientes. Con sesiones fijadas conserva
+la previsualización del horario parcial, incluidas las razones de pendientes.
+La tabla de cursos y las validaciones de dominio y SQL no se omiten; la
+presentación real permanece dentro de la transacción antes del commit.
+
+Una comparación secuencial del mismo script y entorno Linux/Fusion, sobre el
+commit base `ad4dc28f7fc8a383176b1dd0c5c2b2e3b6d9f85a` y este ajuste,
+registró los siguientes tiempos (milisegundos, una observación por tamaño):
+
+| Cursos | Total antes → después | Fase final antes → después | Mayor pausa antes → después |
+| --- | --- | --- | --- |
+| 100 | 134 → 83 | 72 → 23 | 79 → 35 |
+| 1.000 | 928 → 558 | 575 → 238 | 577 → 319 |
+| 10.000 | 9.641 → 5.554 | 5.759 → 1.945 | 5.804 → 2.048 |
+
+Informes con versiones y cifras completas:
+`docs/import/measurements-preflight-before.json` y
+`docs/import/measurements-preflight-after.json`. La fase final sigue siendo
+sincrónica: la pausa observada de unos dos segundos con 10.000 cursos continúa
+siendo una limitación. Esta comparación no certifica rendimiento en Windows ni
+predice la latencia con sesiones fijadas, cuya vista parcial sigue preparándose.

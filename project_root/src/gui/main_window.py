@@ -453,22 +453,33 @@ class MainWindow(QMainWindow):
         assignments = {gid: value for gid, value in (self.current_schedule or {}).items()
                        if gid in retained_pins} or None
         overrides = {g.group_id for g in (self.current_groups or []) if g.lab_override and g.group_id in retained_pins}
-        # Preflight expensive typed presentation without touching the live session.
+        # Preflight only the presentation the accepted import will materialize.
+        # With no retained pins, _invalidate_schedule clears the schedule: building
+        # a hidden table of every pending group would validate an unused view.
         # No dialogs, signals to the window, repository writes or event pumping.
         preview = CourseManagerWidget()
-        preview_schedule = ScheduleViewerWidget()
+        preview_schedule = None
         try:
             preview.load_courses_from_excel(imported.courses)
-            groups = [group for course in imported.courses for group in course.generate_groups()]
-            for group in groups:
-                group.assignment = (assignments or {}).get(group.group_id)
-                group.pinned = group.group_id in retained_pins
-                group.lab_override = group.group_id in overrides
-            preview_schedule.display_schedule(assignments or {}, TimeModel.from_calendar(self.calendar), groups,
-                                              classrooms=imported.classrooms)
+            if retained_pins:
+                preview_schedule = ScheduleViewerWidget()
+                time_model = TimeModel.from_calendar(self.calendar)
+                rooms = deepcopy(imported.classrooms)
+                for room in rooms.values():
+                    room.allowed_courses = None  # Import clears classroom restrictions.
+                groups = [group for course in imported.courses for group in course.generate_groups()]
+                for group in groups:
+                    group.assignment = (assignments or {}).get(group.group_id)
+                    group.pinned = group.group_id in retained_pins
+                    group.lab_override = group.group_id in overrides
+                    if not group.assignment:
+                        group.unassigned_reason = unassigned_reason(group, rooms, time_model)
+                preview_schedule.display_schedule(assignments or {}, time_model, groups,
+                                                  classrooms=imported.classrooms)
         finally:
             preview.deleteLater()
-            preview_schedule.deleteLater()
+            if preview_schedule is not None:
+                preview_schedule.deleteLater()
         previous = {name: getattr(self, name) for name in (
             'pinned_group_ids', '_classroom_course_map', '_classrooms', 'excel_path',
             'classroom_restrictions', 'current_schedule', 'current_groups',
