@@ -106,6 +106,60 @@ def test_comparison_shared_metrics_unknown_version_and_differences(repo, tmp_pat
     assert result['left'] is None and not result['supported_calendar']
 
 
+@pytest.mark.parametrize('placement', [
+    ('B', 1, 480, 540), ('A', 2, 480, 540), ('A', 1, 540, 600),
+])
+def test_comparison_reports_changed_pinned_placement(repo, tmp_path, placement):
+    values = repo.load_session()
+    values['classrooms']['B'] = Classroom('B', 30, 'REGULAR')
+    values['pinned_group_ids'] = {'BIO-G1'}
+    repo.save_session(**values)
+    catalog = ProjectRepository(tmp_path / 'pinned-projects.db')
+    project, first = catalog.create_project('Synthetic', 'First pin', repo,
+                                            scenario_metadata('sorth-scheduler-v2'))
+    values['assignments']['BIO-G1'] = placement
+    repo.save_session(**values)
+    second = catalog.save_as(project, 'Changed pin', repo,
+                             scenario_metadata('sorth-scheduler-v2'))
+    result = compare_scenarios(catalog.read(first), catalog.read(second))
+    assert not result['comparable']
+    assert result['differences'] == ['pins']
+    left, right = result['difference_values']['pins']
+    assert left == {'BIO-G1': {'assignment': ('A', 1, 480, 540), 'lab_override': False}}
+    assert right == {'BIO-G1': {'assignment': placement, 'lab_override': False}}
+
+
+def test_comparison_does_not_treat_unpinned_results_as_fixed_inputs(repo):
+    from copy import deepcopy
+
+    original = repo.load_session()
+    changed = deepcopy(original)
+    changed['assignments']['BIO-G1'] = ('A', 2, 540, 600)
+    metadata = scenario_metadata('sorth-scheduler-v2')
+    result = compare_scenarios((original, metadata), (changed, metadata))
+    assert result['comparable']
+    assert result['differences'] == []
+    assert result['left']['day_load'] != result['right']['day_load']
+
+
+def test_comparison_preserves_confirmed_lab_exception_in_pin_details(repo):
+    from copy import deepcopy
+
+    original = repo.load_session()
+    original['courses'][0].required_room_type = 'LAB'
+    original['pinned_group_ids'] = {'BIO-G1'}
+    original['lab_overrides'] = {'BIO-G1'}
+    changed = deepcopy(original)
+    changed['assignments']['BIO-G1'] = ('A', 2, 480, 540)
+    metadata = scenario_metadata('sorth-scheduler-v2')
+    identical = compare_scenarios((original, metadata), (deepcopy(original), metadata))
+    assert identical['comparable']
+    result = compare_scenarios((original, metadata), (changed, metadata))
+    assert not result['comparable'] and result['differences'] == ['pins']
+    assert all(side['BIO-G1']['lab_override']
+               for side in result['difference_values']['pins'])
+
+
 def test_snapshot_carries_extra_schema_fields_without_schema_ownership(repo, tmp_path):
     # An unknown future extension is preserved alongside the real pin column.
     with sqlite3.connect(repo._db_path) as con:

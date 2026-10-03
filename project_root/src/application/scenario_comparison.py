@@ -34,6 +34,15 @@ def _inputs(data):
     return courses, rooms
 
 
+def _pins(data):
+    # A fixed placement is a generation input. Equal IDs at different rooms,
+    # weekdays or times do not describe the same scheduling constraints.
+    assignments = data['assignments'] or {}
+    overrides = data.get('lab_overrides', ())
+    return {gid: dict(assignment=assignments.get(gid), lab_override=gid in overrides)
+            for gid in sorted(data.get('pinned_group_ids', ()))}
+
+
 def compare_scenarios(left, right):
     a, am = left
     b, bm = right
@@ -45,7 +54,7 @@ def compare_scenarios(left, right):
         ('courses', ac, bc), ('classrooms', ar, br),
         ('restrictions', a['restrictions'], b['restrictions']),
         ('resources', a.get('resources', SchedulingResources()).to_data(), b.get('resources', SchedulingResources()).to_data()),
-        ('pins', a.get('pinned_group_ids', set()), b.get('pinned_group_ids', set())),
+        ('pins', _pins(a), _pins(b)),
         ('seed', a['seed'], b['seed']),
         ('calendar', am.get('calendar'), bm.get('calendar')),
         ('algorithm_version', am.get('algorithm_version'), bm.get('algorithm_version')),

@@ -57,8 +57,10 @@ frente a evaluables, pendientes/desconocidas, minutos de docencia por día,
 minutos-aula ocupados/disponibles y excepciones activas. Cero denominador se muestra
 como **No aplica**. No se calcula puntuación global ni se declara ganador.
 
-También compara entradas completas, restricciones, marcas fijas, semilla, calendario
-y versiones. Los valores diferentes se muestran en orden izquierda/derecha.
+También compara entradas completas, restricciones, sesiones fijas con su aula,
+día, intervalo y excepción LAB registrada, semilla, calendario y versiones.
+Los valores diferentes se muestran en orden izquierda/derecha. Las asignaciones
+no fijadas siguen siendo resultados y no se tratan como restricciones nuevas.
 Cualquier diferencia o versión de algoritmo desconocida advierte que no hay
 comparabilidad directa. La semilla diferente se informa, sin suponer que invalida
 la aritmética descriptiva. Los calendarios no soportados no se recalculan usando
