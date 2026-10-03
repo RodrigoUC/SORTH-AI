@@ -12,6 +12,13 @@ when the new file does not exist; their original store remains untouched.
 
 Currently implemented switches:
 
+- **Permitir servidor MCP local / Allow local MCP server**: an explicit startup
+  and per-tool-call permission, shared with the headless adapter. A bounded local
+  check is required before enabling in the GUI; no install, service startup,
+  model connection or network listener occurs. The standard EXE reports the
+  optional server unavailable. OFF also suppresses pending results; the client
+  owns process shutdown. See [MCP configuration](MCP_OPTIONAL.md).
+
 - **Herramientas de sesiones fijadas / Pinned session tools**: exposes pin/unpin controls in schedule
   tables. Disabling never removes existing pins or changes their placements.
   Pinned constraints remain enforced by generation, edits, manual placement,
@@ -30,7 +37,8 @@ not install dependencies, start services or grant external access.
 
 ## Extension contract
 
-`src/gui/features.py` contains the implemented feature registry. Each `Feature`
+`src/application/optional_features.py` contains the Qt-free feature registry;
+`src/gui/features.py` provides the desktop atomic preference store. Each `Feature`
 has a stable key, localized Spanish-source title and localized description.
 The JSON stores a schema version and a `features` object. Only boolean values
 are valid for known keys; unknown keys stay preserved but inactive. Malformed or

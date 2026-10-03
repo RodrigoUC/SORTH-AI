@@ -57,6 +57,7 @@ $baseArgs = @(
     '--add-data', ((Join-Path $PSScriptRoot 'data/input') + ';data/input'),
     '--add-data', ((Join-Path $PSScriptRoot 'assets') + ';assets'),
     '--add-data', ((Join-Path $PSScriptRoot 'README.md') + ';.'),
+    '--add-data', ((Join-Path $PSScriptRoot 'MCP_OPTIONAL.md') + ';.'),
     '--add-data', ((Join-Path $PSScriptRoot '../CREDITS.md') + ';.'),
     '--add-data', ((Join-Path $PSScriptRoot '../LICENSE') + ';.'),
     '--add-data', ((Join-Path $PSScriptRoot '../LICENSING.md') + ';.'),
