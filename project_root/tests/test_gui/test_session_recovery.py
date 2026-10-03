@@ -186,3 +186,65 @@ def test_missing_session_after_partial_restore_stays_locked(window, monkeypatch,
     assert window._restore_failed and window._busy
     assert not window._save_session()
     assert (tmp_path / 'session.db').read_bytes() == before
+
+
+@pytest.mark.parametrize('comparison_error', [OSError('temporary read failure'),
+                                              ValueError('invalid comparison data')])
+def test_postcommit_comparison_failure_is_saved_and_read_only_retry(window, monkeypatch, tmp_path, comparison_error):
+    from src.application.scenario_comparison import session_fingerprint
+    window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
+    assert window._save_session()
+    window._scenario_name = 'Baseline'
+    window._scenario_baseline = session_fingerprint(window._repo.load_session())
+    load, save = window._repo.load_session, window._repo.save_session
+    saves = []
+    def failed_comparison(*args, **kwargs):
+        raise comparison_error
+    def committed_save(**kwargs):
+        save(**kwargs)
+        saves.append(kwargs)
+        monkeypatch.setattr(window._repo, 'load_session', failed_comparison)
+    monkeypatch.setattr(window._repo, 'save_session', committed_save)
+    assert window._save_session()  # Persistence succeeded even if comparison did not.
+    assert not window._unsaved and window._save_error is None
+    assert window._scenario_comparison_error
+    assert 'Comparación pendiente' in window._save_state_label.text()
+    assert 'Sin cambios pendientes' in window._save_state_label.text()
+    assert 'Sesión guardada' in window.status_bar.currentMessage()
+    assert not window._retry_save_button.isHidden()
+    before = (tmp_path / 'session.db').read_bytes()
+    for _ in range(2):
+        assert not window._retry_session()
+    assert len(saves) == 1 and not window._unsaved
+    assert (tmp_path / 'session.db').read_bytes() == before
+    assert not list(tmp_path.glob('previous-session-*'))
+    monkeypatch.setattr(window._repo, 'load_session', load)
+    assert window._retry_session()
+    assert len(saves) == 1
+    assert window._scenario_comparison_error is None and not window._scenario_dirty
+    assert window._retry_save_button.isHidden()
+    assert [c.code for c in load()['courses']] == ['BIO']
+    # A real Qt autosave signal must also contain the fault after committing.
+    window.seed_input.setValue(window.seed_input.value() + 1)
+    assert len(saves) == 2 and not window._unsaved and window._save_error is None
+    monkeypatch.setattr(window._repo, 'load_session', load)
+    assert window._retry_session()
+    assert window._scenario_dirty
+
+
+def test_unsaved_changes_take_precedence_over_pending_comparison(window, monkeypatch):
+    from src.application.scenario_comparison import session_fingerprint
+    assert window._save_session()
+    window._scenario_name = 'Baseline'
+    window._scenario_baseline = session_fingerprint(window._repo.load_session())
+    window._scenario_comparison_error = 'Comparison pending'
+    save = window._repo.save_session
+    monkeypatch.setattr(window._repo, 'save_session', fail)
+    assert not window._save_session()
+    assert window._unsaved and window._save_error
+    assert not window._retry_session()
+    monkeypatch.setattr(window._repo, 'save_session', save)
+    assert window._retry_session()
+    assert not window._unsaved and window._save_error is None
+    assert window._scenario_comparison_error is None
+    assert not window._scenario_dirty

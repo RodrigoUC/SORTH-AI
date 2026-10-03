@@ -1,6 +1,10 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Comparación pendiente': 'Comparación pendiente',
+    'Comparación actualizada. La sesión sigue guardada.': 'Comparación actualizada. La sesión sigue guardada.',
+    'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}': 'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}',
+
     'Crear un tema con IA…': 'Crear un tema con IA…',
     'Crear un tema con IA': 'Crear un tema con IA',
     'No se pudo preparar la especificación. No se ha aplicado ningún cambio.': 'No se pudo preparar la especificación. No se ha aplicado ningún cambio.',

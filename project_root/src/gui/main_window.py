@@ -76,6 +76,7 @@ class MainWindow(QMainWindow):
         self._scenario_name = None
         self._scenario_dirty = False
         self._scenario_baseline = None
+        self._scenario_comparison_error = None
         self._algorithm_version = None
         self._save_error = None
         self._restore_failed = False
@@ -1100,6 +1101,7 @@ class MainWindow(QMainWindow):
             if self._scenario_baseline is not None:
                 from ..application.scenario_comparison import session_fingerprint
                 self._scenario_dirty = session_fingerprint(state) != self._scenario_baseline
+                self._scenario_comparison_error = None
             self.btn_generate.setEnabled(bool(self._classrooms and state['courses']) and not self._busy)
             self._refresh_overview()
             self._update_export_actions()
@@ -1311,11 +1313,12 @@ class MainWindow(QMainWindow):
         else:
             text = msg('Cambios sin guardar') if self._unsaved else msg('Sin cambios pendientes')
         if self._scenario_name:
-            state = msg('Cambios posteriores a la copia') if self._scenario_dirty else msg('Copia guardada')
+            state = (msg('Comparación pendiente') if self._scenario_comparison_error else
+                     msg('Cambios posteriores a la copia') if self._scenario_dirty else msg('Copia guardada'))
             text = msg('{name} · {state} · {save}', name=self._scenario_name, state=state, save=text)
         self._save_state_label.setText(text)
-        self._save_state_label.setToolTip(self._save_error or self._scenario_name or "")
-        self._retry_save_button.setVisible(bool(self._save_error))
+        self._save_state_label.setToolTip(self._save_error or self._scenario_comparison_error or self._scenario_name or "")
+        self._retry_save_button.setVisible(bool(self._save_error or self._scenario_comparison_error))
         self._update_feature_notice()
 
     def _record_save_error(self, error):
@@ -1344,7 +1347,29 @@ class MainWindow(QMainWindow):
             except Exception as error:
                 self._record_save_error(error)
             return not self._restore_failed
+        if self._scenario_comparison_error and not self._unsaved:
+            # The working session is already durable; retry only its comparison.
+            result = self._refresh_scenario_comparison()
+            self._update_save_state()
+            if result:
+                self.status_bar.showMessage(msg('Comparación actualizada. La sesión sigue guardada.'))
+            return result
         return self._save_session()
+
+    def _refresh_scenario_comparison(self):
+        try:
+            if self._scenario_baseline is not None:
+                from ..application.scenario_comparison import session_fingerprint
+                self._scenario_dirty = session_fingerprint(self._repo.load_session()) != self._scenario_baseline
+        except Exception as error:
+            # Comparison is optional post-commit metadata, not a failed save.
+            self._scenario_comparison_error = msg(
+                'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}',
+                detail=str(error))
+            self.status_bar.showMessage(self._scenario_comparison_error)
+            return False
+        self._scenario_comparison_error = None
+        return True
 
     def _save_session(self, *_):
         if self._loading:
@@ -1381,9 +1406,7 @@ class MainWindow(QMainWindow):
             return False
         self._unsaved = False
         self._save_error = None
-        if self._scenario_baseline is not None:
-            from ..application.scenario_comparison import session_fingerprint
-            self._scenario_dirty = session_fingerprint(self._repo.load_session()) != self._scenario_baseline
+        self._refresh_scenario_comparison()
         self._update_save_state()
         return True
 
