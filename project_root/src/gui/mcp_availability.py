@@ -50,6 +50,7 @@ class McpAvailabilityProbe(QObject):
         self._manifest = None
         self._resolver = None
         self._cancelled = False
+        self._verifying_result = False
 
     def start(self):
         if self.active:
@@ -58,6 +59,7 @@ class McpAvailabilityProbe(QObject):
         self.command = None
         self._manifest = None
         self._cancelled = False
+        self._verifying_result = False
         self.active = True
         if getattr(sys, 'frozen', False):
             self._resolver = _CommandResolver(self)
@@ -70,13 +72,19 @@ class McpAvailabilityProbe(QObject):
     def _resolved(self):
         resolver, self._resolver = self._resolver, None
         status = resolver.status
-        self.command, self._manifest = resolver.command, resolver.manifest
+        command, manifest = resolver.command, resolver.manifest
         resolver.deleteLater()
         if self._cancelled:
             self._stop('cancelled')
         elif status != 'available':
             self._stop(status)
+        elif self._verifying_result:
+            # A successful health report cannot bless files changed while the
+            # companion was running. Keep the original release/command anchor.
+            self._stop('available' if command == self.command and manifest == self._manifest
+                       else 'incompatible_component')
         else:
+            self.command, self._manifest = command, manifest
             self.process.setWorkingDirectory(str(Path(self.command[0]).parent))
             self.timer.start(self.TIMEOUT_MS)
             self.process.start(self.command[0], ['--probe'])
@@ -112,7 +120,16 @@ class McpAvailabilityProbe(QObject):
                         result = 'incompatible_component'
         except (ValueError, KeyError, TypeError):
             pass
-        self._stop(result)
+        if result == 'available' and self._manifest is not None:
+            # Hashing the bounded manifest can take time. Retain this owner and
+            # its cancellation event until the second background pass finishes.
+            self.timer.stop()
+            self._verifying_result = True
+            self._resolver = _CommandResolver(self)
+            self._resolver.finished.connect(self._resolved)
+            self._resolver.start()
+        else:
+            self._stop(result)
 
     def _stop(self, status):
         if not self.active:
