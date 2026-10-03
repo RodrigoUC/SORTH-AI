@@ -1,5 +1,6 @@
 """Latest-request-wins import coordinator. All GUI access occurs on Qt's thread."""
 from dataclasses import replace
+from pathlib import Path
 from ..scheduling.teaching_resources import SchedulingResources
 from PyQt6.QtCore import QObject, QTimer, Qt
 from .import_worker import ImportWorker
@@ -17,6 +18,7 @@ class ImportController(QObject):
         self.worker = None
         self.pending = None
         self.active = False
+        self.candidate_name = None
         self.closing = False
         self.review = None
         self.retained_pins = set()
@@ -27,9 +29,15 @@ class ImportController(QObject):
             return
         self.cancel(announce=False, restore_controls=False)
         self.active = True
+        self.candidate_name = Path(path).name
+        self.window._set_import_candidate(self.candidate_name)
         self.window._set_import_busy(True)
-        self.window.status_bar.showMessage(msg('Leyendo y validando Excel… La sesión actual se conserva.'))
+        if self.worker is not None:
+            self._show_stage('Esperando para leer {filename}… La sesión actual se conserva.')
         self._enqueue(path)
+
+    def _show_stage(self, source):
+        self.window.status_bar.showMessage(msg(source, filename=self.candidate_name))
 
     def _enqueue(self, path, previous=None):
         self.pending = (self.token, path, previous)
@@ -41,6 +49,9 @@ class ImportController(QObject):
             return
         token, path, previous = self.pending
         self.pending = None
+        self._show_stage(
+            'Comprobando que {filename} no cambió… La sesión actual se conserva.' if previous is not None
+            else 'Leyendo y validando {filename}… La sesión actual se conserva.')
         worker = self.worker = ImportWorker(token, path, previous, self)
         worker.result_ready.connect(self._result)
         worker.failed.connect(self._error)
@@ -60,6 +71,9 @@ class ImportController(QObject):
         self.token += 1
         self.pending = None
         self.active = False
+        cancelled_name = self.candidate_name
+        self.candidate_name = None
+        self.window._set_import_candidate(None)
         if self.worker is not None:
             self.worker.requestInterruption()
         if self.review is not None:
@@ -67,7 +81,9 @@ class ImportController(QObject):
         if restore_controls:
             self.window._set_import_busy(False)
         if announce:
-            self.window.status_bar.showMessage(msg('Importación cancelada. La sesión anterior se conserva.'))
+            self.window.status_bar.showMessage(
+                msg('Importación de {filename} cancelada. La sesión anterior se conserva.', filename=cancelled_name)
+                if cancelled_name else msg('Importación cancelada. La sesión anterior se conserva.'))
 
     def _current(self, token):
         return self.active and not self.closing and token == self.token
@@ -76,23 +92,27 @@ class ImportController(QObject):
         if not self._current(token):
             return
         if verified:
+            self._show_stage('Guardando {filename}…')
             try:
                 self.window._commit_import(candidate, self.retained_pins, self.retained_resources)
             except Exception as error:
                 self._error(token, error)
                 return
             self.active = False
+            self.candidate_name = None
+            self.window._set_import_candidate(None)
             self.window._set_import_busy(False)
             return
         # Changed files enter the complete review flow again, never a silent merge.
         if self.worker.previous is not None:
-            self.window.status_bar.showMessage(msg('El archivo cambió. Revise la nueva versión validada antes de importar.'))
+            self._show_stage('El archivo {filename} cambió. Revise la nueva versión validada antes de importar.')
+        else:
+            self._show_stage('Revisando {filename}… La sesión actual se conserva.')
         if not self._review_candidate(token, candidate):
             if self._current(token):
                 self.cancel()
             return
         if self._current(token):
-            self.window.status_bar.showMessage(msg('Comprobando que el archivo no cambió…'))
             self._enqueue(candidate.path, candidate)
 
     def _review_candidate(self, token, candidate):
@@ -158,15 +178,18 @@ class ImportController(QObject):
     def _error(self, token, error):
         if not self._current(token):
             return
+        failed_name = self.candidate_name
         self.cancel(announce=False)
         failed_token = self.token
+        failure = msg('No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.',
+                      filename=failed_name)
+        self.window.status_bar.showMessage(failure)
         QMessageBox.critical(self.window, msg('Error'), msg('Error al cargar archivo Excel:\n{p1}',
                              p1=error.render(msg) if isinstance(error, ExcelImportError) else str(error)))
-        if self.window._restore_failed:
+        if self.token == failed_token and not self.closing and self.window._restore_failed:
             self.window._block_for_recovery()
-            self.window.status_bar.showMessage(msg('La sesión guardada se conserva. La vista requiere recuperación antes de continuar.'))
-        elif self.token == failed_token and not self.closing:
-            self.window.status_bar.showMessage(msg('No se cargó el archivo. La sesión anterior se conserva.'))
+            self.window.status_bar.showMessage(join_messages(' ', (failure,
+                msg('La sesión guardada se conserva. La vista requiere recuperación antes de continuar.'))))
 
     def prepare_close(self):
         self.closing = True

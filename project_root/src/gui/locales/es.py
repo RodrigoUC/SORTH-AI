@@ -1455,3 +1455,19 @@ MESSAGES.update({
     'Permiso local guardado: desactivado.': 'Permiso local guardado: desactivado.',
     'Espera a que termine la verificación MCP antes de guardar el permiso.': 'Espera a que termine la verificación MCP antes de guardar el permiso.',
 })
+
+# Import operation identity stays separate from accepted session data.
+MESSAGES.update({
+    'Archivo de la sesión: {filename}': 'Archivo de la sesión: {filename}',
+    'Archivo en importación:': 'Archivo en importación:',
+    'Archivo en importación': 'Archivo en importación',
+    'Archivo pendiente de aceptar. La sesión actual se conserva. Lea el estado completo con F6.': 'Archivo pendiente de aceptar. La sesión actual se conserva. Lea el estado completo con F6.',
+    'Esperando para leer {filename}… La sesión actual se conserva.': 'Esperando para leer {filename}… La sesión actual se conserva.',
+    'Leyendo y validando {filename}… La sesión actual se conserva.': 'Leyendo y validando {filename}… La sesión actual se conserva.',
+    'Comprobando que {filename} no cambió… La sesión actual se conserva.': 'Comprobando que {filename} no cambió… La sesión actual se conserva.',
+    'Revisando {filename}… La sesión actual se conserva.': 'Revisando {filename}… La sesión actual se conserva.',
+    'Guardando {filename}…': 'Guardando {filename}…',
+    'El archivo {filename} cambió. Revise la nueva versión validada antes de importar.': 'El archivo {filename} cambió. Revise la nueva versión validada antes de importar.',
+    'Importación de {filename} cancelada. La sesión anterior se conserva.': 'Importación de {filename} cancelada. La sesión anterior se conserva.',
+    'No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.': 'No se pudo importar {filename}. La sesión anterior se conserva. Vuelva a cargar el archivo para reintentar.',
+})

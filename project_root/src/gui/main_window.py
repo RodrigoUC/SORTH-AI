@@ -36,7 +36,7 @@ from ..application.edit_history import EditHistory, EditError, course_change, no
 from .i18n import msg, plural, language_manager, join_messages
 from .locales import LANGUAGES
 from .i18n_widgets import (
-    QAction, QProgressBar, QComboBox, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMainWindow, QMessageBox, QPushButton, QSpinBox, QStatusBar, QTabWidget, QWidget
+    QAction, QProgressBar, QComboBox, QCheckBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSpinBox, QStatusBar, QTabWidget, QWidget
 )
 
 
@@ -279,7 +279,9 @@ class MainWindow(QMainWindow):
         text.setReadOnly(True)
         text.setAccessibleName(msg('Estado actual'))
         text.setPlainText('\n\n'.join(filter(None, (
-            self.status_bar.currentMessage(), self._save_state_label.text(),
+            self.status_bar.currentMessage(),
+            msg('Archivo de la sesión: {filename}', filename=Path(self.excel_path).name) if self.excel_path else None,
+            self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
             self.schedule_viewer._result_label.text(), self._feature_notice.text(), self._feature_notice.toolTip(),
             self._theme_recovery_notice.text() if (theme_manager().recovery_issue or theme_manager().startup_issue) else '', self._save_error))))
@@ -375,6 +377,23 @@ class MainWindow(QMainWindow):
         file_row.addWidget(self.btn_restrictions)
         layout.addLayout(file_row)
 
+        # The accepted filename above belongs to the current session. Keep the
+        # uncommitted candidate separate and inspectable without a hover target.
+        self._import_candidate_row = QWidget()
+        candidate_row = QHBoxLayout(self._import_candidate_row)
+        candidate_row.setContentsMargins(0, 0, 0, 0)
+        candidate_label = QLabel(msg('Archivo en importación:'))
+        self._import_candidate_field = QLineEdit()
+        self._import_candidate_field.setReadOnly(True)
+        self._import_candidate_field.setAccessibleName(msg('Archivo en importación'))
+        self._import_candidate_field.setAccessibleDescription(
+            msg('Archivo pendiente de aceptar. La sesión actual se conserva. Lea el estado completo con F6.'))
+        candidate_label.setBuddy(self._import_candidate_field)
+        candidate_row.addWidget(candidate_label)
+        candidate_row.addWidget(self._import_candidate_field, 1)
+        self._import_candidate_row.hide()
+        layout.addWidget(self._import_candidate_row)
+
         return layout
 
     def _sync_language_selector(self, language):
@@ -449,6 +468,11 @@ class MainWindow(QMainWindow):
             self, msg('Seleccionar archivo Excel'), "", msg('Libro de Excel (*.xlsx)'))
         if file_path:
             self._import.start(file_path)
+
+    def _set_import_candidate(self, filename):
+        self._import_candidate_field.setText(filename or '')
+        self._import_candidate_field.setCursorPosition(0)
+        self._import_candidate_row.setVisible(filename is not None)
 
     def _set_import_busy(self, busy):
         self._set_busy(busy)
@@ -529,8 +553,6 @@ class MainWindow(QMainWindow):
             self._update_save_state()
             self._update_feature_notice()
             self._reset_edit_history('import')
-            self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
-                                      p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
         self._loading = True
         signal_guard = QSignalBlocker(self.course_manager)
@@ -569,6 +591,9 @@ class MainWindow(QMainWindow):
         finally:
             signal_guard.unblock()
             self._loading = False
+        # Announce success only after the atomic transaction has committed.
+        self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
+                                  p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
     def _add_classroom(self):
         dialog = AddClassroomDialog(self)
