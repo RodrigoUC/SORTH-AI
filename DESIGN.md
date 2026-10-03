@@ -78,3 +78,8 @@ advanced tools appear, all disabled initially. Disabling changes entry-point
 visibility and never deletes project data or relaxes constraints. A main-window
 text notice (also included in F6 status) explains retained pins/scenario data and
 where to reactivate controls. See `project_root/OPTIONAL_FEATURES.md`.
+
+Optional-tool preferences use one versioned atomic JSON record, separate from
+QSettings language/motion preferences. Failed saves keep committed flags and
+original bytes. Malformed/future settings require an explicit preserve-and-reset
+action; the native recovery message explains that schedule data never changes.
