@@ -17,3 +17,9 @@ def test_main_and_review_stacks_have_read_only_review_gates(name):
     assert 'ref: ${{ github.event.pull_request.head.sha || github.sha }}' in text
     refs = re.findall(r'uses:\s+[^@\s]+@([^\s#]+)', text)
     assert refs and all(re.fullmatch(r'[0-9a-f]{40}', ref) for ref in refs)
+
+
+def test_windows_regression_gate_is_bounded_and_diagnostic():
+    text = (ROOT / ".github/workflows/windows-review.yml").read_text()
+    assert "      - name: Run all regression tests\n        timeout-minutes: 8" in text
+    assert "-m pytest -vv -o faulthandler_timeout=120 --junitxml=build/reports/tests.xml" in text
