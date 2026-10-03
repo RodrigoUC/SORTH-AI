@@ -2,7 +2,7 @@ name: Optional MCP contract
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/optional-mcp-preview]
   push:
     branches: [main]
   workflow_dispatch:

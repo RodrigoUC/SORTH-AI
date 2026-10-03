@@ -2,7 +2,7 @@ name: Security review
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/optional-mcp-preview]
   push:
     branches: [main]
   schedule:
