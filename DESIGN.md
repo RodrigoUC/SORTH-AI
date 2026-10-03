@@ -349,3 +349,8 @@ Wrapping reuses the complete caption rendered by the existing localization
 boundary, never a previously wrapped display string. Native fitting therefore
 cannot re-enter translation callbacks during parent LanguageChange propagation;
 setText and locale changes still refresh both source text and accessible names.
+Responsive controls distinguish generated full-caption accessible names from
+explicit names. A generated name follows Message or literal caption replacements
+and drops obsolete translation bindings; an explicitly assigned name remains
+independent through wrapping, text changes and locale changes. The helper still
+uses already-rendered canonical text and never translates during native fitting.

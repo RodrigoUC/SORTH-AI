@@ -128,6 +128,45 @@ class QLabel(_Localized, QtW.QLabel):
 
 
 class _ResponsiveButtonText:
+    def _preserve_explicit_accessible_name(self):
+        if (getattr(self, '_auto_accessible_name', False)
+                and self.accessibleName() != self._auto_accessible_text):
+            # An externally changed native name is explicit too.
+            self._auto_accessible_name = False
+            self._messages.pop('setAccessibleName', None)
+
+    def _sync_auto_accessible_name(self):
+        if not getattr(self, '_auto_accessible_name', False):
+            return
+        # The caption's binding already owns localization. Automatic names
+        # reuse that rendered value instead of translating it a second time.
+        self._messages.pop('setAccessibleName', None)
+        self._auto_accessible_text = self._presentation_text
+        QtW.QWidget.setAccessibleName(self, self._auto_accessible_text)
+
+    @_keep_qt_owners_alive
+    def setText(self, source):
+        if sip.isdeleted(self):
+            return
+        self._preserve_explicit_accessible_name()
+        super().setText(source)
+        if not sip.isdeleted(self):
+            self._sync_auto_accessible_name()
+
+    def setAccessibleName(self, source):
+        # Wrapping may supply a missing name, never replace an explicit one.
+        self._auto_accessible_name = False
+        return super().setAccessibleName(source)
+
+    @_keep_qt_owners_alive
+    def retranslate(self):
+        if sip.isdeleted(self):
+            return
+        self._preserve_explicit_accessible_name()
+        super().retranslate()
+        if not sip.isdeleted(self):
+            self._sync_auto_accessible_name()
+
     @_keep_qt_owners_alive
     def wrapPresentationText(self, available_width):
         """Wrap only the native display; keep the complete Message binding intact."""
@@ -136,13 +175,15 @@ class _ResponsiveButtonText:
         binding = self._messages.get('setText')
         if binding is None:
             return
-        source = binding[1][0]
         # Localization already rendered this canonical caption at setText or
         # retranslate. Fitting can run within a native LanguageChange/resize
         # event, so it must not call translation callbacks again from there.
         full_text = self._presentation_text
-        self._messages['setAccessibleName'] = ('setAccessibleName', (source,))
-        QtW.QWidget.setAccessibleName(self, full_text)
+        if not hasattr(self, '_auto_accessible_name'):
+            self._auto_accessible_name = not bool(self.accessibleName())
+            self._auto_accessible_text = self.accessibleName()
+        self._preserve_explicit_accessible_name()
+        self._sync_auto_accessible_name()
         if sip.isdeleted(self):
             return
         self.ensurePolished()
