@@ -7,7 +7,6 @@ from ..scheduling.schedule_state import ScheduleState
 from ..scheduling.scheduler import Scheduler
 from ..scheduling.course import Course
 from ..scheduling.validation import validate_schedule
-from ..infrastructure.excel_reader import ExcelReader
 
 
 class SchedulingService:
@@ -31,7 +30,11 @@ class SchedulingService:
         Returns:
             (assignments, groups) on success, (None, None) on failure.
         """
-        reader = ExcelReader(self.excel_path)
+        # Optional file adapter is loaded only for the legacy Excel workflow.
+        # Supplied-data callers need neither pandas, Qt nor filesystem access.
+        if classrooms is None or courses is None:
+            from ..infrastructure.excel_reader import ExcelReader
+            reader = ExcelReader(self.excel_path)
         if classrooms is None and courses is None:
             imported = reader.load_validated()
             classrooms = imported.classrooms
