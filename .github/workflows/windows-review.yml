@@ -32,6 +32,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Discover installed fonts for Windows offscreen QA
+        run: .\tools\configure_windows_qt_fonts.ps1
       - name: Install fixed Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -109,6 +111,9 @@ jobs:
           $result = Get-Content (Join-Path $smokeDir 'smoke-result.json') -Raw | ConvertFrom-Json
           if (-not $result.ok -or -not $result.frozen -or $result.assigned -ne $result.groups) {
             throw 'Packaged smoke validation failed.'
+          }
+          foreach ($phase in @('startup', 'es', 'en')) {
+            if (-not $result.text_rendering.$phase.ok) { throw "Missing readable text evidence: $phase." }
           }
           $env:PATH = $oldPath
           Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."

@@ -124,6 +124,7 @@ def run_theme_probe(app, output_dir, phase):
     from ..gui.theme_preferences import default_theme_path
     from .packaged_workflow import smoke_preserved_files
     from .edit_history import fingerprint
+    from ..gui.smoke_rendering import require_readable_text
     from PyQt6.QtWidgets import QApplication, QDialog
     report = {'ok': False, 'phase': phase, 'pid': os.getpid(),
               'frozen': bool(getattr(sys, 'frozen', False))}
@@ -159,6 +160,7 @@ def run_theme_probe(app, output_dir, phase):
         from PyQt6.QtGui import QPalette
         if app.palette().color(QPalette.ColorRole.Window).name() != manager.current.colors['canvas'].lower():
             raise RuntimeError('Restart did not apply the saved/fallback native palette.')
+        report['text_rendering'] = require_readable_text(window, output_dir, f'theme-{phase}-restart')
         if not window.grab().save(str(output_dir / f'theme-{phase}-restart.png')):
             raise RuntimeError('Could not capture the restarted appearance.')
         window.close()
@@ -187,7 +189,9 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
         raise ValueError('Use a fresh smoke-output directory to avoid stale results.')
     configure_smoke_profile(output_dir, create=True)
     source_root = Path(sys._MEIPASS) if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[2]
-    result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': []}
+    result = {'ok': False, 'frozen': bool(getattr(sys, 'frozen', False)), 'stages': [],
+              'text_rendering': {}}
+    from ..gui.smoke_rendering import require_readable_text
     if result['frozen']:
         result['build_identity'] = json.loads((source_root / 'build-identity.json').read_text(encoding='utf-8'))
     window = create_smoke_window(output_dir, restore_session=False)
@@ -252,6 +256,7 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
                         raise RuntimeError('Localized PDF export failed.')
                     if window.btn_generate.text() != label or window.current_schedule != assignments:
                         raise RuntimeError('Language switching changed data or failed to translate controls.')
+                    result['text_rendering'][language] = require_readable_text(window, output_dir, language)
                     if not window.grab().save(str(output_dir / f'schedule-{language}.png')):
                         raise RuntimeError('Could not capture the localized Qt window.')
                 result['stages'].append('language_switch_es_en')
@@ -270,6 +275,7 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
 
     def start():
         try:
+            result['text_rendering']['startup'] = require_readable_text(window, output_dir, 'startup')
             from PyQt6.QtGui import QImage, QIcon
             if QIcon(str(source_root / 'assets/sorth.ico')).pixmap(32, 32).isNull():
                 raise RuntimeError('Bundled application icon could not be decoded.')
