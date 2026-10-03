@@ -370,7 +370,7 @@ class MainWindow(QMainWindow):
 
         seed_label = QLabel(msg('Semilla:'))
         seed_label.setToolTip(
-            msg('Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.')
+            msg('Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.')
         )
 
         self.chk_random_seed = QCheckBox(msg('Aleatoria'))

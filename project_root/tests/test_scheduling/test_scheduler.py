@@ -330,3 +330,31 @@ def test_pinned_split_siblings_preserve_exact_starts_per_family():
     assert assignments['A-G1-P2'][2] == 421
     assert assignments['B-G1-P2'][2] == 551
     assert not validate_schedule(assignments, groups, rooms, TimeModel.default())
+
+
+def test_seed_changes_only_equal_priority_choices_and_is_reproducible():
+    from src.scheduling.validation import validate_schedule
+    def run(seed):
+        time = TimeModel(['Lunes', 'Martes'])
+        rooms = [Classroom(name, 30, kind) for name, kind in
+                 [('R1', 'REGULAR'), ('R2', 'REGULAR'), ('L', 'LAB')]]
+        state = ScheduleState(time, rooms)
+        group = Group('A', 60, 'REGULAR', preferred_start_min=480)
+        assert Scheduler(seed).schedule(state, [group])
+        assert group.assignment[0] != 'L'  # Room type outranks random tie-breaking.
+        assert group.assignment[2] == 480  # Exact preference also outranks it.
+        assert not validate_schedule(state.assignments, [group], state.classrooms, time)
+        return group.assignment
+    assert run(42) == run(42)
+    assert len({run(seed) for seed in range(20)}) > 1
+
+
+def test_reused_scheduler_resets_fixed_seed_for_equivalent_inputs():
+    scheduler = Scheduler(12)
+    results = []
+    for _ in range(2):
+        state, _ = _make_multi_classroom_state()
+        groups = [Group(str(i), 60, 'REGULAR') for i in range(3)]
+        assert scheduler.schedule(state, groups)
+        results.append(dict(state.assignments))
+    assert results[0] == results[1]

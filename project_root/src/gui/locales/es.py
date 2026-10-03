@@ -262,7 +262,7 @@ MESSAGES = {
     "Confirmar eliminación": "Confirmar eliminación",
     "Confirmar excepción de laboratorio": "Confirmar excepción de laboratorio",
     "Conflicto de aula\n": "Conflicto de aula\n",
-    "Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.": "Controla la aleatoriedad del algoritmo.\nSemilla fija → mismo horario cada vez (reproducible).\nSemilla aleatoria → resultados distintos en cada ejecución.",
+    "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.": "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.",
     "Corrija el archivo y vuelva a cargarlo:": "Corrija el archivo y vuelva a cargarlo:",
     "Cuadrícula por aula": "Cuadrícula por aula",
     "Cuadrícula semanal por aula": "Cuadrícula semanal por aula",

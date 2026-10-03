@@ -10,6 +10,7 @@ class Scheduler:
 
     def __init__(self, seed: int | None = 42, cancelled=None):
         self._cancelled = cancelled
+        self._seed = seed
         self._rng = Random(seed)
         self._all_groups: List[Group] = []
 
@@ -32,6 +33,7 @@ class Scheduler:
                 raise ValueError('; '.join(map(str, errors)))
         checkpoint(self._cancelled)
         self._all_groups = groups
+        self._rng = Random(self._seed)
         self._reset_counters()
         self._seed_counters(state, groups)
         self._build_domains(state, groups, strict_preferences=True)
@@ -74,8 +76,8 @@ class Scheduler:
                 continue
             # Domains were built before earlier groups occupied their rooms.
             # Discard stale slots before scoring, then find the best candidate
-            # in linear time instead of sorting every candidate. min() retains
-            # the same first-in-domain tie breaking as the previous stable sort.
+            # in linear time instead of sorting every candidate. Randomness only
+            # breaks exact score ties, preserving every existing priority.
             candidates = (
                 candidate for candidate in group.domain
                 if self._candidate_available(candidate, group)
@@ -85,7 +87,8 @@ class Scheduler:
                 and (not group.parent_group_id or self._is_valid_subgroup(
                     group, candidate[1], candidate[2]))
             )
-            best = min(candidates, key=lambda a: self._candidate_score(state, group, a),
+            best = min(candidates, key=lambda a: (self._candidate_score(state, group, a),
+                                                   -self._rng.random()),
                        default=None)
             if best is not None:
                 classroom, day, start_min = best
