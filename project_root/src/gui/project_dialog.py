@@ -236,7 +236,7 @@ class ComparisonDialog(QDialog):
             warning2 = QLabel(msg('No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.'))
             warning2.setWordWrap(True)
             layout.addWidget(warning2)
-        labels = dict(courses='Cursos', classrooms='Aulas', restrictions='Restricciones', pins='Sesiones fijas',
+        labels = dict(courses='Cursos', classrooms='Aulas', restrictions='Restricciones', resources='Recursos', pins='Sesiones fijas',
                       seed='Semilla', calendar='Calendario', algorithm_version='Versión del algoritmo', metrics_version='Versión de métricas', format_version='Versión del formato')
         differences = QLabel(msg('Diferencias: {details}', details=join_messages(', ', [msg(labels[key]) for key in result['differences']]) or msg('Ninguna')))
         differences.setWordWrap(True)

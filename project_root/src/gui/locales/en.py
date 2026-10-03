@@ -144,6 +144,7 @@ MESSAGES = {
     'Calendario': 'Calendar',
     'Versión del algoritmo': 'Algorithm version',
     'Versión de métricas': 'Metrics version',
+    'Recursos': 'Resources',
     'Diferencias: {details}': 'Differences: {details}',
     'Ninguna': 'None',
     'Indicador': 'Indicator',
