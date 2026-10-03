@@ -2,6 +2,7 @@
 from copy import deepcopy
 from PyQt6.QtCore import QThread, pyqtSignal
 from ..application.scheduling_service import SchedulingService
+from ..bootstrap.scheduling import create_excel_reader
 from ..scheduling.cancellation import SchedulingCancelled, checkpoint
 
 class SchedulerWorker(QThread):
@@ -24,7 +25,8 @@ class SchedulerWorker(QThread):
     def run(self):
         try:
             checkpoint(self.isInterruptionRequested)
-            service = SchedulingService(self._excel_path, seed=self._seed)
+            service = SchedulingService(self._excel_path, seed=self._seed,
+                                        reader_factory=create_excel_reader)
             assignments, groups = service.run(
                 courses=self._courses,
                 resources=self._resources,
