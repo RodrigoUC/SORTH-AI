@@ -3,6 +3,7 @@ from dataclasses import replace
 from pathlib import Path
 from ..scheduling.teaching_resources import SchedulingResources
 from PyQt6.QtCore import QObject, QTimer, Qt
+from PyQt6.QtWidgets import QTextEdit
 from .import_worker import ImportWorker
 from .import_preview_dialog import ImportPreviewDialog
 from .i18n import msg, join_messages
@@ -115,17 +116,31 @@ class ImportController(QObject):
         if self._current(token):
             self._enqueue(candidate.path, candidate)
 
+    @staticmethod
+    def _set_review_details(review, details):
+        review.setDetailedText(details)
+        # Qt's built-in details editor defaults to NoFocus. Let keyboard users
+        # reach, select and scroll the full filename and warnings, then Tab out.
+        field = review.findChild(QTextEdit)
+        if field is not None:
+            field.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            field.setTabChangesFocus(True)
+            field.setAccessibleName(msg('Revisar importación'))
+
     def _review_candidate(self, token, candidate):
         window = self.window
         imported = candidate.imported
+        identity = msg('Archivo: {name}', name=Path(candidate.path).name)
+        selectable = Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
         if imported.warnings:
             review = self.review = QMessageBox(window)
             review.setWindowTitle(msg('Revisar importación'))
             review.setIcon(QMessageBox.Icon.Warning)
             review.setTextFormat(Qt.TextFormat.PlainText)
+            review.setTextInteractionFlags(selectable)
             review.setText(msg('Avisos del archivo: {count}', count=len(imported.warnings)))
-            review.setInformativeText(join_messages('\n', (item.render(msg) for item in imported.warnings[:3])) + msg('\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.'))
-            review.setDetailedText(join_messages('\n', (item.render(msg) for item in imported.warnings)))
+            review.setInformativeText(identity + '\n\n' + join_messages('\n', (item.render(msg) for item in imported.warnings[:3])) + msg('\n\nRevise los detalles antes de continuar. Cancelar conserva la sesión actual.'))
+            self._set_review_details(review, identity + '\n\n' + join_messages('\n', (item.render(msg) for item in imported.warnings)))
             review.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             review.setDefaultButton(QMessageBox.StandardButton.Cancel)
             review.setButtonText(QMessageBox.StandardButton.Ok, msg('Importar con avisos'))
@@ -144,8 +159,10 @@ class ImportController(QObject):
             review = self.review = QMessageBox(window)
             review.setWindowTitle(msg('Recursos por revisar'))
             review.setTextFormat(Qt.TextFormat.PlainText)
+            review.setTextInteractionFlags(selectable)
+            review.setInformativeText(identity)
             review.setText(msg('Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?', count=len(orphaned)))
-            review.setDetailedText('\n'.join(sorted(orphaned)))
+            self._set_review_details(review, identity + '\n\n' + '\n'.join(sorted(orphaned)))
             review.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
             review.setDefaultButton(QMessageBox.StandardButton.Cancel)
             accepted = review.exec() == QMessageBox.StandardButton.Yes

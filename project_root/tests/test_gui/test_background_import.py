@@ -763,3 +763,140 @@ def test_new_import_during_error_dialog_keeps_newest_identity(window, tmp_path, 
     assert window.excel_path == replacement
     assert 'Excel cargado: replacement.xlsx' in window.status_bar.currentMessage()
     assert window._import.candidate_name is None
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+@pytest.mark.parametrize('accept', [False, True])
+def test_warning_review_has_full_plain_candidate_identity_in_keyboard_details(
+        window, tmp_path, monkeypatch, language, accept):
+    from PyQt6.QtWidgets import QPushButton, QTextEdit
+    manager, previous_language = language_manager(), language_manager().language
+    name = 'Cursos & revisión ' + 'universitaria ' * 10 + '.xlsx'
+    path = tmp_path / name
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': ['R'], 'CAPACIDAD': [30]}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': ['BIO'], 'Aula': ['MISSING']}).to_excel(writer, sheet_name='Cursos', index=False)
+    window.excel_path = str(tmp_path / 'accepted.xlsx')
+    window.excel_path_label.setText('accepted.xlsx')
+    window._save_session()
+    before, disk = session(window), (tmp_path / 'session.db').read_bytes()
+    original_exec, observed = QMessageBox.exec, []
+    def review(dialog):
+        def inspect():
+            # Assertions run after the native event loop, never through a Qt slot.
+            state = {
+                'identity': name in dialog.informativeText(),
+                'details_identity': name in dialog.detailedText(),
+                'no_path': str(tmp_path) not in dialog.informativeText() + dialog.detailedText(),
+                'plain': dialog.textFormat() == Qt.TextFormat.PlainText,
+                'selectable': bool(dialog.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByKeyboard),
+                'default_cancel': dialog.defaultButton() is dialog.button(QMessageBox.StandardButton.Cancel),
+                'old_file': window.excel_path_label.text(),
+            }
+            detail_button = next(button for button in dialog.findChildren(QPushButton)
+                                 if button.text() in ('Mostrar detalles...', 'Show Details...'))
+            for _ in range(12):
+                if detail_button.hasFocus():
+                    break
+                QTest.keyClick(dialog.focusWidget() or dialog, Qt.Key.Key_Tab)
+            state['details_reached_by_tab'] = detail_button.hasFocus()
+            QTest.keyClick(detail_button, Qt.Key.Key_Space)
+            field = dialog.findChild(QTextEdit)
+            state['details_visible'] = field.isVisible()
+            for _ in range(12):
+                if field.hasFocus():
+                    break
+                QTest.keyClick(dialog.focusWidget() or dialog, Qt.Key.Key_Tab)
+            state['text_reached_by_tab'] = field.hasFocus()
+            QTest.keyClick(field, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+            state['selection'] = field.textCursor().selectedText()
+            observed.append(state)
+            dialog.done(int(QMessageBox.StandardButton.Ok if accept else QMessageBox.StandardButton.Cancel))
+        QTimer.singleShot(30, inspect)
+        return original_exec(dialog)
+    monkeypatch.setattr(QMessageBox, 'exec', review)
+    try:
+        manager.set_language(language, persist=False)
+        window.resize(960, 640)
+        window.show()
+        window._import.start(str(path))
+        wait_for_import(window)
+        assert len(observed) == 1
+        state = observed[0]
+        assert all(state[key] for key in ('identity', 'details_identity', 'no_path', 'plain',
+                   'selectable', 'default_cancel', 'details_reached_by_tab', 'details_visible', 'text_reached_by_tab')), str(state)
+        assert name in state['selection'] and state['old_file'] == 'accepted.xlsx'
+        if accept:
+            assert window.excel_path == str(path)
+        else:
+            assert session(window) == before and (tmp_path / 'session.db').read_bytes() == disk
+    finally:
+        manager.set_language(previous_language, persist=False)
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+def test_warning_identity_treats_markup_as_literal_data(window, tmp_path, monkeypatch, language):
+    from dataclasses import replace
+    from PyQt6.QtWidgets import QLabel
+    path = tmp_path / 'warnings.xlsx'
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': ['R'], 'CAPACIDAD': [30]}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': ['BIO'], 'Aula': ['MISSING']}).to_excel(writer, sheet_name='Cursos', index=False)
+    # A private candidate fixture tests arbitrary filenames on platforms that
+    # prohibit angle brackets in actual filesystem names. It is never committed.
+    literal_name = '<b>Literal & untouched.xlsx'
+    candidate = replace(read_candidate(str(path), lambda: False), path=literal_name)
+    manager, previous_language = language_manager(), language_manager().language
+    observed = []
+    def inspect(dialog):
+        dialog.show()
+        QApplication.processEvents()
+        label = dialog.findChild(QLabel, 'qt_msgbox_informativelabel')
+        observed.append((label.text(), label.textFormat(), dialog.detailedText()))
+        return QMessageBox.StandardButton.Cancel
+    monkeypatch.setattr(QMessageBox, 'exec', inspect)
+    before = session(window)
+    try:
+        manager.set_language(language, persist=False)
+        window._import.active = True
+        assert not window._import._review_candidate(window._import.token, candidate)
+        assert literal_name in observed[0][0] and literal_name in observed[0][2]
+        assert observed[0][1] == Qt.TextFormat.PlainText
+        assert session(window) == before
+    finally:
+        window._import.cancel(announce=False)
+        manager.set_language(previous_language, persist=False)
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+def test_orphaned_resource_review_keeps_candidate_identity_and_default_cancel(window, tmp_path, monkeypatch, language):
+    from PyQt6.QtWidgets import QTextEdit
+    from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
+    window.resources = SchedulingResources((ResourceCatalog('teacher', True,
+        (Resource('teacher-local', 'Synthetic teacher'),), (('BIO-G1', ('teacher-local',)),)),))
+    window._save_session()
+    resources = window.resources
+    before, disk = session(window), (tmp_path / 'session.db').read_bytes()
+    path = workbook(tmp_path / 'replacement & resources.xlsx', code='NEW')
+    manager, previous_language = language_manager(), language_manager().language
+    inspected = []
+    def review(dialog):
+        details = dialog.findChild(QTextEdit)
+        inspected.append((dialog.informativeText(), dialog.detailedText(), dialog.textFormat(),
+                          details.focusPolicy(), details.tabChangesFocus(),
+                          dialog.defaultButton() is dialog.button(QMessageBox.StandardButton.Cancel)))
+        return QMessageBox.StandardButton.Cancel
+    monkeypatch.setattr(QMessageBox, 'exec', review)
+    try:
+        manager.set_language(language, persist=False)
+        window._import.start(path)
+        wait_for_import(window)
+        assert len(inspected) == 1
+        informative, details, format_, focus, tab_out, cancel = inspected[0]
+        assert 'replacement & resources.xlsx' in informative and 'replacement & resources.xlsx' in details
+        assert str(tmp_path) not in informative + details and 'BIO-G1' in details
+        assert format_ == Qt.TextFormat.PlainText and focus == Qt.FocusPolicy.StrongFocus and tab_out and cancel
+        assert window.resources is resources
+        assert session(window) == before and (tmp_path / 'session.db').read_bytes() == disk
+    finally:
+        manager.set_language(previous_language, persist=False)

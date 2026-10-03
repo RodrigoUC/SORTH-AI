@@ -58,7 +58,10 @@ campo de solo lectura: Tab permite enfocarlo, recorrer un nombre largo y copiarl
 transacción. El estado identifica el archivo y la fase real (espera, lectura y
 validación, revisión, comprobación o guardado), sin porcentajes inventados.
 Cancelar, rechazar o fallar retira el candidato activo; el último resultado queda
-en la barra y en F6. Un fallo nunca conserva un mensaje anterior de éxito. Las capturas Qt offscreen
+en la barra y en F6. Un fallo nunca conserva un mensaje anterior de éxito. Los diálogos de avisos y
+revisión de recursos también identifican el archivo por su nombre. Tab permite
+abrir **Mostrar detalles**, entrar al texto completo para seleccionarlo y volver
+a los botones; no necesita usar F6 detrás de un diálogo modal. Las capturas Qt offscreen
 no prueban anuncios de lectores de pantalla ni apariencia nativa de Windows.
 
 ## Medición reproducible y limitación conocida
