@@ -58,7 +58,7 @@ def test_all_pending_can_be_displayed_and_manually_assigned(app, tmp_path, monke
         return dialog.result()
     monkeypatch.setattr(ManualAssignmentDialog, 'exec', accept)
     window._manual_assignment(groups[0].group_id)
-    assert window.current_schedule and groups[0].lab_override
+    assert window.current_schedule and window.current_groups[0].lab_override
     assert window.btn_export.isEnabled()
     assert window._repo.load_session()['lab_overrides'] == {groups[0].group_id}
     assert 'Excepción manual' in window.schedule_viewer.list_table.item(0, 7).text()

@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QHeaderView
 )
 from PyQt6.QtCore import Qt, QTime, pyqtSignal
+from copy import deepcopy
 from PyQt6.QtWidgets import (
     QCompleter
 )
@@ -256,7 +257,9 @@ class CourseDialog(QDialog):
         idx = self.split_combo.currentIndex()
         force_split = None if idx == 0 else (True if idx == 1 else False)
 
-        return Course(
+        if self.course is not None and code == self.course.code:
+            room_type = self.course.required_room_type
+        course = Course(
             code=code,
             name=self.name_edit.text().strip() or None,
             number_of_groups=self.groups_spin.value(),
@@ -267,6 +270,15 @@ class CourseDialog(QDialog):
             preferred_start_min=preferred_start_min,
             force_split=force_split,
         )
+        if self.course is not None:
+            # Editing visible fields must not erase enrollment, per-group
+            # suggestions, or future domain metadata that this dialog cannot edit.
+            original = deepcopy(self.course)
+            for key, value in vars(course).items():
+                if key not in ('size', 'group_suggestions'):
+                    setattr(original, key, value)
+            return original
+        return course
 
 
 class CourseManagerWidget(QWidget):
@@ -320,7 +332,7 @@ class CourseManagerWidget(QWidget):
         layout.addWidget(self.table)
 
         # Buttons
-        btn_layout = QHBoxLayout()
+        btn_layout = self.edit_actions = QHBoxLayout()
         btn_add = QPushButton(msg('➕ Agregar Curso'))
         btn_add.setToolTip(msg('Agregar un nuevo curso manualmente a la lista'))
         btn_add.clicked.connect(self._add_course)
@@ -360,14 +372,21 @@ class CourseManagerWidget(QWidget):
         guard = getattr(self, "change_guard", None)
         return guard is None or guard(list(courses))
 
+    def _commit_courses(self, proposed, label):
+        handler = getattr(self, 'commit_handler', None)
+        if handler is not None:
+            return handler(proposed, label)
+        if not self._accept_courses(proposed):
+            return False
+        self.courses = list(proposed)
+        self._refresh_table()
+        self.courses_changed.emit()
+        return True
+
     def _replace_course(self, index, course):
         proposed = list(self.courses)
         proposed[index] = course
-        if not self._accept_courses(proposed):
-            return
-        self.courses = proposed
-        self._refresh_table()
-        self.courses_changed.emit()
+        return self._commit_courses(proposed, 'Editar curso')
 
     def get_courses(self) -> list[Course]:
         return list(self.courses)
@@ -416,11 +435,7 @@ class CourseManagerWidget(QWidget):
                         if updated:
                             self._replace_course(existing, updated)
                 return
-            if not self._accept_courses([*self.courses, course]):
-                return
-            self.courses.append(course)
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._commit_courses([*self.courses, course], 'Agregar curso')
 
     def _selected_course_index(self):
         item = self.table.item(self.table.currentRow(), 0)
@@ -449,21 +464,13 @@ class CourseManagerWidget(QWidget):
             return
         if _confirm(self, msg('Confirmar eliminación'),
                     msg('¿Eliminar el curso {p1}?', p1=self.courses[row].code)):
-            if not self._accept_courses(self.courses[:row] + self.courses[row + 1:]):
-                return
-            del self.courses[row]
-            self._refresh_table()
-            self.courses_changed.emit()
+            self._commit_courses(self.courses[:row] + self.courses[row + 1:], 'Eliminar curso')
 
     def _clear_all(self):
         if not self.courses:
             return
-        if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?\nEsta acción no se puede deshacer.')):
-            if not self._accept_courses([]):
-                return
-            self.courses.clear()
-            self._refresh_table()
-            self.courses_changed.emit()
+        if _confirm(self, msg('Confirmar'), msg('¿Eliminar todos los cursos de la lista?')):
+            self._commit_courses([], 'Eliminar cursos')
 
     # ------------------------------------------------------------------
     # Table rendering

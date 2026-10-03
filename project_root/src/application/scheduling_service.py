@@ -18,7 +18,7 @@ class SchedulingService:
     def run(self, courses: list[Course] | None = None,
             classroom_restrictions: dict[str, set[str]] | None = None,
             classrooms: dict | None = None,
-            pinned_assignments: dict | None = None, lab_overrides=()):
+            pinned_assignments: dict | None = None, lab_overrides=(), resources=None, calendar=None):
         """
         Run the scheduling algorithm.
 
@@ -63,12 +63,13 @@ class SchedulingService:
             courses = reader.load_courses()
 
         # 4. Build TimeModel (default 07:00-22:00, all 6 days)
-        time_model = TimeModel.default()
+        time_model = TimeModel.default() if calendar is None else TimeModel.from_calendar(calendar)
 
         # 5. Build ScheduleState
         state = ScheduleState(
             time_model=time_model,
             classrooms=list(classrooms.values()),
+            resources=deepcopy(resources),
         )
 
         # 6. Generate groups from courses
@@ -79,9 +80,9 @@ class SchedulingService:
         # Validate the complete pin set before reserving anything. These copies
         # isolate failures from the last accepted UI/persisted schedule.
         pinned_assignments = dict(pinned_assignments or {})
-        errors = validate_schedule(pinned_assignments, groups, classrooms, time_model, lab_overrides)
+        errors = validate_schedule(pinned_assignments, groups, classrooms, time_model, lab_overrides, resources)
         if errors:
-            raise ValueError("; ".join(errors))
+            raise ValueError("; ".join(map(str, errors)))
         by_id = {group.group_id: group for group in groups}
         for gid, (room, day, start, _end) in pinned_assignments.items():
             group = by_id[gid]
@@ -95,7 +96,7 @@ class SchedulingService:
 
         # Return schedule even if partial (greedy may leave some groups unassigned)
         errors = validate_schedule(state.assignments, groups, classrooms, time_model,
-                                   {g.group_id for g in groups if g.lab_override})
+                                   {g.group_id for g in groups if g.lab_override}, resources)
         if errors:
-            raise ValueError("; ".join(errors))
+            raise ValueError("; ".join(map(str, errors)))
         return state.assignments, groups

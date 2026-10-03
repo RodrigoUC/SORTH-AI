@@ -58,3 +58,10 @@ screen-reader behavior still require platform acceptance.
   eliminados, restricciones y asignaciones antes de reemplazar una sesión.
   Desactivada inicialmente; ocultar esta revisión no desactiva validación,
   protección de fijaciones, carga en segundo plano ni cancelación segura.
+
+## Calendario del proyecto
+
+**Parámetros avanzados del calendario** comienza desactivado. Permite editar días
+lectivos, horas y descansos con revisión previa. Ocultar esta herramienta nunca
+restablece las reglas guardadas. Consulta [Calendario del proyecto](PROJECT_CALENDAR.md)
+para la migración, validaciones, sesiones fijadas y alcance MCP.

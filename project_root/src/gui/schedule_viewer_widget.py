@@ -664,6 +664,9 @@ class ScheduleViewerWidget(QWidget):
             self._remove_group(gid)
 
     def _remove_group(self, gid):
+        handler = getattr(self, 'remove_handler', None)
+        if handler is not None:
+            return handler(gid)
         if gid not in self._assignments:
             return
         del self._assignments[gid]
@@ -686,6 +689,9 @@ class ScheduleViewerWidget(QWidget):
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                       QMessageBox.StandardButton.No)
         if answer == QMessageBox.StandardButton.Yes:
+            handler = getattr(self, 'clear_handler', None)
+            if handler is not None:
+                return handler()
             self._clear()
             self.schedule_cleared.emit()
 

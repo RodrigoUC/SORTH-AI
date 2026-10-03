@@ -95,3 +95,12 @@ restrictions and assignments describe exactly what will be cleared or retained.
 No silent merge or partially editable model replacement. The indicator respects
 reduced motion; F6 exposes full status when the compact bar elides text. See
 `project_root/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.
+
+## Calendar editor
+The optional advanced calendar editor reuses native time controls, checkboxes,
+tables and translated dialog buttons. Settings explicitly saves its preferences
+before launching the project editor. The project editor previews affected session
+IDs and defaults confirmation to Cancel. Invalid edits remain available to correct;
+rejected persistence never replaces the live state. Custom calendar presence is
+visible even when its editing controls are hidden. The editor follows the existing
+navy table header, violet focus outline and semantic control boundaries.

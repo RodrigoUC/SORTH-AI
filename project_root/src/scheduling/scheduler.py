@@ -24,6 +24,10 @@ class Scheduler:
     # ------------------------------------------------------------------
 
     def schedule(self, state: ScheduleState, groups: List[Group]) -> bool:
+        if state.resources is not None:
+            errors = state.resources.structure_issues({g.group_id for g in groups}, state.time_model)
+            if errors:
+                raise ValueError('; '.join(map(str, errors)))
         self._all_groups = groups
         self._reset_counters()
         self._seed_counters(state, groups)
@@ -69,6 +73,7 @@ class Scheduler:
                 candidate for candidate in group.domain
                 if candidate[0].is_available(
                     candidate[1], candidate[2], candidate[2] + group.duration_min)
+                and state.resources_allow(group, candidate[1], candidate[2])
                 and (not group.parent_group_id or self._is_valid_subgroup(
                     group, candidate[1], candidate[2]))
             )
@@ -129,7 +134,8 @@ class Scheduler:
                         continue
                 for day in days:
                     for start_min in start_candidates[start_key]:
-                        if classroom.is_available(day, start_min, start_min + group.duration_min):
+                        if (classroom.is_available(day, start_min, start_min + group.duration_min)
+                                and state.resources_allow(group, day, start_min)):
                             domain.append((classroom, day, start_min))
             group.domain = domain
 

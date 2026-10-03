@@ -47,7 +47,7 @@ def test_restart_and_future_keys_preserved(tmp_path):
     assert prefs.settings.value('features/future_feature') == 'preserved'
     assert not prefs.enabled('future_feature')
     with pytest.raises(ValueError):
-        prefs.save({'pinned_sessions': 'true', 'project_scenarios': False})
+        prefs.save({'project_calendar': False, 'pinned_sessions': 'true', 'project_scenarios': False})
 
 
 def test_cancel_and_escape_do_not_write(window):
@@ -125,8 +125,8 @@ def test_settings_localize_while_open(window):
     try:
         manager.set_language('en', persist=False)
         assert dialog.windowTitle() == 'Settings'
-        assert dialog.controls['pinned_sessions'].text() == 'Pinned session tools'
-        assert dialog.controls['pinned_sessions'].accessibleName() == 'Pinned session tools'
+        assert dialog.controls['pinned_sessions'].text() == 'Pinned sessions'
+        assert dialog.controls['pinned_sessions'].accessibleName() == 'Pinned sessions'
         manager.set_language('es', persist=False)
         assert dialog.windowTitle() == 'Configuración'
     finally:

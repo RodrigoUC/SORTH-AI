@@ -468,7 +468,7 @@ def test_manual_assignment_signal_fires_once(manager, window, monkeypatch):
     import src.gui.main_window as main
     opened = []
     class CancelledDialog:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             opened.append(args[0].group_id)
         def exec(self):
             return 0

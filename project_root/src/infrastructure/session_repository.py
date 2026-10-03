@@ -1,5 +1,6 @@
 # src/infrastructure/session_repository.py
 
+import json
 import sqlite3
 import os
 import sys
@@ -9,6 +10,10 @@ from pathlib import Path
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
+from ..scheduling.project_calendar import ProjectCalendar
+from ..scheduling.teaching_resources import SchedulingResources
+from ..scheduling.validation import validate_schedule
+from ..scheduling.time_model import TimeModel
 
 
 class SessionRepository:
@@ -22,7 +27,7 @@ class SessionRepository:
     The database lives in the current user's SORTH application-data directory.
     """
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 4
 
     @staticmethod
     def default_path() -> Path:
@@ -109,6 +114,13 @@ class SessionRepository:
                 self.schema_backup = self._snapshot(path, path.parent, "schema-session-")
             con.executescript("""
                 BEGIN IMMEDIATE;
+                CREATE TABLE IF NOT EXISTS project_calendar (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS scheduling_resources (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    payload TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS session (
                     id          INTEGER PRIMARY KEY CHECK (id = 1),
                     excel_path  TEXT,
@@ -181,6 +193,9 @@ class SessionRepository:
                 )
             if "pinned" not in assignment_columns:
                 con.execute("ALTER TABLE assignments ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))")
+            if version < 4:
+                con.execute("INSERT OR IGNORE INTO project_calendar SELECT 1, ? WHERE EXISTS (SELECT 1 FROM session WHERE id=1)",
+                            (json.dumps(ProjectCalendar().to_dict(), ensure_ascii=False),))
             con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
@@ -201,12 +216,30 @@ class SessionRepository:
                      classrooms: dict[str, Classroom],
                      courses: list[Course],
                      restrictions: dict[str, set[str]],
-                     assignments: dict | None, lab_overrides=(), pinned_group_ids=(),
+                     assignments: dict | None, lab_overrides=(), pinned_group_ids=(), resources=None, calendar=None,
                      *, before_commit=None):
+        if calendar is None:
+            # Extension-unaware callers must not silently reset project rules.
+            with self._connect() as con:
+                calendar_row = con.execute("SELECT payload FROM project_calendar WHERE id=1").fetchone()
+                if calendar_row is None and con.execute("SELECT 1 FROM session WHERE id=1").fetchone():
+                    raise ValueError('Saved project calendar is missing; preserve and recover the session')
+            calendar = self._decode_calendar(calendar_row['payload']) if calendar_row else ProjectCalendar()
+        calendar = ProjectCalendar.from_dict(calendar.to_dict())
+        if resources is None:
+            with self._connect() as con:
+                resource_row = con.execute("SELECT payload FROM scheduling_resources WHERE id=1").fetchone()
+            resources = (self._decode_resources(resource_row['payload'])
+                         if resource_row else SchedulingResources())
+        self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
         pinned_group_ids = frozenset(pinned_group_ids)
         if not pinned_group_ids.issubset(assignments or {}):
             raise ValueError("Pinned sessions must have assignments")
         with self._connect() as con:
+            con.execute("INSERT INTO project_calendar VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                        (json.dumps(calendar.to_dict(), ensure_ascii=False),))
+            con.execute("INSERT INTO scheduling_resources VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                        (json.dumps(resources.to_data(), ensure_ascii=False),))
             # Session metadata
             con.execute("""
                 INSERT INTO session (id, excel_path, seed, saved_at)
@@ -342,7 +375,17 @@ class SessionRepository:
                     r["classroom_name"], r["day"], r["start_min"], r["end_min"]
                 )
 
+            calendar_row = con.execute("SELECT payload FROM project_calendar WHERE id=1").fetchone()
+            if calendar_row is None:
+                raise ValueError('Saved project calendar is missing; preserve and recover the session')
+            calendar = self._decode_calendar(calendar_row["payload"])
+            resource_row = con.execute("SELECT payload FROM scheduling_resources WHERE id=1").fetchone()
+            resources = (self._decode_resources(resource_row['payload'])
+                         if resource_row else SchedulingResources())
+            self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
             return {
+                "calendar": calendar,
+                "resources": resources,
                 "excel_path":   row["excel_path"],
                 "seed":         row["seed"],
                 "classrooms":   classrooms,
@@ -377,7 +420,46 @@ class SessionRepository:
         with self._connect() as con:
             # executescript commits implicitly; individual statements retain the
             # transaction so a late failure cannot leave a partially erased session.
-            for query in ("DELETE FROM assignments", "DELETE FROM restrictions",
+            for query in ("DELETE FROM project_calendar", "DELETE FROM scheduling_resources", "DELETE FROM assignments", "DELETE FROM restrictions",
                           "DELETE FROM course_group_suggestions", "DELETE FROM courses",
                           "DELETE FROM classrooms", "DELETE FROM session"):
                 con.execute(query)
+
+    @staticmethod
+    def _validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar):
+        # Preserve the legacy loader's repair flow for old LAB placements when
+        # no optional records exist. A resource-bearing snapshot is strictly
+        # checked before any write, or before it can become the live session.
+        from copy import deepcopy
+        groups = [g for c in courses for g in c.generate_groups()]
+        errors = resources.structure_issues({g.group_id for g in groups}, TimeModel.from_calendar(calendar))
+        if calendar != ProjectCalendar() or any(c.resources or c.memberships for c in resources.catalogs):
+            rooms = deepcopy(classrooms)
+            for name, room in rooms.items():
+                room.allowed_courses = restrictions.get(name)
+            errors.extend(validate_schedule(assignments or {}, groups, rooms,
+                          TimeModel.from_calendar(calendar), lab_overrides, resources))
+        if errors:
+            raise ValueError('; '.join(str(e) for e in errors))
+
+    @staticmethod
+    def _decode_resources(payload):
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError('Duplicate resource JSON field')
+                result[key] = value
+            return result
+        return SchedulingResources.from_data(json.loads(payload, object_pairs_hook=unique_object))
+
+    @staticmethod
+    def _decode_calendar(payload):
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError('Duplicate calendar key')
+                result[key] = value
+            return result
+        return ProjectCalendar.from_dict(json.loads(payload, object_pairs_hook=unique_object))

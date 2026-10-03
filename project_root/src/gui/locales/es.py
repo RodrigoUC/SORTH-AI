@@ -850,3 +850,235 @@ MESSAGES.update({'Configuración': 'Configuración',
                                                                                                       'Configuración '
                                                                                                       'para '
                                                                                                       'acceder.'})
+
+MESSAGES.update({'Calendario del proyecto': 'Calendario del proyecto', 'Define días lectivos, horas y descansos. El calendario guardado se respeta aunque ocultes el editor.': 'Define días lectivos, horas y descansos. El calendario guardado se respeta aunque ocultes el editor.', 'Hora de apertura': 'Hora de apertura', 'Hora de cierre': 'Hora de cierre', 'Las horas se expresan en HH:mm. Para terminar a medianoche, usa 00:00 como cierre.': 'Las horas se expresan en HH:mm. Para terminar a medianoche, usa 00:00 como cierre.', 'Descansos del proyecto': 'Descansos del proyecto', 'Añadir descanso': 'Añadir descanso', 'Quitar descanso seleccionado': 'Quitar descanso seleccionado', 'Restablecer calendario predeterminado': 'Restablecer calendario predeterminado', 'Resultado de la revisión del calendario': 'Resultado de la revisión del calendario', 'Revisar y aplicar': 'Revisar y aplicar', 'Inicio del descanso': 'Inicio del descanso', 'Fin del descanso': 'Fin del descanso', 'Revisa días, horas y descansos: deben ser válidos, no solaparse y dejar tiempo lectivo. {detail}': 'Revisa días, horas y descansos: deben ser válidos, no solaparse y dejar tiempo lectivo. {detail}', 'Hay sesiones fijadas afectadas. Desfíjalas explícitamente antes de cambiar el calendario.': 'Hay sesiones fijadas afectadas. Desfíjalas explícitamente antes de cambiar el calendario.', 'Ninguna': 'Ninguna', 'Revisar calendario': 'Revisar calendario', 'Sesiones que quedarán pendientes: {sessions}. Las demás conservan su día y hora. ¿Aplicar el calendario?': 'Sesiones que quedarán pendientes: {sessions}. Las demás conservan su día y hora. ¿Aplicar el calendario?', 'No se pudo guardar el calendario. No se aplicaron cambios.': 'No se pudo guardar el calendario. No se aplicaron cambios.', 'Calendario personalizado activo: se respeta aunque el editor esté oculto. Puedes revisarlo en Configuración.': 'Calendario personalizado activo: se respeta aunque el editor esté oculto. Puedes revisarlo en Configuración.', 'Parámetros avanzados del calendario': 'Parámetros avanzados del calendario', 'Mostrar el editor de días, horas y descansos del proyecto. El calendario guardado siempre se respeta.': 'Mostrar el editor de días, horas y descansos del proyecto. El calendario guardado siempre se respeta.', 'Editar calendario del proyecto': 'Editar calendario del proyecto'})
+
+MESSAGES.update({'Guardar configuración y editar calendario': 'Guardar configuración y editar calendario'})
+MESSAGES.update({'Docentes': 'Docentes',
+ 'Grupos de estudiantes': 'Grupos de estudiantes',
+ 'Estudiantes individuales': 'Estudiantes individuales',
+ 'Asignar docentes por sesión y evitar cruces de horario.': 'Asignar docentes por sesión y evitar cruces de '
+                                                            'horario.',
+ 'Asignar grupos compartidos y evitar cruces de horario.': 'Asignar grupos compartidos y evitar cruces de '
+                                                           'horario.',
+ 'Asignar personas explícitas con alias locales y evitar cruces.': 'Asignar personas explícitas con alias '
+                                                                   'locales y evitar cruces.',
+ 'Editar recurso': 'Editar recurso',
+ 'Nombre o alias': 'Nombre o alias',
+ 'Use un alias si lo prefiere. No se necesitan correos, edades ni identificaciones personales.': 'Use un '
+                                                                                                 'alias si '
+                                                                                                 'lo '
+                                                                                                 'prefiere. '
+                                                                                                 'No se '
+                                                                                                 'necesitan '
+                                                                                                 'correos, '
+                                                                                                 'edades ni '
+                                                                                                 'identificaciones '
+                                                                                                 'personales.',
+ 'Limitar a la disponibilidad declarada': 'Limitar a la disponibilidad declarada',
+ 'Sin declarar: no limita horarios. Declarada sin franjas: ninguna sesión puede asignarse.': 'Sin declarar: '
+                                                                                             'no limita '
+                                                                                             'horarios. '
+                                                                                             'Declarada sin '
+                                                                                             'franjas: '
+                                                                                             'ninguna sesión '
+                                                                                             'puede '
+                                                                                             'asignarse.',
+ 'Disponibilidad declarada': 'Disponibilidad declarada',
+ 'Agregar franja': 'Agregar franja',
+ 'Quitar franja': 'Quitar franja',
+ 'Revise el nombre y las franjas: el final debe ser posterior al inicio.': 'Revise el nombre y las franjas: '
+                                                                           'el final debe ser posterior al '
+                                                                           'inicio.',
+ 'Disponibilidad vacía': 'Disponibilidad vacía',
+ 'No se permitirá ninguna sesión para este recurso. ¿Guardar disponibilidad vacía?': 'No se permitirá '
+                                                                                     'ninguna sesión para '
+                                                                                     'este recurso. ¿Guardar '
+                                                                                     'disponibilidad vacía?',
+ 'Agregue recursos y elija explícitamente sus sesiones. No se asignan personas automáticamente.': 'Agregue '
+                                                                                                  'recursos '
+                                                                                                  'y elija '
+                                                                                                  'explícitamente '
+                                                                                                  'sus '
+                                                                                                  'sesiones. '
+                                                                                                  'No se '
+                                                                                                  'asignan '
+                                                                                                  'personas '
+                                                                                                  'automáticamente.',
+ 'Recursos locales': 'Recursos locales',
+ 'Agregar recurso': 'Agregar recurso',
+ 'Quitar recurso': 'Quitar recurso',
+ 'Sesión': 'Sesión',
+ 'Recursos asignados': 'Recursos asignados',
+ 'Asignaciones de recursos por sesión': 'Asignaciones de recursos por sesión',
+ 'Elegir recursos de la sesión': 'Elegir recursos de la sesión',
+ 'Los grupos de estudiantes y las personas se asignan por separado. No se infieren matrículas ni pertenencias entre ellos.': 'Los '
+                                                                                                                             'grupos '
+                                                                                                                             'de '
+                                                                                                                             'estudiantes '
+                                                                                                                             'y '
+                                                                                                                             'las '
+                                                                                                                             'personas '
+                                                                                                                             'se '
+                                                                                                                             'asignan '
+                                                                                                                             'por '
+                                                                                                                             'separado. '
+                                                                                                                             'No '
+                                                                                                                             'se '
+                                                                                                                             'infieren '
+                                                                                                                             'matrículas '
+                                                                                                                             'ni '
+                                                                                                                             'pertenencias '
+                                                                                                                             'entre '
+                                                                                                                             'ellos.',
+ 'Sin disponibilidad declarada': 'Sin disponibilidad declarada',
+ 'Sin recursos asignados': 'Sin recursos asignados',
+ '¿Quitar {name} y sus asignaciones de todas las sesiones? Cancelar conserva todo.': '¿Quitar {name} y sus '
+                                                                                     'asignaciones de todas '
+                                                                                     'las sesiones? Cancelar '
+                                                                                     'conserva todo.',
+ 'Asignar varios recursos a esta sesión': 'Asignar varios recursos a esta sesión',
+ 'Sin selección no se aplica esta restricción. Cada recurso seleccionado queda ocupado durante toda la sesión.': 'Sin '
+                                                                                                                 'selección '
+                                                                                                                 'no '
+                                                                                                                 'se '
+                                                                                                                 'aplica '
+                                                                                                                 'esta '
+                                                                                                                 'restricción. '
+                                                                                                                 'Cada '
+                                                                                                                 'recurso '
+                                                                                                                 'seleccionado '
+                                                                                                                 'queda '
+                                                                                                                 'ocupado '
+                                                                                                                 'durante '
+                                                                                                                 'toda '
+                                                                                                                 'la '
+                                                                                                                 'sesión.',
+ 'Activo': 'Activo',
+ 'Desactivado: datos conservados, sin restricciones': 'Desactivado: datos conservados, sin restricciones',
+ '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count} recursos con '
+                                                              'sesiones asignadas.',
+ 'Recursos por revisar': 'Recursos por revisar',
+ 'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?': 'Este '
+                                                                                                                                                          'cambio '
+                                                                                                                                                          'elimina '
+                                                                                                                                                          '{count} '
+                                                                                                                                                          'sesiones '
+                                                                                                                                                          'con '
+                                                                                                                                                          'relaciones '
+                                                                                                                                                          'de '
+                                                                                                                                                          'recursos '
+                                                                                                                                                          'guardadas. '
+                                                                                                                                                          'Se '
+                                                                                                                                                          'quitarán '
+                                                                                                                                                          'esas '
+                                                                                                                                                          'relaciones, '
+                                                                                                                                                          'pero '
+                                                                                                                                                          'se '
+                                                                                                                                                          'conservarán '
+                                                                                                                                                          'los '
+                                                                                                                                                          'recursos. '
+                                                                                                                                                          '¿Continuar?',
+ 'Los cambios entran en conflicto con el horario. Se retirará el resultado y se desfijarán sus sesiones para regenerarlo. ¿Aplicar cambios?': 'Los '
+                                                                                                                                              'cambios '
+                                                                                                                                              'entran '
+                                                                                                                                              'en '
+                                                                                                                                              'conflicto '
+                                                                                                                                              'con '
+                                                                                                                                              'el '
+                                                                                                                                              'horario. '
+                                                                                                                                              'Se '
+                                                                                                                                              'retirará '
+                                                                                                                                              'el '
+                                                                                                                                              'resultado '
+                                                                                                                                              'y '
+                                                                                                                                              'se '
+                                                                                                                                              'desfijarán '
+                                                                                                                                              'sus '
+                                                                                                                                              'sesiones '
+                                                                                                                                              'para '
+                                                                                                                                              'regenerarlo. '
+                                                                                                                                              '¿Aplicar '
+                                                                                                                                              'cambios?',
+ 'Parámetros actualizados. Genere un nuevo horario; los recursos registrados se conservan.': 'Parámetros '
+                                                                                             'actualizados. '
+                                                                                             'Genere un '
+                                                                                             'nuevo horario; '
+                                                                                             'los recursos '
+                                                                                             'registrados se '
+                                                                                             'conservan.',
+ 'Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.': 'Desactivar '
+                                                                                                                                                                                          'herramientas '
+                                                                                                                                                                                          'oculta '
+                                                                                                                                                                                          'sus '
+                                                                                                                                                                                          'controles '
+                                                                                                                                                                                          'y '
+                                                                                                                                                                                          'conserva '
+                                                                                                                                                                                          'sus '
+                                                                                                                                                                                          'datos. '
+                                                                                                                                                                                          'Desactivar '
+                                                                                                                                                                                          'recursos '
+                                                                                                                                                                                          'retira '
+                                                                                                                                                                                          'esas '
+                                                                                                                                                                                          'restricciones '
+                                                                                                                                                                                          'después '
+                                                                                                                                                                                          'de '
+                                                                                                                                                                                          'confirmar '
+                                                                                                                                                                                          'y '
+                                                                                                                                                                                          'regenerar. '
+                                                                                                                                                                                          'Las '
+                                                                                                                                                                                          'reglas '
+                                                                                                                                                                                          'básicas '
+                                                                                                                                                                                          'siguen '
+                                                                                                                                                                                          'activas.',
+ 'Cambiar parámetros de recursos': 'Cambiar parámetros de recursos',
+ 'Al desactivar un parámetro, sus recursos dejan de limitar nuevos horarios. Los registros se conservan. Cambiar estos parámetros retira el resultado actual y desfija sus sesiones; deberá regenerarlo. ¿Continuar?': 'Al '
+                                                                                                                                                                                                                       'desactivar '
+                                                                                                                                                                                                                       'un '
+                                                                                                                                                                                                                       'parámetro, '
+                                                                                                                                                                                                                       'sus '
+                                                                                                                                                                                                                       'recursos '
+                                                                                                                                                                                                                       'dejan '
+                                                                                                                                                                                                                       'de '
+                                                                                                                                                                                                                       'limitar '
+                                                                                                                                                                                                                       'nuevos '
+                                                                                                                                                                                                                       'horarios. '
+                                                                                                                                                                                                                       'Los '
+                                                                                                                                                                                                                       'registros '
+                                                                                                                                                                                                                       'se '
+                                                                                                                                                                                                                       'conservan. '
+                                                                                                                                                                                                                       'Cambiar '
+                                                                                                                                                                                                                       'estos '
+                                                                                                                                                                                                                       'parámetros '
+                                                                                                                                                                                                                       'retira '
+                                                                                                                                                                                                                       'el '
+                                                                                                                                                                                                                       'resultado '
+                                                                                                                                                                                                                       'actual '
+                                                                                                                                                                                                                       'y '
+                                                                                                                                                                                                                       'desfija '
+                                                                                                                                                                                                                       'sus '
+                                                                                                                                                                                                                       'sesiones; '
+                                                                                                                                                                                                                       'deberá '
+                                                                                                                                                                                                                       'regenerarlo. '
+                                                                                                                                                                                                                       '¿Continuar?',
+ 'Datos de recursos por corregir: {details}': 'Datos de recursos por corregir: {details}',
+ 'Docente {resource}: las sesiones {session} y {other} se solapan.': 'Docente {resource}: las sesiones '
+                                                                     '{session} y {other} se solapan.',
+ 'Grupo de estudiantes {resource}: las sesiones {session} y {other} se solapan.': 'Grupo de estudiantes '
+                                                                                  '{resource}: las sesiones '
+                                                                                  '{session} y {other} se '
+                                                                                  'solapan.',
+ 'Estudiante {resource}: las sesiones {session} y {other} se solapan.': 'Estudiante {resource}: las sesiones '
+                                                                        '{session} y {other} se solapan.',
+ 'Recurso {resource}: la sesión {session} queda fuera de su disponibilidad declarada.': 'Recurso {resource}: '
+                                                                                        'la sesión {session} '
+                                                                                        'queda fuera de su '
+                                                                                        'disponibilidad '
+                                                                                        'declarada.'})
+
+MESSAGES.update({'Calendar requires unique supported teaching days': 'Selecciona al menos un día lectivo válido, sin duplicados.', 'Calendar hours must be increasing integer minutes in 00:00–24:00': 'La apertura debe ser anterior al cierre, entre 00:00 y 24:00.', 'Calendar breaks must be intervals': 'Los descansos deben tener inicio y fin.', 'Breaks must be within opening hours': 'Los descansos deben estar dentro de la jornada y tener inicio anterior al fin.', 'Calendar breaks must not overlap': 'Los descansos no pueden solaparse.', 'Calendar must leave teaching time available': 'Los descansos deben dejar tiempo lectivo disponible.', 'Resource availability references a removed teaching day; edit it explicitly first': 'Hay disponibilidad de recursos en un día eliminado; edítala explícitamente primero.', 'La duración no cabe en el horario permitido sin cruzar los descansos.': 'La duración no cabe en el horario permitido sin cruzar los descansos.'})
+MESSAGES.update({'Deshacer': 'Deshacer', 'Rehacer': 'Rehacer', 'Deshacer y rehacer': 'Deshacer y rehacer', 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.': 'Revertir cambios locales de esta sesión. Máximo 50 cambios o 16 MiB; importar o restaurar reinicia el historial.', 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.': 'Deshacer el último cambio (Ctrl+Z). Historial de esta sesión: máximo 50 cambios o 16 MiB.', 'Rehacer el último cambio (Ctrl+Shift+Z).': 'Rehacer el último cambio (Ctrl+Shift+Z).', 'Cambio no aplicado': 'Cambio no aplicado', 'Se conservan los datos, el horario y el historial. {detail}': 'Se conservan los datos, el horario y el historial. {detail}', 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.': 'La sesión cambió desde la revisión. Vuelva a revisar el cambio.', 'Cambio guardado.': 'Cambio guardado.', 'Cambio deshecho.': 'Cambio deshecho.', 'Cambio rehecho.': 'Cambio rehecho.', 'Historial reiniciado al importar o restaurar una sesión.': 'Historial reiniciado al importar o restaurar una sesión.', 'El historial se reinició por cambios fuera del historial.': 'El historial se reinició por cambios fuera del historial.', 'No hay cambios disponibles en el historial.': 'No hay cambios disponibles en el historial.', 'El cambio supera el límite de memoria del historial. No se aplicó.': 'El cambio supera el límite de memoria del historial. No se aplicó.', 'Los códigos de curso deben ser únicos y no estar vacíos.': 'Los códigos de curso deben ser únicos y no estar vacíos.', 'Datos de curso no válidos: {code}.': 'Datos de curso no válidos: {code}.', 'Las sesiones fijadas deben conservar una asignación válida.': 'Las sesiones fijadas deben conservar una asignación válida.', 'Las excepciones LAB deben corresponder a sesiones asignadas.': 'Las excepciones LAB deben corresponder a sesiones asignadas.', 'El cambio no es válido. Revise las asignaciones y las restricciones.': 'El cambio no es válido. Revise las asignaciones y las restricciones.', 'Desfije las sesiones afectadas antes de editar los cursos.': 'Desfije las sesiones afectadas antes de editar los cursos.', '¿Eliminar todos los cursos de la lista?': '¿Eliminar todos los cursos de la lista?'})
+
+MESSAGES.update({'Cambiar calendario': 'Cambiar calendario'})
+
+MESSAGES.update({'Domingo': 'Domingo'})
