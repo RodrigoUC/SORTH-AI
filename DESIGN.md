@@ -401,3 +401,11 @@ geometry artifacts include font line height, header height and active whitespace
 metrics so platform differences can be diagnosed without relaxing assertions.
 They separately record the list-row reference, actual per-table row and section
 heights, and the header's default section size.
+
+### Session detail sizing
+Session details fit their initial wrapped native text and footer within the
+available screen, using scrolling when the complete content is taller. The
+conflict selector and responsive action footer remain reachable at narrow
+widths. This fitting runs once per dialog: manual resizing survives language,
+content and repeat-show changes. A newly opened dialog measures its content
+again; viewing or resizing details does not change the schedule.
