@@ -117,6 +117,15 @@ paquete y del instalado; esta comprobación no es OCR ni garantiza todos los
 caracteres de datos de usuario. La aceptación visual de escritorio nativo Windows
 (con su plataforma `windows`, DPI y fuentes reales) continúa pendiente por separado.
 
+Antes de medir o capturar una pantalla, el smoke entrega solamente los eventos
+nativos `LayoutRequest` pendientes hasta estabilizar la geometría. Así evita
+pintar una etiqueta nueva con el ancho anterior de «Generando…» o del otro idioma.
+No bombea entradas, temporizadores ni señales del trabajador, y no cambia fuentes,
+textos, tamaños de ventana o reglas de la interfaz normal. El informe registra los
+límites de contenido y texto de cada botón visible; una etiqueta que realmente
+no cabe, o una geometría que no se estabiliza, hace fallar el smoke. Esta prueba
+acotada no certifica todos los encabezados de tabla ni la accesibilidad completa.
+
 La misma prueba usa un perfil sintético separado para apariencia, QSettings y
 preferencias opcionales; nunca escribe preferencias normales del usuario. Idioma,
 movimiento y lectura de preferencias heredadas reciben un QSettings con archivo

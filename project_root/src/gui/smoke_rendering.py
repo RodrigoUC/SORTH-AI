@@ -5,13 +5,60 @@ import os
 import string
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, qVersion
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt, qVersion
 from PyQt6.QtGui import QFontDatabase, QFontInfo, QFontMetrics, QImage, QPainter
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication, QPushButton, QStyle, QStyleOptionButton, QWidget
 
 # These are the shipped UI languages, not a claim about arbitrary course names.
 REQUIRED_CHARACTERS = string.ascii_letters + string.digits + string.punctuation + 'ÁÉÍÓÚÜÑáéíóúüñ¿¡'
 SAMPLE_TEXT = 'SORTH · Generar horario / Generate schedule · áéíóúüñ · 0123456789'
+
+
+def _layout_signature(window):
+    return tuple((widget.metaObject().className(), widget.objectName(),
+                  widget.isVisible(), widget.geometry().getRect())
+                 for widget in (window, *window.findChildren(QWidget)))
+
+
+def settle_capture_layout(window):
+    """Deliver pending layout work before an opt-in smoke screenshot.
+
+    Caption changes invalidate native layouts asynchronously. QWidget.grab()
+    paints the new text but does not guarantee those layout requests ran first.
+    Drain only LayoutRequest events, never user input, timers or worker signals.
+    A bounded fixed-point check rejects unstable evidence instead of sleeping or
+    changing fonts, captions, window dimensions or production layout policy.
+    """
+    window.ensurePolished()
+    previous = _layout_signature(window)
+    stable = 0
+    for delivery in range(1, 17):
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.LayoutRequest)
+        current = _layout_signature(window)
+        stable = stable + 1 if current == previous else 0
+        if stable >= 2:
+            return delivery
+        previous = current
+    raise RuntimeError('Qt capture layout did not settle; smoke images cannot be accepted.')
+
+
+def _action_geometry(window):
+    """Measure live button text against native content bounds, not stale hints."""
+    entries = []
+    for button in window.findChildren(QPushButton):
+        if not button.isVisible() or not button.text():
+            continue
+        option = QStyleOptionButton()
+        button.initStyleOption(option)
+        contents = button.style().subElementRect(
+            QStyle.SubElement.SE_PushButtonContents, option, button)
+        text = button.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, button.text())
+        entries.append({'text': button.text(), 'geometry': list(button.geometry().getRect()),
+                        'content_size': [contents.width(), contents.height()],
+                        'text_size': [text.width(), text.height()],
+                        'font': button.font().toString(), 'logical_dpi': button.logicalDpiX(),
+                        'fits': contents.width() >= text.width() and contents.height() >= text.height()})
+    return entries
 
 
 def _raster(font, text):
@@ -51,10 +98,15 @@ def require_readable_text(window, output_dir, name):
     report = {'ok': False, 'platform': app.platformName(), 'qt_version': qVersion(),
               'font_directory': os.environ.get('QT_QPA_FONTDIR'),
               'family_count': len(QFontDatabase.families()),
-              'scope': 'English/Spanish UI glyph support and raster sanity', 'fonts': []}
+              'scope': 'English/Spanish UI glyph support, raster sanity and visible action caption geometry',
+              'fonts': [], 'actions': []}
     try:
         if not report['family_count']:
             raise RuntimeError('Qt font database is empty; smoke images cannot be accepted.')
+        report['layout_deliveries'] = settle_capture_layout(window)
+        report['actions'] = _action_geometry(window)
+        if any(not action['fits'] for action in report['actions']):
+            raise RuntimeError('Visible action caption does not fit its native content bounds.')
         fonts = {app.font().toString(): app.font()}
         for widget in [window, *window.findChildren(QWidget)]:
             if widget.isVisible():
