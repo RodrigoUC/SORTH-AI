@@ -2,7 +2,7 @@
 
 SORTH funciona sin MCP, Internet, modelos, claves o pagos. La distribución Windows
 puede incluir un complemento MCP empaquetado; **no se prepara, activa ni inicia
-con la GUI**. Es un adaptador local `stdio` que el cliente elegido inicia por
+automáticamente al abrir la GUI**. Es un adaptador local `stdio` que el cliente elegido inicia por
 decisión explícita. No abre puertos, HTTP, SSE ni escucha en la red.
 
 ## Preparar el complemento desde Configuración
@@ -19,9 +19,23 @@ decisión explícita. No abre puertos, HTTP, SSE ni escucha en la red.
    de permiso, no inicia un servidor y no configura ningún cliente o proveedor.
 4. Si deseas permitir el servidor, marca **Permitir servidor MCP local** y pulsa
    **Guardar**. La comprobación local debe pasar antes de una nueva activación.
-5. Abre **Conectar un cliente MCP**. Copia la configuración del cliente elegido
+5. Abre **Ver guía de conexión**. Copia la configuración del cliente elegido
    y combínala manualmente con su configuración existente. La ruta del ejecutable
    procede del complemento preparado/verificado, no de una ruta supuesta.
+
+Configuración organiza el flujo en tres pasos: preparar/verificar, guardar el
+permiso local y configurar el cliente. **Permiso guardado** informa lo que ya está
+vigente; **Cambio pendiente** corresponde a la casilla sin guardar. Mientras se
+verifica una nueva activación, Guardar espera al resultado. Desmarcar la casilla
+permite guardar sin exigir que pase la verificación. **Cancelar verificación MCP**
+cancela la comprobación sin cerrar Configuración. Un complemento listo no necesita
+prepararse de nuevo; la comprobación sigue disponible para revisarlo.
+
+La guía consulta el permiso compartido al abrirse sin aceptar ni descartar cambios
+pendientes. Abrirla no evita la advertencia de conflicto si el CLI cambió el permiso.
+Los pasos para OpenCode y Claude son manuales; el permiso local no significa que el
+cliente esté configurado ni conectado. La guía conserva Cerrar fuera del área de
+desplazamiento y permite salir de la configuración JSON con Tab.
 
 **Preparar es una operación independiente de Guardar/Cancelar.** Tras confirmar,
 la preparación se aplica inmediatamente. Cancelar Configuración conserva un

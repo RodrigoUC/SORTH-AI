@@ -146,3 +146,22 @@ warns that client restart may start the process. ChatGPT shows manual HTTPS/tunn
 requirements rather than an invalid local config. Copy is explicit and does not
 modify client files. Real Qt offscreen lifecycle tests and ES/EN renders cover
 these views; native Windows host/packaged acceptance remains a separate gate.
+
+
+### Guided MCP setup refinement
+The existing MCP section uses three native, numbered step headings because the
+sequence matters: prepare/check, save local permission, then configure a client.
+Saved and pending permission are separate text states. A ready add-on disables
+redundant preparation while keeping the read-only check available. Verification
+has its own cancellation action. Save waits for a new permission check; selecting
+OFF remains saveable without a successful check. No permission or client changes
+are inferred from preparation or copying configuration.
+
+The client guide uses the existing localized native combo, labels, JSON text area
+and Close button. Numbered instructions retain protocol/configuration details,
+commercial-host caveats and separate ChatGPT authorization. At narrow sizes only
+the guide body scrolls; Close stays outside, and Tab leaves the JSON area for Copy.
+Read-only permission snapshots never replace the preference store's expected
+revision. The established stale-save guard still reconciles external changes.
+The native Qt/i18n wrappers and theme.py remain the canonical control, focus,
+typography and scrollbar owners; no palette or global styling changes are needed.
