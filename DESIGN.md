@@ -345,6 +345,10 @@ and unwraps on widening. No scrollbar, action or text is hidden to meet width.
 Native-metric stress tests cover every built-in preview, ES/EN, Fusion/Windows
 styles, 20pt fonts, narrow/wide boundaries, selection/focus and idle timer state.
 CI retains Appearance control/font geometry JSON alongside strict assertions.
+Initial focus and resize reveal the entire focused preview control, using the
+same frame-based native scrolling as the creation guide rather than an input
+cursor rectangle. Already-visible controls and fixed-footer focus do not scroll
+the body unnecessarily; input text, cursor and selection survive reflow.
 Wrapping reuses the complete caption rendered by the existing localization
 boundary, never a previously wrapped display string. Native fitting therefore
 cannot re-enter translation callbacks during parent LanguageChange propagation;
