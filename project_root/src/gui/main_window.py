@@ -50,6 +50,11 @@ class MainWindow(QMainWindow):
         self._classroom_course_map: dict[str, list[str]] = {}
         self._classrooms: dict[str, Classroom] = {}
         self._unsaved = False
+        self._scenario_id = None
+        self._scenario_name = None
+        self._scenario_dirty = False
+        self._scenario_baseline = None
+        self._algorithm_version = None
         self._save_error = None
         self._restore_failed = False
         self._preserve_previous = False
@@ -131,11 +136,15 @@ class MainWindow(QMainWindow):
         update_busy_indicator(self._progress, False, self._motion.reduced)
 
         self._save_state_label = QLabel()
+        self._save_state_label.setMaximumWidth(360)
         self._save_state_label.setAccessibleName(msg('Estado de guardado'))
         self._retry_save_button = QPushButton(msg('Reintentar'))
         self._retry_save_button.clicked.connect(self._retry_session)
         self.status_bar.addPermanentWidget(self._save_state_label)
         self.status_bar.addPermanentWidget(self._retry_save_button)
+        self.btn_projects = QPushButton(msg('Proyectos y escenarios'))
+        self.btn_projects.clicked.connect(self._show_projects)
+        self.status_bar.addPermanentWidget(self.btn_projects)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
         self._status_action = QAction(msg('Leer estado (F6)'), self)
         self._status_action.setShortcut('F6')
@@ -480,6 +489,8 @@ class MainWindow(QMainWindow):
                 return
             for group in groups:
                 group.pinned = group.group_id in self.pinned_group_ids
+            from ..application.scenario_comparison import ALGORITHM_VERSION
+            self._algorithm_version = ALGORITHM_VERSION
             self.current_schedule = assignments
             self.current_groups   = groups
 
@@ -595,13 +606,26 @@ class MainWindow(QMainWindow):
     # Session persistence
     # ------------------------------------------------------------------
 
+    def _show_projects(self):
+        if self._busy or self._restore_failed:
+            return
+        try:
+            from .project_dialog import ProjectDialog
+            ProjectDialog(self).exec()
+        except Exception as error:
+            QMessageBox.warning(self, msg('Proyectos y escenarios'),
+                                msg('No se pudo abrir el catálogo. La sesión actual se conserva. {detail}', detail=str(error)))
+
     def _update_save_state(self):
         if self._save_error:
             text = msg('Sesión no disponible') if self._restore_failed else msg('Cambios sin guardar')
         else:
             text = msg('Cambios sin guardar') if self._unsaved else msg('Sin cambios pendientes')
+        if self._scenario_name:
+            state = msg('Cambios posteriores a la copia') if self._scenario_dirty else msg('Copia guardada')
+            text = msg('{name} · {state} · {save}', name=self._scenario_name, state=state, save=text)
         self._save_state_label.setText(text)
-        self._save_state_label.setToolTip(self._save_error or "")
+        self._save_state_label.setToolTip(self._save_error or self._scenario_name or "")
         self._retry_save_button.setVisible(bool(self._save_error))
 
     def _record_save_error(self, error):
@@ -637,6 +661,7 @@ class MainWindow(QMainWindow):
         if self._loading:
             return True
         self._unsaved = True
+        self._scenario_dirty = bool(self._scenario_name)
         if self._restore_failed:
             self._update_save_state()
             return False
@@ -660,10 +685,13 @@ class MainWindow(QMainWindow):
             return False
         self._unsaved = False
         self._save_error = None
+        if self._scenario_baseline is not None:
+            from ..application.scenario_comparison import session_fingerprint
+            self._scenario_dirty = session_fingerprint(self._repo.load_session()) != self._scenario_baseline
         self._update_save_state()
         return True
 
-    def _restore_session_if_exists(self):
+    def _restore_session_if_exists(self, confirm=True, show_status=True):
         try:
             if not self._repo.has_session():
                 return
@@ -676,44 +704,51 @@ class MainWindow(QMainWindow):
             self._block_for_recovery()
             return
 
-        dlg = QDialog(self)
-        dlg.setWindowTitle(msg('Sesión anterior'))
-        dlg.setModal(True)
-        dlg.setMinimumWidth(500)
-        outer = QVBoxLayout()
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-        hdr = QLabel(msg('  💾  Sesión anterior encontrada'))
-        hdr.setStyleSheet(
-            "background-color: #1967D2; color: #FFFFFF; "
-            "font-size: 12pt; font-weight: bold; padding: 14px 20px;"
-        )
-        outer.addWidget(hdr)
-        body = QWidget()
-        bl = QVBoxLayout(body)
-        bl.setContentsMargins(28, 20, 28, 20)
-        bl.setSpacing(20)
-        lbl = QLabel(msg('Se encontró una sesión guardada.\n¿Deseas restaurarla?'))
-        lbl.setStyleSheet("font-size: 11pt;")
-        lbl.setMinimumWidth(440)
-        bl.addWidget(lbl)
-        btns = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
-        )
-        btns.accepted.connect(dlg.accept)
-        btns.rejected.connect(dlg.reject)
-        bl.addWidget(btns)
-        outer.addWidget(body)
-        dlg.setLayout(outer)
+        if confirm:
+            dlg = QDialog(self)
+            dlg.setWindowTitle(msg('Sesión anterior'))
+            dlg.setModal(True)
+            dlg.setMinimumWidth(500)
+            outer = QVBoxLayout()
+            outer.setContentsMargins(0, 0, 0, 0)
+            outer.setSpacing(0)
+            hdr = QLabel(msg('  💾  Sesión anterior encontrada'))
+            hdr.setStyleSheet(
+                "background-color: #1967D2; color: #FFFFFF; "
+                "font-size: 12pt; font-weight: bold; padding: 14px 20px;"
+            )
+            outer.addWidget(hdr)
+            body = QWidget()
+            bl = QVBoxLayout(body)
+            bl.setContentsMargins(28, 20, 28, 20)
+            bl.setSpacing(20)
+            lbl = QLabel(msg('Se encontró una sesión guardada.\n¿Deseas restaurarla?'))
+            lbl.setStyleSheet("font-size: 11pt;")
+            lbl.setMinimumWidth(440)
+            bl.addWidget(lbl)
+            btns = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
+            )
+            btns.accepted.connect(dlg.accept)
+            btns.rejected.connect(dlg.reject)
+            bl.addWidget(btns)
+            outer.addWidget(body)
+            dlg.setLayout(outer)
 
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            self._preserve_previous = True
-            return  # Keep the previous session until actual edits, then back it up.
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                self._preserve_previous = True
+                return  # Keep the previous session until actual edits, then back it up.
         try:
             if not data:
                 return
 
             self.pinned_group_ids = set(data.get("pinned_group_ids", ()))
+            self.excel_path = None
+            self._classroom_course_map = {}
+            self.current_schedule = None
+            self.current_groups = None
+            self.excel_path_label.setText(msg('Ningún archivo seleccionado'))
+            self.schedule_viewer.display_schedule({}, TimeModel.default(), [], {}, classrooms={})
             self._classrooms = data["classrooms"]
             self.classroom_restrictions = data["restrictions"]
 
@@ -786,7 +821,7 @@ class MainWindow(QMainWindow):
             self._save_error = None
             self._update_save_state()
             self.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
-            if self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
+            if show_status and self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
                 self._show_schedule_status()
         except Exception as e:
             self._loading = False
