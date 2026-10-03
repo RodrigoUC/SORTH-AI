@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit
+    QVBoxLayout, QHBoxLayout, QFileDialog, QFrame, QPlainTextEdit, QMenu
 )
 from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtGui import (
@@ -123,6 +123,39 @@ class MainWindow(QMainWindow):
             self.resource_buttons[kind] = button
         resource_actions.addStretch()
         main_layout.addLayout(resource_actions)
+        self._compact_tools = QWidget()
+        compact_row = QHBoxLayout(self._compact_tools)
+        compact_row.setContentsMargins(0, 0, 0, 0)
+        self._compact_summary = QLabel()
+        compact_row.addWidget(self._compact_summary, 1)
+        self._compact_tools_button = QPushButton(msg('Herramientas del horario (F7)'))
+        self._compact_tools_button.setAccessibleName(msg('Herramientas del horario (F7)'))
+        compact_row.addWidget(self._compact_tools_button)
+        compact_menu = QMenu(self._compact_tools_button)
+        self._compact_tools_button.setMenu(compact_menu)
+        self._compact_resource_actions = {}
+        for kind in RESOURCE_KINDS:
+            action = QAction(msg(RESOURCE_TITLES[kind]), self)
+            action.triggered.connect(lambda _checked=False, key=kind: self._edit_resources(key))
+            compact_menu.addAction(action)
+            self._compact_resource_actions[kind] = action
+        compact_menu.addSeparator()
+        self._compact_summary_action = QAction(msg('Ver resumen'), self)
+        self._compact_summary_action.triggered.connect(lambda: self.schedule_viewer._show_summary())
+        compact_menu.addAction(self._compact_summary_action)
+        self._compact_clear_action = QAction(msg('Limpiar horario'), self)
+        self._compact_clear_action.triggered.connect(lambda: self.schedule_viewer._clear_schedule())
+        compact_menu.addAction(self._compact_clear_action)
+        detail_action = QAction(msg('Leer estado (F6)'), self)
+        detail_action.triggered.connect(self._show_accessible_status)
+        compact_menu.addAction(detail_action)
+        compact_menu.aboutToShow.connect(self._update_compact_overview)
+        shortcut = QAction(self)
+        shortcut.setShortcut('F7')
+        shortcut.triggered.connect(lambda: self._compact_tools_button.showMenu() if self._compact_tools.isVisible() else None)
+        self.addAction(shortcut)
+        self._compact_tools.hide()
+        main_layout.addWidget(self._compact_tools)
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
@@ -143,6 +176,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs, 1)
         self.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.tabs.currentWidget()))
+        self.tabs.currentChanged.connect(self._update_compact_overview)
         self.schedule_viewer.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.schedule_viewer.tabs.currentWidget()))
 
@@ -1060,12 +1094,18 @@ class MainWindow(QMainWindow):
         if self._features.load_error:
             notices.append(msg('No se pudo leer la configuración opcional. Abre Configuración para conservarla y recuperarla.'))
         from .resource_dialog import RESOURCE_TITLES
+        resource_details = []
+        resource_summaries = []
         for catalog in self.resources.catalogs:
             if catalog.resources or catalog.enabled:
                 state = msg('Activo') if catalog.enabled else msg('Desactivado: datos conservados, sin restricciones')
-                notices.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
-                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state,
-                    count=len({r for _g, ids in catalog.memberships for r in ids or ()})))
+                count = len({r for _g, ids in catalog.memberships for r in ids or ()})
+                resource_details.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+                resource_summaries.append(msg('{name}: {state} ({count})',
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+        notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= 700 and resource_summaries
+                       else resource_details)
         if self._features.enabled('undo_redo') and self._history.reset_reason == 'feature_disabled_change':
             notices.append(msg('El historial se reinició por cambios realizados con Deshacer y rehacer desactivado.'))
         if self._features.enabled('bulk_operations') and not self._features.enabled('undo_redo'):
@@ -1076,8 +1116,12 @@ class MainWindow(QMainWindow):
         catalog_exists = bool(catalog_path and Path(catalog_path).with_name('sorth_projects.db').exists())
         if (self._scenario_name or catalog_exists) and not self._features.enabled('project_scenarios'):
             notices.append(msg('Hay datos de escenarios conservados. Activa Proyectos y escenarios en Configuración para acceder.'))
+        self._feature_notice.setToolTip(join_messages('\n', resource_details))
+        self._feature_notice.setAccessibleDescription(join_messages('\n', resource_details))
         self._feature_notice.setText(join_messages('\n', notices))
         self._feature_notice.setVisible(bool(notices))
+        if hasattr(self, '_compact_tools'):
+            self._update_compact_overview()
 
     def _confirm_course_inputs(self, courses, classrooms=None, restrictions=None):
         known = {g.group_id for c in courses for g in c.generate_groups()}
@@ -1605,6 +1649,31 @@ class MainWindow(QMainWindow):
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
 
+    def _update_compact_overview(self, *_):
+        # Reclaim duplicate summaries and secondary toolbars, not table fonts or
+        # window size. All secondary actions remain in the native F7 menu; F6
+        # retains complete feature status and the full schedule summary.
+        compact = self.height() <= 700 and self.tabs.currentIndex() == 1
+        self.overview_label.setVisible(not compact)
+        self._feature_notice.setVisible(not compact and bool(self._feature_notice.text()))
+        self._compact_tools.setVisible(compact)
+        viewer = self.schedule_viewer
+        for control in (viewer._summary_label, viewer._btn_summary, viewer._btn_clear_schedule):
+            control.setVisible(not compact)
+        for kind, button in self.resource_buttons.items():
+            enabled = self.resources.catalog(kind).enabled
+            button.setVisible(enabled and not compact)
+            self._compact_resource_actions[kind].setVisible(enabled)
+            self._compact_resource_actions[kind].setEnabled(not self._busy and not self._restore_failed)
+        self._compact_summary_action.setEnabled(viewer._btn_summary.isEnabled())
+        self._compact_clear_action.setEnabled(viewer._btn_clear_schedule.isEnabled() and not self._busy)
+        self._compact_summary.setText(join_messages(' · ', (
+            msg('{assigned} asignadas, {pending} pendientes', assigned=len(self.current_schedule or {}),
+                pending=max(0, len(self.current_groups or [])-len(self.current_schedule or {}))),
+            msg('Recursos activos: {count}', count=sum(c.enabled for c in self.resources.catalogs)))))
+        self._compact_summary.setToolTip(self._feature_notice.text())
+        self._compact_summary.setAccessibleDescription(self._feature_notice.text())
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, '_main_layout'):
@@ -1614,6 +1683,9 @@ class MainWindow(QMainWindow):
             self._main_layout.setSpacing(6 if compact else 16)
             self._main_layout.setContentsMargins(*(16, 8, 16, 6) if compact else (24, 20, 24, 12))
             self._file_layout.setSpacing(4 if compact else 16)
+            if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
+                self._update_feature_notice()
+                self._update_compact_overview()
 
     def closeEvent(self, event):
         if hasattr(self, "_import") and not self._import.prepare_close():

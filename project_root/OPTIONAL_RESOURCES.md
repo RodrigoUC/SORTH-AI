@@ -46,3 +46,14 @@ sea matemáticamente imposible.
 Si las preferencias opcionales están dañadas, una sesión válida conserva sus
 parámetros de recursos y permite recuperarlas desde Configuración. Restablecer
 las herramientas no borra ni desactiva los recursos de esa sesión.
+
+## Límite técnico pendiente de medir
+
+La versión actual valida esquema, tipos, referencias, identificadores y etiquetas
+(hasta 120 caracteres), pero no impone un máximo total de recursos, ventanas de
+disponibilidad, relaciones o bytes de JSON dentro de una sesión SQLite local.
+Un catálogo local excepcionalmente grande puede consumir memoria o bloquear la
+interfaz durante su carga; las pruebas actuales no certifican capacidad a esa
+escala. No se truncan registros silenciosamente. No se añadió un límite
+institucional arbitrario sin mediciones representativas. MCP rechaza estos campos
+y no ofrece una ruta externa para cargar catálogos de recursos.

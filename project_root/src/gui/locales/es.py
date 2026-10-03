@@ -1,6 +1,11 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Herramientas del horario (F7)': 'Herramientas del horario (F7)',
+    '{assigned} asignadas, {pending} pendientes': '{assigned} asignadas, {pending} pendientes',
+    'Recursos activos: {count}': 'Recursos activos: {count}',
+
+    '{name}: {state} ({count})': '{name}: {state} ({count})',
     'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.': 'La sesión guardada se conserva. La vista requiere recuperación antes de continuar.',
     'Sin valor': 'Sin valor',
     'Grupo {number}: aula {room}, día {day}, hora {time}': 'Grupo {number}: aula {room}, día {day}, hora {time}',
