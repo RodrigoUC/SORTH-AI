@@ -372,8 +372,12 @@ retain their existing semantics; no preference or domain data changes.
 Regressions save/reopen the session/preferences and check ES/EN, all three shipped
 themes, native-default/Fusion/Windows styles, optional tools OFF/all ON, all three
 consultation tabs and tall→short resize. The native viewport retains at least
-four 30px row heights at every tested size, including 759/760/761, 799/800/801/802/803/804 and
+the 120px reference reading budget at every tested size, including 759/760/761, 799/800/801/802/803/804 and
 919/920/921/922. No font, row, scope visibility or exact-size assertion is relaxed.
+This fits four complete 30px rows in the list and by-classroom tables. The time
+grid deliberately scales actual sections by interval duration and session or
+conflict content; its 120px reference budget does not promise four visible time
+slots. A grid header's defaultSectionSize is not its rendered row height.
 
 Main-tab navigation completes its synchronous native chrome/layout update before
 the existing 150ms reveal starts. It does not pump events or queue user input.
@@ -392,6 +396,8 @@ read the current viewport. Native layout still settles before page reveal.
 
 A portable regression increases native table-header size requirements by 4px
 and crosses each boundary in both directions with focused tables. It preserves
-font and row sizes and the strict four-normal-row reading budget. Windows
+font and row sizes and the strict 120px reference reading budget. Windows
 geometry artifacts include font line height, header height and active whitespace
 metrics so platform differences can be diagnosed without relaxing assertions.
+They separately record the list-row reference, actual per-table row and section
+heights, and the header's default section size.
