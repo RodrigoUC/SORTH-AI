@@ -615,6 +615,21 @@ MESSAGES = {
     "🧹 Limpiar Todo": "🧹 Clear All"
 }
 
+# Grid scope and native session details.
+MESSAGES.update({
+    'Filtros globales: {assigned} asignadas exportables · {pending} pendientes · {visible} de {total} sesiones': 'Global filters: {assigned} exportable assignments · {pending} pending · {visible} of {total} sessions',
+    '{room}: {count} sesiones': '{room}: {count} sessions',
+    'El aula de la cuadrícula no cambia la exportación filtrada.': 'The grid classroom does not change filtered export.',
+    'Ver detalles': 'View details',
+    'Detalles de la sesión': 'Session details',
+    'Sesiones del bloque en conflicto': 'Sessions in the conflicting block',
+    'Seleccione una sesión para verla en la lista.': 'Select a session to view it in the list.',
+    'Ver en lista': 'View in list',
+    'Sesión: {gid}\nCurso: {course}\nAula: {room}\nDía: {day}\nHorario: {start}–{end}': 'Session: {gid}\nCourse: {course}\nClassroom: {room}\nDay: {day}\nTime: {start}–{end}',
+    'Seleccione un bloque y pulse Intro o Ver detalles para leer la sesión completa.': 'Select a block and press Enter or View details to read the complete session.',
+    'Use flechas para recorrer la cuadrícula, Intro para ver detalles y Tab para salir.': 'Use arrow keys to navigate the grid, Enter to view details and Tab to leave.',
+})
+
 QT_MESSAGES = {}
 
 # Explainable schedule quality indicators.
