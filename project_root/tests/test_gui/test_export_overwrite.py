@@ -17,10 +17,11 @@ from tests.test_gui.test_export_feedback import window
 @pytest.mark.parametrize('answer', [QMessageBox.StandardButton.No,
                                    QMessageBox.StandardButton.Cancel,
                                    QMessageBox.StandardButton.Yes])
+@pytest.mark.parametrize('filename', ['report', 'horario.v2'])
 def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
-                                         extension, filtered, answer):
-    selected = tmp_path / 'report'
-    target = tmp_path / f'report.{extension}'
+                                         extension, filtered, answer, filename):
+    selected = tmp_path / filename
+    target = tmp_path / f'{filename}.{extension}'
     original = b'IMPORTANT ORIGINAL CONTENT'
     target.write_bytes(original)
     before = deepcopy(window.current_schedule)
@@ -74,7 +75,7 @@ def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
 @pytest.mark.parametrize('existing', [False, True])
 @pytest.mark.parametrize('name', ['report.{ext}', 'report.{upper}',
-                                  'report.release.{ext}', 'report.csv', 'report.other'])
+                                  'report.release.{ext}', 'report.csv'])
 def test_explicit_destination_keeps_picker_approval_and_dispatch(
         window, tmp_path, monkeypatch, extension, existing, name):
     path = tmp_path / name.format(ext=extension, upper=extension.upper())
@@ -90,7 +91,7 @@ def test_explicit_destination_keeps_picker_approval_and_dispatch(
                             called.append((_kind, output)))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     window._export_schedule()
-    expected = {'xlsx': 'excel', 'csv': 'csv', 'pdf': 'pdf'}.get(path.suffix[1:].lower(), 'excel')
+    expected = {'xlsx': 'excel', 'csv': 'csv', 'pdf': 'pdf'}[path.suffix[1:].lower()]
     assert called == [(expected, str(path))]
 
 
@@ -113,23 +114,24 @@ def test_missing_resolved_target_and_picker_cancel_do_not_prompt(
 
 @pytest.mark.parametrize('language', ['es', 'en'])
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
-def test_real_qt_picker_suffixless_collision_preserves_bytes(
-        window, tmp_path, monkeypatch, language, extension):
+@pytest.mark.parametrize('filename', ['report', 'horario.v2', 'horario.2026.10.03', 'horario.txt'])
+def test_real_qt_picker_resolved_collision_preserves_bytes(
+        window, tmp_path, monkeypatch, language, extension, filename):
     """Actual Qt save acceptance does not approve the later suffixed path."""
     manager, old_language = language_manager(), language_manager().language
     manager.set_language(language, persist=False)
-    target = tmp_path / f'report.{extension}'
+    target = tmp_path / f'{filename}.{extension}'
     target.write_bytes(b'original')
     picker = QFileDialog(window, 'Save', str(tmp_path), f'Format (*.{extension})')
     picker.setOption(QFileDialog.Option.DontUseNativeDialog, True)
     picker.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-    picker.selectFile('report')
+    picker.selectFile(filename)
     def select(*args):
         assert all(f'*.{ext}' in args[3] for ext in ['xlsx', 'csv', 'pdf'])
         QTimer.singleShot(0, picker.accept)
         assert picker.exec() == QDialog.DialogCode.Accepted
         assert picker.defaultSuffix() == ''
-        assert [Path(path) for path in picker.selectedFiles()] == [tmp_path / 'report']
+        assert [Path(path) for path in picker.selectedFiles()] == [tmp_path / filename]
         return picker.selectedFiles()[0], picker.selectedNameFilter()
     prompts = []
     def decline(dialog):
@@ -149,16 +151,17 @@ def test_real_qt_picker_suffixless_collision_preserves_bytes(
 
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
 @pytest.mark.parametrize('action', ['enter', 'escape', 'yes'])
+@pytest.mark.parametrize('filename', ['report', 'horario.v2'])
 def test_real_overwrite_prompt_default_and_dismissal(
-        window, tmp_path, monkeypatch, extension, action):
+        window, tmp_path, monkeypatch, extension, action, filename):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QApplication
 
-    target = tmp_path / f'report.{extension}'
+    target = tmp_path / f'{filename}.{extension}'
     target.write_bytes(b'original')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
-                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+                        lambda *a: (str(tmp_path / filename), f'Format (*.{extension})'))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     observations = []
     def respond():
@@ -176,14 +179,15 @@ def test_real_overwrite_prompt_default_and_dismissal(
 
 
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
+@pytest.mark.parametrize('filename', ['report', 'horario.v2'])
 def test_approved_resolved_overwrite_still_preserves_bytes_on_atomic_failure(
-        window, tmp_path, monkeypatch, extension):
+        window, tmp_path, monkeypatch, extension, filename):
     import os
 
-    target = tmp_path / f'report.{extension}'
+    target = tmp_path / f'{filename}.{extension}'
     target.write_bytes(b'original')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
-                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+                        lambda *a: (str(tmp_path / filename), f'Format (*.{extension})'))
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     def fail_replace(source, destination):
@@ -200,19 +204,20 @@ def test_approved_resolved_overwrite_still_preserves_bytes_on_atomic_failure(
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
 @pytest.mark.parametrize('dangling', [False, True])
 @pytest.mark.parametrize('approve', [False, True])
+@pytest.mark.parametrize('filename', ['report', 'horario.v2'])
 def test_resolved_symlink_destination_needs_consent(
-        window, tmp_path, monkeypatch, extension, dangling, approve):
+        window, tmp_path, monkeypatch, extension, dangling, approve, filename):
     referent = tmp_path / f'linked.{extension}'
     if not dangling:
         referent.write_bytes(b'linked original')
-    target = tmp_path / f'report.{extension}'
+    target = tmp_path / f'{filename}.{extension}'
     try:
         target.symlink_to(referent)
     except (OSError, NotImplementedError):
         pytest.skip('Creating symlinks is unavailable on this host')
     original_link = target.readlink()
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
-                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+                        lambda *a: (str(tmp_path / filename), f'Format (*.{extension})'))
     prompts = []
     def confirm(dialog):
         prompts.append(dialog.text())
@@ -231,7 +236,7 @@ def test_resolved_symlink_destination_needs_consent(
 
 
 @pytest.mark.parametrize('language', ['es', 'en'])
-@pytest.mark.parametrize('filename', ['report <b>important</b>', 'report & copy'])
+@pytest.mark.parametrize('filename', ['report <b>important</b>', 'report & copy', 'report & copy.v2'])
 def test_overwrite_confirmation_treats_literal_filename_as_plain_text(
         window, tmp_path, monkeypatch, language, filename):
     from PyQt6.QtCore import Qt
@@ -262,14 +267,15 @@ def test_overwrite_confirmation_treats_literal_filename_as_plain_text(
 
 
 @pytest.mark.parametrize('extension', ['xlsx', 'csv', 'pdf'])
+@pytest.mark.parametrize('filename', ['report', 'horario.v2'])
 def test_resolved_destination_inspection_failure_keeps_prior_export(
-        window, tmp_path, monkeypatch, extension):
+        window, tmp_path, monkeypatch, extension, filename):
     from pathlib import Path
 
-    target = tmp_path / f'report.{extension}'
+    target = tmp_path / f'{filename}.{extension}'
     target.write_bytes(b'original')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName',
-                        lambda *a: (str(tmp_path / 'report'), f'Format (*.{extension})'))
+                        lambda *a: (str(tmp_path / filename), f'Format (*.{extension})'))
     original_exists = Path.exists
     def inaccessible(path):
         if path == target:

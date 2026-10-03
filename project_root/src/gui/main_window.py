@@ -852,12 +852,12 @@ class MainWindow(QMainWindow):
         if not file_path:
             return
         try:
-            if not Path(file_path).suffix:
+            if Path(file_path).suffix.lower() not in {".xlsx", ".csv", ".pdf"}:
                 file_path += (".pdf" if "*.pdf" in selected_format else
                               ".csv" if "*.csv" in selected_format else ".xlsx")
                 # The native picker approved its returned path, not this newly
-                # resolved destination. Confirm only this extra collision; an
-                # explicit suffix has already been handled by the picker.
+                # resolved destination. Confirm only this extra collision; a
+                # supported explicit suffix was already handled by the picker.
                 destination = Path(file_path)
                 if destination.exists() or destination.is_symlink():
                     confirmation = QMessageBox(self)

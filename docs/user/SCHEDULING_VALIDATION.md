@@ -65,10 +65,12 @@ an error, not an infeasibility claim.
 ## Export filenames and replacement
 
 The save picker retains the system's native behavior and Excel, CSV and PDF
-filters. When a filename has no extension, SORTH adds the selected format's
-extension. If that resolved destination already exists, SORTH asks before
+filters. Only supported extensions (`.xlsx`, `.csv`, `.pdf`, case-insensitive)
+override the selected format. Otherwise SORTH retains the entered basename and
+appends the selected format's extension, including for version/date names such
+as `horario.v2` or `horario.2026.10.03` and unknown extensions such as `.txt`. If that resolved destination already exists, SORTH asks before
 replacing it; No is the default, and dismissing the question preserves the file,
-schedule, filters and previous export status. Explicit extensions keep the
+schedule, filters and previous export status. Supported explicit extensions keep the
 existing dispatch behavior and the picker's own overwrite confirmation, without
 a second prompt. A successful export replaces its destination atomically; a
 failed write preserves the prior file and reports the failure.
