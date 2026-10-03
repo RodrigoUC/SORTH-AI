@@ -134,6 +134,8 @@ def test_check_can_be_cancelled_without_closing_settings(window, monkeypatch, en
     monkeypatch.setattr(dialog.mcp_probe.process, 'start', lambda *args: original(sys.executable, ['-c', 'import time; time.sleep(10)']))
     dialog._check_mcp()
     assert dialog.mcp_cancel_button.isVisible()
+    assert dialog.section_selector.currentData() == 'mcp'
+    assert not dialog.section_selector.isEnabled()
     assert dialog.mcp_cancel_button.text() == 'Cancel MCP check'
     dialog.mcp_cancel_button.click()
     deadline = time.monotonic() + 2
@@ -142,6 +144,7 @@ def test_check_can_be_cancelled_without_closing_settings(window, monkeypatch, en
     assert not dialog.mcp_probe.active
     assert dialog.isVisible() and dialog.mcp_status == 'cancelled'
     assert dialog.mcp_cancel_button.isHidden()
+    assert dialog.section_selector.isEnabled()
     assert dialog.mcp_check_button.isEnabled()
     assert not window._features.path.exists()
     dialog.reject()

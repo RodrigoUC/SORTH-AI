@@ -1,6 +1,6 @@
 """Transactional preferences plus a separately confirmed local MCP preparation."""
-from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame
-from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox
+from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame, QSizePolicy
+from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox, QComboBox
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
 from PyQt6.QtCore import QSignalBlocker, Qt
@@ -18,18 +18,45 @@ class SettingsDialog(QDialog):
         self.window = window
         window._features.refresh()
         self.setWindowTitle(msg('Configuración'))
-        self.resize(620, 620)
+        self.resize(680, 620)
         outer = QVBoxLayout(self)
-        scroll = QScrollArea()
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(10)
+
+        header = QFrame()
+        header.setObjectName('settingsHeader')
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(16, 12, 16, 12)
+        header_layout.setSpacing(4)
+        title = QLabel(msg('Configuración'))
+        title.setObjectName('settingsTitle')
+        title.setAccessibleDescription(msg('Activa solo las herramientas que necesites. Las funciones opcionales empiezan desactivadas.'))
+        header_layout.addWidget(title)
+        self.intro_label = intro = QLabel(msg('Activa solo las herramientas que necesites. Las funciones opcionales empiezan desactivadas.'))
+        intro.setObjectName('settingsSubtitle')
+        intro.setWordWrap(True)
+        header_layout.addWidget(intro)
+        outer.addWidget(header)
+
+        self.section_selector = QComboBox()
+        self.section_selector.setAccessibleName(msg('Sección de configuración'))
+        self.section_selector.setAccessibleDescription(msg('Elige General, Recursos académicos, Herramientas avanzadas o Conexión MCP. Los cambios se conservan al cambiar de sección.'))
+        self.section_selector.setToolTip(msg('Elige General, Recursos académicos, Herramientas avanzadas o Conexión MCP. Los cambios se conservan al cambiar de sección.'))
+        self.section_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.section_selector.setMinimumContentsLength(1)
+        self.section_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        outer.addWidget(self.section_selector)
+
+        self.scroll = scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
+        content.setObjectName('settingsContent')
         layout = QVBoxLayout(content)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
         scroll.setWidget(content)
-        outer.addWidget(scroll)
-        intro = QLabel(msg('Las funciones opcionales empiezan desactivadas. Los cambios se guardan en este equipo.'))
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
+        outer.addWidget(scroll, 1)
         self.recovery_label = QLabel(msg('La configuración opcional no se puede leer. Puedes conservar el archivo original y restablecer solo estas herramientas.'))
         self.recovery_label.setWordWrap(True)
         self.recovery_label.setVisible(bool(window._features.load_error))
@@ -47,6 +74,7 @@ class SettingsDialog(QDialog):
         self.mcp_probe = McpAvailabilityProbe(self)
         self.mcp_probe.finished.connect(self._mcp_checked)
         self.controls = {}
+        descriptions = {}
         for feature in FEATURES:
             control = QCheckBox(msg(feature.title))
             control.setAccessibleName(msg(feature.title))
@@ -57,20 +85,72 @@ class SettingsDialog(QDialog):
             description.setWordWrap(True)
             description.setObjectName('mutedText')
             self.controls[feature.key] = control
-            if feature.key == 'mcp_server':
-                self._add_mcp_section(layout, control, description)
+            descriptions[feature.key] = description
+        self._saved_values = {key: control.isChecked() for key, control in self.controls.items()}
+        self.sections = {}
+        self.section_features = {
+            'general': ('import_diff_preview', 'undo_redo', 'placement_suggestions', 'pinned_sessions'),
+            'resources': ('teacher', 'student_group', 'student'),
+            'advanced': ('project_scenarios', 'bulk_operations', 'project_calendar'),
+            'mcp': ('mcp_server',),
+        }
+        sections = (
+            ('general', 'General', 'Revisa cambios y organiza las sesiones del horario.'),
+            ('resources', 'Recursos académicos', 'Define qué recursos deben evitar cruces de horario.'),
+            ('advanced', 'Herramientas avanzadas', 'Organiza escenarios, sesiones y parámetros del calendario.'),
+            ('mcp', 'Conexión MCP', 'Prepara el complemento, guarda el permiso local y configura tu cliente.'),
+        )
+        for key, label, summary in sections:
+            self.section_selector.addItem(msg(label), key)
+            section = QWidget()
+            section_layout = QVBoxLayout(section)
+            # Match the scroll body's width: no hidden inset may invalidate the
+            # shared native multiline-action measurement.
+            section_layout.setContentsMargins(0, 0, 0, 0)
+            section_layout.setSpacing(8)
+            self._section_heading(section_layout, msg(label), role='settingsSectionTitle')
+            section_summary = QLabel(msg(summary))
+            section_summary.setWordWrap(True)
+            section_summary.setObjectName('mutedText')
+            section_layout.addWidget(section_summary)
+            section_layout.addSpacing(6)
+            if key == 'mcp':
+                self._add_mcp_section(section_layout, self.controls['mcp_server'], descriptions['mcp_server'])
             else:
-                layout.addWidget(control)
-                layout.addWidget(description)
-        self.calendar_button = QPushButton(msg('Guardar configuración y editar calendario'))
-        self.calendar_button.setEnabled(window._features.enabled('project_calendar') and not window._busy and not window._restore_failed)
-        self.calendar_button.clicked.connect(self.open_calendar)
-        self.controls['project_calendar'].toggled.connect(lambda enabled: self.calendar_button.setEnabled(enabled and not window._busy and not window._restore_failed and not self.mcp_preparation.active))
-        layout.addWidget(self.calendar_button)
-        note = QLabel(msg('Desactivar herramientas oculta sus controles y conserva sus datos. Desactivar recursos retira esas restricciones después de confirmar y regenerar. Las reglas básicas siguen activas.'))
-        note.setWordWrap(True)
-        layout.addWidget(note)
+                for index, feature_key in enumerate(self.section_features[key]):
+                    if index:
+                        divider = QFrame()
+                        divider.setObjectName('settingsDivider')
+                        divider.setFixedHeight(1)
+                        section_layout.addWidget(divider)
+                    section_layout.addWidget(self.controls[feature_key])
+                    section_layout.addWidget(descriptions[feature_key])
+                    section_layout.addSpacing(6)
+            if key == 'advanced':
+                self.calendar_button = QPushButton(msg('Guardar configuración y editar calendario'))
+                self.calendar_button.setEnabled(window._features.enabled('project_calendar') and not window._busy and not window._restore_failed)
+                self.calendar_button.clicked.connect(self.open_calendar)
+                self.controls['project_calendar'].toggled.connect(lambda enabled: self.calendar_button.setEnabled(enabled and not window._busy and not window._restore_failed and not self.mcp_preparation.active))
+                section_layout.addWidget(self.calendar_button)
+            if key in ('resources', 'advanced'):
+                note = QLabel(msg('Al desactivar un recurso, sus registros se conservan. Sus restricciones se retiran después de confirmar y regenerar el horario.') if key == 'resources' else msg('Al desactivar una herramienta se ocultan sus controles. Los escenarios, las fijaciones y el calendario guardados se conservan.'))
+                note.setWordWrap(True)
+                note.setObjectName('settingsNotice')
+                section_layout.addSpacing(4)
+                section_layout.addWidget(note)
+            self.sections[key] = section
+            layout.addWidget(section)
+        layout.addStretch(1)
+
+        self.save_state = QLabel()
+        self.save_state.setObjectName('settingsSaveState')
+        self.save_state.setWordWrap(True)
+        self.save_state.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.save_state.setAccessibleName(msg('Estado de los cambios de configuración'))
+        self.save_state.setToolTip(msg('Guardar aplica las preferencias de todas las secciones en este equipo. Cancelar descarta los cambios de preferencias.'))
+        outer.addWidget(self.save_state)
         self.buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName('primaryAction')
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)
@@ -79,20 +159,65 @@ class SettingsDialog(QDialog):
             self.mcp_check_button, self.mcp_prepare_button, self.mcp_cancel_button,
             self.mcp_help_button,
         ], self)
+        for control in self.controls.values():
+            control.toggled.connect(self._refresh_save_state)
+        self.section_selector.currentIndexChanged.connect(self._section_changed)
+        self._section_changed()
         self._refresh_mcp_permission()
-        self.setTabOrder(self.mcp_status_label, self.mcp_check_button)
-        self.setTabOrder(self.mcp_check_button, self.mcp_prepare_button)
-        self.setTabOrder(self.mcp_prepare_button, self.mcp_cancel_button)
-        self.setTabOrder(self.mcp_cancel_button, self.controls['mcp_server'])
-        self.setTabOrder(self.controls['mcp_server'], self.mcp_permission_label)
-        self.setTabOrder(self.mcp_permission_label, self.mcp_help_button)
-        self.setTabOrder(self.mcp_help_button, self.controls[FEATURES[1].key])
-        self.mcp_check_button.setFocus(Qt.FocusReason.TabFocusReason)
+        self._refresh_save_state()
+        # Native tab order follows each section; hidden sections are skipped.
+        ordered = [self.section_selector, self.recover_button,
+                   *(self.controls[key] for section in ('general', 'resources', 'advanced')
+                     for key in self.section_features[section]), self.calendar_button,
+                   self.mcp_status_label, self.mcp_check_button, self.mcp_prepare_button,
+                   self.mcp_cancel_button, self.controls['mcp_server'],
+                   self.mcp_permission_label, self.mcp_help_button, self.save_state,
+                   self.buttons.button(QDialogButtonBox.StandardButton.Save),
+                   self.buttons.button(QDialogButtonBox.StandardButton.Cancel)]
+        for previous, following in zip(ordered, ordered[1:]):
+            self.setTabOrder(previous, following)
+        self.section_selector.setFocus(Qt.FocusReason.TabFocusReason)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'intro_label'):
+            # Reserve actual reading space at short heights without shrinking
+            # the user's text. The introduction remains in the title's native
+            # accessible description; every section retains its own guidance.
+            self.intro_label.setVisible(self.height() >= 520)
+
+    def select_section(self, key):
+        """Select a stable section key without discarding any pending choices."""
+        index = self.section_selector.findData(key)
+        if index >= 0:
+            self.section_selector.setCurrentIndex(index)
+
+    def _section_changed(self, *_):
+        selected = self.section_selector.currentData()
+        for key, section in self.sections.items():
+            section.setVisible(key == selected)
+        self.scroll.verticalScrollBar().setValue(0)
+        self._responsive_actions._rewrap()
+
+    def _refresh_save_state(self, *_):
+        if not hasattr(self, 'save_state'):
+            return
+        # Like the MCP status, this snapshot is presentation only. Do not replace
+        # the save transaction's expected generation while showing pending work.
+        saved = dict(self._saved_values)
+        saved['mcp_server'] = mcp_permission_enabled(self.window._features.path)
+        count = sum(control.isChecked() != saved[key] for key, control in self.controls.items())
+        self.save_state.setText(msg('Cambios sin guardar: {count}', count=count) if count
+                                else msg('Sin cambios por guardar'))
+        self.save_state.setProperty('pending', bool(count))
+        self.save_state.style().unpolish(self.save_state)
+        self.save_state.style().polish(self.save_state)
 
     @staticmethod
-    def _section_heading(layout, text):
-        layout.addSpacing(8)
+    def _section_heading(layout, text, role='settingsStepTitle'):
+        layout.addSpacing(4)
         heading = QLabel(text)
+        heading.setObjectName(role)
         heading.setWordWrap(True)
         font = heading.font()
         font.setBold(True)
@@ -138,7 +263,6 @@ class SettingsDialog(QDialog):
         guide_note.setWordWrap(True)
         guide_note.setObjectName('mutedText')
         layout.addWidget(guide_note)
-        self._section_heading(layout, msg('Otras funciones opcionales'))
 
     def _refresh_mcp_permission(self):
         # Read for presentation only: keep the preference store's expected
@@ -155,6 +279,7 @@ class SettingsDialog(QDialog):
         else:
             text = msg('Permiso guardado: desactivado. Prepara y verifica MCP antes de permitirlo y guardar.')
         self.mcp_permission_label.setText(text)
+        self._refresh_save_state()
         if hasattr(self, 'buttons'):
             waiting = self.mcp_status == 'checking' and selected and not saved
             save = self.buttons.button(QDialogButtonBox.StandardButton.Save)
@@ -163,6 +288,7 @@ class SettingsDialog(QDialog):
             save.setToolTip(msg('Espera a que termine la verificación MCP antes de guardar el permiso.') if waiting else '')
 
     def _check_mcp(self):
+        self.select_section('mcp')
         if self.mcp_probe.active or self.mcp_preparation.active or self._pending_close is not None:
             return
         previous = self.window._features.enabled('mcp_server')
@@ -175,6 +301,7 @@ class SettingsDialog(QDialog):
         self.mcp_status = 'checking'
         self._refresh_mcp_permission()
         self.mcp_command = None
+        self.section_selector.setEnabled(False)
         self.mcp_check_button.setEnabled(False)
         self.mcp_prepare_button.setEnabled(False)
         self.mcp_help_button.setEnabled(False)
@@ -195,6 +322,7 @@ class SettingsDialog(QDialog):
         if status not in {'available', 'prepared'}:
             self.mcp_command = None
         idle = not self.mcp_preparation.active and not self.mcp_probe.active
+        self.section_selector.setEnabled(idle)
         self.mcp_check_button.setEnabled(idle)
         self.mcp_prepare_button.setEnabled(idle and status not in {'available', 'prepared'})
         self.mcp_prepare_button.setToolTip(msg('MCP ya está disponible. Usa Verificar disponibilidad local de MCP para comprobarlo de nuevo.') if status in {'available', 'prepared'} else '')
@@ -237,6 +365,7 @@ class SettingsDialog(QDialog):
         return confirmation.exec() == QMessageBox.StandardButton.Yes
 
     def _prepare_mcp(self):
+        self.select_section('mcp')
         if self.mcp_preparation.active or self.mcp_probe.active or self._pending_close is not None:
             return
         try:
@@ -252,6 +381,7 @@ class SettingsDialog(QDialog):
             return
         self.mcp_status = 'preparing'
         self.mcp_command = None
+        self.section_selector.setEnabled(False)
         self.mcp_check_button.setEnabled(False)
         self.mcp_prepare_button.setEnabled(False)
         self.mcp_help_button.setEnabled(False)
@@ -352,6 +482,8 @@ class SettingsDialog(QDialog):
         self.window._apply_feature_preferences()
         self.recovery_label.hide()
         self.recover_button.hide()
+        self._saved_values = {key: control.isChecked() for key, control in self.controls.items()}
+        self._refresh_save_state()
 
     def accept(self):
         if self.mcp_preparation.active or self._pending_close is not None:

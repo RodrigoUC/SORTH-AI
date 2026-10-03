@@ -18,7 +18,8 @@ def contrast(a, b):
 
 @pytest.mark.parametrize('foreground,background', [
     ('text', 'surface'), ('text', 'surface_alt'), ('muted', 'surface'),
-    ('muted', 'canvas'), ('muted', 'accent_soft'), ('navy', 'primary_soft'),
+    ('muted', 'canvas'), ('muted', 'surface_alt'), ('warning', 'canvas'),
+    ('navy', 'surface'), ('muted', 'accent_soft'), ('navy', 'primary_soft'),
     ('on_primary', 'primary'), ('on_primary', 'primary_hover'),
     ('on_primary', 'primary_pressed'), ('on_navy', 'navy'),
     ('on_navy_muted', 'navy'), ('on_navy', 'navy_hover'),

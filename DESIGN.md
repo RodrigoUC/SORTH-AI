@@ -205,3 +205,31 @@ selection, conflicts, filtering, multiple rooms, restart identity and ES/EN.
 Synthetic Fusion/offscreen captures cover 1440×1060, 1200×900 and 960×720 plus
 empty/filtered/short-session states. This remains development evidence rather
 than native Windows or screen-reader acceptance.
+
+### Settings section navigation
+Settings uses one native section selector and one body scroll area, with General,
+Academic resources, Advanced tools and MCP connection presented independently.
+A single-column native combo remains usable at 460×420 and with enlarged fonts;
+its keyboard arrow keys select sections, retaining every unsaved checkbox value.
+The selector and Save/Cancel remain outside the body scroller. Below 520px tall,
+the header omits its introduction to preserve reading space without reducing font
+size; the same text remains in the title’s accessible description. The application
+navy header, white reading surface, teal Save and violet focus use existing
+semantic tokens in theme.py. No new palette, dependencies or web components.
+
+The persistent footer counts unsaved preference changes across all four sections;
+returning a checkbox to its saved value removes that change. Reopening reads the
+committed preferences. The count reads MCP permission without replacing its
+expected save generation. Separately confirmed MCP preparation remains immediate
+and is not included in the preference count. During an owned MCP operation the
+MCP section stays visible so its progress and cancel action remain discoverable.
+General opens initially; optional features still begin OFF. Native Save/Cancel,
+resource confirmation, recovery, conflict checks and MCP safeguards are unchanged.
+
+Section containers have zero horizontal insets inside the established scroll
+content margins. ResponsiveActionLabels and ResponsiveDialogButtonBox remain the
+canonical owners of label wrapping and footer stacking. ES/EN catalogs own all
+new copy. Native Qt tests visit every section at 460×420 in Fusion/Windows styles,
+with both standard fonts and 20pt controls/labels; verify zero horizontal overflow,
+complete footer bounds, accessible names and keyboard cancellation. Linux captures
+are development evidence, not packaged Windows or screen-reader certification.
