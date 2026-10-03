@@ -102,7 +102,7 @@ class CourseDialog(QDialog):
         # Number of groups
         self.groups_spin = QSpinBox()
         self.groups_spin.setMinimum(1)
-        self.groups_spin.setMaximum(50)
+        self.groups_spin.setMaximum(max(50, self.course.number_of_groups if self.course else 50))
         self.groups_spin.setValue(1)
         layout.addRow(msg('Número de Grupos:'), self.groups_spin)
 
@@ -110,12 +110,12 @@ class CourseDialog(QDialog):
         dur_layout = QHBoxLayout()
         self.dur_hours = QSpinBox()
         self.dur_hours.setAccessibleName(msg('Duración en horas'))
-        self.dur_hours.setRange(0, 14)
+        self.dur_hours.setRange(0, max(14, self.course.duration_min // 60 if self.course else 14))
         self.dur_hours.setValue(1)
         self.dur_hours.setSuffix(" h")
         self.dur_mins = QSpinBox()
         self.dur_mins.setAccessibleName(msg('Duración en minutos'))
-        self.dur_mins.setRange(0, 55)
+        self.dur_mins.setRange(0, 59)
         self.dur_mins.setSingleStep(5)
         self.dur_mins.setValue(30)
         self.dur_mins.setSuffix(" min")
