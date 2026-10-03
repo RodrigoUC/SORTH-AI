@@ -262,6 +262,10 @@ class AppearanceDialog(QDialog):
         self.import_button.clicked.connect(self.choose_file)
         body.addWidget(self.import_button)
         body.addWidget(_label(msg('Archivo local .sorth-theme.json · máximo 16 KiB. También admite temas creados con IA usando el contrato de SORTH. Sin código, fuentes ni recursos externos.'), role='mutedText'))
+        self.guide_button = QPushButton(msg('Crear un tema con IA…'))
+        self.guide_button.clicked.connect(self.open_creation_guide)
+        self.guide_button.setAutoDefault(False)
+        body.addWidget(self.guide_button)
         self.recovery_notice = _label(msg('El archivo del tema guardado no es válido y se conserva. Revisa Original claro en la vista previa antes de recuperarlo.'), role='settingsNotice')
         self.recovery_notice.setVisible(bool(self.manager.recovery_issue))
         body.addWidget(self.recovery_notice)
@@ -302,7 +306,7 @@ class AppearanceDialog(QDialog):
             button.setAutoDefault(False)
         outer.addWidget(self.buttons)
         self._responsive_actions = ResponsiveActionLabels(self.scroll, [
-            self.import_button, self.recover, self.preview.focus_button,
+            self.import_button, self.guide_button, self.recover, self.preview.focus_button,
             self.preview.primary, self.preview.disabled,
         ], self)
         self.selector.currentIndexChanged.connect(self._select_candidate)
@@ -314,7 +318,7 @@ class AppearanceDialog(QDialog):
         elif self._preview_ready and self.candidate.to_dict() != self.manager.current.to_dict():
             self.feedback.setText(msg('El tema guardado se muestra en vista previa. El tema activo no cambia hasta pulsar Aplicar.'))
             self.feedback.show()
-        ordered = [self.selector, self.metadata, self.import_button, self.recover,
+        ordered = [self.selector, self.metadata, self.import_button, self.guide_button, self.recover,
                    self.feedback, self.details, self.preview.input, self.preview.focus_button,
                    self.preview.primary, self.preview.table, self.preview.course, self.restore_button,
                    self.cancel_button, self.apply_button]
@@ -393,6 +397,24 @@ class AppearanceDialog(QDialog):
         self.details.show()
         self.details.setFocus(Qt.FocusReason.OtherFocusReason)
         self.scroll.ensureWidgetVisible(self.details, 0, 12)
+
+    def open_creation_guide(self):
+        from .theme_creation_dialog import ThemeCreationDialog
+        try:
+            guide = ThemeCreationDialog(self.candidate, self)
+        except ThemeValidationError as error:
+            self._show_error(msg('No se pudo preparar la especificación. No se ha aplicado ningún cambio.'), error)
+            return
+        result = guide.exec()
+        self.activateWindow()
+        guide.deleteLater()
+        if result == QDialog.DialogCode.Accepted:
+            # The guide requests the same bounded picker/import/preview path.
+            # It has no access to the preference manager or Apply operation.
+            self.import_button.setFocus(Qt.FocusReason.OtherFocusReason)
+            self.choose_file()
+        else:
+            self.guide_button.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def choose_file(self):
         path, _ = QFileDialog.getOpenFileName(

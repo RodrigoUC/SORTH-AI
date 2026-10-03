@@ -414,6 +414,35 @@ widths. This fitting runs once per dialog: manual resizing survives language,
 content and repeat-show changes. A newly opened dialog measures its content
 again; viewing or resizing details does not change the schedule.
 
+### External-AI theme creation guide
+
+Appearance offers a small native **Create a theme with AI** guide with three
+explicit steps: copy, generate in the user's chosen external AI, then import and
+review. The read-only, selectable specification derives its structural schema and
+contrast pairs from `theme_contract.py`; there is no second compatibility contract.
+Only revalidated colors and mode enter the example template. Imported names and
+descriptions are replaced by fixed safe examples because plain text can still be
+instructions to an AI. No course, timetable, source filename or project data enters
+the guide. Clipboard writes require the Copy action. No provider, browser launch,
+account, credentials, network call, paid call or template file export is added.
+
+The guide uses shared native localized controls, semantic focus, responsive action
+wrapping, and a persistent Close footer. Tab leaves the specification editor;
+focus reveal considers its whole frame rather than only its input cursor. Compact
+460×420 and 20pt layouts retain the same controls and font. Closing returns focus
+to the Appearance entry. Import result closes the guide and invokes the existing
+bounded JSON picker/validator; validation errors remain selectable in Appearance.
+The guide explicitly says AI output can be invalid. Opening, copying, canceling,
+and rejected imports do not save or apply anything. Appearance's existing
+Apply/Cancel/Restore and atomic recovery contracts remain the only commit path.
+
+Copy success requires an immediate exact readback after the explicit write,
+because Qt can return from its void clipboard setter after a native failure.
+Unavailable, rejected or unreadable copies show localized retry/manual-selection
+guidance in the existing selectable status. Clipboard contents and native error
+details are never retained or displayed. The specification remains read-only and
+keyboard-copyable; the copy button keeps focus and can be retried.
+
 ### Readable session-identity headers
 Both schedule lists reserve the native header-size hint for their **Grupo / sesión**
 column, including the current font, section padding and sort-indicator allowance.

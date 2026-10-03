@@ -41,6 +41,31 @@ crear temas con un asistente compatible. La habilidad valida el mismo contrato
 que usa la aplicación. SORTH no activa proveedores de IA, envía el horario ni
 realiza llamadas de pago para importar o aplicar un tema.
 
+## Crear un tema con tu IA
+
+En Apariencia, **Crear un tema con IA…** abre una guía de tres pasos:
+
+1. Revisa y pulsa **Copiar especificación**. El texto incluye el esquema y las
+   parejas de contraste del validador canónico, además de una plantilla completa
+   con el modo y los colores de la vista previa. El nombre y la descripción se
+   reemplazan por ejemplos seguros, incluso si importaste un tema. No se copian
+   cursos, horarios, nombres de archivos ni datos del proyecto.
+2. Pega el texto en la IA que tú elijas, añade tus preferencias visuales y pide el
+   archivo JSON. Ese paso ocurre fuera de SORTH. Revisa la privacidad y los
+   posibles cargos del servicio. SORTH no abre sitios, crea cuentas, configura
+   credenciales, conecta proveedores ni realiza llamadas de IA.
+3. Pulsa **Importar resultado…** y elige el archivo. Se usa el mismo importador
+   validado de Apariencia. La IA puede producir un archivo inválido; los errores
+   se muestran como texto seleccionable. Un resultado válido solo cambia la vista
+   previa. Revisa los controles y pulsa **Aplicar** si quieres guardarlo.
+
+Abrir, copiar y cerrar la guía no aplica ni guarda un tema. Cancelar el selector
+no cambia la vista previa; un archivo inválido tampoco la reemplaza. **Cerrar** y
+Escape vuelven a Apariencia. La especificación es de solo lectura, permite copiar
+fragmentos y libera el foco con Tab; el botón Cerrar permanece visible al desplazar
+el contenido o ampliar la letra. El esquema por sí solo no sustituye la validación
+del contraste ni certifica accesibilidad.
+
 ## Si no se puede guardar o recuperar un tema
 
 Si falla el guardado, el diálogo permanece abierto, explica el error y permite
@@ -81,6 +106,22 @@ preview. **Restore original** stages Original light and still requires Apply.
 complete, validated color data and plain-text metadata. It never executes code or
 uploads the file. A valid import is a preview until Apply saves an owned copy.
 Moving or deleting the source file afterward does not affect the saved theme.
+
+**Create a theme with AI…** opens a three-step guide. Review and explicitly
+**Copy specification**, paste it into your chosen external AI with your visual
+preferences, then use **Import result…** to return to the same validated importer.
+The copied text contains the canonical schema, contrast pairs, and a complete
+palette template. Only the preview's validated mode and colors are reused;
+imported names and descriptions become safe examples. Courses, timetables,
+filenames, and project data are excluded. SORTH does not open services, connect a
+provider, create accounts, configure credentials, or make AI calls. Check the
+external service's privacy and possible charges yourself.
+
+AI output may be invalid. Import validates it and shows selectable errors; a valid
+result only stages a preview until you choose Apply. Opening, copying, or closing
+the guide never applies or saves a theme. Canceling the picker and invalid imports
+preserve the previous preview. Close and Escape return to Appearance, Tab leaves
+the read-only specification, and Close remains outside the scrolling content.
 
 Applying a theme is separate from saving optional Settings preferences. A failed
 save keeps the previous theme and the dialog open. Invalid saved preferences fall
