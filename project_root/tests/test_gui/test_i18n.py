@@ -229,6 +229,7 @@ def test_days_status_summary_and_conflicts_translate(manager, window):
     viewer.display_schedule(assignments, TimeModel.default(), window.current_groups)
     summary = SummaryDialog(window, viewer.summary_data)
     manager.set_language('en', persist=False)
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.horizontalHeaderItem(1).text() == 'Monday'
     assert any('Classroom conflict' in viewer.grid_table.item(r, 1).text()
                for r in range(viewer.grid_table.rowCount()) if viewer.grid_table.item(r, 1))

@@ -124,6 +124,7 @@ def test_grid_includes_last_hour(window):
     from src.scheduling.time_model import TimeModel
     viewer = window.schedule_viewer
     viewer.display_schedule({'BIO-G1': ('A1', 1, 1260, 1320)}, TimeModel.default())
+    viewer.tabs.setCurrentIndex(1)
     assert viewer.grid_table.rowCount() == 30
     assert viewer.grid_table.item(28, 1).text()
 
