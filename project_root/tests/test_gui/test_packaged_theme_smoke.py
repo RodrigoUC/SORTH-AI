@@ -56,12 +56,18 @@ def test_source_smoke_covers_themes_without_touching_external_profile(tmp_path):
         path = (output / relative).resolve()
         assert path.is_relative_to(output / 'smoke-profile') and path.is_file()
     assert LEGACY_STAGES | THEME_STAGES <= set(report['stages'])
+    assert set(report['text_rendering']) == {'startup', 'es', 'en'}
+    for text_report in report['text_rendering'].values():
+        assert text_report['ok'] and text_report['family_count'] > 0
+        assert text_report['fonts'] and (output / text_report['raster_image']).is_file()
     assert report['assigned'] == report['groups'] == 42
     assert report['large_fixture']['assigned'] == 500
     assert [item['phase'] for item in report['theme_restarts']] == ['custom', 'fallback']
     for item in report['theme_restarts']:
         assert item['ok'] and item['frozen'] is False and item['pid'] != os.getpid()
         assert item['preference_paths'] == report['preference_paths']
+        assert item['text_rendering']['ok']
+        assert (output / item['text_rendering']['raster_image']).is_file()
         assert (output / f"theme-{item['phase']}-restart.png").stat().st_size > 0
     assert not (output / 'synthetic.sorth-theme.json').exists()
     assert sorted(path.name for path in external.iterdir()) == [sentinel.name]
@@ -96,7 +102,7 @@ def test_restart_probe_rejects_missing_synthetic_profile(tmp_path):
 
 
 @pytest.mark.parametrize('frozen', [False, True])
-@pytest.mark.parametrize('failure', [None, 'mismatched_frozen', 'same_process', 'exit', 'timeout'])
+@pytest.mark.parametrize('failure', [None, 'mismatched_frozen', 'same_process', 'exit', 'timeout', 'unreadable', 'missing_text_evidence'])
 def test_restart_launcher_requires_fresh_successful_matching_evidence(tmp_path, monkeypatch,
                                                                     frozen, failure):
     from PyQt6 import QtCore
@@ -118,6 +124,8 @@ def test_restart_launcher_requires_fresh_successful_matching_evidence(tmp_path, 
             report = {'ok': True, 'phase': 'custom',
                       'frozen': not frozen if failure == 'mismatched_frozen' else frozen,
                       'pid': os.getpid() if failure == 'same_process' else os.getpid() + 1}
+            if failure != 'missing_text_evidence':
+                report['text_rendering'] = {'ok': failure != 'unreadable'}
             (tmp_path / 'theme-custom-restart.json').write_text(json.dumps(report), encoding='utf-8')
             return True
         def kill(self):

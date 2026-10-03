@@ -97,6 +97,26 @@ aceptaciones por separado. No hay publicación ni firma automática.
 
 `Windows review build` ejecuta el commit exacto del PR en Windows x64, con permisos de lectura y acciones fijadas a SHA. Instala el lock base con verificación de hashes, ejecuta la suite, genera el PDF y prepara el compañero en un entorno aislado con su propio lock. Compila la GUI con `-McpPrepared`, ejecuta los controles del compañero y abre la GUI en Qt offscreen. La prueba importa el Excel incluido, genera en QThread, exporta Excel/CSV, verifica SQLite y captura la ventana, usando una sesión temporal separada.
 
+Qt offscreen en Windows usa una base de fuentes FreeType que no descubre por sí
+sola las fuentes del escritorio. El CI establece `QT_QPA_FONTDIR` con la carpeta
+especial de fuentes instaladas de Windows antes de iniciar Qt, y registra sólo
+la ruta y el número de archivos compatibles en `qt-font-discovery.json`. No copia,
+redistribuye ni sube fuentes del sistema. La aplicación normal no cambia su familia
+tipográfica ni su plataforma Qt. Esta ruta se basa en el código oficial de Qt
+6.11.2: [offscreen](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/offscreen/qoffscreenintegration.cpp),
+[FreeType](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/text/freetype/qfreetypefontdatabase.cpp)
+y [directorio de fuentes](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/text/qplatformfontdatabase.cpp).
+
+Antes de aceptar capturas, el smoke exige una base de fuentes no vacía, cobertura
+de caracteres ingleses/españoles en las fuentes reales de los controles visibles
+y rásteres de texto con tinta y formas diferentes. Guarda `text-rendering-*.json`
+y `.png` al inicio, en ambos idiomas y en cada reinicio. Un PNG no vacío por sí
+solo no pasa el control: los cuadros de glifos ausentes deben causar fallo. Los
+20 pasos funcionales siguen vigentes. Revisar también las capturas reales del
+paquete y del instalado; esta comprobación no es OCR ni garantiza todos los
+caracteres de datos de usuario. La aceptación visual de escritorio nativo Windows
+(con su plataforma `windows`, DPI y fuentes reales) continúa pendiente por separado.
+
 La misma prueba usa un perfil sintético separado para apariencia, QSettings y
 preferencias opcionales; nunca escribe preferencias normales del usuario. Idioma,
 movimiento y lectura de preferencias heredadas reciben un QSettings con archivo
