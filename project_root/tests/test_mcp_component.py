@@ -102,6 +102,16 @@ def test_probe_cannot_change_verified_payload(bundle, monkeypatch):
     assert not component.component_install_path(context=bundle).exists()
 
 
+def test_existing_probe_modification_never_reports_success(bundle, monkeypatch):
+    component.prepare_component(context=bundle)
+    executable = component.component_install_path(context=bundle) / 'SORTH-MCP.exe'
+    monkeypatch.setattr(component, '_probe', lambda *_: executable.write_bytes(b'changed'))
+    with pytest.raises(component.ComponentError, match='integrity_error'):
+        component.prepare_component(context=bundle)
+    assert executable.read_bytes() == b'changed'
+    assert component.component_status(context=bundle) == 'integrity_error'
+
+
 def test_archive_modified_or_missing_never_executes(bundle, monkeypatch):
     monkeypatch.setattr(component, '_probe', lambda *_: pytest.fail('must not execute'))
     archive = bundle.bundle_dir / bundle.manifest['archive']
@@ -254,7 +264,7 @@ def test_mutable_bundle_info_cannot_change_context(bundle):
 
 
 @pytest.mark.skipif(os.name == 'nt', reason='Synthetic shebang fixture; real EXE probe is Windows CI')
-@pytest.mark.parametrize('behavior', ['valid', 'mismatch', 'overflow', 'timeout', 'cancel'])
+@pytest.mark.parametrize('behavior', ['valid', 'mismatch', 'overflow', 'timeout', 'cancel', 'descendant'])
 def test_probe_output_lifetime_and_cancellation_are_bounded(bundle, monkeypatch, tmp_path, behavior):
     directory = tmp_path / 'probe'
     directory.mkdir()
@@ -265,6 +275,9 @@ def test_probe_output_lifetime_and_cancellation_are_bounded(bundle, monkeypatch,
     program = 'import json, sys, time\n'
     if behavior == 'overflow':
         program += 'sys.stdout.write("X" * 10000); sys.stdout.flush(); time.sleep(10)\n'
+    elif behavior == 'descendant':
+        program += ('import subprocess\nsubprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])\n'
+                    'time.sleep(30)\n')
     elif behavior in ('timeout', 'cancel'):
         program += 'time.sleep(10)\n'
     else:

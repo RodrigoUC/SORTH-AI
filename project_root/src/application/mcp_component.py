@@ -15,11 +15,11 @@ import stat
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 from zipfile import BadZipFile, ZipFile
 
 from .mcp_preferences import preferences_lock
+from .mcp_probe_process import WindowsProbeJob, read_available, stop_owned_process
 
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_EXPANDED_BYTES = 1024 * 1024 * 1024
@@ -256,40 +256,46 @@ def _probe(directory, manifest, cancelled):
                    if key not in {'PYTHONHOME', 'PYTHONPATH'}}
     environment['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
     command = [str(directory / manifest['entrypoint']), '--probe']
-    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                               stderr=subprocess.DEVNULL, env=environment,
-                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    job = WindowsProbeJob() if os.name == 'nt' else None
+    try:
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, env=environment,
+                                   start_new_session=os.name != 'nt',
+                                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except Exception:
+        if job is not None:
+            job.close()
+        raise
     output = bytearray()
-    overflow = threading.Event()
-
-    def read():
-        data = process.stdout.read(PROBE_MAX_OUTPUT + 1)
-        output.extend(data)
-        if len(data) > PROBE_MAX_OUTPUT:
-            overflow.set()
-
-    reader = threading.Thread(target=read, daemon=True, name='sorth-mcp-probe')
-    reader.start()
     deadline = time.monotonic() + PROBE_TIMEOUT
     try:
-        while process.poll() is None:
+        if job is not None:
+            job.attach(process)
+        while True:
             _cancelled(cancelled)
-            if overflow.is_set() or time.monotonic() >= deadline:
+            if time.monotonic() >= deadline:
                 raise ComponentError('probe_failed')
+            chunk = read_available(process.stdout, PROBE_MAX_OUTPUT + 1 - len(output))
+            output.extend(chunk)
+            if len(output) > PROBE_MAX_OUTPUT:
+                raise ComponentError('probe_failed')
+            if process.poll() is not None and not chunk:
+                break
             time.sleep(0.02)
-        reader.join(timeout=1)
         _cancelled(cancelled)
-        if (reader.is_alive() or overflow.is_set() or process.returncode != 0
-                or not probe_matches(json.loads(output), manifest)):
+        if process.returncode != 0 or not probe_matches(json.loads(output), manifest):
             raise ComponentError('probe_failed')
     except (ValueError, TypeError):
         raise ComponentError('probe_failed') from None
     finally:
-        if process.poll() is None:
-            process.kill()
-        process.wait()
-        reader.join(timeout=1)
-        process.stdout.close()
+        try:
+            stop_owned_process(process, job)
+        except (OSError, subprocess.TimeoutExpired):
+            raise ComponentError('probe_failed') from None
+        finally:
+            # Only this thread reads the pipe, always via nonblocking readiness.
+            # No buffered lock or reader join can wait for inherited peer handles.
+            process.stdout.close()
 
 
 def prepare_component(*, cancelled=lambda: False, progress=lambda state: None, context=None):
@@ -319,6 +325,7 @@ def prepare_component(*, cancelled=lambda: False, progress=lambda state: None, c
                 command = installed_command(context=context, cancelled=cancelled)
                 progress('checking')
                 _probe(destination, manifest, cancelled)
+                _verify_files(destination, manifest, cancelled)
                 return {'path': str(destination), 'command': command,
                         'manifest': manifest, 'already_prepared': True}
             archive = context.bundle_dir / manifest['archive']
