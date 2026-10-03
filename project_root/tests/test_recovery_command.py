@@ -54,3 +54,24 @@ def test_future_schema_is_preserved_and_not_published(tmp_path):
     assert run(arguments(tmp_path, source)) == 1
     assert source.read_bytes() == original
     assert not (tmp_path / 'candidate.db').exists()
+
+
+def test_real_schema1_fixture_recovers_with_schedule_and_lab_exception(tmp_path):
+    import sqlite3
+    from src.scheduling.validation import validate_schedule
+    from src.scheduling.time_model import TimeModel
+    source = tmp_path / 'schema1.db'
+    sql = Path(__file__).parent / 'fixtures/session-schema1.sql'
+    with sqlite3.connect(source) as db:
+        db.executescript(sql.read_text(encoding='utf-8'))
+    original = source.read_bytes()
+    assert run(arguments(tmp_path, source)) == 0
+    assert source.read_bytes() == original
+    data = SessionRepository(str(tmp_path / 'candidate.db')).load_session()
+    assert data['assignments'] == {'MAT-G1': ('Aula Á', 1, 420, 480)}
+    assert data['lab_overrides'] == {'MAT-G1'}
+    course = data['courses'][0]
+    assert course.preferred_day == 'Lunes' and course.preferred_start_min == 420
+    assert course.group_suggestions == [{'aula': 'Aula Á', 'preferred_day': 'Lunes', 'preferred_start_min': 420}]
+    assert validate_schedule(data['assignments'], course.generate_groups(), data['classrooms'],
+                             TimeModel.default(), data['lab_overrides']) == []

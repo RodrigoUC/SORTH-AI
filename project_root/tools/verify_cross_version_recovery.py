@@ -17,32 +17,41 @@ sys.path.insert(0, sys.argv[1])
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.course import Course
 from src.scheduling.classroom import Classroom
+from src.scheduling.validation import validate_schedule
+from src.scheduling.time_model import TimeModel
 root, action = Path(sys.argv[2]), sys.argv[3]
 p = root / ('rollback.db' if action == 'rollback' else 'active.db')
 def summary(data):
+    for name, allowed in data['restrictions'].items():
+        data['classrooms'][name].allowed_courses = allowed
+    groups = [g for course in data['courses'] for g in course.generate_groups()]
+    errors = validate_schedule(data['assignments'], groups, data['classrooms'], TimeModel.default(), data.get('lab_overrides', ()))
+    if errors:
+        raise RuntimeError(f'Invalid recovered schedule: {errors}')
     return {'seed': data['seed'], 'excel_path': data['excel_path'],
             'classrooms': {k: [v.capacity,v.room_type,v.description,v.campus] for k,v in data['classrooms'].items()},
-            'courses': [[v.code,v.name,v.size,v.number_of_groups,v.duration_min] for v in data['courses']],
+            'courses': [vars(v) for v in data['courses']],
             'restrictions': {k:sorted(v) for k,v in data['restrictions'].items()},
             'assignments': data['assignments'], 'lab_overrides': sorted(data.get('lab_overrides',[]))}
 if action == 'create':
     repo=SessionRepository(str(p))
     rooms={'Aula Á':Classroom('Aula Á',30,'REGULAR','Sintético','Campus Ñ')}
-    courses=[Course('MAT',1,60,'REGULAR',size=24,name='Matemática')]
-    repo.save_session('Café.xlsx',17,rooms,courses,{'Aula Á':{'MAT'}},{'MAT-G1':('Aula Á',0,420,480)})
+    courses=[Course('MAT',1,60,'LAB',size=24,name='Matemática', suggested_classroom='Aula Á', preferred_day='Lunes', preferred_start_min=420, group_suggestions=[{'aula':'Aula Á','preferred_day':'Lunes','preferred_start_min':420}], force_split=False)]
+    repo.save_session('Café.xlsx',17,rooms,courses,{'Aula Á':{'MAT'}},{'MAT-G1':('Aula Á',1,420,480)}, lab_overrides={'MAT-G1'})
     snapshot=SessionRepository._snapshot(p,root,'before-update-')
     (root/'backup-path.txt').write_text(str(snapshot))
     print(json.dumps({'schema':repo.SCHEMA_VERSION,'data':summary(repo.load_session())}))
 elif action == 'upgrade':
     repo=SessionRepository(str(p)); before=summary(repo.load_session())
     data=repo.load_session()
-    repo.save_session(data['excel_path'],99,data['classrooms'],data['courses'],data['restrictions'],data['assignments'])
+    repo.save_session(data['excel_path'],99,data['classrooms'],data['courses'],data['restrictions'],data['assignments'],lab_overrides=data.get('lab_overrides',()))
     print(json.dumps({'schema':repo.SCHEMA_VERSION,'before':before,'after':summary(repo.load_session())}))
 elif action == 'reject':
     before=p.read_bytes(); rejected=False
     try: SessionRepository(str(p)).load_session()
     except Exception: rejected=True
-    assert p.read_bytes()==before, 'Old revision modified newer-schema data'
+    if p.read_bytes()!=before:
+        raise RuntimeError('Old revision modified newer-schema data')
     print(json.dumps({'rejected':rejected,'unchanged':True}))
 elif action == 'rollback':
     backup=Path((root/'backup-path.txt').read_text())
@@ -69,18 +78,24 @@ def verify(previous, current, output):
         return json.loads(result.stdout)
     old = run(previous, 'create')
     new = run(current, 'upgrade')
-    assert old['schema'] < new['schema'], 'This test requires a genuine forward schema migration.'
-    assert old['data'] == new['before'], 'Migration changed legacy data.'
+    if old['schema'] >= new['schema']:
+        raise RuntimeError('This test requires a genuine forward schema migration.')
+    if old['data'] != new['before']:
+        raise RuntimeError('Migration changed legacy data.')
     preserved_new = hashlib.sha256((output / 'active.db').read_bytes()).hexdigest()
     rejected = run(previous, 'reject')
-    assert rejected['rejected'], 'Previous version did not reject future schema.'
+    if not rejected['rejected']:
+        raise RuntimeError('Previous version did not reject future schema.')
     restored = run(previous, 'rollback')
-    assert old['data'] == restored['data'], 'Rollback did not restore pre-upgrade contents.'
-    assert restored['data']['seed'] == 17 and new['after']['seed'] == 99
-    assert hashlib.sha256((output / 'active.db').read_bytes()).hexdigest() == preserved_new
+    if old['data'] != restored['data']:
+        raise RuntimeError('Rollback did not restore pre-upgrade contents.')
+    if restored['data']['seed'] != 17 or new['after']['seed'] != 99:
+        raise RuntimeError('Post-upgrade edit boundary was not preserved.')
+    if hashlib.sha256((output / 'active.db').read_bytes()).hexdigest() != preserved_new:
+        raise RuntimeError('Rollback modified separately preserved newer data.')
     result = {'ok': True, 'scope': 'Two distinct source implementations, not packaged Windows binaries',
               'provenance': provenance, 'previous_schema': old['schema'], 'current_schema': new['schema'],
-              'old_rejects_future_schema': rejected, 'restored_preupdate_contents': True,
+              'old_rejects_future_schema': rejected, 'restored_preupdate_contents': True, 'canonical_schedule_valid': True,
               'post_update_changes_preserved_separately': True,
               'data_loss_boundary': 'Rollback snapshot has seed17; separately preserved current data has seed99',
               'clean_windows_no_python': 'NOT TESTED', 'installer_rollback': 'NOT TESTED'}
