@@ -152,6 +152,7 @@ class EditHistory:
         before_digest = hashlib.sha256(before_bytes).hexdigest()
         after_digest = hashlib.sha256(after_bytes).hexdigest()
         if before_digest == after_digest:
+            del before_bytes, after_bytes
             return deepcopy(before)
         command = Command(label, before, after, len(before_bytes) + len(after_bytes))
         del before_bytes, after_bytes
