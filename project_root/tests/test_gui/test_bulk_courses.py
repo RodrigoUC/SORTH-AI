@@ -1,7 +1,8 @@
 from copy import deepcopy
 import pytest
 from PyQt6.QtCore import QSettings, Qt, QItemSelectionModel
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from src.gui.main_window import MainWindow
 from src.gui.bulk_course_dialog import BulkCourseDialog
 from src.gui.i18n import language_manager
@@ -153,3 +154,29 @@ def test_multiselection_is_retained_after_bulk_and_failed_presentation_is_durabl
     assert window._history.can_undo and window._restore_failed
     assert 'se guardó' in window.status_bar.currentMessage()
     dialog.reject()
+
+
+def test_bulk_action_tracks_filtered_selection_with_deselected_current_row(window):
+    manager = window.course_manager
+    table = manager.table
+    window.tabs.setCurrentWidget(manager)
+    QApplication.processEvents()
+    def click(code, modifiers=Qt.KeyboardModifier.NoModifier):
+        item = next(table.item(row, 0) for row in range(table.rowCount())
+                    if table.item(row, 0).data(Qt.ItemDataRole.UserRole) == code)
+        QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, modifiers,
+                         table.visualItemRect(item).center())
+        QApplication.processEvents()
+    click('BIO')
+    click('CHEM', Qt.KeyboardModifier.ControlModifier)
+    click('CHEM', Qt.KeyboardModifier.ControlModifier)
+    assert manager.selected_course_codes() == ('BIO',)
+    assert table.currentItem().data(Qt.ItemDataRole.UserRole) == 'CHEM'
+    assert not table.currentItem().isSelected()
+    assert window.btn_bulk.isEnabled()
+    manager._search.setText('CHEM')
+    assert manager.selected_course_codes() == ()
+    assert not window.btn_bulk.isEnabled()
+    manager._search.clear()
+    assert manager.selected_course_codes() == ('BIO',)
+    assert window.btn_bulk.isEnabled()

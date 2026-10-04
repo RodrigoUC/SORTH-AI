@@ -264,6 +264,8 @@ class MainWindow(QMainWindow):
         self.btn_bulk.clicked.connect(self._show_bulk_edit)
         self.course_manager.edit_actions.insertWidget(5, self.btn_bulk)
         self.course_manager.table.itemSelectionChanged.connect(self._update_history_actions)
+        # Filtering can hide selected rows without changing native selection.
+        self.course_manager._search.textChanged.connect(self._update_history_actions)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
         self._status_action = QAction(msg('Leer estado (F6)'), self)
         self._status_action.setShortcut('F6')
