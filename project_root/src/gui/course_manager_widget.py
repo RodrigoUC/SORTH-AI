@@ -566,8 +566,11 @@ class CourseManagerWidget(QWidget):
             if not self.table.isRowHidden(row)))
 
     def _selected_course_index(self):
-        item = self.table.item(self.table.currentRow(), 0)
-        if item is None:
+        row = self.table.currentRow()
+        item = self.table.item(row, 0)
+        # Native Ctrl-click can deselect the current row without moving it.
+        # Current/focus identity alone must never authorize edit or deletion.
+        if item is None or self.table.isRowHidden(row) or not item.isSelected():
             return -1
         code = item.data(Qt.ItemDataRole.UserRole)
         return next((i for i, course in enumerate(self.courses) if course.code == code), -1)
