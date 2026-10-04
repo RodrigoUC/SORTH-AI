@@ -37,6 +37,13 @@ class SchedulerWorker(QThread):
                 calendar=self._calendar,
                 cancelled=self.isInterruptionRequested,
             )
+            # Candidate domains are worker-owned search scratch space, not
+            # accepted session data. Retaining them also retains solver rooms
+            # and makes later GUI rollback snapshots copy the entire search.
+            # Placement suggestions build a fresh domain from accepted inputs.
+            for group in groups:
+                checkpoint(self.isInterruptionRequested)
+                group.domain = []
             checkpoint(self.isInterruptionRequested)
             self.result_ready.emit(assignments, groups)
         except SchedulingCancelled:
