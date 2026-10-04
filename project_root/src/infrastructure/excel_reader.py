@@ -12,6 +12,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict
 from openpyxl.xml.constants import XLSX, XLSM, XLTX, XLTM
+from openpyxl.utils.cell import get_column_letter
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
@@ -215,11 +216,14 @@ class ExcelReader:
                     row_columns.clear()
                     max_row = max(max_row, row)
                 elif tag == ns + 'c':
+                    previous_column = column
                     reference = attributes.get('r')
                     if reference:
                         match = re.fullmatch(r'([A-Za-z]{1,3})([1-9][0-9]*)', reference)
                         if not match:
                             raise ValueError('Invalid worksheet cell reference')
+                        if int(match[2]) != row:
+                            raise ValueError('Worksheet cell row must match its enclosing row')
                         column = 0
                         for letter in match[1].upper():
                             column = column * 26 + ord(letter) - ord('A') + 1
@@ -228,6 +232,8 @@ class ExcelReader:
                         column += 1
                     if column in row_columns:
                         raise ValueError('Duplicate worksheet cell column')
+                    if column < previous_column:
+                        raise ValueError('Worksheet cells must be in increasing column order')
                     row_columns.add(column)
                     max_column = max(max_column, column)
                 else:
@@ -329,6 +335,22 @@ class ExcelReader:
                     # Preserve legacy unambiguous aliases, but never validate
                     # one column and silently load another.
                     frame = frame.rename(columns=self._resolve_course_columns(frame.columns))
+                # With keep_default_na=False, real blank cells (including
+                # sparse padding) stay empty strings. NaN here means openpyxl
+                # reported an Excel error, either stored in the file or produced
+                # while decoding an invalid value, such as an out-of-range date.
+                # Check only selected fields so unused columns/aliases keep
+                # their ignored behavior, and literal "#N/A" remains text.
+                consumed = ({"# de aula", "capacidad", "descripcion", "campus"} if sheet == "Aulas"
+                            else {"curso", "nombre", "horas", "aula", "dias"})
+                for column, field in enumerate(frame.columns, 1):
+                    if field in consumed:
+                        invalid = frame[field].isna()
+                        if invalid.any():
+                            row = frame.index[invalid][0] + 1
+                            raise ExcelImportError(notice(
+                                "Hoja {sheet}, celda {cell}: contiene un error de Excel. Corríjalo y vuelva a cargar el archivo.",
+                                sheet=sheet, cell=f"{get_column_letter(column)}{row}"))
                 sheets[sheet] = frame
             self._sheets = sheets
         return self._sheets[name]

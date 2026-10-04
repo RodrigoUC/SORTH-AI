@@ -392,6 +392,7 @@ MESSAGES = {
     "Confirmar excepción de laboratorio": "Confirm laboratory exception",
     "Conflicto de aula\n": "Classroom conflict\n",
     "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.": "Breaks ties between equally ranked options.\nSame inputs and fixed seed → same schedule.\nRandom seed → may offer alternatives; a different schedule is not guaranteed.",
+    "Hoja {sheet}, celda {cell}: contiene un error de Excel. Corríjalo y vuelva a cargar el archivo.": "Sheet {sheet}, cell {cell}: contains an Excel error. Correct it and load the file again.",
     "Corrija el archivo y vuelva a cargarlo:": "Correct the file and load it again:",
     "Cuadrícula por aula": "Classroom grid",
     "Cuadrícula semanal por aula": "Weekly classroom grid",
