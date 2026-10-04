@@ -2,10 +2,13 @@
 import sqlite3
 import tempfile
 from pathlib import Path
-from PyQt6.QtCore import QItemSelectionModel, QModelIndex, QSignalBlocker
-from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QHeaderView, QPlainTextEdit
+from PyQt6.QtCore import QItemSelectionModel, QModelIndex, QSignalBlocker, Qt, QEvent, QTimer
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QBoxLayout, QAbstractItemView, QHeaderView,
+                            QPlainTextEdit, QScrollArea, QFrame, QWidget, QStyle, QStyleOptionButton,
+                            QApplication)
 from .i18n_widgets import (QDialog, QLabel, QPushButton, QDialogButtonBox, QLineEdit,
-                           QTableWidget, QTableWidgetItem, QMessageBox)
+                           QTableWidget, QTableWidgetItem, QMessageBox,
+                           ResponsiveActionLabels, ResponsiveDialogButtonBox)
 from .i18n import msg, join_messages, language_manager, Message
 from ..infrastructure.project_repository import ProjectRepository
 from ..infrastructure.session_repository import SessionRepository
@@ -14,6 +17,93 @@ from ..scheduling.validation import validate_schedule
 from ..scheduling.time_model import TimeModel
 from ..scheduling.project_calendar import ProjectCalendar, DAYS
 from copy import deepcopy
+
+
+def _readable_label(text=''):
+    label = QLabel(text)
+    label.setWordWrap(True)
+    label.setTextFormat(Qt.TextFormat.PlainText)
+    label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse |
+                                  Qt.TextInteractionFlag.TextSelectableByKeyboard)
+    label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    return label
+
+
+class _ScrollableProjectDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._sized_buttons = []
+        self._reserving_buttons = False
+        self.outer = QVBoxLayout(self)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        content = QWidget()
+        self.body = QVBoxLayout(content)
+        self.scroll.setWidget(content)
+        self.outer.addWidget(self.scroll, 1)
+        self._focus_reveal_timer = QTimer(self)
+        self._focus_reveal_timer.setSingleShot(True)
+        self._focus_reveal_timer.timeout.connect(self._reveal_focus)
+        self.scroll.viewport().installEventFilter(self)
+        content.installEventFilter(self)
+        QApplication.instance().focusChanged.connect(self._scroll_to_focus)
+
+    def _scroll_to_focus(self, previous, focused):
+        if (self.isVisible() and focused is not None
+                and self.scroll.widget().isAncestorOf(focused)):
+            self._reveal_focus()
+            self._focus_reveal_timer.start(0)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                            QEvent.Type.FontChange, QEvent.Type.StyleChange,
+                            QEvent.Type.FocusIn, QEvent.Type.FocusOut):
+            self._reserve_button_heights()
+            self._focus_reveal_timer.start(0)
+        return super().eventFilter(watched, event)
+
+    def _finish_buttons(self, buttons):
+        self.close_buttons = buttons
+        self._sized_buttons = [*getattr(self, 'buttons', {}).values(), *buttons.buttons()]
+        for button in self._sized_buttons:
+            button.installEventFilter(self)
+        self._reserve_button_heights()
+
+    def _reserve_button_heights(self):
+        if self._reserving_buttons:
+            return
+        self._reserving_buttons = True
+        try:
+            for button in self._sized_buttons:
+                option = QStyleOptionButton()
+                # Standard footer buttons are constructed inside Qt, so SIP
+                # cannot call their protected initStyleOption method.
+                option.initFrom(button)
+                option.text = button.text()
+                if button.autoDefault():
+                    option.features |= QStyleOptionButton.ButtonFeature.AutoDefaultButton
+                if button.isDefault():
+                    option.features |= QStyleOptionButton.ButtonFeature.DefaultButton
+                option.state |= QStyle.StateFlag.State_HasFocus
+                text = button.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, button.text())
+                size = button.style().sizeFromContents(
+                    QStyle.ContentsType.CT_PushButton, option, text, button)
+                if button.minimumHeight() != size.height():
+                    button.setMinimumHeight(size.height())
+                if button.parentWidget() is self.close_buttons and button.minimumWidth() != size.width():
+                    button.setMinimumWidth(size.width())
+        finally:
+            self._reserving_buttons = False
+
+    def _reveal_focus(self):
+        focused = QApplication.focusWidget()
+        if (self.isVisible() and focused is not None and focused.isVisible()
+                and self.scroll.widget().isAncestorOf(focused)):
+            center = focused.mapTo(self.scroll.widget(), focused.rect().center())
+            self.scroll.ensureVisible(center.x(), center.y(), 0,
+                min(self.scroll.viewport().height() // 2, focused.height() // 2 + 12))
 
 
 def ask_name(parent, title):
@@ -34,7 +124,7 @@ def ask_name(parent, title):
     return edit.text() if dialog.exec() == QDialog.DialogCode.Accepted else None
 
 
-class ProjectDialog(QDialog):
+class ProjectDialog(_ScrollableProjectDialog):
     def __init__(self, window):
         super().__init__(window)
         self.window = window
@@ -43,22 +133,25 @@ class ProjectDialog(QDialog):
         self.catalog = ProjectRepository(Path(window._repo._db_path).with_name('sorth_projects.db'))
         persisted = window._repo.load_session()
         self.catalog.preserve_legacy(window._repo, scenario_metadata(calendar=(persisted or {}).get('calendar', ProjectCalendar())))
-        layout = QVBoxLayout(self)
-        hint = QLabel(msg('Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.'))
-        hint.setWordWrap(True)
+        outer, layout = self.outer, self.body
+        hint = _readable_label(msg('Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.'))
         layout.addWidget(hint)
         self.table = QTableWidget(0, 3)
         self._headers = [QTableWidgetItem(msg(text)) for text in ('Proyecto', 'Escenario', 'Guardado (UTC)')]
         for index, item in enumerate(self._headers):
             self.table.setHorizontalHeaderItem(index, item)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAccessibleName(msg('Escenarios guardados'))
-        layout.addWidget(self.table)
+        self.table.setMinimumHeight(180)
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(self.table, 1)
         row = QHBoxLayout()
         layout.addLayout(row)
+        self._action_rows = [row]
+        self._fitting_actions = False
         self.buttons = {}
         for key, title, handler in (
             ('new', 'Crear proyecto desde la sesión', self.create),
@@ -71,31 +164,70 @@ class ProjectDialog(QDialog):
             if key == 'duplicate':
                 row = QHBoxLayout()
                 layout.addLayout(row)
+                self._action_rows.append(row)
             button = QPushButton(msg(title))
             button.clicked.connect(lambda checked=False, action=handler: self._run(action))
             row.addWidget(button)
             self.buttons[key] = button
-        self.feedback = QLabel()
-        self.feedback.setWordWrap(True)
+        self.feedback = _readable_label()
+        self.feedback.hide()
         layout.addWidget(self.feedback)
-        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close.rejected.connect(self.reject)
-        layout.addWidget(close)
+        outer.addWidget(close)
+        self._finish_buttons(close)
+        self._responsive_actions = ResponsiveActionLabels(self.scroll, self.buttons.values(), self)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.refresh()
         language_manager().changed.connect(self._translate_headers)
+        hint.setFocus()
 
     def _translate_headers(self, *_):
         for item, label in zip(self._headers, ('Proyecto', 'Escenario', 'Guardado (UTC)')):
             item.setText(msg(label))
+        self._fit_action_rows()
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.FontChange,
+                            QEvent.Type.StyleChange, QEvent.Type.LayoutRequest):
+            self._fit_action_rows()
+        return super().eventFilter(watched, event)
+
+    def _fit_action_rows(self):
+        if not hasattr(self, '_action_rows') or self._fitting_actions:
+            return
+        self._fitting_actions = True
+        try:
+            margins = self.scroll.widget().layout().contentsMargins()
+            available = self.scroll.viewport().width() - margins.left() - margins.right()
+            for row in self._action_rows:
+                required = row.spacing() * (row.count() - 1)
+                for index in range(row.count()):
+                    button = row.itemAt(index).widget()
+                    option = QStyleOptionButton()
+                    button.initStyleOption(option)
+                    text = button.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, button._presentation_text)
+                    required += button.style().sizeFromContents(
+                        QStyle.ContentsType.CT_PushButton, option, text, button).width() + 4
+                direction = (QBoxLayout.Direction.TopToBottom if required > available
+                             else QBoxLayout.Direction.LeftToRight)
+                if row.direction() != direction:
+                    row.setDirection(direction)
+        finally:
+            self._fitting_actions = False
 
     def _run(self, action):
         try:
             action()
         except sqlite3.IntegrityError:
-            self.feedback.setText(msg('Ese nombre ya existe. Usa otro nombre; no se reemplazó ningún escenario.'))
+            self._show_feedback(msg('Ese nombre ya existe. Usa otro nombre; no se reemplazó ningún escenario.'))
         except Exception as error:
-            self.feedback.setText(msg('No se pudo completar la operación. El escenario guardado se conserva. {detail}', detail=str(error)))
+            self._show_feedback(msg('No se pudo completar la operación. El escenario guardado se conserva. {detail}', detail=str(error)))
+
+    def _show_feedback(self, message):
+        self.feedback.setText(message)
+        self.feedback.show()
+        self.feedback.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def selected(self):
         return [self.rows[index.row()] for index in self.table.selectionModel().selectedRows()]
@@ -141,7 +273,7 @@ class ProjectDialog(QDialog):
         baseline = session_fingerprint(self.catalog.read(scenario_id)[0])
         self._activate_scenario(row, baseline)
         self.window._update_save_state()
-        self.feedback.setText(msg('Escenario guardado. Las ediciones posteriores no cambian esta copia.'))
+        self._show_feedback(msg('Escenario guardado. Las ediciones posteriores no cambian esta copia.'))
 
     def _activate_scenario(self, row, baseline):
         # Resolve fallible reads/fingerprints first, so an incomplete readback
@@ -253,29 +385,28 @@ class ProjectDialog(QDialog):
         ComparisonDialog(self, a, b, result).exec()
 
 
-class ComparisonDialog(QDialog):
+class ComparisonDialog(_ScrollableProjectDialog):
     def __init__(self, parent, a, b, result):
         super().__init__(parent)
         self.setWindowTitle(msg('Comparar escenarios'))
         self.resize(800, 580)
-        layout = QVBoxLayout(self)
-        warning = QLabel(msg('Indicadores descriptivos, sin ganador ni puntuación global.'))
-        warning.setWordWrap(True)
+        outer, layout = self.outer, self.body
+        warning = _readable_label(msg('Indicadores descriptivos, sin ganador ni puntuación global.'))
         layout.addWidget(warning)
         if not result['comparable']:
-            warning2 = QLabel(msg('No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.'))
-            warning2.setWordWrap(True)
+            warning2 = _readable_label(msg('No son directamente comparables: cambian entradas, reglas o versiones, o la versión del algoritmo es desconocida.'))
             layout.addWidget(warning2)
         labels = dict(courses='Cursos', classrooms='Aulas', restrictions='Restricciones', resources='Recursos', pins='Sesiones fijas',
                       seed='Semilla', calendar='Calendario', algorithm_version='Versión del algoritmo', metrics_version='Versión de métricas', format_version='Versión del formato')
-        differences = QLabel(msg('Diferencias: {details}', details=join_messages(', ', [msg(labels[key]) for key in result['differences']]) or msg('Ninguna')))
-        differences.setWordWrap(True)
+        differences = _readable_label(msg('Diferencias: {details}', details=join_messages(', ', [msg(labels[key]) for key in result['differences']]) or msg('Ninguna')))
         layout.addWidget(differences)
         if result['difference_values']:
             import json
             detail = QPlainTextEdit()
             detail.setReadOnly(True)
+            detail.setTabChangesFocus(True)
             detail.setAccessibleName(msg('Valores diferentes (izquierda / derecha)'))
+            detail.setMinimumHeight(100)
             detail.setMaximumHeight(150)
             self._difference_detail = detail
             self._difference_labels = labels
@@ -285,15 +416,17 @@ class ComparisonDialog(QDialog):
                 for key, values in result['difference_values'].items()))
             layout.addWidget(detail)
         table = QTableWidget(0, 3)
+        self.table = table
         table.setAccessibleName(msg('Comparar escenarios'))
+        table.setMinimumHeight(200)
+        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self._headers = [QTableWidgetItem(text) for text in (msg('Indicador'), a['name'], b['name'])]
         for index, item in enumerate(self._headers):
             table.setHorizontalHeaderItem(index, item)
         self._metric_items = []
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        layout.addWidget(table)
+        layout.addWidget(table, 1)
         if result['left'] is None:
             warning.setText(msg('El formato, las métricas o el calendario guardados no son compatibles. No se recalcularon indicadores con reglas diferentes.'))
         else:
@@ -330,10 +463,12 @@ class ComparisonDialog(QDialog):
                     if index in (0, 2, 3, 4, 5) and str(value) == '0 / 0':
                         value = msg('No aplica')
                     table.setItem(index, column, QTableWidgetItem(value if isinstance(value, Message) else str(value)))
-        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close.rejected.connect(self.reject)
-        layout.addWidget(close)
+        outer.addWidget(close)
+        self._finish_buttons(close)
         language_manager().changed.connect(self._refresh_detail)
+        warning.setFocus()
 
     def _refresh_detail(self, *_):
         self._headers[0].setText(msg('Indicador'))

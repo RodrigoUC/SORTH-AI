@@ -511,3 +511,14 @@ unchanged, matching the save path. Editing the code displays the usual suffix
 inference; restoring the original code restores the saved-value explanation.
 The shared message catalog owns both ES/EN captions. Compact and large-font
 regressions retain the previous no-op history and sorted-course identity tests.
+
+### Compact project and comparison dialogs
+Projects and scenario comparison keep Close outside a native scrolling body.
+Project actions retain their two desktop rows and stack a row only when its full
+native captions cannot fit; existing localized wrapping handles longer captions.
+Native table content widths and row heights preserve complete values behind the
+table's own scrollbars. Introductory guidance, compatibility warnings and feedback
+are keyboard-selectable, and forward/reverse Tab reveals the focused control.
+Focused native button heights are reserved without trusting cached size hints.
+The 460×420 ES/EN checks cover normal/enlarged fonts, light/dark/custom themes,
+selection and catalog-scroll retention, naming cancellation and focus restoration.
