@@ -455,6 +455,7 @@ MESSAGES = {
     "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Export all includes every assignment. Export filtered uses Search, Classroom, Day and Status, not the grid's classroom selector.",
     "Exportar filtrado (0)": "Export filtered (0)",
     "Exportar filtrado ({p1})": "Export filtered ({p1})",
+    "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.": "\nExcel also includes all pending sessions in the schedule, even if they do not match the filters.",
     "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.": "Export {p1} assigned sessions matching Search, Classroom, Day and Status.\nThe active tab and the grid's classroom selector do not change this set.",
     "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}": "Missing sheets: {missing}. Use these exact names. Sheets found: {found}",
     "Filtrar por aula": "Filter by classroom",

@@ -94,14 +94,26 @@ class ScheduleExporter:
 
     def to_excel(self, assignments: dict, output_path: str,
                  groups=None, course_name_by_code: dict = None,
-                 include_grid: bool = True) -> None:
+                 include_grid: bool = True, *, pending=None,
+                 status: str | None = None, notes=None, total_assigned=None,
+                 filtered=False, filters=None) -> None:
+        """Write atomically, optionally retaining result and export-scope metadata.
+
+        Without metadata the existing sheet/column contract is unchanged.
+        ``total_assigned`` describes the whole schedule, not the exported subset;
+        ``pending`` always contains globally unassigned sessions. A filtered
+        export must provide that total and may provide a text filter mapping.
+        """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        name_map = self._build_name_map(assignments, groups, course_name_by_code)
         with self._atomic_output(output_path, ".xlsx") as temporary:
             # Own the stream lifetime even when serialization raises. Windows
             # cannot unlink an open temporary file during failure cleanup.
             with temporary.open("w+b") as target:
-                self._build_workbook(assignments, name_map, include_grid).save(target)
+                self._prepare_workbook(
+                    assignments, groups, course_name_by_code, include_grid,
+                    pending=pending, status=status, notes=notes,
+                    total_assigned=total_assigned, filtered=filtered,
+                    filters=filters).save(target)
 
     def to_excel_bytes(self, assignments: dict, groups=None,
                        course_name_by_code: dict = None, include_grid: bool = True,
@@ -117,27 +129,52 @@ class ScheduleExporter:
         Optional text ``notes`` appear with the result metadata. A positive
         ``max_output_bytes`` bounds the archive buffer during serialization.
         """
-        if notes is not None and pending is None and status is None:
+        book = self._prepare_workbook(
+            assignments, groups, course_name_by_code, include_grid,
+            pending=pending, status=status, notes=notes)
+        with _BoundedBytesIO(max_output_bytes) as target:
+            with ZipFile(target, "w", ZIP_DEFLATED, allowZip64=True) as archive:
+                _MemoryExcelWriter(book, archive).write_data()
+            return target.getvalue()
+
+    def _prepare_workbook(self, assignments, groups, course_name_by_code, include_grid,
+                          *, pending=None, status=None, notes=None,
+                          total_assigned=None, filtered=False, filters=None):
+        """One metadata/text-validation path for file and in-memory exports."""
+        has_result = pending is not None or status is not None
+        if notes is not None and not has_result:
             raise ValueError("Result notes require status or pending metadata.")
         if isinstance(notes, str):
             raise ValueError("Result notes must be a sequence of text values.")
         notes = list(notes or [])
         if any(not isinstance(note, str) for note in notes):
             raise ValueError("Result notes must be text.")
+        if type(filtered) is not bool:
+            raise ValueError("Filtered scope must be a boolean.")
+        if total_assigned is not None:
+            if (not has_result or type(total_assigned) is not int
+                    or total_assigned < len(assignments)
+                    or (not filtered and total_assigned != len(assignments))):
+                raise ValueError("Schedule totals must agree with the exported scope.")
+        elif filtered or filters is not None:
+            raise ValueError("Filtered exports require the whole-schedule assigned total.")
+        if filters is not None and (not filtered or not isinstance(filters, dict)
+                or any(not isinstance(key, str) or not isinstance(value, str)
+                       for key, value in filters.items())):
+            raise ValueError("Filters require a filtered scope and text names/values.")
         name_map = self._build_name_map(assignments, groups, course_name_by_code)
         book = self._build_workbook(assignments, name_map, include_grid)
-        if pending is not None or status is not None:
+        if has_result:
             pending, status = self._result_metadata(assignments, pending, status)
             for item in pending:
                 gid = item["group_id"]
                 if gid not in name_map:
                     code = self._group_parts(gid)[0]
                     name_map[gid] = (course_name_by_code or {}).get(code, "")
-            self._write_result_sheets(book, assignments, name_map, pending, status, notes)
-        with _BoundedBytesIO(max_output_bytes) as target:
-            with ZipFile(target, "w", ZIP_DEFLATED, allowZip64=True) as archive:
-                _MemoryExcelWriter(book, archive).write_data()
-            return target.getvalue()
+            self._write_result_sheets(
+                book, assignments, name_map, pending, status, notes,
+                total_assigned=total_assigned, filtered=filtered, filters=filters)
+        return book
 
     def _build_workbook(self, assignments, name_map, include_grid):
         book = Workbook()
@@ -257,18 +294,30 @@ class ScheduleExporter:
             raise ValueError("Result status must agree with the pending sessions.")
         return pending, expected_status
 
-    def _write_result_sheets(self, book, assignments, name_map, pending, status, notes):
+    def _write_result_sheets(self, book, assignments, name_map, pending, status, notes,
+                             *, total_assigned=None, filtered=False, filters=None):
         ws = book.create_sheet("Estado", 0)
+        assigned = len(assignments) if total_assigned is None else total_assigned
+        rows = [("Estado", status), ("Sesiones asignadas", assigned),
+                ("Sesiones pendientes", len(pending)),
+                ("Sesiones totales", assigned + len(pending))]
+        if total_assigned is not None:
+            rows.extend([("Ámbito", "Filtrado" if filtered else "Todas las asignaciones"),
+                         ("Asignaciones exportadas", len(assignments))])
+            if filtered:
+                rows.append(("Asignaciones fuera del filtro", assigned - len(assignments)))
+                rows.append(("Nota", "Estado, sesiones asignadas, pendientes y total describen el horario completo. "
+                             "Las asignaciones fuera del filtro no son sesiones pendientes."))
+                rows.extend((f"Filtro: {key}", value) for key, value in (filters or {}).items())
+            rows.append(("Nota", "Pendientes incluye todas las sesiones sin asignar del horario completo."))
+        rows.extend(("Nota", note) for note in notes)
         ws.append(["Resultado", "Valor"])
-        ws.append(["Estado", status])
-        ws.append(["Sesiones asignadas", len(assignments)])
-        ws.append(["Sesiones pendientes", len(pending)])
-        ws.append(["Sesiones totales", len(assignments) + len(pending)])
-        for note in notes:
-            ws.append(["Nota", self._excel_text(note)])
-        self._style_table(ws, [28, 80], [""] * (4 + len(notes)))
-        for row in range(3, 6):
-            ws.cell(row, 2).number_format = "0"
+        for label, value in rows:
+            ws.append([self._excel_text(label), self._excel_text(value) if isinstance(value, str) else value])
+        self._style_table(ws, [28, 80], [""] * len(rows))
+        for row, (_label, value) in enumerate(rows, 2):
+            if type(value) is int:
+                ws.cell(row, 2).number_format = "0"
 
         ws = book.create_sheet("Pendientes")
         ws.append(_PENDING_COLUMNS)

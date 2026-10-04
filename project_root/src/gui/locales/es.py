@@ -455,6 +455,7 @@ MESSAGES = {
     "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Los archivos contienen sesiones asignadas. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.",
     "Exportar filtrado (0)": "Exportar filtrado (0)",
     "Exportar filtrado ({p1})": "Exportar filtrado ({p1})",
+    "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.": "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.",
     "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.": "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.",
     "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}": "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}",
     "Filtrar por aula": "Filtrar por aula",

@@ -821,6 +821,7 @@ class MainWindow(QMainWindow):
         self.btn_export_filtered.setEnabled(ready and count > 0)
         self.btn_export_filtered.setToolTip(
             msg('Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.', p1=count)
+            + msg('\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.')
         )
 
     def _export_schedule(self, filtered=False):
@@ -889,8 +890,21 @@ class MainWindow(QMainWindow):
                 exporter.to_csv(assignments, file_path, groups=self.current_groups,
                                 course_name_by_code=course_name_map)
             else:
+                metadata = {}
+                if pending or filtered:
+                    rooms = self._validation_classrooms()
+                    metadata = dict(
+                        pending=[dict(group_id=group.group_id,
+                                      reason=str(msg(group.unassigned_reason or
+                                          unassigned_reason(group, rooms, time_model))))
+                                 for group in self.current_groups or []
+                                 if group.group_id not in self.current_schedule],
+                        status="partial" if pending else "complete",
+                        total_assigned=len(self.current_schedule), filtered=filtered,
+                        filters=self.schedule_viewer.export_filter_description() if filtered else None)
                 exporter.to_excel(assignments, file_path, groups=self.current_groups,
-                                  course_name_by_code=course_name_map, include_grid=True)
+                                  course_name_by_code=course_name_map, include_grid=True,
+                                  **metadata)
         except Exception as e:
             # Keep the latest attempt readable after its modal is dismissed.
             # Only expose the basename here; technical error details stay in
