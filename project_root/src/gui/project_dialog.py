@@ -2,6 +2,7 @@
 import sqlite3
 import tempfile
 from pathlib import Path
+from PyQt6.QtCore import QItemSelectionModel, QModelIndex, QSignalBlocker
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QHeaderView, QPlainTextEdit
 from .i18n_widgets import (QDialog, QLabel, QPushButton, QDialogButtonBox, QLineEdit,
                            QTableWidget, QTableWidgetItem, QMessageBox)
@@ -106,11 +107,28 @@ class ProjectDialog(QDialog):
         self.buttons['compare'].setEnabled(count == 2)
 
     def refresh(self):
-        self.rows = self.catalog.list_scenarios()
-        self.table.setRowCount(len(self.rows))
-        for index, row in enumerate(self.rows):
-            for column, key in enumerate(('project_name', 'name', 'created_at')):
-                self.table.setItem(index, column, QTableWidgetItem(row[key]))
+        selected_ids = {row['id'] for row in self.selected()} if hasattr(self, 'rows') else set()
+        current = self.table.currentIndex()
+        current_id = self.rows[current.row()]['id'] if current.isValid() else None
+        rows = self.catalog.list_scenarios()
+        # Catalog ordering can insert rows before the selected scenarios. Keep
+        # both multi-selection and the keyboard anchor attached to their IDs.
+        with QSignalBlocker(self.table):
+            self.rows = rows
+            self.table.setRowCount(len(rows))
+            self.table.clearSelection()
+            model = self.table.selectionModel()
+            model.setCurrentIndex(QModelIndex(), QItemSelectionModel.SelectionFlag.NoUpdate)
+            for index, row in enumerate(rows):
+                for column, key in enumerate(('project_name', 'name', 'created_at')):
+                    self.table.setItem(index, column, QTableWidgetItem(row[key]))
+                if row['id'] in selected_ids:
+                    model.select(self.table.model().index(index, 0),
+                                 QItemSelectionModel.SelectionFlag.Select |
+                                 QItemSelectionModel.SelectionFlag.Rows)
+                if row['id'] == current_id:
+                    model.setCurrentIndex(self.table.model().index(index, current.column()),
+                                          QItemSelectionModel.SelectionFlag.NoUpdate)
         self._selection_changed()
 
     def _save_working(self):
