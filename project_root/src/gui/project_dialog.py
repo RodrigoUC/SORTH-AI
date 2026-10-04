@@ -474,7 +474,20 @@ class ComparisonDialog(_ScrollableProjectDialog):
         self._headers[0].setText(msg('Indicador'))
         if hasattr(self, '_difference_detail'):
             import json
-            self._difference_detail.setPlainText('\n\n'.join(
+            detail = self._difference_detail
+            cursor = detail.textCursor()
+            position, anchor = cursor.position(), cursor.anchor()
+            vertical = detail.verticalScrollBar().value()
+            horizontal = detail.horizontalScrollBar().value()
+            detail.setAccessibleName(str(msg('Valores diferentes (izquierda / derecha)')))
+            detail.setPlainText('\n\n'.join(
                 str(msg(self._difference_labels[key])) + '\n' +
                 json.dumps(values, ensure_ascii=False, sort_keys=True, default=lambda value: sorted(value))
                 for key, values in self._difference_values.items()))
+            cursor = detail.textCursor()
+            limit = detail.document().characterCount() - 1
+            cursor.setPosition(min(anchor, limit))
+            cursor.setPosition(min(position, limit), cursor.MoveMode.KeepAnchor)
+            detail.setTextCursor(cursor)
+            detail.verticalScrollBar().setValue(vertical)
+            detail.horizontalScrollBar().setValue(horizontal)

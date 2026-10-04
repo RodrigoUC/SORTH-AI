@@ -268,3 +268,37 @@ def test_project_name_draft_and_cancel_restore_invoker(window, presentation):
     # Offscreen can leave the owner inactive; preserve its remembered target.
     assert parent.focusWidget() is invoker
     parent.reject()
+
+
+def test_comparison_locale_preserves_detail_selection_and_scroll(window, presentation):
+    from PyQt6.QtGui import QTextCursor
+    left = window._repo.load_session()
+    result = compare_scenarios((left, scenario_metadata('test')),
+                              (dict(left, seed=(left['seed'] or 0) + 1), scenario_metadata('test')))
+    result['differences'].append('resources')
+    result['difference_values']['resources'] = (
+        [{'id': f'synthetic-{index}', 'label': 'Literal long alias ' * 12} for index in range(40)], [])
+    dialog = ComparisonDialog(window, {'name': 'A'}, {'name': 'B'}, result)
+    dialog.resize(460, 420)
+    dialog.show()
+    settle(dialog)
+    detail = dialog._difference_detail
+    detail.setFocus()
+    cursor = detail.textCursor()
+    cursor.setPosition(130)
+    cursor.setPosition(155, QTextCursor.MoveMode.KeepAnchor)
+    detail.setTextCursor(cursor)
+    detail.verticalScrollBar().setValue(20)
+    expected = (cursor.anchor(), cursor.position(), detail.verticalScrollBar().value())
+    assert expected[2] == 20
+    for locale, name in [('en', 'Different values (left / right)'),
+                         ('es', 'Valores diferentes (izquierda / derecha)'),
+                         ('en', 'Different values (left / right)')]:
+        language_manager().set_language(locale, persist=False)
+        settle(dialog)
+        cursor = detail.textCursor()
+        assert (cursor.anchor(), cursor.position(), detail.verticalScrollBar().value()) == expected
+        assert detail.hasFocus()
+        assert detail.accessibleName() == name
+        assert 'Literal long alias' in detail.toPlainText()
+    dialog.reject()
