@@ -138,13 +138,19 @@ class ProjectDialog(QDialog):
     def _saved(self, scenario_id):
         self.refresh()
         row = next(row for row in self.rows if row['id'] == scenario_id)
-        self.window._scenario_id = scenario_id
-        self.window._scenario_name = row['project_name'] + ' / ' + row['name']
-        self.window._scenario_baseline = session_fingerprint(self.catalog.read(scenario_id)[0])
-        self.window._scenario_dirty = False
-        self.window._scenario_comparison_error = None
+        baseline = session_fingerprint(self.catalog.read(scenario_id)[0])
+        self._activate_scenario(row, baseline)
         self.window._update_save_state()
         self.feedback.setText(msg('Escenario guardado. Las ediciones posteriores no cambian esta copia.'))
+
+    def _activate_scenario(self, row, baseline):
+        # Resolve fallible reads/fingerprints first, so an incomplete readback
+        # cannot combine a new scenario name with the previous copy's baseline.
+        self.window._scenario_id = row['id']
+        self.window._scenario_name = row['project_name'] + ' / ' + row['name']
+        self.window._scenario_baseline = baseline
+        self.window._scenario_dirty = False
+        self.window._scenario_comparison_error = None
 
     def create(self):
         name = ask_name(self, msg('Crear proyecto desde la sesión'))
@@ -221,6 +227,7 @@ class ProjectDialog(QDialog):
                                    data.get('lab_overrides', set()), resources=data.get('resources'))
         if errors:
             raise ValueError('\n'.join(str(error.render(msg)) for error in errors))
+        baseline = session_fingerprint(data)
         if QMessageBox.question(self, msg('Abrir escenario'),
                 msg('Se guardará una copia de recuperación de la sesión actual antes de abrir {name}. ¿Continuar?', name=row['name']),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -229,11 +236,15 @@ class ProjectDialog(QDialog):
         self._save_working()
         self.window._repo.backup_session()
         self.window._repo.save_session(**data)
+        # The target is now durable. Adopt its identity before rendering so a
+        # failed live restore and subsequent Retry recover that same scenario.
+        # Reuse the already validated snapshot; no post-commit catalog read is
+        # needed to decide which data and algorithm were opened.
+        self._activate_scenario(row, baseline)
+        self.window._algorithm_version = metadata.get('algorithm_version')
         self.window._restore_session_if_exists(confirm=False)
         if self.window._restore_failed:
             raise ValueError(self.window._save_error)
-        self.window._algorithm_version = metadata.get('algorithm_version')
-        self._saved(row['id'])
         self.accept()
 
     def compare(self):
