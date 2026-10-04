@@ -96,6 +96,18 @@ No silent merge or partially editable model replacement. The indicator respects
 reduced motion; F6 exposes full status when the compact bar elides text. See
 `docs/user/EXCEL_IMPORT_WORKFLOW.md` for lifecycle and measured rendering limits.
 
+## Reimported positional identities
+
+Changed repeated-code courses with saved memberships or pins receive a mandatory
+780×560 native review, independent of optional Excel diff preview. A scrolling,
+keyboard-selectable plain-text region lists old/new session properties, literal
+resource aliases and IDs, active/inactive catalog state, and pin placements.
+The action explicitly continues without remapping; Cancel is the default with
+details focused. Existing orphan/pin reviews and atomic byte verification/save
+remain subsequent gates. No new palette, custom key handling, identity mapping,
+workbook format, or persistent consent is introduced. Identical normalized rows
+cannot reveal a permutation and that limitation is documented.
+
 ## Calendar editor
 The optional advanced calendar editor reuses native time controls, checkboxes,
 tables and translated dialog buttons. Settings explicitly saves its preferences

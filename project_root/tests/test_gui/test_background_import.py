@@ -36,6 +36,10 @@ def window(tmp_path, monkeypatch):
     w.schedule_viewer.display_schedule(w.current_schedule, TimeModel.default(), w.current_groups)
     w._save_session()
     monkeypatch.setattr(QMessageBox, 'critical', lambda *args: None)
+    # Tests in this module isolate the pre-existing import/preview contracts.
+    # The mandatory identity review has its own real-modal regression coverage.
+    from src.gui.import_identity_dialog import ImportIdentityDialog
+    monkeypatch.setattr(ImportIdentityDialog, 'exec', lambda self: QDialog.DialogCode.Accepted)
     yield w
     w._import.cancel(announce=False)
     wait_for_import(w)

@@ -6,6 +6,8 @@ from PyQt6.QtCore import QObject, QTimer, Qt
 from PyQt6.QtWidgets import QTextEdit
 from .import_worker import ImportWorker
 from .import_preview_dialog import ImportPreviewDialog
+from .import_identity_dialog import ImportIdentityDialog
+from ..application.reimport_identity import affected_identity_groups
 from .i18n import msg, join_messages
 from .i18n_widgets import QMessageBox, QDialog
 from ..infrastructure.excel_reader import ExcelImportError
@@ -146,6 +148,15 @@ class ImportController(QObject):
             review.setButtonText(QMessageBox.StandardButton.Ok, msg('Importar con avisos'))
             review.setButtonText(QMessageBox.StandardButton.Cancel, msg('Cancelar'))
             accepted = review.exec() == QMessageBox.StandardButton.Ok
+            self.review = None
+            review.deleteLater()
+            if not accepted or not self._current(token):
+                return False
+        affected = affected_identity_groups(window.course_manager.get_courses(), imported.courses,
+                                            window.resources, window.pinned_group_ids)
+        if affected:
+            review = self.review = ImportIdentityDialog(window, candidate, affected)
+            accepted = review.exec() == QDialog.DialogCode.Accepted
             self.review = None
             review.deleteLater()
             if not accepted or not self._current(token):

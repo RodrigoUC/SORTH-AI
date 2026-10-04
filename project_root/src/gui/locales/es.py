@@ -1515,3 +1515,19 @@ MESSAGES.update({
 MESSAGES.update({
     'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.': 'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.',
 })
+
+# Explicit review of changed positional session identities.
+MESSAGES.update({
+    'Revisar asociaciones del Excel': 'Revisar asociaciones del Excel',
+    'Hay cambios en cursos con varios grupos y asociaciones guardadas. G1, G2 y sus partes dependen del orden de las filas. SORTH no puede comprobar que sigan representando al mismo grupo.': 'Hay cambios en cursos con varios grupos y asociaciones guardadas. G1, G2 y sus partes dependen del orden de las filas. SORTH no puede comprobar que sigan representando al mismo grupo.',
+    'Al continuar, las asociaciones y fijaciones compatibles se conservan por identificador, sin reasignarlas a otras filas. Las eliminaciones y los conflictos se revisan después. Cancelar conserva todos los datos actuales.': 'Al continuar, las asociaciones y fijaciones compatibles se conservan por identificador, sin reasignarlas a otras filas. Las eliminaciones y los conflictos se revisan después. Cancelar conserva todos los datos actuales.',
+    'Asociaciones que requieren revisión': 'Asociaciones que requieren revisión',
+    'Continuar sin reasignar': 'Continuar sin reasignar',
+    'Duración: {minutes} min; tipo: {room_type}; estudiantes: {size}; aula preferida: {room}; día preferido: {day}; inicio preferido: {time}.': 'Duración: {minutes} min; tipo: {room_type}; estudiantes: {size}; aula preferida: {room}; día preferido: {day}; inicio preferido: {time}.',
+    'Antes: {details}': 'Antes: {details}',
+    'Excel propuesto: {details}': 'Excel propuesto: {details}',
+    'Este identificador ya no aparece en el Excel propuesto.': 'Este identificador ya no aparece en el Excel propuesto.',
+    '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
+    'Inactivo': 'Inactivo',
+    'Fijada: {room}, {day}, {start}–{end}': 'Fijada: {room}, {day}, {start}–{end}',
+})
