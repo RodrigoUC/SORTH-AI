@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    '{room_type} (guardado en el curso)': '{room_type} (saved in the course)',
     'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
     'Comparación pendiente': 'Comparison pending',
     'Comparación actualizada. La sesión sigue guardada.': 'Comparison updated. The session remains saved.',
