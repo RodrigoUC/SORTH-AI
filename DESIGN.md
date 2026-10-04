@@ -522,3 +522,16 @@ are keyboard-selectable, and forward/reverse Tab reveals the focused control.
 Focused native button heights are reserved without trusting cached size hints.
 The 460×420 ES/EN checks cover normal/enlarged fonts, light/dark/custom themes,
 selection and catalog-scroll retention, naming cancellation and focus restoration.
+
+### Help and session-detail keyboard geometry
+The shared responsive action/footer helpers reserve freshly measured native
+focused button dimensions, retaining caller minimums and allowing their own
+reservations to shrink after font or caption changes. Cached unfocused Qt hints
+alone do not establish that the focus border fits. MCP Help uses those helpers,
+keeps its footer outside the scroller, and reveals the focused body control in
+both keyboard directions. Selectable instructions and permission/copy feedback
+are in the native tab order. Link traversal remains native; only a repeated
+unchanged boundary-anchor selection falls back to native widget traversal.
+Copy, client selection, source destinations and session-list handoff are unchanged.
+ES/EN light/dark/custom, native-default/Fusion/Windows-style and enlarged-font
+checks are Linux development evidence, not native Windows acceptance.
