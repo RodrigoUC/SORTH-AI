@@ -49,6 +49,14 @@ Al rechazar la restauración y cerrar sin editar, la sesión anterior se conserv
 
 El estado **Sesión no disponible** bloquea la edición y mantiene los archivos intactos. **Reintentar** vuelve a comprobar la lectura y ofrece restaurar cuando sea posible. No hay borrado, reparación destructiva ni selección automática de una copia más antigua.
 
+Las decisiones guardadas de división, excepción LAB y fijación deben contener
+valores SQLite enteros 0 o 1; sólo la división admite NULL para el modo automático.
+Otros valores, como el texto `false`, se rechazan al leer o recuperar una sesión:
+no se interpretan como una confirmación ni se normalizan mediante el guardado
+automático. Un rechazo durante una migración conserva el esquema anterior y su
+copia de resguardo. La lectura de valores válidos y las decisiones existentes no
+cambian.
+
 Para una recuperación manual, cierre SORTH y conserve primero una copia de la carpeta completa, incluidos archivos `-wal` y `-shm` si existen. Con ayuda técnica, identifique una copia válida y sustitúyala sólo tras preservar el archivo afectado. No borre una base dañada para intentar que el programa arranque. Las copias contienen datos de la sesión, incluidos recursos personales cuando existan: manténgalas privadas. Incluya también `sorth_projects.db` para conservar escenarios; editar la sesión no modifica esas copias. Consulte [Privacidad y datos locales](../../PRIVACY.md) para configuración separada y eliminación.
 
 ## Verificación

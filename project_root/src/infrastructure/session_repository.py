@@ -362,8 +362,7 @@ class SessionRepository:
         # Courses
         courses = []
         for r in con.execute("SELECT * FROM courses"):
-            fs_raw = r["force_split"]
-            force_split = None if fs_raw is None else bool(fs_raw)
+            force_split = self._decode_boolean(r["force_split"], "force_split", nullable=True)
             courses.append(Course(
                 code=r["code"],
                 name=r["name"],
@@ -388,9 +387,9 @@ class SessionRepository:
         lab_overrides = set()
         pinned_group_ids = set()
         for r in con.execute("SELECT * FROM assignments"):
-            if r["pinned"]:
+            if self._decode_boolean(r["pinned"], "pinned"):
                 pinned_group_ids.add(r["group_id"])
-            if r["lab_override"]:
+            if self._decode_boolean(r["lab_override"], "lab_override"):
                 lab_overrides.add(r["group_id"])
             assignments[r["group_id"]] = (
                 r["classroom_name"], r["day"], r["start_min"], r["end_min"]
@@ -457,6 +456,17 @@ class SessionRepository:
                           TimeModel.from_calendar(calendar), lab_overrides, resources))
         if errors:
             raise ValueError('; '.join(str(e) for e in errors))
+
+    @staticmethod
+    def _decode_boolean(value, field, *, nullable=False):
+        # SQLite INTEGER affinity still permits text, blobs and non-integral
+        # numbers. Truthiness could turn damaged data into a LAB consent, pin
+        # or split decision and then permanently normalize it on autosave.
+        if nullable and value is None:
+            return None
+        if type(value) is not int or value not in (0, 1):
+            raise ValueError(f"Invalid saved boolean {field}; restore a backup")
+        return bool(value)
 
     @staticmethod
     def _decode_resources(payload):
