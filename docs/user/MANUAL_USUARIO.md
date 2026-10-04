@@ -168,6 +168,11 @@ Haz clic en **Ver Resumen** para ver:
    - **PDF (`.pdf`)**: tablas cronológicas por aula listas para imprimir, con texto seleccionable, horas exactas, nombres completos, páginas y encabezados repetidos. No necesita Excel. El documento identifica el alcance, filtros aplicados, pendientes globales y excepciones LAB.
 3. Haz clic en **Guardar**.
 
+La barra confirma la exportación sin un diálogo adicional de aceptación. Usa
+**Leer estado (F6)** para consultar o copiar la ruta completa de la última
+exportación. Los avisos de horario parcial, los errores y la confirmación antes
+de reemplazar un archivo se mantienen.
+
 ---
 
 ### Consulta y exportación

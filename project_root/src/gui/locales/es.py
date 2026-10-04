@@ -1,6 +1,7 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Última exportación:\n{details}': 'Última exportación:\n{details}',
     '{room_type} (guardado en el curso)': '{room_type} (guardado en el curso)',
     'La semilla guardada está fuera del intervalo permitido.': 'La semilla guardada está fuera del intervalo permitido.',
     'Comparación pendiente': 'Comparación pendiente',

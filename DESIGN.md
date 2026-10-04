@@ -544,3 +544,25 @@ Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped
 theme in Fusion/Windows styles; pixel scaling is separate from native Windows
 acceptance.
+
+## Nonblocking export completion
+
+Successful export returns directly to the native workspace. The existing status
+bar retains scope, count, partial/pending warning and basename without a routine
+acknowledgment modal. The existing F6 snapshot includes a localized **Last export**
+detail with the full literal destination, selectable and keyboard-copyable as
+plain text. It remains available when another action updates current status.
+Canceling the picker or declining replacement preserves the previous result;
+a later export failure clears the older success detail before showing the error.
+The detail is window-local and never persisted or logged. Overwrite consent,
+validation, import reviews, error dialogs and export formats are unchanged.
+
+For a prepared input, the primary flow still has three application commands:
+Load, Generate, Export. Removing successful-export acknowledgment reduces the
+audited interaction stages from six to five, including the two file pickers.
+Exporting an already generated schedule requires Export and Save; filename,
+format choices and necessary replacement consent are additional user input.
+This does not claim a two-to-four total-click onboarding flow. Native Qt tests
+cover ES/EN, full/filtered and partial results, cancellation, failure, focus and
+F6 copying; Linux screenshots remain development evidence rather than native
+Windows or screen-reader acceptance.
