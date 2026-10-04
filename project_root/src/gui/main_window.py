@@ -636,6 +636,10 @@ class MainWindow(QMainWindow):
 
         if dialog.exec():
             restrictions = dialog.get_restrictions()
+            # Accepting unchanged selections is not an input edit. Preserve the
+            # accepted schedule and history before invalidating any placements.
+            if restrictions == (self.classroom_restrictions or {}):
+                return
             if not self._confirm_pin_inputs(restrictions=restrictions):
                 return
             self.classroom_restrictions = restrictions
