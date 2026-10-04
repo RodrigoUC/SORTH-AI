@@ -1,10 +1,140 @@
+from contextlib import contextmanager, ExitStack
+import errno
 import json
 from pathlib import Path
 import subprocess
 import sys
+import time
+from types import SimpleNamespace
 import pytest
 from src.application import mcp_preferences as prefs
 from src.mcp_adapter import availability
+
+
+def _wait_for_process_lock_release(path, timeout=5):
+    """Probe eventual OS cleanup after process exit without retrying a write."""
+    deadline = time.monotonic() + timeout
+    with ExitStack() as stack:
+        while True:
+            try:
+                stack.enter_context(prefs.preferences_lock(path))
+            except OSError as error:
+                cause = error.__cause__
+                if not isinstance(cause, OSError) or cause.errno not in {errno.EACCES, errno.EAGAIN}:
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise AssertionError('Preferences lock was not released after process exit') from error
+                time.sleep(min(0.01, remaining))
+            else:
+                return  # ExitStack releases outside the retry handler; unlock errors fail.
+
+
+@pytest.fixture
+def lock_release_clock(monkeypatch):
+    clock = SimpleNamespace(now=0.0, sleeps=[])
+
+    def sleep(delay):
+        assert 0 < delay <= 0.01
+        clock.sleeps.append(delay)
+        clock.now += delay
+
+    monkeypatch.setattr(sys.modules[__name__], 'time',
+                        SimpleNamespace(monotonic=lambda: clock.now, sleep=sleep))
+    return clock
+
+
+def _contention_error(error_number):
+    error = OSError('Preferences are being changed by another process')
+    error.__cause__ = OSError(error_number, 'synthetic lock contention')
+    return error
+
+
+@pytest.mark.parametrize('error_number, failures', [(errno.EACCES, 0), (errno.EACCES, 2), (errno.EAGAIN, 2)])
+def test_process_lock_release_probe_returns_as_soon_as_available(tmp_path, monkeypatch,
+                                                               lock_release_clock, error_number, failures):
+    path = tmp_path / 'preferences.json'
+    prefs.set_enabled(path, True)
+    before = path.read_bytes()
+    lock_path = Path(str(path) + '.lock')
+    original_inode = lock_path.stat().st_ino
+    original_lock = prefs.preferences_lock
+    attempts = []
+
+    @contextmanager
+    def delayed_release(value):
+        attempts.append(value)
+        if len(attempts) <= failures:
+            raise _contention_error(error_number)
+        with original_lock(value):
+            yield
+
+    monkeypatch.setattr(prefs, 'preferences_lock', delayed_release)
+    _wait_for_process_lock_release(path)
+    assert attempts == [path] * (failures + 1)
+    assert lock_release_clock.sleeps == [0.01] * failures
+    assert path.read_bytes() == before
+    assert lock_path.stat().st_ino == original_inode
+    with original_lock(path):  # The successful probe cannot leave its own lock held.
+        pass
+
+
+@pytest.mark.parametrize('error_number', [errno.EACCES, errno.EAGAIN])
+def test_process_lock_release_probe_fails_at_deadline(monkeypatch, lock_release_clock, error_number):
+    error = _contention_error(error_number)
+    attempts = []
+
+    @contextmanager
+    def still_locked(path):
+        attempts.append(lock_release_clock.now)
+        raise error
+        yield
+
+    monkeypatch.setattr(prefs, 'preferences_lock', still_locked)
+    with pytest.raises(AssertionError, match='not released after process exit') as failure:
+        _wait_for_process_lock_release(Path('preferences.json'))
+    assert failure.value.__cause__ is error
+    assert attempts[0] == 0
+    assert attempts[-1] == lock_release_clock.now == 5
+    assert len(attempts) == len(lock_release_clock.sleeps) + 1
+    assert sum(lock_release_clock.sleeps) == pytest.approx(5)
+
+
+@pytest.mark.parametrize('error', [OSError(errno.EACCES, 'file access denied'),
+    _contention_error(errno.EINVAL), _contention_error(errno.EIO), ValueError('invalid preferences')])
+def test_process_lock_release_probe_does_not_retry_other_errors(monkeypatch, lock_release_clock, error):
+    attempts = []
+
+    @contextmanager
+    def broken_lock(path):
+        attempts.append(path)
+        raise error
+        yield
+
+    monkeypatch.setattr(prefs, 'preferences_lock', broken_lock)
+    with pytest.raises(type(error)) as failure:
+        _wait_for_process_lock_release(Path('preferences.json'))
+    assert failure.value is error
+    assert len(attempts) == 1
+    assert lock_release_clock.sleeps == []
+
+
+def test_process_lock_release_probe_does_not_retry_unlock_error(monkeypatch, lock_release_clock):
+    error = _contention_error(errno.EACCES)
+    attempts = []
+
+    @contextmanager
+    def broken_unlock(path):
+        attempts.append(path)
+        yield
+        raise error
+
+    monkeypatch.setattr(prefs, 'preferences_lock', broken_unlock)
+    with pytest.raises(OSError) as failure:
+        _wait_for_process_lock_release(Path('preferences.json'))
+    assert failure.value is error
+    assert len(attempts) == 1
+    assert lock_release_clock.sleeps == []
 
 
 def test_default_off_and_atomic_change_preserves_foreign_fields(tmp_path, monkeypatch):
@@ -147,7 +277,6 @@ def test_cli_holds_lock_for_full_read_modify_write(tmp_path, monkeypatch):
 
 def test_os_lock_is_nonblocking_stable_and_released_by_process_exit(tmp_path):
     import os
-    import time
     path = tmp_path / 'preferences.json'
     prefs.set_enabled(path, True)
     lock_path = Path(str(path) + '.lock')
@@ -173,6 +302,9 @@ with preferences_lock(sys.argv[1]):
         assert lock_path.stat().st_ino == original_inode
         process.kill()
         process.wait(timeout=5)
+        # Windows can finish waiting for the venv launcher before OS lock cleanup.
+        # https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex
+        _wait_for_process_lock_release(path)
         prefs.set_enabled(path, False)
         assert not prefs.enabled(path)
         assert lock_path.exists() and lock_path.stat().st_ino == original_inode
