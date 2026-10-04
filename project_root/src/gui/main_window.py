@@ -279,6 +279,17 @@ class MainWindow(QMainWindow):
     # UI builders
     # ------------------------------------------------------------------
 
+    def _bind_command_shortcut(self, button, sequence):
+        # Native button captions own their mnemonic: replacing the text also
+        # replaces QPushButton's shortcut. Keep explicit application commands
+        # on a separate action so locale/busy labels cannot erase them. The
+        # associated button still gates the action by visibility and enabled
+        # state, and the default WindowShortcut excludes child modal dialogs.
+        action = QAction(button)
+        action.setShortcut(sequence)
+        action.triggered.connect(button.click)
+        button.addAction(action)
+
     def _show_accessible_status(self):
         """On-demand, focusable status; no unsupported screen-reader promises."""
         dialog = QDialog(self)
@@ -362,7 +373,7 @@ class MainWindow(QMainWindow):
         self.excel_path_label.setTextFormat(Qt.TextFormat.PlainText)
 
         btn_load = self.btn_load = QPushButton(msg('Cargar Excel'))
-        btn_load.setShortcut("Ctrl+O")
+        self._bind_command_shortcut(btn_load, "Ctrl+O")
         btn_load.setToolTip(
             msg('Abrir un archivo Excel (.xlsx) con las hojas:\n  • Aulas: # DE AULA y CAPACIDAD (entero ≥ 0)\n  • Cursos: Curso; cada fila es un grupo sugerido\nOpcionales: Nombre de Curso, Horas (0800-1055), Aula y Días (L,I,M,J,V,S).\nLos encabezados van en la fila 1; el orden de columnas no importa.')
         )
@@ -435,7 +446,7 @@ class MainWindow(QMainWindow):
 
         self.btn_generate = QPushButton(msg('Generar horario'))
         self.btn_generate.setObjectName("primaryAction")
-        self.btn_generate.setShortcut("Ctrl+Return")
+        self._bind_command_shortcut(self.btn_generate, "Ctrl+Return")
         self.btn_generate.setToolTip(
             msg('Ejecutar el algoritmo de programación con los cursos y aulas cargados.\nEl resultado se muestra en la pestaña Horario Generado.')
         )
@@ -443,7 +454,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.setEnabled(False)
 
         self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
-        self.btn_export.setShortcut("Ctrl+S")
+        self._bind_command_shortcut(self.btn_export, "Ctrl+S")
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
         )
