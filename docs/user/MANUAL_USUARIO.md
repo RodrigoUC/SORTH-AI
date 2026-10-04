@@ -200,7 +200,7 @@ El PDF conserva el total global de sesiones asignadas y pendientes incluso al ex
 - El resto: tipo **REGULAR**.
 - La columna `CAPACIDAD 80%` es opcional e informativa.
 - Las celdas importadas con errores de Excel (por ejemplo `#N/A` o `#DIV/0!`) se rechazan indicando hoja y celda. Corrige el error y guarda el libro de nuevo. No se calculan fórmulas durante la importación.
-- Si usas fórmulas, recalcula y guarda el libro en Excel antes de importar, o pega los valores. Una fórmula sin resultado guardado se lee como una celda vacía.
+- Si usas fórmulas, recalcula y guarda el libro en Excel antes de importar, o pega los valores. Una fórmula sin resultado guardado en un campo importado se rechaza indicando hoja y celda; también se comprueban los resultados de matrices y tablas de datos. Todos los encabezados de la fila 1 de `Aulas` y `Cursos` necesitan resultados guardados para determinar qué columnas usar, incluso si una fórmula de encabezado pudiera corresponder a una columna adicional. Las cadenas vacías guardadas explícitamente siguen siendo valores vacíos válidos, y los ceros y textos como `NA` se conservan. Los datos de columnas no utilizadas y las hojas adicionales se ignoran. No se calculan fórmulas ni se verifica que sus resultados guardados estén actualizados.
 - Guarda como texto los códigos con ceros iniciales, como `001`, y usa exactamente el mismo código en ambas hojas.
 - Aulas referenciadas en `Cursos` que no existen aquí se ignoran (el grupo queda sin preferencia de aula).
 

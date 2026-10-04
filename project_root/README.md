@@ -80,7 +80,7 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 - Las referencias a aulas desconocidas siguen importándose sin esa preferencia, pero ahora se muestran como avisos antes de confirmar.
 - Cancelar la selección, cancelar los avisos o recibir un error de validación conserva los datos y el horario abierto.
 
-Si usa fórmulas, recalcule y guarde el libro en Excel antes de importar, o pegue los valores. El importador lee el resultado guardado; una fórmula sin resultado guardado se lee como una celda vacía.
+Si usa fórmulas, recalcule y guarde el libro en Excel antes de importar, o pegue los valores. El importador lee el resultado guardado y rechaza fórmulas sin él en los campos importados, incluidos los resultados de matrices y tablas de datos. También exige resultados guardados en todos los encabezados de la fila 1 de `Aulas` y `Cursos`: sin ellos no puede determinar qué columnas usar, aunque el encabezado pudiera corresponder a una columna adicional. Los resultados guardados como cadenas vacías siguen siendo valores vacíos válidos; los ceros y textos como `NA` se conservan. Los datos de columnas no utilizadas y las hojas adicionales se siguen ignorando. No se calculan fórmulas ni se comprueba si sus resultados guardados están actualizados.
 
 ### Hoja `Aulas`
 | # DE AULA | DESCRIPCIÓN | CAMPUS | CAPACIDAD | CAPACIDAD 80% |
