@@ -429,6 +429,41 @@ class QComboBox(_Localized, QtW.QComboBox):
         super().clear()
 
 
+class CompactComboBox(QComboBox):
+    """Keep the field compact and size its native popup from current contents."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.setMinimumContentsLength(8)
+        self.setSizePolicy(QtW.QSizePolicy.Policy.MinimumExpanding, QtW.QSizePolicy.Policy.Fixed)
+
+    def showPopup(self):
+        if self.count():
+            view = self.view()
+            view.ensurePolished()
+            # Windows list-style popups otherwise inherit the closed width.
+            # The delegate may use a different font from the view (or icons),
+            # so reserve both its native hint and the complete view text.
+            content_width = max(view.sizeHintForColumn(self.modelColumn()), max(
+                view.fontMetrics().horizontalAdvance(self.itemText(row))
+                for row in range(self.count())))
+            margins = view.contentsMargins()
+            width = content_width + margins.left() + margins.right()
+            if view.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+                width += view.verticalScrollBar().sizeHint().width()
+            # Let Qt place the popup, including screen-edge collision handling.
+            # Do not give its layout a minimum wider than the available screen.
+            if self.screen() is not None:
+                popup_margins = view.window().contentsMargins()
+                width = min(width, max(0, self.screen().availableGeometry().width()
+                    - popup_margins.left() - popup_margins.right()))
+            # Recompute rather than accumulating a minimum after locale/font
+            # changes; the closed control's size hints are unaffected.
+            view.setMinimumWidth(width)
+        super().showPopup()
+
+
 class QTabWidget(_Localized, QtW.QTabWidget):
     def addTab(self, widget, text):
         index = super().addTab(widget, str(_render(text)))

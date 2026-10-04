@@ -187,8 +187,13 @@ def test_normalized_code_matching_original_keeps_saved_type(presentation):
 
 
 @pytest.mark.parametrize('locale', ['es', 'en'])
-def test_native_split_popup_and_widening_preserve_draft(presentation, locale):
-    _, manager = presentation
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'], ids=['native', 'Fusion', 'Windows'])
+def test_native_split_popup_and_widening_preserve_draft(presentation, locale, style_name):
+    app, manager = presentation
+    if style_name is not None:
+        if style_name not in QStyleFactory.keys():
+            pytest.skip(f'{style_name} unavailable')
+        app.setStyle(style_name)
     manager._apply(CUSTOM)
     language_manager().set_language(locale, persist=False)
     dialog = CourseDialog(course=Course('BIO', 1, 60, 'LAB', name='Restored ' * 100))
@@ -204,6 +209,10 @@ def test_native_split_popup_and_widening_preserve_draft(presentation, locale):
     for row in range(dialog.split_combo.count()):
         caption = dialog.split_combo.itemText(row)
         assert view.viewport().width() >= view.fontMetrics().horizontalAdvance(caption)
+        # The native delegate can paint with the combo's 20pt font even when
+        # view.fontMetrics() still reports the theme's 10pt list font.
+        index = view.model().index(row, dialog.split_combo.modelColumn(), view.rootIndex())
+        assert view.viewport().width() >= view.sizeHintForIndex(index).width()
     QTest.keyClick(view, Qt.Key.Key_End)
     QTest.keyClick(view, Qt.Key.Key_Return)
     settle(dialog)
@@ -224,4 +233,60 @@ def test_native_split_popup_and_widening_preserve_draft(presentation, locale):
         assert vars(dialog.get_course()) == expected
         if width == 460:
             assert_fits(dialog)
+    dialog.reject()
+
+
+@pytest.mark.parametrize('combo_name', ['day_combo', 'split_combo'])
+@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+def test_compact_popup_refits_current_metrics_without_changing_draft(presentation, combo_name, style_name):
+    app, manager = presentation
+    if style_name not in QStyleFactory.keys():
+        pytest.skip(f'{style_name} unavailable')
+    app.setStyle(style_name)
+    manager._apply(CUSTOM)
+    course = Course('BIO', 1, 60, 'LAB', name='Draft',
+                    preferred_day='Domingo', force_split=False)
+    dialog = CourseDialog(course=course)
+    dialog.setStyleSheet(LARGE)
+    dialog.show()
+    settle(dialog)
+    combo = getattr(dialog, combo_name)
+    # Native Windows fonts can keep the field on the same form row as its
+    # label. Exercise that compact width on every platform, without faking
+    # the popup, its delegate, or the viewport geometry.
+    combo.setMaximumWidth(combo.minimumSizeHint().width())
+    combo.setFocus()
+    settle(dialog)
+    closed_size = combo.size()
+    model = combo.model()
+    selected = (combo.currentIndex(), combo.currentData())
+    view = combo.view()
+    view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+    minima = []
+    for locale, popup_points in [('en', 10), ('es', 20), ('en', 10)]:
+        language_manager().set_language(locale, persist=False)
+        view.setStyleSheet(f'QListView {{ font-size: {popup_points}pt; border: 5px solid black; }}'
+                          'QScrollBar:vertical { width: 31px; }')
+        settle(dialog)
+        combo.showPopup()
+        QApplication.processEvents()
+        assert view.isVisible()
+        for row in range(combo.count()):
+            index = model.index(row, combo.modelColumn(), combo.rootModelIndex())
+            assert view.viewport().width() >= view.fontMetrics().horizontalAdvance(combo.itemText(row))
+            assert view.viewport().width() >= view.sizeHintForIndex(index).width()
+        minima.append(view.minimumWidth())
+        assert combo.size() == closed_size
+        assert combo.model() is model
+        assert (combo.currentIndex(), combo.currentData()) == selected
+        assert vars(dialog.get_course()) == vars(course)
+        QTest.keyClick(view, Qt.Key.Key_Escape)
+        settle(dialog)
+        assert not view.isVisible()
+        assert dialog.isVisible()
+        assert combo.hasFocus()
+        assert (combo.currentIndex(), combo.currentData()) == selected
+    assert minima[1] > minima[0]
+    assert minima[2] == minima[0]
+    assert_fits(dialog)
     dialog.reject()

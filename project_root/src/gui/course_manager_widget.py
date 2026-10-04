@@ -16,7 +16,7 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
+    QCheckBox, CompactComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
     QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTimeEdit,
     QWidget, ResponsiveActionLabels, ResponsiveDialogButtonBox
 )
@@ -161,7 +161,7 @@ class CourseDialog(QDialog):
         layout.addRow(msg('Aula Sugerida:'), self.classroom_edit)
 
         # Preferred day
-        self.day_combo = QComboBox()
+        self.day_combo = CompactComboBox()
         self.day_combo.addItem(msg('(Sin preferencia)'), None)
         days = list(self.calendar.days)
         if self.course and self.course.preferred_day and self.course.preferred_day not in days:
@@ -191,7 +191,7 @@ class CourseDialog(QDialog):
         layout.addRow(msg('Hora Preferida:'), time_group)
 
         # Split across days
-        self.split_combo = QComboBox()
+        self.split_combo = CompactComboBox()
         self.split_combo.addItems([
             msg('Automático (dividir si > 4.5h)'),
             msg('Forzar división en varios días'),
@@ -206,12 +206,6 @@ class CourseDialog(QDialog):
         # a long label. QFormLayout wraps from these native font-size hints.
         for editor in (self.code_edit, self.name_edit, self.classroom_edit):
             editor.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
-        for combo in (self.day_combo, self.split_combo):
-            # The native popup retains each complete option. Its longest item
-            # must not impose a desktop-wide minimum on the closed form.
-            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-            combo.setMinimumContentsLength(8)
-            combo.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
         for row in range(layout.rowCount()):
             item = layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
             if item is not None:
