@@ -479,3 +479,20 @@ theme owner: a transparent 2px border is present before focus, which changes onl
 its color. Native size hints and text-content height remain stable while tabbing
 and switching ES/EN, including 20pt fonts, without fixing heights or changing
 fonts. Fresh native-style measurements guard against stale cached size hints.
+
+### Compact resource management
+Resource catalogs, availability editing and session membership share a native
+scrolling body and the existing responsive Save/Cancel footer. Full action labels
+wrap without changing fonts or domain values. Availability rows use native
+control heights, time columns reserve the complete HH:mm input, and session
+headers retain their native caption widths with table-owned horizontal scrolling.
+Long literal session IDs wrap as plain text. Resource aliases remain literal;
+retranslation updates existing list items and preserves selection and scroll.
+
+Keyboard order follows availability rows after repeated Add/Remove, then its
+validation feedback and actions. The focused frame is revealed after reflow.
+Resource and course input borders reserve their native focus thickness in the
+shared theme; the same existing checkbox reserve keeps focused text unclipped.
+ES/EN, 460×420, 20pt, DPI144, light/dark/custom themes and Save/Cancel/reopen are
+covered by synthetic Linux Qt checks. Native Windows rendering and assistive
+technology acceptance remain separate release checks.
