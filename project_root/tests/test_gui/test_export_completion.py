@@ -6,7 +6,7 @@ from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox, QPlainTextEdit
 
-from src.gui.i18n import language_manager, msg
+from src.gui.i18n import language_manager, msg, plural
 from src.gui.main_window import MainWindow, _InfoDialog
 from src.infrastructure.schedule_exporter import ScheduleExporter
 from src.scheduling.time_model import TimeModel
@@ -58,7 +58,8 @@ def test_success_has_no_acknowledgment_and_keeps_export_focus(
         assert target.name in status and str(tmp_path) not in status
         scope = msg('filtrado') if filtered else msg('todas las asignaciones')
         if partial:
-            scope = msg('{scope} · horario parcial, {pending} pendientes', scope=scope, pending=1)
+            scope = msg('{scope} · horario parcial, {pending} pendientes',
+                        scope=scope, pending=plural('compact_pending_count', 1))
         count = 1 if filtered or partial else 2
         assert status == str(msg('Horario {p1}: {p3} sesiones exportadas a {p5}',
                                  p1=scope, p3=count, p5=target.name))

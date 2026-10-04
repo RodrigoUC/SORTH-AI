@@ -566,3 +566,10 @@ This does not claim a two-to-four total-click onboarding flow. Native Qt tests
 cover ES/EN, full/filtered and partial results, cancellation, failure, focus and
 F6 copying; Linux screenshots remain development evidence rather than native
 Windows or screen-reader acceptance.
+
+Count feedback reuses the shared locale plural rules for assigned sessions,
+occupied classrooms and pending sessions. Resource notices describe distinct
+resources linked to sessions, independently of timetable placement or whether
+the resource catalog is enabled. The same marked messages remain available in
+live-translated labels, tooltips, accessible descriptions and reopened F6 status;
+count calculations, compact presentation and export data stay unchanged.

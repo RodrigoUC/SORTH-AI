@@ -824,7 +824,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(msg(
             '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes' if pending
             else '✅ Horario generado: {p1}/{p3} grupos',
-            p1=assigned, p3=total, pending=pending))
+            p1=assigned, p3=total, pending=plural('compact_pending_count', pending)))
 
     def _on_schedule_error(self, message):
         if self._generation_cancelled:
@@ -867,7 +867,8 @@ class MainWindow(QMainWindow):
         count = len(assignments)
         pending = len(self.current_groups or []) - len(self.current_schedule)
         if pending:
-            scope = msg('{scope} · horario parcial, {pending} pendientes', scope=scope, pending=pending)
+            scope = msg('{scope} · horario parcial, {pending} pendientes',
+                        scope=scope, pending=plural('compact_pending_count', pending))
         file_path, selected_format = QFileDialog.getSaveFileName(
             self, msg('Guardar horario {p1} · {p3} sesiones', p1=scope, p3=count),
             "horario_filtrado.xlsx" if filtered else "horario.xlsx",
@@ -1289,7 +1290,8 @@ class MainWindow(QMainWindow):
                 state = msg('Activo') if catalog.enabled else msg('Desactivado: datos conservados, sin restricciones')
                 count = len({r for _g, ids in catalog.memberships for r in ids or ()})
                 resource_details.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
-                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state,
+                    count=plural('linked_resource_count', count)))
                 resource_summaries.append(msg('{name}: {state} ({count})',
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
         notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= self._COMPACT_HEIGHT and resource_summaries

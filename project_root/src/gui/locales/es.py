@@ -133,6 +133,9 @@ MESSAGES = {
     'Actualizar recursos': 'Actualizar recursos',
     'compact_assigned_count': {'one': '{n} asignada', 'other': '{n} asignadas'},
     'compact_pending_count': {'one': '{n} pendiente', 'other': '{n} pendientes'},
+    'assigned_session_count': {'one': '{n} sesión asignada', 'other': '{n} sesiones asignadas'},
+    'used_classroom_count': {'one': '{n} aula utilizada', 'other': '{n} aulas utilizadas'},
+    'linked_resource_count': {'one': '{n} recurso vinculado a sesiones', 'other': '{n} recursos vinculados a sesiones'},
     'Parámetros activos: {count}': 'Parámetros activos: {count}',
     'Calendario personalizado': 'Calendario personalizado',
 
@@ -308,11 +311,11 @@ MESSAGES = {
     'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.': 'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.',
     "Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)": 'Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)',
     'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'El libro supera el límite de importación. Divídalo en archivos más pequeños.',
-    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes',
+    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Horario parcial: {p1}/{p3} grupos; {pending}',
     'Sin resultado': 'Sin resultado',
     'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.': 'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.',
 
-    '{scope} · horario parcial, {pending} pendientes': '{scope} · horario parcial, {pending} pendientes',
+    '{scope} · horario parcial, {pending} pendientes': '{scope} · horario parcial, {pending}',
     '{gid}: identificador de grupo duplicado': '{gid}: identificador de grupo duplicado',
     '{gid}: asignación mal formada': '{gid}: asignación mal formada',
     'Exportar todas las asignaciones': 'Exportar todas las asignaciones',
@@ -613,7 +616,7 @@ MESSAGES = {
     "{n} sesión": "{n} sesión",
     "{p0} cursos  ·  {p2} sesiones  ·  {p4} aulas": "{p0} cursos  ·  {p2} sesiones  ·  {p4} aulas",
     "{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.": "{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.",
-    "{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas": "{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas",
+    "{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas": "{p0} · {p2} sin asignar · {p4}",
     "{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.": "{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.",
     "{p0} · {p2} min · {p4} estudiantes": "{p0} · {p2} min · {p4} estudiantes",
     "¿Eliminar el curso {p1}?": "¿Eliminar el curso {p1}?",
@@ -1129,8 +1132,7 @@ MESSAGES.update({'Docentes': 'Docentes',
                                                                                                                  'sesión.',
  'Activo': 'Activo',
  'Desactivado: datos conservados, sin restricciones': 'Desactivado: datos conservados, sin restricciones',
- '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count} recursos con '
-                                                              'sesiones asignadas.',
+ '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count}.',
  'Recursos por revisar': 'Recursos por revisar',
  'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?': 'Este '
                                                                                                                                                           'cambio '
