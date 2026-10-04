@@ -432,6 +432,7 @@ class MainWindow(QMainWindow):
         )
 
         self.chk_random_seed = QCheckBox(msg('Aleatoria'))
+        self.chk_random_seed.setObjectName('randomSeed')
         self.chk_random_seed.setToolTip(msg('Activar para usar una semilla aleatoria en cada generación'))
         self.chk_random_seed.setChecked(False)
 

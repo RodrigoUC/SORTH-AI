@@ -84,8 +84,8 @@ QFrame#settingsHeader { background: $header; border-radius: 7px; }
 QLabel#settingsTitle { color: $on_header; background: transparent; font-size: 14pt; font-weight: 700; }
 QLabel#settingsSubtitle { color: $on_header_muted; background: transparent; }
 QWidget#settingsContent { background: $surface; border-radius: 7px; }
-QWidget#settingsContent QCheckBox, QWidget#calendarContent QCheckBox, QWidget#resourceContent QCheckBox, QWidget#courseContent QCheckBox { border: 2px solid transparent; }
-QWidget#settingsContent QCheckBox:focus, QWidget#calendarContent QCheckBox:focus, QWidget#resourceContent QCheckBox:focus, QWidget#courseContent QCheckBox:focus { border-color: $focus; }
+QWidget#settingsContent QCheckBox, QWidget#calendarContent QCheckBox, QWidget#resourceContent QCheckBox, QWidget#courseContent QCheckBox, QCheckBox#randomSeed { border: 2px solid transparent; }
+QWidget#settingsContent QCheckBox:focus, QWidget#calendarContent QCheckBox:focus, QWidget#resourceContent QCheckBox:focus, QWidget#courseContent QCheckBox:focus, QCheckBox#randomSeed:focus { border-color: $focus; }
 QLabel#settingsSectionTitle { color: $heading; font-size: 12pt; font-weight: 700; }
 QLabel#settingsStepTitle { color: $heading; font-weight: 600; }
 QFrame#settingsDivider { background: $divider; border: 0; }

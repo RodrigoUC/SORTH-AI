@@ -535,3 +535,12 @@ unchanged boundary-anchor selection falls back to native widget traversal.
 Copy, client selection, source destinations and session-list handoff are unchanged.
 ES/EN light/dark/custom, native-default/Fusion/Windows-style and enlarged-font
 checks are Linux development evidence, not native Windows acceptance.
+
+### Main seed keyboard focus
+The main-window random-seed checkbox reserves the same transparent 2px focus
+border as the native dialog checkboxes. Focusing changes only its color, keeping
+the complete ES/EN caption and native checkbox dimensions stable from first show.
+Its existing seed behavior, action-row height and compact table budget remain
+unchanged. Fresh focused metrics and native caption rasters cover every shipped
+theme in Fusion/Windows styles; pixel scaling is separate from native Windows
+acceptance.
