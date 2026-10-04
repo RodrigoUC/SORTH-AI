@@ -1,6 +1,7 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Hoja {sheet}, celda {cell}: la fórmula no tiene un resultado guardado. Recalcule y guarde el libro en Excel, o pegue los valores, antes de importarlo.': 'Hoja {sheet}, celda {cell}: la fórmula no tiene un resultado guardado. Recalcule y guarde el libro en Excel, o pegue los valores, antes de importarlo.',
     '{room_type} (guardado en el curso)': '{room_type} (guardado en el curso)',
     'La semilla guardada está fuera del intervalo permitido.': 'La semilla guardada está fuera del intervalo permitido.',
     'Comparación pendiente': 'Comparación pendiente',
