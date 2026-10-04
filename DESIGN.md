@@ -457,3 +457,57 @@ identity column gains the floor. The course-name stretch column, all other width
 row heights, captions and sorting behavior remain unchanged. Narrow windows retain
 native horizontal scrolling. Font/style changes refit through the ordinary Qt
 layout-request queue, without timers or nested event-loop processing.
+
+### Compact calendar editing
+The project calendar keeps weekdays in a native two-column grid and its complete
+break actions in a single column. One scrollable body fits localized labels and
+large native fonts without enlarging the window beyond the desktop. The existing
+responsive action/footer owners preserve full captions; Review and apply/Cancel
+remain outside the scroller. Native time-control hints size break rows so scaled
+input text and spin buttons are not clipped.
+
+Tab order follows weekdays, opening/closing times, each editable break and the
+review actions, including after repeated Add/Remove/Reset. Focus reveal follows
+native reflow and exposes validation feedback as selectable keyboard-readable
+text. Localized form/time wrappers update labels and accessible names without
+changing the draft. ES/EN, 460×420, 20pt controls and light/dark/custom themes are
+covered by Linux offscreen/Fusion/Windows-style tests and synthetic captures;
+native Windows rendering and screen-reader acceptance remain unverified.
+
+Calendar weekdays reuse the Settings checkbox focus-border reserve in the shared
+theme owner: a transparent 2px border is present before focus, which changes only
+its color. Native size hints and text-content height remain stable while tabbing
+and switching ES/EN, including 20pt fonts, without fixing heights or changing
+fonts. Fresh native-style measurements guard against stale cached size hints.
+
+### Compact resource management
+Resource catalogs, availability editing and session membership share a native
+scrolling body and the existing responsive Save/Cancel footer. Full action labels
+wrap without changing fonts or domain values. Availability rows use native
+control heights, time columns reserve the complete HH:mm input, and session
+headers retain their native caption widths with table-owned horizontal scrolling.
+Long literal session IDs wrap as plain text. Resource aliases remain literal;
+retranslation updates existing list items and preserves selection and scroll.
+
+Keyboard order follows availability rows after repeated Add/Remove, then its
+validation feedback and actions. The focused frame is revealed after reflow.
+Resource and course input borders reserve their native focus thickness in the
+shared theme; the same existing checkbox reserve keeps focused text unclipped.
+ES/EN, 460×420, 20pt, DPI144, light/dark/custom themes and Save/Cancel/reopen are
+covered by synthetic Linux Qt checks. Native Windows rendering and assistive
+technology acceptance remain separate release checks.
+
+### Compact course editing
+The course editor reuses the same native scrolling form, full-label checkbox
+wrapping and persistent responsive footer as other compact editors. Labels wrap
+from current font metrics; a native minimum-size time group prevents overlapping
+controls after ES/EN changes. Split/day popups retain complete options while the
+closed fields no longer force a desktop-wide window. Tab/Shift-Tab reveals the
+whole focused frame and leaves literals, selections, latent preferences and
+unexposed course metadata intact.
+
+The room-type status displays the existing saved value while the course code is
+unchanged, matching the save path. Editing the code displays the usual suffix
+inference; restoring the original code restores the saved-value explanation.
+The shared message catalog owns both ES/EN captions. Compact and large-font
+regressions retain the previous no-op history and sorted-course identity tests.

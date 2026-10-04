@@ -1206,6 +1206,11 @@ class MainWindow(QMainWindow):
             except Exception as error:
                 self._edit_failed(error)
                 return False
+        except Exception as error:
+            # Candidate preparation may reject text that cannot be serialized.
+            # Keep the failure inside the Qt action just like commit failures.
+            self._edit_failed(error)
+            return False
         return self._commit_edit(candidate, label)
 
     def _travel_history(self, undo):

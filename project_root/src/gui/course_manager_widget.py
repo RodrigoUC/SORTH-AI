@@ -1,9 +1,10 @@
 # src/gui/course_manager_widget.py
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QHeaderView
+    QVBoxLayout, QHBoxLayout, QHeaderView, QScrollArea, QFrame, QApplication,
+    QSizePolicy, QLayout
 )
-from PyQt6.QtCore import Qt, QTime, pyqtSignal, QItemSelectionModel
+from PyQt6.QtCore import Qt, QTime, pyqtSignal, QItemSelectionModel, QEvent, QTimer
 from copy import deepcopy
 from PyQt6.QtWidgets import (
     QCompleter
@@ -15,7 +16,9 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTimeEdit, QWidget
+    QCheckBox, CompactComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTimeEdit,
+    QWidget, ResponsiveActionLabels, ResponsiveDialogButtonBox
 )
 
 
@@ -70,9 +73,28 @@ class CourseDialog(QDialog):
         self.setModal(True)
         self.resize(460, 420)
         self._init_ui()
+        # An untouched restored literal must retain its exact representation.
+        self._initial_text = {
+            'code': self.code_edit.text(),
+            'name': self.name_edit.text(),
+            'suggested_classroom': self.classroom_edit.text(),
+        }
 
     def _init_ui(self):
-        layout = QFormLayout()
+        outer = QVBoxLayout(self)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        content = QWidget()
+        content.setObjectName('courseContent')
+        content_layout = QVBoxLayout(content)
+        layout = self.form = QFormLayout()
+        content_layout.addLayout(layout)
+        content_layout.addStretch()
+        layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        self.scroll.setWidget(content)
+        outer.addWidget(self.scroll, 1)
 
         # Code
         self.code_edit = QLineEdit()
@@ -120,8 +142,17 @@ class CourseDialog(QDialog):
         dur_layout.addWidget(self.dur_mins)
         layout.addRow(msg('Duración:'), dur_layout)
 
-        # Room type (auto-detected)
+        # Room type (saved value while editing, detected for a changed code)
         self.room_type_label = QLabel()
+        self.room_type_label.setWordWrap(True)
+        # Reserve the native wrapped hint in the form's height budget; otherwise
+        # QFormLayout can steal one line from a later compound input.
+        self.room_type_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        self.room_type_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.room_type_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse |
+            Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        self.room_type_label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout.addRow(msg('Tipo de Sala:'), self.room_type_label)
 
         # Suggested classroom
@@ -130,7 +161,7 @@ class CourseDialog(QDialog):
         layout.addRow(msg('Aula Sugerida:'), self.classroom_edit)
 
         # Preferred day
-        self.day_combo = QComboBox()
+        self.day_combo = CompactComboBox()
         self.day_combo.addItem(msg('(Sin preferencia)'), None)
         days = list(self.calendar.days)
         if self.course and self.course.preferred_day and self.course.preferred_day not in days:
@@ -142,7 +173,10 @@ class CourseDialog(QDialog):
         layout.addRow(msg('Día Preferido:'), self.day_combo)
 
         # Preferred start time — QTimeEdit for clarity
-        time_layout = QHBoxLayout()
+        time_group = QWidget()
+        time_layout = QVBoxLayout(time_group)
+        time_layout.setContentsMargins(0, 0, 0, 0)
+        time_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.chk_pref_time = QCheckBox(msg('Activar hora preferida'))
         self.chk_pref_time.toggled.connect(self._toggle_pref_time)
         self.pref_time_edit = QTimeEdit()
@@ -154,11 +188,10 @@ class CourseDialog(QDialog):
         self.pref_time_edit.setToolTip(msg('Hora de inicio preferida para este curso (ej: 08:00, 13:00)'))
         time_layout.addWidget(self.chk_pref_time)
         time_layout.addWidget(self.pref_time_edit)
-        time_layout.addStretch()
-        layout.addRow(msg('Hora Preferida:'), time_layout)
+        layout.addRow(msg('Hora Preferida:'), time_group)
 
         # Split across days
-        self.split_combo = QComboBox()
+        self.split_combo = CompactComboBox()
         self.split_combo.addItems([
             msg('Automático (dividir si > 4.5h)'),
             msg('Forzar división en varios días'),
@@ -169,18 +202,39 @@ class CourseDialog(QDialog):
         )
         layout.addRow(msg('División en días:'), self.split_combo)
 
-        # Buttons
-        buttons = QDialogButtonBox(
+        # Keep native text inputs usable rather than squeezing them alongside
+        # a long label. QFormLayout wraps from these native font-size hints.
+        for editor in (self.code_edit, self.name_edit, self.classroom_edit):
+            editor.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        for row in range(layout.rowCount()):
+            item = layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            if item is not None:
+                item.widget().setWordWrap(True)
+
+        self.buttons = ResponsiveDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
-
-        self.setLayout(layout)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        outer.addWidget(self.buttons)
+        self._responsive_actions = ResponsiveActionLabels(self.scroll, [self.chk_pref_time], self)
+        self._focus_reveal_timer = QTimer(self)
+        self._focus_reveal_timer.setSingleShot(True)
+        self._focus_reveal_timer.timeout.connect(self._reveal_focus)
+        self.scroll.viewport().installEventFilter(self)
+        content.installEventFilter(self)
+        QApplication.instance().focusChanged.connect(self._scroll_to_focus)
+        language_manager().changed.connect(self._refresh_form_layout)
 
         # Load existing data if editing
         if self.course:
+            # Qt limits text by UTF-16 units; accepted Excel/session values can
+            # be longer than the default. Keep them fully visible and editable.
+            for editor, value in ((self.code_edit, self.course.code),
+                                  (self.name_edit, self.course.name),
+                                  (self.classroom_edit, self.course.suggested_classroom)):
+                units = len((value or '').encode('utf-16-le')) // 2
+                editor.setMaxLength(max(editor.maxLength(), units))
             self.code_edit.setText(self.course.code)
             self.name_edit.setText(self.course.name or "")
             self.groups_spin.setValue(self.course.number_of_groups)
@@ -217,19 +271,64 @@ class CourseDialog(QDialog):
         if name and not self.name_edit.text():
             self.name_edit.setText(name)
 
+    def _effective_code(self):
+        text = self.code_edit.text()
+        return self.course.code if self.course is not None and text == self.course.code else text.strip()
+
+    def _required_room_type(self, code):
+        if self.course is not None and code == self.course.code:
+            return self.course.required_room_type
+        return "LAB" if code.upper().endswith(("L", "P")) else "REGULAR"
+
     def _update_room_type_label(self):
-        code = self.code_edit.text().strip().upper()
-        if code.endswith("L") or code.endswith("P"):
+        code = self._effective_code()
+        room_type = self._required_room_type(code)
+        if self.course is not None and code == self.course.code:
+            # A restored course may intentionally disagree with its suffix.
+            # Show the value this editor will preserve, not a fresh prediction.
+            self.room_type_label.setText(msg('{room_type} (guardado en el curso)', room_type=room_type))
+        elif room_type == 'LAB':
             self.room_type_label.setText(msg('🔬 LAB (detectado automáticamente)'))
-            self.room_type_label.setObjectName("headingText")
         else:
             self.room_type_label.setText(msg('🏫 REGULAR (detectado automáticamente)'))
-            self.room_type_label.setObjectName("successText")
+        self.room_type_label.setObjectName('headingText' if room_type == 'LAB' else 'successText')
         # Qt does not automatically repolish a changed object-name selector.
         # This changes only presentation; draft fields remain untouched.
         self.room_type_label.style().unpolish(self.room_type_label)
         self.room_type_label.style().polish(self.room_type_label)
         self.room_type_label.update()
+
+    def _refresh_form_layout(self, *_):
+        # Native QFormLayout can retain pre-translation height-for-width rows.
+        # Refresh after the localization batch so wrapped text cannot borrow
+        # height from an unrelated input below it.
+        self.form.invalidate()
+        layout = self.scroll.widget().layout()
+        layout.invalidate()
+        layout.activate()
+        self.scroll.widget().updateGeometry()
+        self._focus_reveal_timer.start(0)
+
+    def _scroll_to_focus(self, previous, focused):
+        if (self.isVisible() and focused is not None
+                and self.scroll.widget().isAncestorOf(focused)):
+            self._reveal_focus()
+            self._focus_reveal_timer.start(0)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                            QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._focus_reveal_timer.start(0)
+        return super().eventFilter(watched, event)
+
+    def _reveal_focus(self):
+        focused = QApplication.focusWidget()
+        if (self.isVisible() and focused is not None and focused.isVisible()
+                and self.scroll.widget().isAncestorOf(focused)):
+            center = focused.mapTo(self.scroll.widget(), focused.rect().center())
+            self.scroll.ensureVisible(center.x(), center.y(), 0,
+                                      min(self.scroll.viewport().height() // 2,
+                                          focused.height() // 2 + 12))
 
     def _toggle_pref_time(self, enabled: bool):
         self.pref_time_edit.setEnabled(enabled)
@@ -242,7 +341,14 @@ class CourseDialog(QDialog):
         super().accept()
 
     def get_course(self) -> Course | None:
-        code = self.code_edit.text().strip()
+        text_values = {}
+        for field, editor in (('code', self.code_edit), ('name', self.name_edit),
+                              ('suggested_classroom', self.classroom_edit)):
+            text = editor.text()
+            text_values[field] = (getattr(self.course, field)
+                if self.course is not None and text == self._initial_text[field]
+                else text.strip() or None)
+        code = text_values['code']
         if not code:
             return None
 
@@ -250,8 +356,7 @@ class CourseDialog(QDialog):
         if duration_min <= 0:
             duration_min = 60
 
-        code_upper = code.upper()
-        room_type = "LAB" if (code_upper.endswith("L") or code_upper.endswith("P")) else "REGULAR"
+        room_type = self._required_room_type(code)
 
         preferred_day = self.day_combo.currentData()
 
@@ -260,16 +365,14 @@ class CourseDialog(QDialog):
             t = self.pref_time_edit.time()
             preferred_start_min = t.hour() * 60 + t.minute()
 
-        suggested = self.classroom_edit.text().strip() or None
+        suggested = text_values['suggested_classroom']
 
         idx = self.split_combo.currentIndex()
         force_split = None if idx == 0 else (True if idx == 1 else False)
 
-        if self.course is not None and code == self.course.code:
-            room_type = self.course.required_room_type
         course = Course(
             code=code,
-            name=self.name_edit.text().strip() or None,
+            name=text_values['name'],
             number_of_groups=self.groups_spin.value(),
             duration_min=duration_min,
             required_room_type=room_type,
@@ -405,7 +508,16 @@ class CourseManagerWidget(QWidget):
         """Open edit dialog for the course with the given code."""
         for i, c in enumerate(self.courses):
             if c.code == code:
-                self.table.setCurrentCell(i, 0)
+                # A model index is not a visual row after sorting/filtering.
+                # Never leave a different course selected for the next action.
+                self.table.clearSelection()
+                self.table.setCurrentItem(None)
+                for row in range(self.table.rowCount()):
+                    item = self.table.item(row, 0)
+                    if (item is not None and item.data(Qt.ItemDataRole.UserRole) == code
+                            and not self.table.isRowHidden(row)):
+                        self.table.setCurrentCell(row, 0)
+                        break
                 dialog = CourseDialog(self, self.courses[i], completions=self._get_completions(), calendar=self._calendar_provider())
                 if dialog.exec():
                     course = dialog.get_course()

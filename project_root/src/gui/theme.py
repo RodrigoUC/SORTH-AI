@@ -84,8 +84,8 @@ QFrame#settingsHeader { background: $header; border-radius: 7px; }
 QLabel#settingsTitle { color: $on_header; background: transparent; font-size: 14pt; font-weight: 700; }
 QLabel#settingsSubtitle { color: $on_header_muted; background: transparent; }
 QWidget#settingsContent { background: $surface; border-radius: 7px; }
-QWidget#settingsContent QCheckBox { border: 2px solid transparent; }
-QWidget#settingsContent QCheckBox:focus { border-color: $focus; }
+QWidget#settingsContent QCheckBox, QWidget#calendarContent QCheckBox, QWidget#resourceContent QCheckBox, QWidget#courseContent QCheckBox { border: 2px solid transparent; }
+QWidget#settingsContent QCheckBox:focus, QWidget#calendarContent QCheckBox:focus, QWidget#resourceContent QCheckBox:focus, QWidget#courseContent QCheckBox:focus { border-color: $focus; }
 QLabel#settingsSectionTitle { color: $heading; font-size: 12pt; font-weight: 700; }
 QLabel#settingsStepTitle { color: $heading; font-weight: 600; }
 QFrame#settingsDivider { background: $divider; border: 0; }
@@ -108,6 +108,9 @@ QPushButton#dangerAction { color: $danger; border-color: $danger; }
 QPushButton#dangerAction:hover { background: $danger_soft; }
 QPushButton#dangerAction:disabled { color: $disabled_text; border-color: $divider; background: $disabled; }
 QLineEdit, QSpinBox, QDoubleSpinBox, QTimeEdit, QDateEdit, QDateTimeEdit, QComboBox { background: $surface; border: 1px solid $border; border-radius: 4px; padding: 6px; selection-background-color: $accent; selection-color: $on_accent; }
+QWidget#resourceContent QLineEdit, QWidget#resourceContent QComboBox,
+QWidget#courseContent QLineEdit, QWidget#courseContent QSpinBox,
+QWidget#courseContent QTimeEdit, QWidget#courseContent QComboBox { border-width: 2px; }
 QLineEdit { placeholder-text-color: $muted; }
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QTimeEdit:disabled, QDateEdit:disabled, QDateTimeEdit:disabled, QComboBox:disabled, QPlainTextEdit:disabled, QTextEdit:disabled { background: $disabled; color: $disabled_text; }
 QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus, QLineEdit:focus, QSpinBox:focus, QTimeEdit:focus, QComboBox:focus, QTableWidget:focus, QListWidget:focus, QPlainTextEdit:focus, QLabel:focus { border: 2px solid $focus; }
