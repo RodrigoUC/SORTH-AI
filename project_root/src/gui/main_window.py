@@ -1697,8 +1697,8 @@ class MainWindow(QMainWindow):
         text = (plural('course_count', len(courses))
                 + '  ·  ' + plural('session_count', groups)
                 + '  ·  ' + plural('classroom_count', len(self._classrooms)))
-        if self.current_schedule:
-            text += msg('  ·  {p1}/{p3} sesiones asignadas', p1=len(self.current_schedule), p3=groups)
+        if self.current_groups is not None:
+            text += msg('  ·  {p1}/{p3} sesiones asignadas', p1=len(self.current_schedule or {}), p3=groups)
         elif courses:
             text += msg('  ·  Listo para generar')
         else:

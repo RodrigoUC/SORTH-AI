@@ -207,3 +207,58 @@ def test_successful_import_commits_all_inputs(window, tmp_path, monkeypatch):
     assert window._classroom_course_map == {'NEW': ['NEW']}
     assert window.current_schedule is None
     assert window.btn_generate.isEnabled()
+
+
+@pytest.mark.parametrize('language', ['es', 'en'])
+@pytest.mark.parametrize('assigned_count', [None, 0, 1, 2])
+def test_overview_and_f6_distinguish_no_result_from_zero_assignments(
+        window, language, assigned_count):
+    """An accepted 0/N result remains a result, including its accessible status."""
+    from PyQt6.QtCore import QTimer, Qt
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QPlainTextEdit
+    from src.gui.i18n import language_manager
+
+    manager, previous = language_manager(), language_manager().language
+    try:
+        manager.set_language(language, persist=False)
+        window._refresh_overview()
+        empty = ('Load an Excel file to get started' if language == 'en'
+                 else 'Cargue un Excel para comenzar')
+        assert empty in window.overview_label.text()
+        assert window.current_groups is None
+        assert not window.btn_generate.isEnabled()
+        assert not window.btn_export.isEnabled()
+        window._classrooms = {'A1': Classroom('A1', 30, 'REGULAR')}
+        window.course_manager.load_courses_from_excel([Course('BIO', 2, 60, 'REGULAR')])
+        groups = window.course_manager.get_courses()[0].generate_groups()
+        if assigned_count is not None:
+            assignments = {group.group_id: ('A1', index + 1, 480, 540)
+                           for index, group in enumerate(groups[:assigned_count])}
+            window._on_schedule_done(assignments, groups)
+        window._refresh_overview()
+        window.resize(1200, 920)
+        window.show()
+        QApplication.processEvents()
+
+        ready = 'Ready to generate' if language == 'en' else 'Listo para generar'
+        if assigned_count is None:
+            assert ready in window.overview_label.text()
+        else:
+            assert f'{assigned_count}/2' in window.overview_label.text()
+            assert ready not in window.overview_label.text()
+            assert window.btn_export.isEnabled() is bool(assigned_count)
+
+        status = []
+        def inspect_status():
+            dialog = QApplication.activeModalWidget()
+            status.append(dialog.findChild(QPlainTextEdit).toPlainText())
+            QTest.keyClick(dialog, Qt.Key.Key_Escape)
+        QTimer.singleShot(0, inspect_status)
+        window._show_accessible_status()
+        assert len(status) == 1
+        assert window.overview_label.text() in status[0]
+        if assigned_count is not None:
+            assert ready not in status[0]
+    finally:
+        manager.set_language(previous, persist=False)
