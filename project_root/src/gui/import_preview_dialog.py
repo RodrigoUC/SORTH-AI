@@ -51,7 +51,9 @@ class ImportPreviewDialog(QDialog):
         self.details.setAccessibleName(msg('Cambios de importación'))
         self.details.setPlainText(self.describe(window, candidate, retained_pins))
         layout.addWidget(self.details)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        # Establish the dialog parent before setDefault: a parentless button
+        # loses its default when QDialogButtonBox is later added to the layout.
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
         buttons.setButtonText(QDialogButtonBox.StandardButton.Ok, msg('Reemplazar con este Excel'))
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setDefault(True)
         buttons.accepted.connect(self.accept)

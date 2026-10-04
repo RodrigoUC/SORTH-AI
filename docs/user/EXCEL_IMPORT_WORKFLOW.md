@@ -48,7 +48,10 @@ la llamada de terceros todavía continúe.
 ## Accesibilidad y localización
 
 Controles nativos y nombres accesibles en ES/EN; Escape y Cancelar conservan la
-sesión. Cancelar es la opción predeterminada del resumen. El contenido es texto
+sesión. Cancelar es la opción predeterminada del resumen, también al pulsar Intro
+con el detalle enfocado. Para aceptar, active explícitamente **Reemplazar con este
+Excel** mediante clic o llevando el foco a ese botón con Tab y pulsando Intro
+o Espacio. El contenido es texto
 seleccionable y desplazable; nunca depende solo de colores. La preferencia
 Reducir animaciones mantiene un indicador estático. F6 permite leer el estado
 completo si la barra de estado es demasiado estrecha. Durante la operación,
