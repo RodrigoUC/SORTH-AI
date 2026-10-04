@@ -20,16 +20,6 @@ procesos ni nuevas dependencias.
 6. Verifica, documenta incompatibilidades y abre un PR en borrador hasta cerrar los
    controles aplicables. El mantenedor decide la integración y la publicación.
 
-## Revisión de PRs dependientes
-
-La protección de resultados de fórmulas Excel depende de [#44](https://github.com/RodrigoUC/SORTH-AI/pull/44).
-Su PR usa `fix/course-editing-and-compact-calendar` como base para mostrar solo
-su delta. Windows, seguridad y MCP permiten esa base exacta en `pull_request`
-y mantienen el checkout del SHA de la cabeza; no se amplían los permisos ni se
-cambian los controles. Primero se integra #44; después se revisa la base del PR
-dependiente para dirigirlo a `main` y se vuelve a validar su commit exacto.
-No se integra el PR dependiente en la rama de #44.
-
 ## Nombres y ubicación
 
 - Python: módulos/funciones `snake_case`, clases `PascalCase`; conserva el idioma y
@@ -160,3 +150,13 @@ python -m pytest -c pytest.ini --rootdir=. tests/test_scheduling/ -v --tb=short
 ```
 
 Un resultado focalizado no equivale a una ejecución completa de los cuatro lotes.
+
+## Revisión de PRs dependientes
+
+La protección de resultados de fórmulas Excel depende de [#44](https://github.com/RodrigoUC/SORTH-AI/pull/44).
+Su PR usa `fix/course-editing-and-compact-calendar` como base para mostrar solo
+su delta. Windows, seguridad y MCP permiten esa base exacta en `pull_request`
+y mantienen el checkout del SHA de la cabeza; no se amplían los permisos ni se
+cambian los controles. Primero se integra #44; después se revisa la base del PR
+dependiente para dirigirlo a `main` y se vuelve a validar su commit exacto.
+No se integra el PR dependiente en la rama de #44.
