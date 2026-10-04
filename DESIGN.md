@@ -496,3 +496,18 @@ shared theme; the same existing checkbox reserve keeps focused text unclipped.
 ES/EN, 460×420, 20pt, DPI144, light/dark/custom themes and Save/Cancel/reopen are
 covered by synthetic Linux Qt checks. Native Windows rendering and assistive
 technology acceptance remain separate release checks.
+
+### Compact course editing
+The course editor reuses the same native scrolling form, full-label checkbox
+wrapping and persistent responsive footer as other compact editors. Labels wrap
+from current font metrics; a native minimum-size time group prevents overlapping
+controls after ES/EN changes. Split/day popups retain complete options while the
+closed fields no longer force a desktop-wide window. Tab/Shift-Tab reveals the
+whole focused frame and leaves literals, selections, latent preferences and
+unexposed course metadata intact.
+
+The room-type status displays the existing saved value while the course code is
+unchanged, matching the save path. Editing the code displays the usual suffix
+inference; restoring the original code restores the saved-value explanation.
+The shared message catalog owns both ES/EN captions. Compact and large-font
+regressions retain the previous no-op history and sorted-course identity tests.
