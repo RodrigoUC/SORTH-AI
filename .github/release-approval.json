@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "repository": "RodrigoUC/SORTH-AI",
+  "version": "2.0.0",
+  "tag": "v2.0.0",
+  "publish": false,
+  "source_commit": null,
+  "source_run_id": null,
+  "source_run_attempt": null,
+  "artifact_id": null,
+  "artifact_sha256": null,
+  "candidate_sha256": null,
+  "assets": {},
+  "gates": {
+    "windows_acceptance": {
+      "passed": false,
+      "evidence": ""
+    },
+    "defender_review": {
+      "passed": false,
+      "evidence": ""
+    },
+    "native_source_correspondence": {
+      "passed": false,
+      "evidence": ""
+    },
+    "license_and_redistribution": {
+      "passed": false,
+      "evidence": ""
+    },
+    "unsigned_distribution_accepted": {
+      "passed": false,
+      "evidence": ""
+    },
+    "public_release_authorized": {
+      "passed": false,
+      "evidence": ""
+    }
+  },
+  "release_notes": ""
+}

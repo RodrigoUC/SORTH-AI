@@ -1,6 +1,9 @@
 # Supplementary native notices and source evidence
 
-Checked 2026-10-03. **Redistribution clearance remains open.** This supplement
+Initial evidence checked 2026-10-03; supplemented 2026-10-05 in
+[RELEASE_SOURCE_EVIDENCE.md](RELEASE_SOURCE_EVIDENCE.md), which supersedes the
+unverified supplier-configuration and blanket Microsoft-entitlement statements
+below. **Final distribution verification remains open.** This supplement
 preserves obtainable upstream notices; it does not certify licensing or make
 upstream source archives equivalent to a supplier's corresponding-source bundle.
 
@@ -28,11 +31,15 @@ that license on behalf of a distributor. This software uses the FreeType project
 where the bundled FreeType implementation is present. Qt translations' original
 `licenseRule.json` declares the default module/plugin alternatives; the original
 editable `.ts` files remain in the verified qttranslations archive. Compiled `.qm`
-file correspondence and supplier translation build options remain to be completed.
+file correspondence and supplier translation build options were subsequently
+verified against the official platform package. Its artifact-specific SBOM
+declares BSD-3-Clause as the open-source alternative; editable sources are also
+preserved. Final SORTH package correspondence remains to be checked.
 
 The original PyQt6 `pyproject.toml` is also preserved: it specifies SIP >=6.15,<7
-and PyQt-builder >=1.19,<2 with backend `sipbuild.api`. Those upstream ranges
-are not evidence of the generator versions actually used for the pinned wheel.
+and PyQt-builder >=1.19,<2 with backend `sipbuild.api`. The subsequent pinned-wheel inspection identifies PyQt-builder 1.19.1 and
+SIP 6.15.3, ABI 13.8, with per-module configuration. The upstream ranges alone
+would not establish those versions.
 
 ## Public Suffix List: verified source-to-binary data chain
 
@@ -83,10 +90,13 @@ No claim of complete Mesa/LLVM notices or source correspondence is made.
 
 Embedded copyright: © Microsoft Corporation. All rights reserved. Version
 resources identify files but do not independently authenticate their signatures
-or establish the distributor's entitlement. Microsoft states redistribution of
-runtime packages and individual binaries is subject to its Visual Studio terms
-and limited to licensed Visual Studio users. The maintainer must establish the
-applicable supplier/redistribution terms and entitlement for all nine paths.
+or establish the distributor's entitlement. Microsoft terms also contemplate authorized downstream distributors. Two root
+VCRUNTIME files exactly match the official CPython Windows package, whose complete
+Windows license and conditions are now preserved. The five Qt-local files match
+PyQt-builder 1.19.1, but their Microsoft downstream terms and those of the two
+NumPy/pandas copies remain to be documented. Independent Visual Studio ownership
+is not asserted as universally necessary; absence of evidence is not a finding
+of unlawful distribution.
 Microsoft runtime source is not to be requested under Qt's LGPL.
 
 Official references (read-only, no terms accepted):
@@ -95,9 +105,10 @@ Official references (read-only, no terms accepted):
 
 ## Remaining release gates
 
-- Obtain supplier configuration, exact toolchain/generator versions, patches and
-  corresponding sources for retained Qt/PyQt; or build them from archived source
-  with a documented, tested recipe. Wheel hashes alone cannot settle this.
+- Apply the subsequent public supplier configuration/source comparisons described
+  in RELEASE_SOURCE_EVIDENCE.md to the final SORTH artifact. Exact generator
+  versions are now identified. No private supplier certificate or bit-identical
+  source rebuild is imposed as a universal requirement.
 - Reconcile this candidate notice set against the actual retained implementations,
   including complete Mesa/LLVM component notices and Microsoft rights above.
 - Establish a durable recipient-facing source delivery location and instructions

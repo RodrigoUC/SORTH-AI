@@ -53,6 +53,12 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 - `collect_windows_acceptance.ps1`: evidencia de aceptación Windows.
 - `lock_windows.py`, `collect_license_notices.py`: locks e inventarios/avisos.
 - `prune_unused_qt_pdf.py`: comprobación del conjunto nativo distribuido.
+- `prepare_release_sources.py`: fuente de terceros y evidencia del proveedor, con
+  descargas limitadas por URL/tamaño/SHA-256 y salida reproducible. Requiere el
+  `7z`/`7zz` del sistema; no instala ni ejecuta código descargado.
+  `python tools/prepare_release_sources.py --output build/release-sources/THIRD-PARTY-SOURCES.tar.gz`.
+  Lee [alcance y límites](../../third_party/RELEASE_SOURCES.txt); preparar este
+  archivo no verifica la identidad del binario final ni autoriza publicación.
 - `mcp_payload.py`, `frozen_mcp_smoke.py`: complemento opcional y comprobación empaquetada.
 - `security_review.py`: controles estáticos y de dependencias.
 

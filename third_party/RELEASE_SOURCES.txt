@@ -1,0 +1,96 @@
+SORTH third-party source delivery asset
+
+This file describes THIRD-PARTY-SOURCES.tar.gz prepared by
+project_root/tools/prepare_release_sources.py. Preparation does not publish it,
+verify durable recipient access, clear redistribution rights, or establish that
+any final SORTH binary contains exactly these inputs. It is not legal certification.
+
+CONTENTS
+- Original, byte-preserved Qt 6.11.2 qtbase, qtsvg, qtimageformats and
+  qttranslations source archives, including their original licenses, embedded
+  third-party sources, editable translations, configure/CMake scripts and changes.
+- Original PyQt6 6.11.0 and PyQt6-sip 13.12.0 source archives with their licenses.
+- Original Mesa 11.2.2 and LLVM 3.6.2 source archives and licenses, conservatively
+  delivered as version candidates. Exact supplier configuration, patches and
+  final component mapping for the retained Mesa DLL remain unresolved.
+- Original Qt supplier build configuration, feature headers and SBOMs, selected
+  by exact paths and SHA-256 from the pinned official Windows MSVC packages.
+- Pinned wheel metadata and the exact installed Core/Gui/Widgets interface
+  definitions and configuration. The two observed module include-list ordering
+  differences are preserved by including the complete installed definitions.
+- Inventory-named repository notices, including editable MPL Public Suffix List
+  source and its Qt generator. Upstream original notices are not rewritten.
+- Input provenance, a scoped supplier correspondence matrix and SHA256SUMS.
+
+No supplier wheel, executable, DLL, Microsoft runtime, or research-machine script
+is delivered as an outer bundle member. Some original upstream source archives
+may contain upstream prebuilt/source-test assets; the archives are preserved
+unmodified, not installed or executed. In particular PyQt-builder's sdist, which
+contains Microsoft DLLs, is deliberately not downloaded or redistributed here.
+
+BUILD CONTEXT
+Qt's supplier config_*.opt and config_*.summary files and SPDX build annotations
+record the actual public supplier settings. Source SBOMs are included where the
+supplier provided them. They describe CMake 3.30.5 and MSVC 19.44.35227.0. Original
+supplier machine paths in these public files are provenance and must be adapted
+to local paths; they are not paths from the SORTH developer or release machine.
+Read Qt's versioned Windows source-build guidance together with these files:
+https://doc.qt.io/qt-6.11/windows-building.html
+Build qtbase first, then retained add-on modules against that Qt installation.
+Use the original archive build/install scripts and review platform prerequisites.
+No source build or bit-identical reproduction is claimed by this packager.
+
+PyQt6's WHEEL metadata identifies pyqtbuild 1.19.1. Installed .toml files identify
+SIP 6.15.3, SIP ABI 13.8, Windows/Qt_6_11_0 tags and disabled features. The PyQt
+source archive includes project.py, pyproject.toml and original SIP definitions.
+Those tags do not prove the exact Qt SDK patch used to compile the wheel. Use
+upstream sip-build/PyQt build guidance, the source configuration and preserved
+installed interface definitions when adapting a build. Unmodified generally
+available build tools are not claimed to be bundled here.
+https://www.riverbankcomputing.com/static/Docs/PyQt6/installation.html
+https://www.riverbankcomputing.com/static/Docs/sip/
+
+EVIDENCE AND LIMITS
+The supplier matrix compares the pinned official PyPI wheel against official Qt
+supplier files for the prior retained-path selection: 20 Qt PE paths match, and
+253 overlapping DLL/QM files match, including 217 translations. These are prior
+supplier comparisons, not a comparison to the eventual SORTH release artifact.
+Source SBOM comparison found no implementation/build-script discrepancy in the
+three modules with supplied source SBOMs after LF/CRLF normalization; .tag and
+Git-only metadata exceptions are recorded in the matrix's limitations. The
+translations package supplies binary SBOMs but no separate source SBOM.
+
+Qt/PyQt and third-party license alternatives remain alternatives. Inclusion of a
+license does not select it or grant extra rights. PyInstaller's original preserved
+bootloader exception should be applied only to its stated combined-executable
+scope; it does not license modified/uncombined tools generally. This source asset
+does not establish rights for the separately reviewed seven Microsoft runtime
+files, replace their downstream terms, or authorize a public binary release.
+
+RELEASE DELIVERY
+Publish this exact asset with the selected binary only after the remaining gates
+are resolved and publication is authorized. Deliver the separate exact SORTH
+source_commit archive with build/packaging scripts and project license alongside
+it; a link to mutable main is insufficient. Publish SHA-256 and clear source
+access directions beside the binary, retain access, and verify downloaded assets.
+Check all final retained native/Python components, including actual PyQt and
+translation membership, notices, and any applicable shared-library replacement
+and installation-information conditions. A source preparation CI artifact alone
+is temporary evidence, not the final recipient-facing delivery strategy.
+
+REPRODUCTION
+From project_root with Python 3.12+ and trusted system 7z or 7zz available:
+  python tools/prepare_release_sources.py --output build/release-sources/THIRD-PARTY-SOURCES.tar.gz
+Use --cache-dir for an existing download cache and --offline to require it.
+Each cached and fetched file must match the committed exact size/SHA-256.
+The Qt origin master.qt.io is used directly to avoid unpinned third-party mirror
+redirects. All redirects are rejected. The packager never executes vendor code;
+7-Zip only lists and streams exact selected files to stdout. Original source
+archives are inspected without extracting them. Unexpected links, traversal,
+duplicates, missing selections and unbounded data cause failure.
+
+Member names are sorted, ownership/modes/timestamps are fixed, and gzip has no
+filename and a zero timestamp. Repeated runs under the same Python/zlib toolchain
+produce identical bytes; compression implementations across toolchain versions
+may differ. Every included file except SHA256SUMS has an internal SHA-256 entry.
+The CLI prints the outer asset's SHA-256, byte size and explicit incomplete gates.

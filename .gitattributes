@@ -6,3 +6,9 @@
 /third_party/licenses/*.txt -text
 /third_party/native-notices/** -text -whitespace
 /third_party/mcp/licenses/*.txt -text
+
+# Preserve the official Windows CPython license, including mixed upstream CRLF.
+/third_party/licenses/cpython-3.12.10-embed-amd64-LICENSE.txt -text -whitespace
+# Stable source-delivery metadata and original manifest-selected evidence.
+/third_party/RELEASE_SOURCES.txt text eol=lf
+/third_party/release-source-*.json text eol=lf

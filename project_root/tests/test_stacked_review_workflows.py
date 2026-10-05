@@ -20,7 +20,7 @@ def test_main_and_review_stacks_have_read_only_review_gates(name):
 
 
 def test_windows_regression_gate_is_bounded_and_diagnostic():
-    text = (ROOT / ".github/workflows/windows-review.yml").read_text()
+    text = (ROOT / ".github/workflows/windows-review.yml").read_text().split("\n  release-candidate:", 1)[0]
     steps = {
         block.splitlines()[0]: block
         for block in text.split("      - name: ")[1:]

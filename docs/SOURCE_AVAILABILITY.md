@@ -6,7 +6,7 @@ La GPL del código propio está elegida. La entrega de fuentes de cada binario s
 
 - **SORTH:** cada ZIP de revisión registra `source_commit`. La fuente debe corresponder a ese commit exacto e incluir configuración, scripts y modificaciones necesarias para construirlo; no usar sólo `main` como referencia.
 - **PyQt6 6.11.0:** el [paquete oficial de la versión en PyPI](https://pypi.org/project/PyQt6/6.11.0/#files) ofrece `pyqt6-6.11.0.tar.gz`. SHA-256 publicado de la fuente: `45dd60aa69976de1918b5ced6b4e7b6a25abd2a919ecef5fd5826ecc76718889`. Esto verifica disponibilidad upstream, no demuestra que se haya archivado y ofrecido junto al binario de SORTH.
-- **Qt 6.11.2 / PyQt6-Qt6:** el wheel auditado declara LGPLv3. Debe obtenerse la fuente exacta y cualquier parche/configuración usados para producir las bibliotecas distribuidas, y contrastar los plugins y terceros. La fuente de PyQt no es la fuente de Qt. No se ha confirmado todavía ese paquete de fuentes correspondiente ni los avisos de cada DLL.
+- **Qt 6.11.2 / PyQt6-Qt6:** el wheel auditado declara LGPLv3. Debe obtenerse la fuente exacta y cualquier parche/configuración usados para producir las bibliotecas distribuidas, y contrastar los plugins y terceros. La fuente de PyQt no es la fuente de Qt. La revisión del 5 de octubre preserva fuentes, configuración/SBOM oficiales y correspondencia proveedor → wheel; véase [la evidencia detallada](../third_party/RELEASE_SOURCE_EVIDENCE.md). Falta verificar los archivos y avisos del paquete final y publicar las fuentes con acceso efectivo.
 - **CPython 3.12.10:** [release oficial con fuentes](https://www.python.org/downloads/release/python-31210/) y licencia preservada en `third_party/licenses/cpython-3.12.10.txt`. Revisar además las bibliotecas nativas/runtimes que incluya el ejecutable Windows.
 - **Otros wheels:** `third_party/wheel-inventory.json` identifica versiones, hashes, procedencia y avisos disponibles; inspeccionar el ejecutable para determinar qué componentes llegan al usuario y qué términos se aplican.
 
@@ -29,5 +29,7 @@ debe confirmar su ausencia; entonces no se atribuye Qt PDF/PDFium a ese paquete.
 No cambia las obligaciones de artefactos antiguos que sí los contenían, ni elimina
 las de Qt Core/GUI/Widgets/Network/SVG/ImageFormats, traducciones o PyQt retenidos.
 Mesa/LLVM y los runtimes Microsoft permanecen; requieren sus propios avisos y
-condiciones, no una etiqueta LGPL inferida del wheel. No se ha demostrado todavía
-la configuración/parches/fuentes correspondientes completos del build Qt proveedor.
+condiciones, no una etiqueta LGPL inferida del wheel. La evidencia del 5 de octubre identifica configuración y fuentes del proveedor Qt
+mediante SBOM y comparación de archivos. No se ha ejecutado una reconstrucción
+ni verificado todavía el paquete final de SORTH; véase
+[el alcance exacto y los pendientes](../third_party/RELEASE_SOURCE_EVIDENCE.md).
