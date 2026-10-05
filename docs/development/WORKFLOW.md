@@ -64,6 +64,21 @@ de abajo. Además, ejecuta `git diff --check`.
 En el PR distingue pruebas aprobadas, fallidas y no ejecutadas. No llames completa
 la aceptación de una plataforma o release porque pasaron los tests de Python.
 
+## Distribución medida de matrices GUI
+
+El [run Windows 37255927084](https://github.com/RodrigoUC/SORTH-AI/actions/runs/37255927084)
+agotó el límite GUI de 480 segundos con 1664 casos aprobados y ninguna aserción
+fallida; la matriz de `test_theme_creation_dialog.py` seguía en ejecución.
+Los 17 casos nuevos de la guía ChatGPT terminaron en aproximadamente 0,32 segundos.
+El lote de layout terminó en 169,78 segundos, con su límite de 360 segundos.
+Por eso `test_calendar_dialog_layout.py`, `test_help_details_keyboard.py`,
+`test_resource_dialog_layout.py` y `test_theme_creation_dialog.py` se ejecutan
+completos en `gui-layout`, junto a las matrices existentes. Se conservan los límites,
+todas las pruebas y sus parametrizaciones. El guard exige la misma unión
+exacta de IDs y los tests del distribuidor comprueban rutas, nombres parecidos y
+la ejecución real de cada módulo añadido. La duración depende del runner; un
+lote verde aislado no sustituye la verificación completa de inventarios.
+
 ## Suite completa en cuatro procesos
 
 Desde la raíz del repositorio, entra en `project_root` (`cd project_root`) y usa
