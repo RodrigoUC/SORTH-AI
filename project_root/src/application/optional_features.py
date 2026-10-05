@@ -9,6 +9,8 @@ class Feature:
 
 
 FEATURES = (
+    Feature('auto_update_check', 'Avisar de actualizaciones al iniciar',
+            'Consulta GitHub al abrir SORTH y muestra un aviso si hay una versión nueva. GitHub recibe la dirección IP y los datos habituales de conexión; no se envían horarios ni datos académicos. No descarga ni instala nada.'),
     Feature('mcp_server', 'Permitir servidor MCP local',
             'Permitir que un cliente inicie el servidor stdio. No inicia procesos, conecta modelos ni instala componentes.'),
     Feature('import_diff_preview', 'Vista previa de cambios del Excel',

@@ -1,9 +1,10 @@
 """Transactional preferences plus a separately confirmed local MCP preparation."""
+from PyQt6 import sip
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame, QSizePolicy, QApplication
 from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox, QComboBox
 from .i18n import msg
 from .features import FEATURES, McpPreferenceConflict
-from PyQt6.QtCore import QSignalBlocker, Qt
+from PyQt6.QtCore import QSignalBlocker, QTimer, Qt
 from .mcp_availability import McpAvailabilityProbe
 from .mcp_preparation import McpPreparation
 from .mcp_client_help import McpClientHelp
@@ -90,7 +91,7 @@ class SettingsDialog(QDialog):
         self._saved_values = {key: control.isChecked() for key, control in self.controls.items()}
         self.sections = {}
         self.section_features = {
-            'general': ('import_diff_preview', 'undo_redo', 'placement_suggestions', 'pinned_sessions'),
+            'general': ('auto_update_check', 'import_diff_preview', 'undo_redo', 'placement_suggestions', 'pinned_sessions'),
             'resources': ('teacher', 'student_group', 'student'),
             'advanced': ('project_scenarios', 'bulk_operations', 'project_calendar'),
             'mcp': ('mcp_server',),
@@ -123,6 +124,9 @@ class SettingsDialog(QDialog):
                 appearance_note.setWordWrap(True)
                 appearance_note.setObjectName('mutedText')
                 section_layout.addWidget(appearance_note)
+                self.update_button = QPushButton(msg('Buscar actualizaciones'))
+                self.update_button.clicked.connect(self.open_updates)
+                section_layout.addWidget(self.update_button)
                 divider = QFrame()
                 divider.setObjectName('settingsDivider')
                 divider.setFixedHeight(1)
@@ -171,7 +175,7 @@ class SettingsDialog(QDialog):
         self._responsive_actions = ResponsiveActionLabels(scroll, [
             *self.controls.values(), self.recover_button, self.calendar_button,
             self.mcp_check_button, self.mcp_prepare_button, self.mcp_cancel_button,
-            self.mcp_help_button, self.appearance_button,
+            self.mcp_help_button, self.appearance_button, self.update_button,
         ], self)
         for control in self.controls.values():
             control.toggled.connect(self._refresh_save_state)
@@ -180,7 +184,7 @@ class SettingsDialog(QDialog):
         self._refresh_mcp_permission()
         self._refresh_save_state()
         # Native tab order follows each section; hidden sections are skipped.
-        ordered = [self.section_selector, self.recover_button, self.appearance_button,
+        ordered = [self.section_selector, self.recover_button, self.appearance_button, self.update_button,
                    *(self.controls[key] for section in ('general', 'resources', 'advanced')
                      for key in self.section_features[section]), self.calendar_button,
                    self.mcp_status_label, self.mcp_check_button, self.mcp_prepare_button,
@@ -202,6 +206,30 @@ class SettingsDialog(QDialog):
             dialog.exec()
         finally:
             dialog.deleteLater()
+
+    def open_updates(self):
+        # Checking/downloading is separate from the Save transaction. Installing
+        # discards pending optional preferences just like Cancel.
+        if (self.mcp_preparation.active or self.mcp_probe.active or self._pending_close is not None
+                or self.window._active_update_dialog is not None):
+            return
+        from .update_dialog import UpdateDialog
+        dialog = UpdateDialog(self.window, parent=self)
+        self.window._active_update_dialog = dialog
+        try:
+            result = dialog.exec()
+        finally:
+            self.window._active_update_dialog = None
+            if not sip.isdeleted(dialog):
+                dialog.deleteLater()
+        if sip.isdeleted(self) or sip.isdeleted(self.window):
+            return
+        close_requested = self.window._close_after_update_dialog
+        self.window._close_after_update_dialog = False
+        if (close_requested or (result == QDialog.DialogCode.Accepted
+                               and self.window._pending_update_installer is not None)):
+            self.reject()
+            QTimer.singleShot(0, self.window.close)
 
     def _scroll_to_focus(self, previous, focused):
         # Nested section widgets are not direct children of the scroller. Native

@@ -1,6 +1,7 @@
 # src/gui/main_window.py
 
 import sys
+from PyQt6 import sip
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -63,6 +64,11 @@ class MainWindow(QMainWindow):
         self._generation_cancelled = False
         self._generation_result_committed = False
         self._close_after_generation = False
+        self._pending_update_installer = None
+        self._update_close_accepted = False
+        self._update_backup_path = None
+        self._active_update_dialog = None
+        self._close_after_update_dialog = False
         self.excel_path: str | None = None
         self.current_schedule: dict | None = None
         self.current_groups: list | None = None
@@ -948,7 +954,8 @@ class MainWindow(QMainWindow):
         finally:
             # Closed settings own native controls and signal connections. Do not
             # leave their release to cyclic GC on a long-lived main window.
-            dialog.deleteLater()
+            if not sip.isdeleted(dialog):
+                dialog.deleteLater()
 
     def _show_calendar(self):
         if self._busy or self._restore_failed or not self._features.enabled('project_calendar'):
@@ -1907,7 +1914,64 @@ class MainWindow(QMainWindow):
                 self._update_feature_notice()
                 self._update_compact_overview()
 
+    def _cancel_pending_update(self):
+        download, self._pending_update_installer = self._pending_update_installer, None
+        self._update_close_accepted = False
+        if download is not None:
+            from ..application.app_updates import discard_download
+            # The backend forgets ownership and performs best-effort cleanup;
+            # ordinary filesystem failures cannot reinstate launch permission.
+            discard_download(download)
+
+    def _close_for_update(self, event):
+        from ..application.update_launch import installer_launch_supported
+        if not installer_launch_supported():
+            self._cancel_pending_update()
+            QMessageBox.warning(self, msg('Actualizaciones'), msg(
+                'La instalación desde SORTH solo está disponible en la aplicación empaquetada para Windows.'))
+            event.ignore()
+            return
+        try:
+            if not self._save_session():
+                raise RuntimeError('Session could not be saved')
+            backup = self._repo.backup_session()
+            # Reopen and validate the actual consistent backup, including its
+            # semantic constraints, before allowing the current process to exit.
+            SessionRepository(str(backup)).load_session()
+        except Exception:
+            self._cancel_pending_update()
+            QMessageBox.warning(self, msg('Actualizaciones'), msg(
+                'No se pudo guardar la sesión y validar su copia de seguridad. SORTH seguirá abierto y no iniciará el instalador. Revisa el estado de guardado e inténtalo de nuevo.'))
+            event.ignore()
+            return
+        self._update_backup_path = backup
+        self._motion.finish()
+        event.accept()
+        self._update_close_accepted = True
+
     def closeEvent(self, event):
+        if self._active_update_dialog is not None:
+            # A nested modal loop can still own a live updater or confirmation.
+            # Let its rejection finish and Settings unwind before retrying close.
+            self._close_after_update_dialog = True
+            self._active_update_dialog.reject()
+            event.ignore()
+            return
+        if self._pending_update_installer is not None and (
+                self._busy or self._restore_failed or self._loading or self._worker is not None
+                or (hasattr(self, '_import') and (self._import.active or self._import.worker is not None))):
+            self._cancel_pending_update()
+            QMessageBox.warning(self, msg('Actualizaciones'), msg(
+                'Espera a que termine la operación o recupera la sesión antes de instalar una actualización. SORTH seguirá abierto.'))
+            event.ignore()
+            return
+        startup = getattr(self, '_update_startup', None)
+        if startup is not None and not startup.prepare_close():
+            event.ignore()
+            return
+        if self._pending_update_installer is not None:
+            self._close_for_update(event)
+            return
         # Import cancellation can leave its reader draining while generation
         # starts. Cancel both immediately, regardless of which finishes first.
         # Ownership lasts through queued result delivery, even after run() exits.
