@@ -1,6 +1,17 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Grid zoom: {percent}%. Reset to 100%.',
+    'Expandir': 'Expand',
+    'Restaurar': 'Restore',
+    'Expandir vista del horario': 'Expand schedule view',
+    'Restaurar vista del horario': 'Restore schedule view',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Temporarily hide other panels to enlarge this view.',
+    'Restaurar los otros paneles (Esc).': 'Restore the other panels (Esc).',
+    'Alejar cuadrícula': 'Zoom out grid',
+    'Acercar cuadrícula': 'Zoom in grid',
+    'Restablecer zoom al 100%': 'Reset zoom to 100%',
+
     '{room_type} (guardado en el curso)': '{room_type} (saved in the course)',
     'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
     'Comparación pendiente': 'Comparison pending',

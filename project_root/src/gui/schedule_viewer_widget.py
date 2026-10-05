@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QCoreApplication, QEvent, Qt, pyqtSignal, QSignalBlocker
 from PyQt6.QtGui import (
-    QColor, QFontMetricsF
+    QColor, QFont, QFontMetricsF
 )
 
 from .theme import COLORS
@@ -27,7 +27,7 @@ from ..scheduling.schedule_grid import build_schedule_grid
 from .i18n import msg, plural, language_manager
 from .i18n_widgets import (
     QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget, ResponsiveDialogButtonBox,
-    _keep_qt_owners_alive,
+    _keep_qt_owners_alive, _reserve_focused_button_size,
 )
 
 _DAY_ORDER = {d: i for i, d in enumerate(TimeModel.DAY_ORDER)}
@@ -116,9 +116,15 @@ class ScheduleViewerWidget(QWidget):
     pin_requested = pyqtSignal(str)
     schedule_cleared = pyqtSignal()
     filters_changed = pyqtSignal()
+    expanded_changed = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
+        self._expanded = False
+        self._grid_zoom = 100
+        self._grid_base_rows = []
+        self._view_control_minima = {}
+        self._fitting_view_controls = False
         self._pin_controls = []
         self._suggestion_controls = []
         self._selection_hints = []
@@ -279,6 +285,41 @@ class ScheduleViewerWidget(QWidget):
         self.classroom_table, self._btn_edit_cls, self._btn_remove_cls = self._make_list_tab(
             msg('Por aula'), [msg('Aula'), msg('Grupo / sesión'), msg('Nombre del curso'), msg('Día'), msg('Inicio'), msg('Fin')],
             msg('Asignaciones ordenadas por aula'))
+        self._grid_zoom_controls = QWidget()
+        zoom_layout = QHBoxLayout(self._grid_zoom_controls)
+        zoom_layout.setContentsMargins(0, 0, 0, 0)
+        zoom_layout.setSpacing(2)
+        self._btn_zoom_out = QPushButton('−')
+        self._btn_zoom_out.setAccessibleName(msg('Alejar cuadrícula'))
+        self._btn_zoom_out.setToolTip(msg('Alejar cuadrícula'))
+        self._btn_zoom_out.clicked.connect(lambda: self.set_grid_zoom(self._grid_zoom - 25))
+        self._btn_zoom_reset = QPushButton('100%')
+        self._btn_zoom_reset.setAccessibleName(msg('Zoom de la cuadrícula: {percent}%. Restablecer al 100%.', percent=100))
+        self._btn_zoom_reset.setToolTip(msg('Restablecer zoom al 100%'))
+        self._btn_zoom_reset.clicked.connect(lambda: self.set_grid_zoom(100))
+        self._btn_zoom_in = QPushButton('+')
+        self._btn_zoom_in.setAccessibleName(msg('Acercar cuadrícula'))
+        self._btn_zoom_in.setToolTip(msg('Acercar cuadrícula'))
+        self._btn_zoom_in.clicked.connect(lambda: self.set_grid_zoom(self._grid_zoom + 25))
+        for button in (self._btn_zoom_out, self._btn_zoom_reset, self._btn_zoom_in):
+            zoom_layout.addWidget(button)
+        search_row.addWidget(self._grid_zoom_controls)
+        self._btn_expand = QPushButton(msg('Expandir'))
+        self._btn_expand.setCheckable(True)
+        self._btn_expand.setAccessibleName(msg('Expandir vista del horario'))
+        self._btn_expand.setToolTip(msg('Ocultar temporalmente otros paneles para ampliar esta vista.'))
+        self._btn_expand.toggled.connect(self.set_expanded)
+        search_row.addWidget(self._btn_expand)
+        self._grid_zoom_controls.hide()
+        escape = QAction(self)
+        escape.setShortcut('Escape')
+        escape.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        escape.triggered.connect(lambda: self.set_expanded(False))
+        self.addAction(escape)
+        for button in (self._btn_zoom_out, self._btn_zoom_reset, self._btn_zoom_in, self._btn_expand):
+            button.installEventFilter(self)
+        language_manager().changed.connect(self._fit_view_controls)
+        self.grid_table.viewport().installEventFilter(self)
         self.tabs.currentChanged.connect(self._on_view_changed)
         layout.addWidget(self.tabs, 1)
         scope = self._export_scope_hint = QLabel(msg('El aula de la cuadrícula no cambia la exportación filtrada.'))
@@ -287,6 +328,101 @@ class ScheduleViewerWidget(QWidget):
         scope.setWordWrap(True)
         scope.setObjectName("mutedText")
         layout.addWidget(scope)
+
+    def set_expanded(self, expanded):
+        """Presentation only: keep the same widgets, filters and selected items."""
+        expanded = bool(expanded)
+        if self._expanded == expanded:
+            return
+        self._expanded = expanded
+        with QSignalBlocker(self._btn_expand):
+            self._btn_expand.setChecked(expanded)
+        self._btn_expand.setText(msg('Restaurar') if expanded else msg('Expandir'))
+        self._btn_expand.setAccessibleName(msg('Restaurar vista del horario') if expanded
+                                         else msg('Expandir vista del horario'))
+        self._btn_expand.setToolTip(msg('Restaurar los otros paneles (Esc).') if expanded
+                                   else msg('Ocultar temporalmente otros paneles para ampliar esta vista.'))
+        self._fit_view_controls()
+        self.expanded_changed.emit(expanded)
+        if self.isVisible():
+            self._btn_expand.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def set_grid_zoom(self, percent):
+        percent = max(75, min(200, int(percent)))
+        if percent == self._grid_zoom:
+            return
+        self._grid_zoom = percent
+        self._btn_zoom_out.setEnabled(percent > 75)
+        self._btn_zoom_in.setEnabled(percent < 200)
+        self._btn_zoom_reset.setText(f'{percent}%')
+        self._btn_zoom_reset.setAccessibleName(msg('Zoom de la cuadrícula: {percent}%. Restablecer al 100%.', percent=percent))
+        self._apply_grid_zoom()
+        self._fit_view_controls()
+
+    def _apply_grid_zoom(self):
+        table = self.grid_table
+        factor = self._grid_zoom / 100
+        font = QFont(table.font())
+        if font.pointSizeF() > 0:
+            font.setPointSizeF(font.pointSizeF() * factor)
+        else:
+            font.setPixelSize(max(1, round(font.pixelSize() * factor)))
+        # Font roles beat the inherited stylesheet without changing the app's
+        # base font, theme or native control sizes. Never rebuild schedule data.
+        for row, height in enumerate(self._grid_base_rows):
+            table.setRowHeight(row, round(height * factor))
+            for col in range(table.columnCount()):
+                item = table.item(row, col)
+                if item is not None:
+                    item.setFont(font)
+        for col in range(table.columnCount()):
+            item = table.horizontalHeaderItem(col)
+            if item is not None:
+                item.setFont(font)
+        unit, size = ('pt', font.pointSizeF()) if font.pointSizeF() > 0 else ('px', font.pixelSize())
+        table.horizontalHeader().setStyleSheet(f'QHeaderView::section {{ font-size: {size:g}{unit}; }}')
+        self._fit_grid_columns()
+
+    def _fit_grid_columns(self):
+        table = self.grid_table
+        if table.columnCount() < 2:
+            return
+        factor = self._grid_zoom / 100
+        time_width = round(65 * factor)
+        columns = [col for col in range(1, table.columnCount()) if not table.isColumnHidden(col)]
+        width = max(round(120 * factor), (table.viewport().width() - time_width) // max(1, len(columns)))
+        table.setColumnWidth(0, time_width)
+        for col in columns:
+            table.setColumnWidth(col, width)
+
+    def _fit_view_controls(self, *_):
+        if self._fitting_view_controls or not hasattr(self, '_btn_expand'):
+            return
+        self._fitting_view_controls = True
+        try:
+            buttons = (self._btn_zoom_out, self._btn_zoom_reset, self._btn_zoom_in, self._btn_expand)
+            for button in buttons:
+                button.ensurePolished()
+                _reserve_focused_button_size(button, self._view_control_minima.setdefault(button, {}), width=True)
+        finally:
+            self._fitting_view_controls = False
+
+    @_keep_qt_owners_alive
+    def event(self, event):
+        if event.type() == QEvent.Type.Show:
+            self._fit_view_controls()
+            self.layout().activate()
+        result = super().event(event)
+        if not sip.isdeleted(self) and event.type() == QEvent.Type.LayoutRequest:
+            self._fit_view_controls()
+        return result
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            QCoreApplication.postEvent(self, QEvent(QEvent.Type.LayoutRequest))
+        if watched is self.grid_table.viewport() and event.type() == QEvent.Type.Resize:
+            self._fit_grid_columns()
+        return super().eventFilter(watched, event)
 
     def set_compact_layout(self, compact, *, dense=None):
         # Reserve room for actual timetable rows at native Windows metrics.
@@ -427,6 +563,7 @@ class ScheduleViewerWidget(QWidget):
         self.list_table.setRowCount(0)
         self.classroom_table.setRowCount(0)
         self.grid_table.clearSpans()
+        self._grid_base_rows = []
         self.grid_table.setRowCount(0)
         self.grid_table.setColumnCount(0)
         self.classroom_selector.clear()
@@ -582,6 +719,7 @@ class ScheduleViewerWidget(QWidget):
             self._render_grid(self.classroom_selector.currentText())
 
     def _on_view_changed(self, *_):
+        self._grid_zoom_controls.setVisible(self.tabs.currentIndex() == 1)
         if self.tabs.currentIndex() == 1 and self._grid_dirty:
             self._render_grid(self.classroom_selector.currentText())
         self._update_result_label()
@@ -708,13 +846,15 @@ class ScheduleViewerWidget(QWidget):
             if height < minimum:
                 table.setRowHeight(block.row, table.rowHeight(block.row) + minimum - height)
         header = table.horizontalHeader()
-        header.setMinimumSectionSize(65)
+        header.setMinimumSectionSize(40)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         table.setColumnWidth(0, 65)
         for col in range(1, table.columnCount()):
-            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
             day = tm.to_day_index(tm.days[col - 1])
             table.setColumnHidden(col, self._day_filter.currentData() not in (None, day))
+        self._grid_base_rows = [table.rowHeight(row) for row in range(table.rowCount())]
+        self._apply_grid_zoom()
         conflicts = sum(len(block.entries) > 1 for block in grid.blocks)
         self._grid_count.setText(msg('Sesiones en esta aula: {count}', count=len(entries)))
         self.classroom_selector.setToolTip(classroom)
