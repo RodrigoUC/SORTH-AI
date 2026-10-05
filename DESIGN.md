@@ -435,11 +435,11 @@ The schedule shell uses three independent, deterministic presentation budgets.
 Selection-help captions and retained-data notices return above 760px. Secondary summary/resource chrome
 returns above 802px; below that it remains in the established native F7 menu.
 Dense gaps/insets remain through 920px, so the full chrome can fit four readable
-rows before spacious margins return. The native 2px focused-frame cost is included. No mode decision reads the current viewport,
+rows before spacious margins return. Stable native focus frames and label borders are included. No mode decision reads the current viewport,
 avoiding responsive feedback or oscillation. The thresholds are verified on both
 sides with actual native metrics and every optional feature restored.
 
-The viewer uses 2px inter-row gaps in dense mode, retaining native fonts, table
+The viewer uses 1px inter-row gaps in dense mode, retaining native fonts, table
 row heights, action targets, the visible scope line and existing F6/F7 routes.
 Spacious windows restore the 6px viewer gaps. Counts, filters, details and exports
 retain their existing semantics; no preference or domain data changes.
@@ -463,13 +463,13 @@ resize, hide, close and reduced-motion preferences retain their cancellation rul
 ### Native schedule whitespace reserve
 The minimum schedule window reserves room for the taller installed Segoe UI
 metrics observed in correctly fonted Windows offscreen checks. Dense shell gaps
-are 2px, outer vertical insets total 8px, and consultation pages use a 2px top
+are 1px, outer vertical insets total 4px, and consultation pages use a 2px top
 inset. Spacious shell gaps are 8px. This recovers whitespace at every existing
 mode boundary without changing fonts, normal table rows, action targets, notices
 or visible export scope. Content thresholds stay at 760/802/920px and never
 read the current viewport. Native layout still settles before page reveal.
 
-A portable regression increases native table-header size requirements by 4px
+A portable regression increases native table-header size requirements by 4px and 8px
 and crosses each boundary in both directions with focused tables. It preserves
 font and row sizes and the strict 120px reference reading budget. Windows
 geometry artifacts include font line height, header height and active whitespace
