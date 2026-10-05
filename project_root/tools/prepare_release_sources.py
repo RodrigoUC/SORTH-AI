@@ -262,7 +262,10 @@ def selected_zip(path: Path, row: dict) -> dict[str, bytes]:
         entries = {}
         total = 0
         for member in archive.infolist():
-            name = safe_name(member.filename.rstrip("/") if member.is_dir() else member.filename)
+            # ZipInfo truncates NULs and normalizes Windows separators on read.
+            if member.orig_filename != member.filename:
+                raise SourceError("Unsafe normalized member name")
+            name = safe_name(member.filename.removesuffix("/") if member.is_dir() else member.filename)
             mode = member.external_attr >> 16
             if stat.S_ISLNK(mode) or (stat.S_IFMT(mode) and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode))):
                 raise SourceError("Wheel links/special files are not accepted")

@@ -6,11 +6,13 @@ import json
 from pathlib import Path
 import stat
 import tarfile
+from unittest.mock import patch
 import zipfile
 
 import pytest
 
 from tools import prepare_release_sources as sources
+from tests.zip_fixtures import raw_zip_info, zip_separators
 
 
 def pin(data, **extra):
@@ -181,6 +183,32 @@ def test_zip_traversal_and_symlink_rejected(tmp_path, name, mode):
         archive.writestr(member, "target")
     with pytest.raises(sources.SourceError):
         sources.selected_zip(path, {"files": []})
+
+
+@pytest.mark.parametrize("separator", ["/", "\\"])
+@pytest.mark.parametrize("name", ["bindings\\core.sip", "bindings/core.sip\x00hidden",
+                                "bindings//core.sip", "bindings/./core.sip",
+                                "bindings//", "bindings/\x00hidden"])
+@pytest.mark.parametrize("selected", [False, True])
+def test_zip_raw_noncanonical_names_rejected_before_read(tmp_path, separator, name, selected):
+    path = tmp_path / "raw.whl"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(raw_zip_info(name), b"abc")
+    item = pin(b"abc", path="bindings/core.sip", destination="evidence/core.sip")
+    with zip_separators(separator), patch.object(zipfile.ZipFile, "open", side_effect=AssertionError("Read before validation")):
+        with pytest.raises(sources.SourceError, match="member name"):
+            sources.selected_zip(path, {"files": [item] if selected else []})
+
+
+@pytest.mark.parametrize("separator", ["/", "\\"])
+def test_zip_canonical_directory_and_selected_file_accepted(tmp_path, separator):
+    path = tmp_path / "canonical.whl"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(raw_zip_info("bindings/", stat.S_IFDIR | 0o755), b"")
+        archive.writestr(raw_zip_info("bindings/core.sip"), b"abc")
+    item = pin(b"abc", path="bindings/core.sip", destination="evidence/core.sip")
+    with zip_separators(separator):
+        assert sources.selected_zip(path, {"files": [item]}) == {"evidence/core.sip": b"abc"}
 
 
 def listing(name="config.opt", size=3, extra=""):

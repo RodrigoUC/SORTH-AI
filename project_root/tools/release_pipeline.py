@@ -204,7 +204,9 @@ def verify_packaged_sources(archive, info, sources):
         require(sum(i.file_size for i in entries) <= 4 * MAX_ASSET, 'Packaged ZIP exceeds bound')
         for item in entries:
             path = PurePosixPath(item.filename)
-            require(path.as_posix() == item.filename and not path.is_absolute() and '..' not in path.parts
+            # ZipInfo hides NUL suffixes and, on Windows, rewrites backslashes.
+            require(item.orig_filename == item.filename
+                    and path.as_posix() == item.filename and not path.is_absolute() and '..' not in path.parts
                     and '\\' not in item.filename and not stat.S_ISLNK(item.external_attr >> 16), 'Unsafe packaged ZIP entry')
         require(zf.getinfo('SORTH/build-info.json').file_size <= MAX_METADATA, 'Build metadata exceeds bound')
         require(json.loads(zf.read('SORTH/build-info.json'), object_pairs_hook=unique_object) == info, 'Embedded build inventory differs')
@@ -420,7 +422,9 @@ def extract_flat(archive, destination, expected=None):
         for item in entries:
             path = PurePosixPath(item.filename)
             parts = path.parts
-            require(parts and path.as_posix() == item.filename and not path.is_absolute()
+            # Validate the actual archived name before trusting its normalized form.
+            require(item.orig_filename == item.filename
+                    and parts and path.as_posix() == item.filename and not path.is_absolute()
                     and '..' not in parts and all(SAFE_NAME.fullmatch(p) and not p.endswith('.') for p in parts)
                     and '\\' not in item.filename and ':' not in item.filename, 'Unsafe/noncanonical ZIP path')
             require(not stat.S_ISLNK(item.external_attr >> 16), 'Symlink in artifact')

@@ -17,6 +17,11 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
+if __package__:
+    from .zip_fixtures import raw_zip_info, zip_separators
+else:  # Also support the dependency-free unittest discovery from the repo root.
+    from zip_fixtures import raw_zip_info, zip_separators
+
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('release_pipeline', ROOT / 'project_root/tools/release_pipeline.py')
 rp = importlib.util.module_from_spec(SPEC)
@@ -460,7 +465,7 @@ class ReleaseTests(unittest.TestCase):
             archive = root / 'app.zip'
             with zipfile.ZipFile(archive, 'w') as zf:
                 for n, b in files.items():
-                    zf.writestr('SORTH/' + n, b)
+                    zf.writestr(raw_zip_info('SORTH/' + n), b)
                 zf.writestr('SORTH/build-info.json', json.dumps(info))
             return archive, info
         with patch.object(rp, 'ROOT', root):
@@ -468,6 +473,13 @@ class ReleaseTests(unittest.TestCase):
                 archive, info = prepare(files)
                 result = rp.verify_packaged_sources(archive, info, bundle)
                 self.assertEqual(result['verified_scoped_files'], len(files))
+            for separator in ('/', '\\'):
+                for name in ('a\\b', 'a\x00hidden', 'a//b', 'a/./b'):
+                    archive, info = prepare({**original, name: b'unsafe'}, metadata_files=original)
+                    with self.subTest(separator=separator, raw_name=name), zip_separators(separator):
+                        with patch.object(zipfile.ZipFile, 'open', side_effect=AssertionError('Read before validation')):
+                            with self.assertRaisesRegex(ValueError, 'Unsafe packaged ZIP entry'):
+                                rp.verify_packaged_sources(archive, info, bundle)
             for files, declared in [({core: b'changed'}, {core: original[core]}),
                                      ({core: b'changed'}, None), ({qm: original[qm]}, None),
                                      ({**original, '_internal/PyQt6/Unknown.pyd': b'unknown'}, None),
@@ -508,15 +520,20 @@ class ReleaseTests(unittest.TestCase):
     def test_archive_traversal_duplicates_and_symlinks_rejected(self):
         for index, names in enumerate([['../escape'], ['/absolute'], ['a', 'a'], ['a\\b'], ['C:bad'],
                                        ['artifacts//build-info.json'], ['artifacts/./build-info.json'],
-                                       ['A.txt', 'a.txt'], ['a.']]):
+                                       ['A.txt', 'a.txt'], ['a.'], ['a\x00hidden'],
+                                       ['a/\x00hidden'], ['a\x00/../escape']]):
             archive = Path(self.temp.name) / f'bad{index}.zip'
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', UserWarning)
                 with zipfile.ZipFile(archive, 'w') as zf:
                     for name in names:
-                        zf.writestr(name, b'bad')
-            with self.assertRaises(ValueError):
-                rp.extract_flat(archive, Path(self.temp.name) / f'out{index}')
+                        zf.writestr(raw_zip_info(name), b'bad')
+            for platform, separator in enumerate(('/', '\\')):
+                destination = Path(self.temp.name) / f'out{index}-{platform}'
+                with self.subTest(names=names, separator=separator), zip_separators(separator):
+                    with self.assertRaises(ValueError):
+                        rp.extract_flat(archive, destination)
+                    self.assertFalse(destination.exists())
         archive = Path(self.temp.name) / 'symlink.zip'
         with zipfile.ZipFile(archive, 'w') as zf:
             info = zipfile.ZipInfo('link')
@@ -524,6 +541,37 @@ class ReleaseTests(unittest.TestCase):
             zf.writestr(info, b'/etc/passwd')
         with self.assertRaises(ValueError):
             rp.extract_flat(archive, Path(self.temp.name) / 'symlink-out')
+
+    def test_raw_zip_fixtures_keep_original_names_on_both_platforms(self):
+        for separator in ('/', '\\'):
+            for name in ('a\\b', 'a\x00hidden', 'a//b', 'a/./b'):
+                archive = Path(self.temp.name) / 'raw-name.zip'
+                with self.subTest(name=name, separator=separator), zip_separators(separator):
+                    with zipfile.ZipFile(archive, 'w') as zf:
+                        zf.writestr(raw_zip_info(name), b'payload')
+                    # Both the local header and central directory retain the bytes.
+                    self.assertEqual(archive.read_bytes().count(name.encode()), 2)
+                    with zipfile.ZipFile(archive) as zf:
+                        member = zf.infolist()[0]
+                        self.assertEqual(member.orig_filename, name)
+                        normalized = name.split('\x00', 1)[0]
+                        if separator == '\\':
+                            normalized = normalized.replace('\\', '/')
+                        self.assertEqual(member.filename, normalized)
+                        self.assertEqual(zf.read(member), b'payload')
+
+    def test_canonical_nested_zip_extracts_on_both_platforms(self):
+        archive = Path(self.temp.name) / 'canonical.zip'
+        names = ['build-info.json', 'nested/file.zip']
+        with zipfile.ZipFile(archive, 'w') as zf:
+            for name in names:
+                zf.writestr(raw_zip_info(name), b'payload')
+        for platform, separator in enumerate(('/', '\\')):
+            destination = Path(self.temp.name) / f'canonical-{platform}'
+            with self.subTest(separator=separator), zip_separators(separator):
+                rp.extract_flat(archive, destination, expected=names)
+                for name in names:
+                    self.assertEqual((destination / name).read_bytes(), b'payload')
 
     def test_duplicate_json_and_checksum_rows_rejected(self):
         path = Path(self.temp.name) / 'bad.json'
