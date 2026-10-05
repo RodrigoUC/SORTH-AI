@@ -21,6 +21,7 @@ BATCHES = ("gui", "gui-layout", "theme-runtime", "remaining")
 GUI_LAYOUT_FILES = frozenset({
     "tests/test_gui/test_appearance_dialog.py",
     "tests/test_gui/test_compact_optional_controls.py",
+    "tests/test_gui/test_project_dialog_layout.py",
     "tests/test_gui/test_settings_design.py",
 })
 

@@ -1,4 +1,5 @@
 from random import Random
+from functools import cache, partial
 from typing import List
 from .schedule_state import ScheduleState
 from .group import Group
@@ -74,6 +75,7 @@ class Scheduler:
             checkpoint(self._cancelled)
             if group.is_assigned():
                 continue
+            resources_allow = self._resource_checker(state, group)
             # Domains were built before earlier groups occupied their rooms.
             # Discard stale slots before scoring, then find the best candidate
             # in linear time instead of sorting every candidate. Randomness only
@@ -83,7 +85,7 @@ class Scheduler:
                 if self._candidate_available(candidate, group)
                 and candidate[0].is_available(
                     candidate[1], candidate[2], candidate[2] + group.duration_min)
-                and state.resources_allow(group, candidate[1], candidate[2])
+                and resources_allow(candidate[1], candidate[2])
                 and (not group.parent_group_id or self._is_valid_subgroup(
                     group, candidate[1], candidate[2]))
             )
@@ -94,6 +96,15 @@ class Scheduler:
                 classroom, day, start_min = best
                 if state.assign(group, classroom.name, day, start_min):
                     self._track_assign(group, classroom.name, day, start_min)
+
+    @staticmethod
+    def _resource_checker(state: ScheduleState, group: Group):
+        # Resource admission depends on this group, day, start and current
+        # assignments, never on the candidate room. Each caller creates a fresh
+        # checker for one group and consumes it before assigning anything.
+        # Nothing survives a state mutation, retry, or a later scheduling run.
+        checker = partial(state.resources_allow, group)
+        return cache(checker) if state.resources is not None else checker
 
     def _candidate_available(self, candidate, group):
         checkpoint(self._cancelled)
@@ -128,6 +139,7 @@ class Scheduler:
         for group in groups:
             checkpoint(self._cancelled)
             domain = []
+            resources_allow = self._resource_checker(state, group)
             # Bidirectional restriction only applies if this specific group's
             # suggested_classroom is one of the restricted classrooms for this course.
             course_allowed_classrooms = restricted_to.get(group.course_code)
@@ -171,7 +183,7 @@ class Scheduler:
                     for start_min in start_candidates[start_key]:
                         checkpoint(self._cancelled)
                         if (classroom.is_available(day, start_min, start_min + group.duration_min)
-                                and state.resources_allow(group, day, start_min)):
+                                and resources_allow(day, start_min)):
                             if domain_limit is not None and len(domain) >= domain_limit:
                                 group.domain = domain
                                 return True

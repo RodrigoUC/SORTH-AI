@@ -311,7 +311,12 @@ def test_filtered_export_matches_shared_filters_without_affecting_complete(app, 
         assert [r['Grupo'] for r in rows] == ['BIO-G2']
     else:
         book = load_workbook(saved)
-        assert set(book.sheetnames) == {'Aula A2', 'Asignaciones', 'Por Aula'}
+        assert set(book.sheetnames) == {'Estado', 'Aula A2', 'Asignaciones', 'Por Aula', 'Pendientes'}
+        state = dict(list(book['Estado'].values)[1:])
+        assert state['Estado'] == 'partial' and state['Ámbito'] == 'Filtrado'
+        assert (state['Sesiones asignadas'], state['Sesiones pendientes'], state['Sesiones totales']) == (4, 1, 5)
+        assert state['Asignaciones exportadas'] == 1 and state['Asignaciones fuera del filtro'] == 3
+        assert [row[2] for row in list(book['Pendientes'].values)[1:]] == ['BOT-G1']
         assert book['Asignaciones'].max_row == 2
         assert book['Asignaciones']['C2'].value == 'BIO-G2'
     window._export_schedule()

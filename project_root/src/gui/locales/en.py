@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    '{room_type} (guardado en el curso)': '{room_type} (saved in the course)',
     'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
     'Comparación pendiente': 'Comparison pending',
     'Comparación actualizada. La sesión sigue guardada.': 'Comparison updated. The session remains saved.',
@@ -391,6 +392,7 @@ MESSAGES = {
     "Confirmar excepción de laboratorio": "Confirm laboratory exception",
     "Conflicto de aula\n": "Classroom conflict\n",
     "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.": "Breaks ties between equally ranked options.\nSame inputs and fixed seed → same schedule.\nRandom seed → may offer alternatives; a different schedule is not guaranteed.",
+    "Hoja {sheet}, celda {cell}: contiene un error de Excel. Corríjalo y vuelva a cargar el archivo.": "Sheet {sheet}, cell {cell}: contains an Excel error. Correct it and load the file again.",
     "Corrija el archivo y vuelva a cargarlo:": "Correct the file and load it again:",
     "Cuadrícula por aula": "Classroom grid",
     "Cuadrícula semanal por aula": "Weekly classroom grid",
@@ -454,6 +456,7 @@ MESSAGES = {
     "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Export all includes every assignment. Export filtered uses Search, Classroom, Day and Status, not the grid's classroom selector.",
     "Exportar filtrado (0)": "Export filtered (0)",
     "Exportar filtrado ({p1})": "Export filtered ({p1})",
+    "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.": "\nExcel also includes all pending sessions in the schedule, even if they do not match the filters.",
     "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.": "Export {p1} assigned sessions matching Search, Classroom, Day and Status.\nThe active tab and the grid's classroom selector do not change this set.",
     "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}": "Missing sheets: {missing}. Use these exact names. Sheets found: {found}",
     "Filtrar por aula": "Filter by classroom",

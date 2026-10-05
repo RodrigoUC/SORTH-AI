@@ -15,6 +15,9 @@ Use synthetic courses, classrooms, paths and failures only. The deferred pilot
   description. Buttons below the table provide the context-menu actions without
   requiring a mouse.
 - Ctrl+O imports, Ctrl+Enter generates, Ctrl+S exports the full schedule.
+  These explicit commands survive language and busy-caption changes. They stay
+  scoped to the active main window and respect their visible, enabled buttons;
+  child modal dialogs cannot invoke them.
 - F6 or **Leer estado / Read status** opens a read-only, keyboard-selectable
   snapshot of the current status, save state/error, overview, schedule totals and
   filtered result count. Escape closes it and returns to the invoker. Reopen to

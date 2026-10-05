@@ -1,6 +1,7 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    '{room_type} (guardado en el curso)': '{room_type} (guardado en el curso)',
     'La semilla guardada está fuera del intervalo permitido.': 'La semilla guardada está fuera del intervalo permitido.',
     'Comparación pendiente': 'Comparación pendiente',
     'Comparación actualizada. La sesión sigue guardada.': 'Comparación actualizada. La sesión sigue guardada.',
@@ -391,6 +392,7 @@ MESSAGES = {
     "Confirmar excepción de laboratorio": "Confirmar excepción de laboratorio",
     "Conflicto de aula\n": "Conflicto de aula\n",
     "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.": "Desempata opciones con la misma prioridad.\nMismos datos y semilla fija → mismo horario.\nSemilla aleatoria → puede ofrecer alternativas, sin garantizar un horario distinto.",
+    "Hoja {sheet}, celda {cell}: contiene un error de Excel. Corríjalo y vuelva a cargar el archivo.": "Hoja {sheet}, celda {cell}: contiene un error de Excel. Corríjalo y vuelva a cargar el archivo.",
     "Corrija el archivo y vuelva a cargarlo:": "Corrija el archivo y vuelva a cargarlo:",
     "Cuadrícula por aula": "Cuadrícula por aula",
     "Cuadrícula semanal por aula": "Cuadrícula semanal por aula",
@@ -454,6 +456,7 @@ MESSAGES = {
     "Exportar completo incluye todas las asignaciones. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.": "Los archivos contienen sesiones asignadas. Exportar filtrado usa Buscar, Aula, Día y Estado; no el aula de la cuadrícula.",
     "Exportar filtrado (0)": "Exportar filtrado (0)",
     "Exportar filtrado ({p1})": "Exportar filtrado ({p1})",
+    "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.": "\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.",
     "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.": "Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.",
     "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}": "Faltan las hojas: {missing}. Use esos nombres exactos. Hojas encontradas: {found}",
     "Filtrar por aula": "Filtrar por aula",

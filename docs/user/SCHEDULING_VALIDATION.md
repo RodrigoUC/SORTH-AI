@@ -50,9 +50,12 @@ The export action is named “Export all assignments”, describing scope rather
 claiming every requested session was scheduled. Both full-scope and filtered
 export dialogs and completion messages retain a partial-result warning with the
 pending count. Filtering does not remove the warning about the source schedule.
-CSV/Excel retain the existing seven-column contracts and sheet structure. They
-contain assigned sessions only; pending sessions/reasons remain in the app and
-are not additional rows in those interchange files.
+The seven-column CSV and Excel assignment tables contain assigned sessions only.
+Desktop Excel adds Estado/Pendientes for partial or filtered exports, retaining
+global completion counts and pending IDs/reasons separately from the exported
+assignment subset. Filtered-out assignments never become pending. Complete,
+unfiltered Excel retains its previous sheet structure; CSV remains an
+assignments-only interchange format. See [export scope](SCHEDULE_EXPORT_NOTES.md#excel-parcial-y-filtrado).
 
 Static reasons explain missing laboratories, insufficient capacity, excluded
 rooms, and durations that cannot fit. Otherwise the message states that the

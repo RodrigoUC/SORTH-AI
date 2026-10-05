@@ -127,6 +127,23 @@ class QLabel(_Localized, QtW.QLabel):
         super().clear()
 
 
+class KeyboardLinkLabel(QLabel):
+    """Keep native link traversal, leaving a boundary anchor that repeats."""
+    @_keep_qt_owners_alive
+    def focusNextPrevChild(self, next):
+        previous = (self.selectionStart(), self.selectedText())
+        moved = super().focusNextPrevChild(next)
+        if sip.isdeleted(self):
+            return moved
+        if (self.hasFocus() and previous[0] >= 0
+                and previous == (self.selectionStart(), self.selectedText())):
+            # Some Qt versions select the first anchor again on Backtab.
+            # Only that no-progress case falls back to QWidget's native tab
+            # order; distinct anchors and link activation remain Qt-owned.
+            return QtW.QWidget.focusNextPrevChild(self, next)
+        return moved
+
+
 class _ResponsiveButtonText:
     def _preserve_explicit_accessible_name(self):
         if (getattr(self, '_auto_accessible_name', False)
@@ -241,6 +258,49 @@ class QCheckBox(_ResponsiveButtonText, _Localized, QtW.QCheckBox):
     pass
 
 
+def _focused_button_size(button):
+    """Measure the focused native chrome instead of a cached unfocused hint."""
+    option = QtW.QStyleOptionButton()
+    # Standard footer buttons are created by Qt; their protected
+    # initStyleOption is not callable through SIP.
+    option.initFrom(button)
+    option.text = button.text()
+    option.icon = button.icon()
+    option.iconSize = button.iconSize()
+    for enabled, feature in (
+            (button.autoDefault(), option.ButtonFeature.AutoDefaultButton),
+            (button.isDefault(), option.ButtonFeature.DefaultButton),
+            (button.isFlat(), option.ButtonFeature.Flat),
+            (button.menu() is not None, option.ButtonFeature.HasMenu)):
+        if enabled:
+            option.features |= feature
+    option.state |= QtW.QStyle.StateFlag.State_HasFocus
+    text = button.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, button.text())
+    if not option.icon.isNull():
+        text.setWidth(text.width() + option.iconSize.width() + 4)
+        text.setHeight(max(text.height(), option.iconSize.height()))
+    return button.style().sizeFromContents(
+        QtW.QStyle.ContentsType.CT_PushButton, option, text, button)
+
+
+def _reserve_focused_button_size(button, reservations, *, width=False):
+    size = _focused_button_size(button)
+    changed = False
+    for axis in (('Height', 'Width') if width else ('Height',)):
+        current = getattr(button, 'minimum' + axis)()
+        baseline, applied = reservations.get(axis, (current, current))
+        # Preserve caller constraints, but let our own previous reservation
+        # shrink again after a shorter caption or smaller native font.
+        if current != applied:
+            baseline = current
+        needed = max(baseline, getattr(size, axis.lower())())
+        reservations[axis] = (baseline, needed)
+        if needed != current:
+            getattr(button, 'setMinimum' + axis)(needed)
+            changed = True
+    return changed
+
+
 class ResponsiveActionLabels(QObject):
     """Fit full native button/checkbox labels to a scroll area's viewport."""
     def __init__(self, scroll, controls, parent=None):
@@ -249,6 +309,7 @@ class ResponsiveActionLabels(QObject):
         self.viewport = scroll.viewport()
         self.content = scroll.widget()
         self.controls = tuple(controls)
+        self._focused_minima = {}
         self._reflowing = False
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -318,6 +379,9 @@ class ResponsiveActionLabels(QObject):
                     return
                 if sip.isdeleted(control):
                     continue
+                if isinstance(control, QtW.QPushButton):
+                    changed = _reserve_focused_button_size(
+                        control, self._focused_minima.setdefault(control, {})) or changed
                 if control.text() != previous:
                     changed = True
                     # Section layouts can still cache the old unwrapped hint.
@@ -427,6 +491,41 @@ class QComboBox(_Localized, QtW.QComboBox):
         self._messages = {key: value for key, value in self._messages.items()
                           if not isinstance(key, tuple) or key[0] != 'item'}
         super().clear()
+
+
+class CompactComboBox(QComboBox):
+    """Keep the field compact and size its native popup from current contents."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSizeAdjustPolicy(self.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.setMinimumContentsLength(8)
+        self.setSizePolicy(QtW.QSizePolicy.Policy.MinimumExpanding, QtW.QSizePolicy.Policy.Fixed)
+
+    def showPopup(self):
+        if self.count():
+            view = self.view()
+            view.ensurePolished()
+            # Windows list-style popups otherwise inherit the closed width.
+            # The delegate may use a different font from the view (or icons),
+            # so reserve both its native hint and the complete view text.
+            content_width = max(view.sizeHintForColumn(self.modelColumn()), max(
+                view.fontMetrics().horizontalAdvance(self.itemText(row))
+                for row in range(self.count())))
+            margins = view.contentsMargins()
+            width = content_width + margins.left() + margins.right()
+            if view.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+                width += view.verticalScrollBar().sizeHint().width()
+            # Let Qt place the popup, including screen-edge collision handling.
+            # Do not give its layout a minimum wider than the available screen.
+            if self.screen() is not None:
+                popup_margins = view.window().contentsMargins()
+                width = min(width, max(0, self.screen().availableGeometry().width()
+                    - popup_margins.left() - popup_margins.right()))
+            # Recompute rather than accumulating a minimum after locale/font
+            # changes; the closed control's size hints are unaffected.
+            view.setMinimumWidth(width)
+        super().showPopup()
 
 
 class QTabWidget(_Localized, QtW.QTabWidget):
@@ -543,6 +642,7 @@ class ResponsiveDialogButtonBox(QDialogButtonBox):
         self._fitting = False
         self._fit_signature = None
         self._metric_change_pending = False
+        self._focused_minima = {}
         super().__init__(*args, **kwargs)
         self._metric_timer = QTimer(self)
         self._metric_timer.setSingleShot(True)
@@ -558,7 +658,13 @@ class ResponsiveDialogButtonBox(QDialogButtonBox):
         try:
             margins = self.layout().contentsMargins()
             available = max(1, self.width() - margins.left() - margins.right())
-            for button in self.buttons():
+            buttons = self.buttons()
+            # Keep native-created SIP wrappers and their metric reservations
+            # together. Attributes on a transient wrapper alone do not survive
+            # the next buttons() call.
+            self._focused_minima = {button: self._focused_minima.get(button, {})
+                                   for button in buttons}
+            for button in buttons:
                 if sip.isdeleted(button):
                     continue
                 if isinstance(button, _ResponsiveButtonText):
@@ -568,8 +674,14 @@ class ResponsiveDialogButtonBox(QDialogButtonBox):
                     button.wrapPresentationText(available)
                     if sip.isdeleted(self):
                         return
+                # QSS focus borders can grow without invalidating Qt's
+                # minimumSizeHint cache. Reserve fresh focused metrics before
+                # fitting so keyboard traversal never clips or jumps a footer.
+                _reserve_focused_button_size(button, self._focused_minima[button], width=True)
             signature = (self.width(), tuple((button.text(), button.minimumSizeHint().width(),
-                                              button.minimumSizeHint().height()) for button in self.buttons()))
+                                              button.minimumSizeHint().height(),
+                                              button.minimumWidth(), button.minimumHeight())
+                                             for button in self.buttons()))
             if signature == self._fit_signature:
                 return
             self._fit_signature = signature

@@ -2,11 +2,12 @@
 import json
 from pathlib import Path, PureWindowsPath
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QVBoxLayout, QWidget, QScrollArea, QFrame
 
 from .i18n import msg, language_manager
-from .i18n_widgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QPushButton
+from .i18n_widgets import (QComboBox, QDialog, QDialogButtonBox, QLabel, QPushButton,
+                           KeyboardLinkLabel, ResponsiveActionLabels, ResponsiveDialogButtonBox)
 
 
 CLIENT_SOURCES = {
@@ -48,6 +49,7 @@ class McpClientHelp(QDialog):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         content = QWidget()
         layout = QVBoxLayout(content)
         self.scroll.setWidget(content)
@@ -67,6 +69,7 @@ class McpClientHelp(QDialog):
         self.permission_status.setWordWrap(True)
         self.permission_status.setTextFormat(Qt.TextFormat.PlainText)
         self.permission_status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.permission_status.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         if pending_permission:
             saved_status = (msg('Permiso local guardado: activado.') if permission_enabled is True
                             else msg('Permiso local guardado: desactivado.'))
@@ -82,6 +85,7 @@ class McpClientHelp(QDialog):
         self.instructions.setWordWrap(True)
         self.instructions.setTextFormat(Qt.TextFormat.PlainText)
         self.instructions.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.instructions.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout.addWidget(self.instructions)
         self.configuration = QPlainTextEdit()
         self.configuration.setReadOnly(True)
@@ -96,10 +100,11 @@ class McpClientHelp(QDialog):
         self.copy_status = QLabel()
         self.copy_status.setWordWrap(True)
         self.copy_status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.copy_status.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         layout.addWidget(self.copy_status)
         self.empty_space = QWidget()
         layout.addWidget(self.empty_space, 1)
-        self.source = QLabel()
+        self.source = KeyboardLinkLabel()
         self.source.setWordWrap(True)
         self.source.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.source.setOpenExternalLinks(True)
@@ -108,9 +113,16 @@ class McpClientHelp(QDialog):
         privacy.setWordWrap(True)
         privacy.setObjectName('mutedText')
         layout.addWidget(privacy)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.buttons = ResponsiveDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.buttons.rejected.connect(self.reject)
         outer.addWidget(self.buttons)
+        self._responsive_actions = ResponsiveActionLabels(self.scroll, [self.copy_button], self)
+        self._focus_reveal_timer = QTimer(self)
+        self._focus_reveal_timer.setSingleShot(True)
+        self._focus_reveal_timer.timeout.connect(self._reveal_focus)
+        self.scroll.viewport().installEventFilter(self)
+        content.installEventFilter(self)
+        QApplication.instance().focusChanged.connect(self._scroll_to_focus)
         self.setTabOrder(self.client, self.permission_status)
         self.setTabOrder(self.permission_status, self.instructions)
         self.setTabOrder(self.instructions, self.configuration)
@@ -125,6 +137,29 @@ class McpClientHelp(QDialog):
 
     def _language_changed(self):
         self.configuration.setAccessibleName(str(msg('Configuración del cliente para copiar')))
+
+    def _scroll_to_focus(self, previous, focused):
+        if (self.isVisible() and focused is not None
+                and self.scroll.widget().isAncestorOf(focused)):
+            self._reveal_focus()
+            self._focus_reveal_timer.start(0)
+
+    def _reveal_focus(self):
+        focused = QApplication.focusWidget()
+        if (self.isVisible() and focused is not None and focused.isVisible()
+                and self.scroll.widget().isAncestorOf(focused)):
+            # Native QLabel link traversal can leave its frame offscreen,
+            # especially with Shift+Tab. Reveal the actual focused control;
+            # taller selectable instructions remain centered and scrollable.
+            center = focused.mapTo(self.scroll.widget(), focused.rect().center())
+            self.scroll.ensureVisible(center.x(), center.y(), 0,
+                min(self.scroll.viewport().height() // 2, focused.height() // 2 + 12))
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.LayoutRequest,
+                            QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._focus_reveal_timer.start(0)
+        return super().eventFilter(watched, event)
 
     def _update(self):
         client = self.client.currentData()
@@ -147,6 +182,7 @@ class McpClientHelp(QDialog):
         self.copy_button.setVisible(client != 'chatgpt')
         self.empty_space.setVisible(not can_copy)
         self.copy_status.clear()
+        self.copy_status.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         source = CLIENT_SOURCES[client]
         self.source.setText(msg('<a href="{url}">Instrucciones oficiales del cliente</a>', url=source))
         if client == 'claude':
@@ -160,3 +196,4 @@ class McpClientHelp(QDialog):
         if self.copy_button.isEnabled():
             QApplication.clipboard().setText(self.configuration.toPlainText())
             self.copy_status.setText(msg('Configuración copiada. Revisa y combínala con la configuración existente de tu cliente.'))
+            self.copy_status.setFocusPolicy(Qt.FocusPolicy.StrongFocus)

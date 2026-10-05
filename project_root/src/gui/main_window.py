@@ -264,6 +264,8 @@ class MainWindow(QMainWindow):
         self.btn_bulk.clicked.connect(self._show_bulk_edit)
         self.course_manager.edit_actions.insertWidget(5, self.btn_bulk)
         self.course_manager.table.itemSelectionChanged.connect(self._update_history_actions)
+        # Filtering can hide selected rows without changing native selection.
+        self.course_manager._search.textChanged.connect(self._update_history_actions)
         self.status_bar.showMessage(msg('Listo. Cargue un archivo Excel para comenzar.'))
         self._status_action = QAction(msg('Leer estado (F6)'), self)
         self._status_action.setShortcut('F6')
@@ -276,6 +278,17 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # UI builders
     # ------------------------------------------------------------------
+
+    def _bind_command_shortcut(self, button, sequence):
+        # Native button captions own their mnemonic: replacing the text also
+        # replaces QPushButton's shortcut. Keep explicit application commands
+        # on a separate action so locale/busy labels cannot erase them. The
+        # associated button still gates the action by visibility and enabled
+        # state, and the default WindowShortcut excludes child modal dialogs.
+        action = QAction(button)
+        action.setShortcut(sequence)
+        action.triggered.connect(button.click)
+        button.addAction(action)
 
     def _show_accessible_status(self):
         """On-demand, focusable status; no unsupported screen-reader promises."""
@@ -360,7 +373,7 @@ class MainWindow(QMainWindow):
         self.excel_path_label.setTextFormat(Qt.TextFormat.PlainText)
 
         btn_load = self.btn_load = QPushButton(msg('Cargar Excel'))
-        btn_load.setShortcut("Ctrl+O")
+        self._bind_command_shortcut(btn_load, "Ctrl+O")
         btn_load.setToolTip(
             msg('Abrir un archivo Excel (.xlsx) con las hojas:\n  • Aulas: # DE AULA y CAPACIDAD (entero ≥ 0)\n  • Cursos: Curso; cada fila es un grupo sugerido\nOpcionales: Nombre de Curso, Horas (0800-1055), Aula y Días (L,I,M,J,V,S).\nLos encabezados van en la fila 1; el orden de columnas no importa.')
         )
@@ -419,6 +432,7 @@ class MainWindow(QMainWindow):
         )
 
         self.chk_random_seed = QCheckBox(msg('Aleatoria'))
+        self.chk_random_seed.setObjectName('randomSeed')
         self.chk_random_seed.setToolTip(msg('Activar para usar una semilla aleatoria en cada generación'))
         self.chk_random_seed.setChecked(False)
 
@@ -433,7 +447,7 @@ class MainWindow(QMainWindow):
 
         self.btn_generate = QPushButton(msg('Generar horario'))
         self.btn_generate.setObjectName("primaryAction")
-        self.btn_generate.setShortcut("Ctrl+Return")
+        self._bind_command_shortcut(self.btn_generate, "Ctrl+Return")
         self.btn_generate.setToolTip(
             msg('Ejecutar el algoritmo de programación con los cursos y aulas cargados.\nEl resultado se muestra en la pestaña Horario Generado.')
         )
@@ -441,7 +455,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.setEnabled(False)
 
         self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
-        self.btn_export.setShortcut("Ctrl+S")
+        self._bind_command_shortcut(self.btn_export, "Ctrl+S")
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
         )
@@ -634,6 +648,10 @@ class MainWindow(QMainWindow):
 
         if dialog.exec():
             restrictions = dialog.get_restrictions()
+            # Accepting unchanged selections is not an input edit. Preserve the
+            # accepted schedule and history before invalidating any placements.
+            if restrictions == (self.classroom_restrictions or {}):
+                return
             if not self._confirm_pin_inputs(restrictions=restrictions):
                 return
             self.classroom_restrictions = restrictions
@@ -819,6 +837,7 @@ class MainWindow(QMainWindow):
         self.btn_export_filtered.setEnabled(ready and count > 0)
         self.btn_export_filtered.setToolTip(
             msg('Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.', p1=count)
+            + msg('\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.')
         )
 
     def _export_schedule(self, filtered=False):
@@ -887,8 +906,21 @@ class MainWindow(QMainWindow):
                 exporter.to_csv(assignments, file_path, groups=self.current_groups,
                                 course_name_by_code=course_name_map)
             else:
+                metadata = {}
+                if pending or filtered:
+                    rooms = self._validation_classrooms()
+                    metadata = dict(
+                        pending=[dict(group_id=group.group_id,
+                                      reason=str(msg(group.unassigned_reason or
+                                          unassigned_reason(group, rooms, time_model))))
+                                 for group in self.current_groups or []
+                                 if group.group_id not in self.current_schedule],
+                        status="partial" if pending else "complete",
+                        total_assigned=len(self.current_schedule), filtered=filtered,
+                        filters=self.schedule_viewer.export_filter_description() if filtered else None)
                 exporter.to_excel(assignments, file_path, groups=self.current_groups,
-                                  course_name_by_code=course_name_map, include_grid=True)
+                                  course_name_by_code=course_name_map, include_grid=True,
+                                  **metadata)
         except Exception as e:
             # Keep the latest attempt readable after its modal is dismissed.
             # Only expose the basename here; technical error details stay in
@@ -1206,6 +1238,11 @@ class MainWindow(QMainWindow):
             except Exception as error:
                 self._edit_failed(error)
                 return False
+        except Exception as error:
+            # Candidate preparation may reject text that cannot be serialized.
+            # Keep the failure inside the Qt action just like commit failures.
+            self._edit_failed(error)
+            return False
         return self._commit_edit(candidate, label)
 
     def _travel_history(self, undo):
@@ -1690,8 +1727,8 @@ class MainWindow(QMainWindow):
         text = (plural('course_count', len(courses))
                 + '  ·  ' + plural('session_count', groups)
                 + '  ·  ' + plural('classroom_count', len(self._classrooms)))
-        if self.current_schedule:
-            text += msg('  ·  {p1}/{p3} sesiones asignadas', p1=len(self.current_schedule), p3=groups)
+        if self.current_groups is not None:
+            text += msg('  ·  {p1}/{p3} sesiones asignadas', p1=len(self.current_schedule or {}), p3=groups)
         elif courses:
             text += msg('  ·  Listo para generar')
         else:

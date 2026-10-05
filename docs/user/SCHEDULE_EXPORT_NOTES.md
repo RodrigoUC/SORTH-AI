@@ -9,11 +9,35 @@
 
 ## Exportar
 
-- **Exportar completo** conserva el comportamiento existente: exporta todas las asignaciones, sin aplicar los filtros. Ctrl+S mantiene esta acción.
+- **Exportar todas las asignaciones** conserva el comportamiento existente: exporta todas las asignaciones, sin aplicar los filtros. Ctrl+S mantiene esta acción.
 - **Exportar filtrado (N)** es una acción adicional para Excel y CSV. N cuenta las sesiones asignadas que cumplen Buscar, Aula, Día y Estado. La pestaña activa y el selector local del aula de la cuadrícula no restringen esta exportación; use el filtro compartido Aula para exportar un aula.
 - El diálogo de guardado y el mensaje final indican alcance y cantidad. Si no hay coincidencias asignadas, la acción filtrada está desactivada. Sin asignar no produce filas de horario ficticias.
 - Generar o invalidar un horario desactiva ambas acciones. Cancelar el guardado no modifica filtros ni datos.
 - Si la exportación falla, el error permanece en la barra y en **Leer estado (F6)** después de cerrar el diálogo. Identifica el último destino por su nombre, sin añadir su ruta al estado. Un nuevo resultado sustituye este mensaje; cancelar el selector conserva el último resultado.
+
+## Excel parcial y filtrado
+
+Un Excel de un horario parcial, o cualquier Excel filtrado, añade **Estado** y
+**Pendientes** sin cambiar las columnas de Asignaciones, Por Aula ni las grillas.
+Estado es la primera hoja: muestra `partial`/`complete` para el **horario global**,
+las sesiones asignadas, pendientes y totales, el alcance y cuántas asignaciones
+contiene el archivo. En un archivo filtrado también muestra las asignaciones
+fuera del filtro y los filtros aplicados. Un horario global completo puede tener
+una exportación filtrada: su estado `complete` no significa que el archivo incluya
+todas sus asignaciones; el alcance y los recuentos lo distinguen.
+
+Pendientes conserva los identificadores, nombres y motivos de **todas** las
+sesiones sin asignar del horario global, aunque no cumplan el filtro de consulta.
+Una sesión asignada excluida por el filtro no pasa a Pendientes. No se añaden filas
+ficticias a las tablas de asignaciones. Los encabezados Excel siguen en español;
+los motivos y la descripción de filtros reflejan el idioma de la interfaz.
+
+La exportación completa de un horario sin pendientes conserva su estructura
+anterior. Si no hay asignaciones, o un filtro no tiene coincidencias asignadas,
+la GUI mantiene la acción correspondiente desactivada. CSV conserva solamente
+sus siete columnas de asignaciones; no incorpora estados ni motivos. Para
+compartir los identificadores y motivos pendientes, use Excel; PDF conserva
+el estado global y los recuentos, pero no la lista de pendientes y sus motivos.
 
 ## Compatibilidad y seguridad
 
