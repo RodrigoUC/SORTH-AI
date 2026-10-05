@@ -51,7 +51,7 @@ def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
     if answer == QMessageBox.StandardButton.Yes:
         assert target.read_bytes() != original
         assert target.name in window.status_bar.currentMessage()
-        assert len(modals) == 1
+        assert not modals
         if extension == 'xlsx':
             from openpyxl import load_workbook
             book = load_workbook(target)

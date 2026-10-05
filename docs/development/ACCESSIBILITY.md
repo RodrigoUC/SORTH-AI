@@ -20,7 +20,9 @@ Use synthetic courses, classrooms, paths and failures only. The deferred pilot
   child modal dialogs cannot invoke them.
 - F6 or **Leer estado / Read status** opens a read-only, keyboard-selectable
   snapshot of the current status, save state/error, overview, schedule totals and
-  filtered result count. Escape closes it and returns to the invoker. Reopen to
+  filtered result count, plus the full literal destination of the last successful
+  export. Arrow/Shift+Arrow, Ctrl+A/C and Home/End support reading and copying;
+  Tab leaves the text for Close. Escape closes it and returns to the invoker. Reopen to
   read newer state. This fallback does not claim automatic live announcements.
 - Modal acceptance and cancellation restore the surviving, visible, enabled
   invoker. Qt handles ordinary Enter/default buttons and Escape rejection.

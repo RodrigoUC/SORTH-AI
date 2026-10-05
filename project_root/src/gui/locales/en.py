@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Última exportación:\n{details}': 'Last export:\n{details}',
     '{room_type} (guardado en el curso)': '{room_type} (saved in the course)',
     'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
     'Comparación pendiente': 'Comparison pending',
@@ -132,6 +133,9 @@ MESSAGES = {
     'Actualizar recursos': 'Update resources',
     'compact_assigned_count': {'one': '{n} assigned', 'other': '{n} assigned'},
     'compact_pending_count': {'one': '{n} pending', 'other': '{n} pending'},
+    'assigned_session_count': {'one': '{n} session assigned', 'other': '{n} sessions assigned'},
+    'used_classroom_count': {'one': '{n} classroom used', 'other': '{n} classrooms used'},
+    'linked_resource_count': {'one': '{n} resource linked to sessions', 'other': '{n} resources linked to sessions'},
     'Parámetros activos: {count}': 'Active parameters: {count}',
     'Calendario personalizado': 'Custom calendar',
 
@@ -307,11 +311,11 @@ MESSAGES = {
     'Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.': 'Save the generated schedule as Excel (.xlsx), CSV or PDF.\nExcel includes a visual grid; PDF has printable classroom tables.',
     "Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)": 'Excel files (*.xlsx);;CSV files (*.csv);;PDF documents (*.pdf)',
     'El libro supera el límite de importación. Divídalo en archivos más pequeños.': 'The workbook exceeds the import limit. Split it into smaller files.',
-    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Partial schedule: {p1}/{p3} groups; {pending} pending',
+    '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes': '⚠️ Partial schedule: {p1}/{p3} groups; {pending}',
     'Sin resultado': 'No result',
     'No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.': 'No result was produced. Review the inputs and generate the schedule again.',
 
-    '{scope} · horario parcial, {pending} pendientes': '{scope} · partial schedule, {pending} pending',
+    '{scope} · horario parcial, {pending} pendientes': '{scope} · partial schedule, {pending}',
     '{gid}: identificador de grupo duplicado': '{gid}: duplicate group identifier',
     '{gid}: asignación mal formada': '{gid}: malformed assignment',
     'Exportar todas las asignaciones': 'Export all assignments',
@@ -612,7 +616,7 @@ MESSAGES = {
     "{n} sesión": "{n} session",
     "{p0} cursos  ·  {p2} sesiones  ·  {p4} aulas": "{p0} courses  ·  {p2} sessions  ·  {p4} classrooms",
     "{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.": "{p0} requires a laboratory. Assign it to regular classroom {p2}?\nThis manual exception will be recorded in the session.",
-    "{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas": "{p0} sessions assigned · {p2} unassigned · {p4} classrooms used",
+    "{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas": "{p0} · {p2} unassigned · {p4}",
     "{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.": "Sessions: {p0}{p2}. Exact times in each block; hover for full details.",
     "{p0} · {p2} min · {p4} estudiantes": "{p0} · {p2} min · Students: {p4}",
     "¿Eliminar el curso {p1}?": "Delete course {p1}?",
@@ -1076,8 +1080,7 @@ MESSAGES.update({'Docentes': 'Teachers',
                                                                                                                  'session.',
  'Activo': 'Active',
  'Desactivado: datos conservados, sin restricciones': 'Off: records retained, constraints not applied',
- '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count} resources with '
-                                                              'assigned sessions.',
+ '{name}: {state}. {count} recursos con sesiones asignadas.': '{name}: {state}. {count}.',
  'Recursos por revisar': 'Review resources',
  'Este cambio elimina {count} sesiones con relaciones de recursos guardadas. Se quitarán esas relaciones, pero se conservarán los recursos. ¿Continuar?': 'This '
                                                                                                                                                           'change '

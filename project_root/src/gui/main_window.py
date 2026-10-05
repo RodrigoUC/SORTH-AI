@@ -82,6 +82,7 @@ class MainWindow(QMainWindow):
         self._save_error = None
         self._restore_failed = False
         self._preserve_previous = False
+        self._last_export_detail = None
         self._repo = repo
         if self._repo is None:
             try:
@@ -298,9 +299,13 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         text = QPlainTextEdit()
         text.setReadOnly(True)
+        text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse
+                                     | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        text.setTabChangesFocus(True)
         text.setAccessibleName(msg('Estado actual'))
         text.setPlainText(join_messages('\n\n', filter(None, (
             self.status_bar.currentMessage(),
+            self._last_export_detail,
             msg('Archivo de la sesión: {filename}', filename=Path(self.excel_path).name) if self.excel_path else None,
             self._save_state_label.text(),
             self.overview_label.text(), self.schedule_viewer._summary_label.text(),
@@ -819,7 +824,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(msg(
             '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes' if pending
             else '✅ Horario generado: {p1}/{p3} grupos',
-            p1=assigned, p3=total, pending=pending))
+            p1=assigned, p3=total, pending=plural('compact_pending_count', pending)))
 
     def _on_schedule_error(self, message):
         if self._generation_cancelled:
@@ -862,7 +867,8 @@ class MainWindow(QMainWindow):
         count = len(assignments)
         pending = len(self.current_groups or []) - len(self.current_schedule)
         if pending:
-            scope = msg('{scope} · horario parcial, {pending} pendientes', scope=scope, pending=pending)
+            scope = msg('{scope} · horario parcial, {pending} pendientes',
+                        scope=scope, pending=plural('compact_pending_count', pending))
         file_path, selected_format = QFileDialog.getSaveFileName(
             self, msg('Guardar horario {p1} · {p3} sesiones', p1=scope, p3=count),
             "horario_filtrado.xlsx" if filtered else "horario.xlsx",
@@ -922,6 +928,7 @@ class MainWindow(QMainWindow):
                                   course_name_by_code=course_name_map, include_grid=True,
                                   **metadata)
         except Exception as e:
+            self._last_export_detail = None
             # Keep the latest attempt readable after its modal is dismissed.
             # Only expose the basename here; technical error details stay in
             # the existing error dialog rather than leaking into F6/status.
@@ -930,8 +937,14 @@ class MainWindow(QMainWindow):
                 filename=Path(file_path).name))
             _InfoDialog(self, msg('Error'), msg('Error al exportar:\n{p1}', p1=e.render(msg) if isinstance(e, ExcelImportError) else str(e)), warning=True).exec()
         else:
+            # Routine completion does not need protected focus or an extra
+            # acknowledgment. Keep the full literal destination available in
+            # the keyboard-readable F6 snapshot, separate from current status.
+            # This is session-only feedback, never part of persisted data.
+            self._last_export_detail = msg('Última exportación:\n{details}', details=msg(
+                'Horario {p1}: {p3} sesiones exportadas a:\n{p5}',
+                p1=scope, p3=count, p5=file_path))
             self.status_bar.showMessage(msg('Horario {p1}: {p3} sesiones exportadas a {p5}', p1=scope, p3=count, p5=Path(file_path).name))
-            _InfoDialog(self, msg('Éxito'), msg('Horario {p1}: {p3} sesiones exportadas a:\n{p5}', p1=scope, p3=count, p5=file_path)).exec()
 
     # ------------------------------------------------------------------
     # Session persistence
@@ -1277,7 +1290,8 @@ class MainWindow(QMainWindow):
                 state = msg('Activo') if catalog.enabled else msg('Desactivado: datos conservados, sin restricciones')
                 count = len({r for _g, ids in catalog.memberships for r in ids or ()})
                 resource_details.append(msg('{name}: {state}. {count} recursos con sesiones asignadas.',
-                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
+                    name=msg(RESOURCE_TITLES[catalog.kind]), state=state,
+                    count=plural('linked_resource_count', count)))
                 resource_summaries.append(msg('{name}: {state} ({count})',
                     name=msg(RESOURCE_TITLES[catalog.kind]), state=state, count=count))
         notices.extend([join_messages(' · ', resource_summaries)] if self.height() <= self._COMPACT_HEIGHT and resource_summaries

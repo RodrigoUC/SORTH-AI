@@ -957,7 +957,10 @@ class ScheduleViewerWidget(QWidget):
             snapshot = replace(self._quality_snapshot, assignments=tuple(
                 (gid, *slot) for gid, slot in sorted(assignments.items())))
             self.summary_data["quality"] = analyze_quality(snapshot)
-        self._summary_label.setText(msg('{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas', p0=len(assignments), p2=len(unassigned), p4=len(cls_load)))
+        self._summary_label.setText(msg(
+            '{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas',
+            p0=plural('assigned_session_count', len(assignments)),
+            p2=len(unassigned), p4=plural('used_classroom_count', len(cls_load))))
         self._btn_summary.setEnabled(bool(self._known_gids))
         self._btn_clear_schedule.setEnabled(bool(self._known_gids))
 

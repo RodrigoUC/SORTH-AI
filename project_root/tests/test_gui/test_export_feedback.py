@@ -78,13 +78,15 @@ def test_real_export_collision_retains_latest_failure_then_next_success(
         window._export_schedule(filtered=filtered)
         old_bytes = old_export.read_bytes()
         assert old_bytes and old_export.name in window.status_bar.currentMessage()
+        assert not modals
+        assert str(old_export) in f6_status(window)
         window._export_schedule(filtered=filtered)
         failure = window.status_bar.currentMessage()
         assert ('Could not export to' if language == 'en' else 'No se pudo exportar a') in failure
         assert destination.name in failure and old_export.name not in failure
         assert str(tmp_path) not in failure
-        assert len(modals) == 2 and modals[1][0] == 'Error'
-        assert modals[1][1] == failure
+        assert len(modals) == 1 and modals[0][0] == 'Error'
+        assert modals[0][1] == failure
         snapshot = f6_status(window)
         assert destination.name in snapshot and old_export.name not in snapshot
         assert str(tmp_path) not in snapshot
@@ -99,13 +101,14 @@ def test_real_export_collision_retains_latest_failure_then_next_success(
         assert destination.name in f6_status(window)
         # Dismissing a new picker did not perform an export; retain its last outcome.
         window._export_schedule(filtered=filtered)
-        assert window.status_bar.currentMessage() == translated_failure and len(modals) == 2
+        assert window.status_bar.currentMessage() == translated_failure and len(modals) == 1
         window._export_schedule(filtered=filtered)
         assert next_export.is_file() and next_export.stat().st_size
         assert next_export.name in window.status_bar.currentMessage()
         assert destination.name not in window.status_bar.currentMessage()
         assert destination.name not in f6_status(window)
-        assert len(modals) == 3
+        assert str(next_export) in f6_status(window)
+        assert len(modals) == 1
     finally:
         manager.set_language(old_language, persist=False)
 
@@ -124,7 +127,8 @@ def test_new_export_from_error_modal_keeps_its_newer_outcome(window, tmp_path, m
         return 0
     monkeypatch.setattr(_InfoDialog, 'exec', inspect)
     window._export_schedule()
-    assert len(calls) == 2
+    assert calls == ['Error']
     assert replacement.exists()
     assert replacement.name in window.status_bar.currentMessage()
     assert destination.name not in window.status_bar.currentMessage()
+    assert str(replacement) in f6_status(window)

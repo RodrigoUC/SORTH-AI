@@ -43,7 +43,8 @@ def test_partial_export_dialog_keeps_pending_warning_and_scope(window,monkeypatc
     monkeypatch.setattr(QFileDialog,'getSaveFileName',lambda *args: titles.append(args[1]) or ('',''))
     window._export_schedule()
     window._export_schedule(filtered=True)
-    assert len(titles)==2 and all('parcial, 1 pendientes' in title for title in titles)
+    assert len(titles)==2 and all('parcial, 1 pendiente' in title for title in titles)
+    assert all('1 pendientes' not in title for title in titles)
     assert 'todas las asignaciones' in titles[0] and 'filtrado' in titles[1]
 
 
@@ -65,5 +66,6 @@ def test_removing_assignment_updates_complete_status(window):
     window._on_schedule_done(assignments,groups)
     window._on_group_removed(groups[0].group_id)
     assert 'parcial: 1/2' in window.status_bar.currentMessage()
-    assert '1 pendientes' in window.status_bar.currentMessage()
+    assert '1 pendiente' in window.status_bar.currentMessage()
+    assert '1 pendientes' not in window.status_bar.currentMessage()
     assert window.current_groups[0].unassigned_reason
