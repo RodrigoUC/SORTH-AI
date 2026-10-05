@@ -40,6 +40,8 @@ def window(tmp_path, monkeypatch):
     # The mandatory identity review has its own real-modal regression coverage.
     from src.gui.import_identity_dialog import ImportIdentityDialog
     monkeypatch.setattr(ImportIdentityDialog, 'exec', lambda self: QDialog.DialogCode.Accepted)
+    from src.gui.import_replacement_dialog import ImportReplacementDialog
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', lambda self: QDialog.DialogCode.Accepted)
     yield w
     w._import.cancel(announce=False)
     wait_for_import(w)

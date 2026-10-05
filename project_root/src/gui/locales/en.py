@@ -1,16 +1,12 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
-    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Grid zoom: {percent}%. Reset to 100%.',
-    'Expandir': 'Expand',
-    'Restaurar': 'Restore',
-    'Expandir vista del horario': 'Expand schedule view',
-    'Restaurar vista del horario': 'Restore schedule view',
-    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Temporarily hide other panels to enlarge this view.',
-    'Restaurar los otros paneles (Esc).': 'Restore the other panels (Esc).',
-    'Alejar cuadrícula': 'Zoom out grid',
-    'Acercar cuadrícula': 'Zoom in grid',
-    'Restablecer zoom al 100%': 'Reset zoom to 100%',
+    'Revise los cursos importados y pulse «Generar horario».': 'Review the imported courses and click “Generate schedule”.',
+    'Reemplazar el Excel actual': 'Replace the current Excel workbook',
+    'Excel actual: {old}\nNuevo Excel: {new}': 'Current Excel: {old}\nNew Excel: {new}',
+    'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.': 'The new Excel workbook will replace the current courses and classrooms. Schedule assignments, pins, classroom restrictions, and teacher, student-group and student links to previous sessions will be lost. Associations will not be transferred by identifier.',
+    'Se conservarán los catálogos de recursos, sus disponibilidades, el calendario y las preferencias. Cancelar o un error conserva la sesión actual.': 'Resource catalogs, their availability, the calendar and preferences will be kept. Canceling or an error keeps the current session.',
+    'Reemplazar Excel': 'Replace Excel workbook',
 
     '{room_type} (guardado en el curso)': '{room_type} (saved in the course)',
     'La semilla guardada está fuera del intervalo permitido.': 'The saved seed is outside the supported range.',
@@ -510,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Clear schedule",
     "Lista detallada": "Detailed list",
     "Lista detallada del horario": "Detailed schedule list",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Grid zoom: {percent}%. Reset to 100%.',
+    'Expandir': 'Expand',
+    'Restaurar': 'Restore',
+    'Expandir vista del horario': 'Expand schedule view',
+    'Restaurar vista del horario': 'Restore schedule view',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Temporarily hide other panels to enlarge this view.',
+    'Restaurar los otros paneles (Esc).': 'Restore the other panels (Esc).',
+    'Alejar cuadrícula': 'Zoom out grid',
+    'Acercar cuadrícula': 'Zoom in grid',
+    'Restablecer zoom al 100%': 'Reset zoom to 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Ready. Load an Excel file to get started.",
     "Lunes": "Monday",
     "Marcar todos": "Select all",
@@ -551,7 +559,7 @@ MESSAGES = {
     "Resultado de validación": "Validation result",
     "Resumen del Horario": "Schedule Summary",
     "Revisar importación": "Review import",
-    "SORTH - Sistema de Organización de Horarios": "SORTH - Academic Schedule Organizer",
+    "SORTH-AI - Sistema de Organización de Horarios": "SORTH-AI - Academic Schedule Organizer",
     "Se encontró una sesión guardada.\n¿Deseas restaurarla?": "A saved session was found.\nWould you like to restore it?",
     "Seleccionar archivo Excel": "Select Excel file",
     "Seleccione el aula, día y hora. Se comprobarán todas las restricciones.": "Select the classroom, day and time. All restrictions will be checked.",
@@ -1477,4 +1485,13 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactive',
     'Fijada: {room}, {day}, {start}–{end}': 'Pinned: {room}, {day}, {start}–{end}',
+})
+
+# Distinguish desktop STDIO from hosted web connections.
+MESSAGES.update({
+    'ChatGPT web (conexión remota)': 'ChatGPT web (remote connection)',
+    'ChatGPT de escritorio (STDIO)': 'ChatGPT desktop (STDIO)',
+    'Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida': 'Name: sorth-preview\nType: STDIO\nCommand to start: {command}\nArguments: --serve\nEnvironment variables: none required',
+    'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.': 'ChatGPT web uses a remote connection; it cannot run this local path as a URL. It requires HTTPS or Secure MCP Tunnel with separate authorization.\n\n1. If your client shows a STDIO form, choose ChatGPT desktop in this guide.\n2. For the web connection, read the official instructions and authorize its permissions and credentials separately.\n\nSORTH does not create tunnels or keys, open ports, or configure ChatGPT.',
+    '1. En ChatGPT de escritorio, abre la configuración de servidores MCP y añade un servidor con tipo STDIO. Este flujo requiere un cliente con ejecución local en el mismo equipo que SORTH.\n2. Tras guardar el permiso MCP en SORTH, copia cada valor de abajo en su campo: comando y argumentos van separados. No uses SORTH.exe ni el comando de ejemplo del formulario.\n3. Guarda la configuración y revisa los permisos del cliente antes de iniciar o reiniciar el servidor. La conexión con ChatGPT aún no se ha probado.': '1. In ChatGPT desktop, open MCP server settings and add a server with type STDIO. This flow requires a client with local execution on the same computer as SORTH.\n2. After saving the MCP permission in SORTH, copy each value below into its field: command and arguments are separate. Do not use SORTH.exe or the form’s example command.\n3. Save the configuration and review client permissions before starting or restarting the server. The ChatGPT connection has not been tested yet.',
 })

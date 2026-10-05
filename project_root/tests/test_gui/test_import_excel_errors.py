@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import QMessageBox
 
 from src.application.edit_history import encoded
 from src.gui.i18n import language_manager
+from src.gui.i18n_widgets import QDialog
+from src.gui.import_replacement_dialog import ImportReplacementDialog
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
 from tests.test_gui.import_helpers import wait_for_import
@@ -90,7 +92,7 @@ def test_reimported_split_groups_keep_exact_pins_and_resources_then_cancel_safel
     before = encoded(window._capture_edit_state())
     disk = (tmp_path / 'session.db').read_bytes()
     reviews = []
-    monkeypatch.setattr(QMessageBox, 'exec', lambda dialog: reviews.append(dialog.text()) or QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', lambda dialog: reviews.append(dialog._candidate.path) or QDialog.DialogCode.Rejected)
     window._import.start(workbook(tmp_path / 'replacement.xlsx', code='NEW'))
     wait_for_import(window)
     assert len(reviews) == 1

@@ -1,4 +1,28 @@
-# SORTH - Sistema de Organización de Horarios
+# SORTH-AI - Sistema de Organización de Horarios
+
+## Descargar e instalar en Windows
+
+El instalador se genera en **GitHub Actions**, no se guarda como `.exe` en la
+raíz del código. Actualmente son compilaciones de revisión **sin firma digital**;
+no hay una release pública estable anunciada aquí.
+
+1. Abre [Windows review build](https://github.com/RodrigoUC/SORTH-AI/actions/workflows/windows-review.yml)
+   y elige una ejecución **correcta de `main`**, comprobando su commit.
+2. En **Artifacts**, descarga `SORTH-windows-review-…` (GitHub puede pedir iniciar
+   sesión). Los artefactos caducan a los siete días; una ejecución antigua puede
+   no ofrecer descarga.
+3. Extrae el ZIP del artefacto. El instalador es
+   `SORTH-<versión>-<commit>-windows-x64-unsigned-setup.exe`; `SHA256SUMS.txt` permite
+   comprobar que la descarga coincide con esa compilación. El hash no identifica
+   por sí solo al editor ni garantiza seguridad.
+4. El asistente instala sólo para tu usuario, añade **SORTH-AI** al menú Inicio y
+   permite elegir un acceso directo al escritorio. Cada compilación conserva su
+   identificador para distinguirla de otras versiones de revisión.
+
+Si Windows bloquea el archivo, conserva el mensaje y consulta la
+[guía de distribución y firma](docs/release/WINDOWS_DISTRIBUTION.md).
+Cambiar los iconos o el nombre no elimina SmartScreen. Si sólo quieres el código,
+consulta [instalación para desarrollo](project_root/README.md).
 
 ## Comunidad y estado del proyecto
 

@@ -3,7 +3,7 @@ import json
 from pathlib import Path, PureWindowsPath
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
-from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QVBoxLayout, QWidget, QScrollArea, QFrame
+from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QVBoxLayout, QWidget, QScrollArea, QFrame, QSizePolicy
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (QComboBox, QDialog, QDialogButtonBox, QLabel, QPushButton,
@@ -14,6 +14,7 @@ CLIENT_SOURCES = {
     'opencode': 'https://opencode.ai/v2/docs/mcp-servers',
     'claude': 'https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop',
     'chatgpt': 'https://developers.openai.com/plugins/deploy/connect-chatgpt',
+    'chatgpt_desktop': 'https://learn.chatgpt.com/docs/extend/mcp',
 }
 CLAUDE_CONFIG_SOURCE = 'https://modelcontextprotocol.io/docs/develop/connect-local-servers'
 TUNNEL_SOURCE = 'https://developers.openai.com/api/docs/guides/secure-mcp-tunnels'
@@ -25,6 +26,8 @@ def client_configuration(client, command):
             or not isinstance(command[0], str) or command[1] != '--serve'
             or not (Path(command[0]).is_absolute() or PureWindowsPath(command[0]).is_absolute())):
         raise ValueError('A verified companion command is required')
+    if client == 'chatgpt_desktop':
+        return str(msg('Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida', command=command[0]))
     if client == 'opencode':
         value = {'mcp': {'servers': {'sorth-preview': {
             'type': 'local', 'command': list(command), 'disabled': True,
@@ -58,8 +61,9 @@ class McpClientHelp(QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
         self.client = QComboBox()
+        self.client.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.client.setAccessibleName(msg('Cliente MCP'))
-        for title, key in [('OpenCode V2', 'opencode'), ('Claude Desktop', 'claude'), ('ChatGPT', 'chatgpt')]:
+        for title, key in [('OpenCode V2', 'opencode'), ('Claude Desktop', 'claude'), (msg('ChatGPT web (conexión remota)'), 'chatgpt'), (msg('ChatGPT de escritorio (STDIO)'), 'chatgpt_desktop')]:
             self.client.addItem(title, key)
         client_label = QLabel(msg('Cliente MCP'))
         client_label.setBuddy(self.client)
@@ -137,6 +141,18 @@ class McpClientHelp(QDialog):
 
     def _language_changed(self):
         self.configuration.setAccessibleName(str(msg('Configuración del cliente para copiar')))
+        if self.client.currentData() == 'chatgpt_desktop' and self.command is not None:
+            cursor = self.configuration.textCursor()
+            selection = cursor.selectedText()
+            old_position = cursor.position()
+            content = client_configuration('chatgpt_desktop', self.command)
+            self.configuration.setPlainText(content)
+            document = self.configuration.document()
+            cursor = document.find(selection) if selection else self.configuration.textCursor()
+            if not selection or cursor.isNull():
+                cursor = self.configuration.textCursor()
+                cursor.setPosition(min(old_position, document.characterCount() - 1))
+            self.configuration.setTextCursor(cursor)
 
     def _scroll_to_focus(self, previous, focused):
         if (self.isVisible() and focused is not None
@@ -166,7 +182,8 @@ class McpClientHelp(QDialog):
         instructions = {
             'opencode': '1. Copia esta configuración y combina sorth-preview en mcp.servers de opencode.jsonc. Conserva las otras entradas.\n2. Empieza desconectada (disabled: true) y usa protocol: legacy.\n3. Tras guardar el permiso en SORTH, revisa las herramientas y conecta con /mcps.',
             'claude': '1. Copia esta configuración y combina sorth-preview en mcpServers de la configuración local de Claude Desktop. Conserva los otros servidores.\n2. Guarda primero el permiso MCP en SORTH. Reiniciar Claude puede iniciar el servidor.\n3. Revisa y autoriza las herramientas en Claude. Este flujo no genera extensiones MCPB.',
-            'chatgpt': 'ChatGPT no acepta esta ruta local como conexión. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Consulta las instrucciones oficiales y las reglas de tu organización.\n2. Configura y autoriza esa conexión por separado, incluidos sus permisos y credenciales.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.',
+            'chatgpt': 'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.',
+            'chatgpt_desktop': '1. En ChatGPT de escritorio, abre la configuración de servidores MCP y añade un servidor con tipo STDIO. Este flujo requiere un cliente con ejecución local en el mismo equipo que SORTH.\n2. Tras guardar el permiso MCP en SORTH, copia cada valor de abajo en su campo: comando y argumentos van separados. No uses SORTH.exe ni el comando de ejemplo del formulario.\n3. Guarda la configuración y revisa los permisos del cliente antes de iniciar o reiniciar el servidor. La conexión con ChatGPT aún no se ha probado.',
         }
         self.instructions.setText(msg(instructions[client]))
         can_copy = self.command is not None and client != 'chatgpt'

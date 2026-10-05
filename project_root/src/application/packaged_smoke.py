@@ -277,6 +277,22 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
     def start():
         try:
             result['text_rendering']['startup'] = require_readable_text(window, output_dir, 'startup')
+            result['application_identity'] = {
+                'display_name': app.applicationDisplayName(),
+                'settings_name': app.applicationName(),
+                'organization': app.organizationName(),
+                'window_title': window.windowTitle(),
+                'application_icon': not app.windowIcon().isNull(),
+                'window_icon': not window.windowIcon().isNull(),
+            }
+            if getattr(sys, 'frozen', False):
+                identity = result['application_identity']
+                if (identity['display_name'] != 'SORTH-AI'
+                        or identity['settings_name'] != 'SORTH'
+                        or identity['organization'] != 'SORTH'
+                        or not identity['window_title'].startswith('SORTH-AI - ')
+                        or not identity['application_icon'] or not identity['window_icon']):
+                    raise RuntimeError('Frozen application identity mismatch.')
             from PyQt6.QtGui import QImage, QIcon
             if QIcon(str(source_root / 'assets/sorth.ico')).pixmap(32, 32).isNull():
                 raise RuntimeError('Bundled application icon could not be decoded.')

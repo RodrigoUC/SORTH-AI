@@ -177,3 +177,43 @@ La revisión de una detección de malware no equivale a obtener reputación Smar
 - [Envío de archivos a Microsoft](https://learn.microsoft.com/en-us/defender-xdr/submission-guide)
 - [Funcionamiento de PyInstaller: carpeta y archivo único](https://pyinstaller.org/en/stable/operating-mode.html)
 - [Opciones de PyInstaller, UPX y recursos de versión](https://pyinstaller.org/en/stable/usage.html)
+
+## Identidad nativa y distribución firmada
+
+El nombre visible es **SORTH-AI**: ventana, cabecera, propiedades del ejecutable,
+asistente, menú Inicio y aplicaciones instaladas. El asistente usa el logotipo
+original en recursos de alta resolución, idiomas ES/EN y escritorio opcional
+(desactivado inicialmente). No abre la aplicación automáticamente ni fija iconos
+en la barra de tareas. Windows permite anclar el acceso desde Inicio; el enlace
+y el proceso comparten `SORTH.App` para su asociación.
+
+Por compatibilidad se mantienen `SORTH.exe`, los identificadores de instalación
+`SORTH-<build_id>`, las carpetas `Programs/SORTH/<build_id>` y los datos/configuración
+`SORTH`. Las revisiones siguen lado a lado; cambiar la etiqueta no migra ni borra
+sesiones. El commit en los accesos y en Aplicaciones instaladas distingue cada
+revisión. Un icono antiguo ya anclado puede seguir apuntando a una revisión anterior.
+
+La comprobación de CI inspecciona recursos de versión, accesos directos, su icono,
+AppUserModelID y registro, además de reinstalación, desinstalación y retención de
+datos. Esto no demuestra el aspecto de Explorer/Inicio/barra de tareas en todos
+los escritorios. Revisar manualmente ES/EN, teclado, 100/150/200 % de escala,
+iconos claros/oscuros y anclaje/desanclaje en Windows antes de una release.
+
+### Próximo paso: editor verificado
+
+La firma es un trabajo separado de los iconos. Antes de contratar un servicio o
+certificado, comparar proveedores de firma Authenticode para Windows, requisitos
+de verificación de identidad, disponibilidad para el titular y costo total. La
+persona responsable debe aprobar proveedor, costo y custodia de las claves.
+No se han adquirido certificados ni configurado credenciales.
+
+Después de esa aprobación: firmar y sellar temporalmente los ejecutables finales
+(incluido el compañero) antes de empaquetar, firmar el instalador final, verificar
+la cadena y los sellos con herramientas de Windows, y calcular hashes después de
+firmar. El acceso a la firma debe quedar restringido y fuera del repositorio.
+La revisión de licencias y pruebas en Windows limpio sigue siendo necesaria.
+
+Sólo entonces preparar una release revisada con descargas, versión, notas y
+hashes. Una firma válida identifica al editor e integra la reputación de Windows;
+no garantiza que SmartScreen deje de avisar inmediatamente o bajo toda política
+institucional. Mantener las protecciones activas y evaluar cualquier detección.

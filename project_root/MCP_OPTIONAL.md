@@ -179,7 +179,28 @@ Este flujo de SORTH no genera ni instala un `.mcpb` y no se presenta como extens
 publicada o revisada por Anthropic. La guía JSON y el ejecutable requieren una
 aceptación independiente en la versión de Claude Desktop elegida.
 
-### ChatGPT
+### ChatGPT de escritorio: formulario STDIO
+
+Si tu cliente de escritorio muestra **Conectar a un MCP personalizado** con tipo
+**STDIO**, usa **Ver guía de conexión → ChatGPT de escritorio (STDIO)**. Requiere
+ejecución local en el mismo equipo donde está preparado SORTH. Tras preparar y
+verificar el complemento y guardar **Permitir servidor MCP local**, la guía muestra:
+
+- Nombre: `sorth-preview`
+- Tipo: `STDIO`
+- Comando para iniciar: ruta absoluta verificada de `SORTH-MCP.exe`
+- Argumentos: `--serve` (separado del campo de comando)
+- Variables del entorno: ninguna requerida
+
+Copia cada valor en su campo; el bloque es una referencia de campos, no JSON ni un
+comando de terminal. No uses `SORTH.exe` ni el ejemplo del formulario. La guía no
+inventa rutas cuando el complemento no está verificado. En desarrollo desde
+fuente, consulta la sección de Python y `cwd` más abajo; no uses la ruta de la GUI.
+Guardar o reiniciar el cliente puede iniciar el servidor: revisa sus permisos
+primero. No se ha probado la conexión comercial con ChatGPT. Consulta la
+[guía oficial de MCP de escritorio](https://learn.chatgpt.com/docs/extend/mcp).
+
+### ChatGPT web: conexión remota
 
 Una ruta local no se pega como URL de servidor. Hace falta una conexión separada:
 un endpoint HTTPS con transporte HTTP compatible, o Secure MCP Tunnel que alcance

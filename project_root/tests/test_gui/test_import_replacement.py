@@ -1,0 +1,224 @@
+"""A new workbook replaces session data only after native consent."""
+from copy import deepcopy
+import pytest
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QMessageBox, QDialogButtonBox
+from src.gui.i18n_widgets import QDialog
+from src.gui.import_replacement_dialog import ImportReplacementDialog
+from src.gui.import_identity_dialog import ImportIdentityDialog
+from src.infrastructure.session_repository import SessionRepository
+from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
+from src.scheduling.time_model import TimeModel
+from src.scheduling.project_calendar import ProjectCalendar
+from tests.test_gui.test_background_import import window, workbook, session
+from tests.test_gui.import_helpers import wait_for_import
+
+
+def prepare(window, tmp_path):
+    path = workbook(tmp_path / 'old.xlsx')
+    window._import.start(path)
+    wait_for_import(window)
+    window.resources = SchedulingResources(tuple(ResourceCatalog(kind, kind != 'student_group',
+        (Resource('resource-1', 'Resource', ((1, 480, 1000),)),),
+        (('BIO-G1', ('resource-1',)),)) for kind in ('student', 'student_group', 'teacher')))
+    window.calendar = ProjectCalendar(('Lunes', 'Martes'), 480, 1020, ((720, 780),))
+    window.chk_random_seed.setChecked(False)
+    window.seed_input.setValue(37)
+    window._features.save({**window._features.values(), 'project_calendar': True})
+    window.classroom_restrictions = {'R': {'BIO'}}
+    window._save_session()
+    return path
+
+
+def snapshot(window):
+    return (session(window), window.resources.to_data(), deepcopy(vars(window._history)),
+            open(window._repo._db_path, 'rb').read())
+
+
+@pytest.mark.parametrize('clear', [False, True])
+@pytest.mark.parametrize('action', ['accept', 'cancel', 'escape', 'return'])
+def test_other_workbook_requires_consent_and_replaces_links(window, tmp_path, monkeypatch, clear, action):
+    prepare(window, tmp_path)
+    if clear:
+        window.pinned_group_ids.clear()
+        for group in window.current_groups:
+            group.pinned = False
+        monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.StandardButton.Yes)
+        window.schedule_viewer._clear_schedule()
+        assert window.current_schedule is None
+    before = snapshot(window)
+    catalogs = window.resources.catalogs
+    calendar, features = window.calendar, window._features.values()
+    path = workbook(tmp_path / 'new.xlsx', count=2)
+    observed = []
+    def review(dialog):
+        def interact():
+            observed.append(dialog.buttons.button(QDialogButtonBox.StandardButton.Cancel).isDefault())
+            if action in ('return', 'escape'):
+                QTest.keyClick(dialog, Qt.Key.Key_Return if action == 'return' else Qt.Key.Key_Escape)
+            else:
+                button = QDialogButtonBox.StandardButton.Ok if action == 'accept' else QDialogButtonBox.StandardButton.Cancel
+                QTest.mouseClick(dialog.buttons.button(button), Qt.MouseButton.LeftButton)
+        QTimer.singleShot(10, interact)
+        return QDialog.exec(dialog)
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', review)
+    monkeypatch.setattr(ImportIdentityDialog, 'exec', lambda self: pytest.fail('Replacement must not retain identities'))
+    window._import.start(path)
+    wait_for_import(window)
+    assert observed == [True]
+    assert window.btn_load.isEnabled() and not window._busy
+    if action != 'accept':
+        assert snapshot(window) == before
+        return
+    assert window.excel_path == path
+    assert window.course_manager.get_courses()[0].number_of_groups == 2
+    assert not window.pinned_group_ids and window.current_schedule is None
+    assert not window.classroom_restrictions
+    for before_catalog, after_catalog in zip(catalogs, window.resources.catalogs):
+        assert not after_catalog.memberships
+        assert after_catalog.resources == before_catalog.resources
+        assert after_catalog.enabled == before_catalog.enabled
+    saved = SessionRepository(window._repo._db_path).load_session()
+    assert saved['resources'] == window.resources
+    assert not saved['pinned_group_ids'] and not saved['assignments']
+    assert saved['excel_path'] == path
+    assert saved['calendar'] == window.calendar == calendar
+    assert window._features.values() == features
+    assert saved['seed'] == window.seed_input.value() == 37
+
+
+def test_repeated_clear_import_and_same_path_update(window, tmp_path, monkeypatch):
+    old = prepare(window, tmp_path)
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', lambda self: pytest.fail('Same path is an update'))
+    workbook(old, count=2)
+    window._import.start(old)
+    wait_for_import(window)
+    assert window.pinned_group_ids == {'BIO-G1'}
+    assert window.resources.catalogs[0].memberships
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', lambda self: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.StandardButton.Yes)
+    for i in range(3):
+        window.pinned_group_ids.clear()
+        for group in window.current_groups or []:
+            group.pinned = False
+        window.schedule_viewer._clear_schedule()
+        path = workbook(tmp_path / f'new-{i}.xlsx', code=f'NEW{i}')
+        window._import.start(path)
+        wait_for_import(window)
+        assert window.excel_path == path
+        assert [c.code for c in window.course_manager.get_courses()] == [f'NEW{i}']
+        assert not window.pinned_group_ids
+        groups = window.course_manager.get_courses()[0].generate_groups()
+        assignment = {groups[0].group_id: ('R', 1, 480, 540)}
+        groups[0].assignment = next(iter(assignment.values()))
+        window.current_groups, window.current_schedule = groups, assignment
+        window.schedule_viewer.display_schedule(assignment, TimeModel.default(), groups)
+        window._save_session()
+
+
+@pytest.mark.parametrize('failure', ['invalid', 'save'])
+def test_replacement_failures_preserve_previous_session(window, tmp_path, monkeypatch, failure):
+    prepare(window, tmp_path)
+    path = workbook(tmp_path / 'new.xlsx')
+    if failure == 'invalid':
+        open(path, 'wb').write(b'not a workbook')
+        monkeypatch.setattr(ImportReplacementDialog, 'exec', lambda self: pytest.fail('Invalid candidate cannot ask to replace'))
+    else:
+        monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: (_ for _ in ()).throw(OSError('save failure')))
+    before = snapshot(window)
+    window._import.start(path)
+    wait_for_import(window)
+    assert snapshot(window) == before
+
+
+@pytest.mark.parametrize('change', ['valid', 'invalid'])
+def test_replacement_consent_is_bound_to_validated_contents(window, tmp_path, monkeypatch, change):
+    prepare(window, tmp_path)
+    before = snapshot(window)
+    path = workbook(tmp_path / 'new.xlsx')
+    seen = []
+    def review(dialog):
+        seen.append(dialog._candidate)
+        if len(seen) > 1:
+            return QDialog.DialogCode.Rejected
+        if change == 'valid':
+            workbook(path, count=3)
+        else:
+            open(path, 'wb').write(b'invalid replacement')
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', review)
+    window._import.start(path)
+    wait_for_import(window)
+    assert len(seen) == (2 if change == 'valid' else 1)
+    assert snapshot(window) == before
+
+
+def test_replacement_presentation_failure_rolls_back_sql_and_resources(window, tmp_path, monkeypatch):
+    prepare(window, tmp_path)
+    path = workbook(tmp_path / 'new.xlsx', code='NEW')
+    before = snapshot(window)
+    def fail(courses):
+        raise RuntimeError('presentation failure')
+    monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
+    window._import.start(path)
+    wait_for_import(window)
+    assert snapshot(window) == before
+
+
+@pytest.mark.parametrize('action', ['accept', 'cancel', 'escape', 'return', 'save_failure'])
+def test_warning_button_reveals_imported_courses_only_after_commit(window, tmp_path, monkeypatch, action):
+    import pandas as pd
+    from src.gui.i18n_widgets import QMessageBox as LocalizedMessageBox
+    prepare(window, tmp_path)
+    window.pinned_group_ids.clear()
+    for group in window.current_groups:
+        group.pinned = False
+    window._on_schedule_cleared()
+    window.tabs.setCurrentIndex(1)
+    window.course_manager._search.setText('old-filter-no-match')
+    window.show()
+    before = snapshot(window)
+    path = tmp_path / 'new-with-warnings.xlsx'
+    # Same warning type and totals as the reported screenshot; synthetic data.
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': [f'R{i}' for i in range(12)],
+                      'CAPACIDAD': [30] * 12}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': [f'NEW{i}' for i in range(155)],
+                      'Horas': ['0800-0900'] * 155,
+                      'Aula': ['UNKNOWN'] * 54 + ['R0'] * 101}).to_excel(writer, sheet_name='Cursos', index=False)
+    if action == 'save_failure':
+        monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: (_ for _ in ()).throw(OSError('save failure')))
+    observed = []
+    original_exec = LocalizedMessageBox.exec
+    def review(dialog):
+        def interact():
+            observed.append((dialog.text(), dialog.detailedText()))
+            button = dialog.button(QMessageBox.StandardButton.Ok)
+            assert 'Importar con avisos' in button.text()
+            if action in ('escape', 'return'):
+                QTest.keyClick(dialog, Qt.Key.Key_Escape if action == 'escape' else Qt.Key.Key_Return)
+            else:
+                target = button if action in ('accept', 'save_failure') else dialog.button(QMessageBox.StandardButton.Cancel)
+                QTest.mouseClick(target, Qt.MouseButton.LeftButton)
+        QTimer.singleShot(10, interact)
+        return original_exec(dialog)
+    monkeypatch.setattr(LocalizedMessageBox, 'exec', review)
+    window._import.start(str(path))
+    wait_for_import(window)
+    assert len(observed) == 1 and '54' in observed[0][0]
+    assert observed[0][1].count('UNKNOWN') == 54
+    if action == 'accept':
+        assert window.tabs.currentIndex() == 0
+        assert window.course_manager.table.rowCount() == 155
+        assert not window.course_manager._search.text()
+        assert all(not window.course_manager.table.isRowHidden(i) for i in range(155))
+        assert window.btn_generate.isEnabled()
+        assert window.current_schedule is None
+        assert 'Genere' in window.status_bar.currentMessage() or 'Generar horario' in window.status_bar.currentMessage()
+        assert '155' in window.status_bar.currentMessage()
+        assert len(window._repo.load_session()['courses']) == 155
+    else:
+        assert window.tabs.currentIndex() == 1
+        assert window.course_manager._search.text() == 'old-filter-no-match'
+        assert snapshot(window) == before

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QTextEdit
 from .import_worker import ImportWorker
 from .import_preview_dialog import ImportPreviewDialog
 from .import_identity_dialog import ImportIdentityDialog
+from .import_replacement_dialog import ImportReplacementDialog
 from ..application.reimport_identity import affected_identity_groups
 from .i18n import msg, join_messages
 from .i18n_widgets import QMessageBox, QDialog
@@ -105,6 +106,14 @@ class ImportController(QObject):
             self.candidate_name = None
             self.window._set_import_candidate(None)
             self.window._set_import_busy(False)
+            # Importing inputs does not generate assignments. Reveal the actual
+            # accepted rows instead of leaving the user on an empty timetable.
+            # Navigate only after the durable commit; cancel/error keep the view.
+            self.window.tabs.setCurrentIndex(0)
+            self.window.course_manager.table.setFocus()
+            self.window.status_bar.showMessage(join_messages(' ', (
+                self.window.status_bar.currentMessage(),
+                msg('Revise los cursos importados y pulse «Generar horario».'))))
             return
         # Changed files enter the complete review flow again, never a silent merge.
         if self.worker.previous is not None:
@@ -152,6 +161,22 @@ class ImportController(QObject):
             review.deleteLater()
             if not accepted or not self._current(token):
                 return False
+        # A different workbook is a replacement, not a source of identities for
+        # old session links. Keep this decision on the validated candidate and
+        # re-run it if the verification read detects any source change.
+        replacement = bool(window.excel_path and
+                           Path(window.excel_path).resolve() != Path(candidate.path).resolve())
+        if replacement:
+            review = self.review = ImportReplacementDialog(window, candidate)
+            accepted = review.exec() == QDialog.DialogCode.Accepted
+            self.review = None
+            review.deleteLater()
+            if not accepted or not self._current(token):
+                return False
+            self.retained_pins = set()
+            self.retained_resources = SchedulingResources(tuple(
+                replace(catalog, memberships=()) for catalog in window.resources.catalogs))
+            return self._review_preview(token, candidate)
         affected = affected_identity_groups(window.course_manager.get_courses(), imported.courses,
                                             window.resources, window.pinned_group_ids)
         if affected:
@@ -194,6 +219,10 @@ class ImportController(QObject):
         if not self._current(token):
             return False
         self.retained_pins = set() if errors else set(window.pinned_group_ids)
+        return self._review_preview(token, candidate)
+
+    def _review_preview(self, token, candidate):
+        window = self.window
         if window._features.enabled('import_diff_preview'):
             review = self.review = ImportPreviewDialog(window, candidate, self.retained_pins)
             accepted = review.exec() == QDialog.DialogCode.Accepted

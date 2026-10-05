@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         notice.setVisible(bool(manager.recovery_issue or manager.startup_issue))
 
     def _init_ui(self):
-        self.setWindowTitle(msg('SORTH - Sistema de Organización de Horarios'))
+        self.setWindowTitle(msg('SORTH-AI - Sistema de Organización de Horarios'))
         self._set_window_icon()
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumSize(960, 640)
@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = self._main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(24, 20, 24, 12)
+        main_layout.setContentsMargins(24, 8, 24, 8)
         main_layout.setSpacing(8)
 
         self._workspace_chrome = QWidget()
@@ -332,7 +332,7 @@ class MainWindow(QMainWindow):
         header.setObjectName("brandHeader")
         heading = QHBoxLayout(header)
         heading.setContentsMargins(16, 6, 16, 6)
-        title = QLabel("SORTH")
+        title = QLabel("SORTH-AI")
         title.setObjectName("appTitle")
         heading.addWidget(title)
         subtitle = QLabel(msg('Organización de horarios académicos'))
@@ -1927,8 +1927,10 @@ class MainWindow(QMainWindow):
             # action targets, visible scopes and reading rows unchanged.
             # Segoe UI plus stable label borders needs this small whitespace
             # reserve to retain four full rows at compact threshold heights.
+            # Keep a 16px vertical reserve when spacious chrome returns at 921px;
+            # restoring 20+12px insets there clips the fourth Windows list row.
             self._main_layout.setSpacing(1 if dense else 8)
-            self._main_layout.setContentsMargins(*(16, 2, 16, 2) if dense else (24, 20, 24, 12))
+            self._main_layout.setContentsMargins(*(16, 2, 16, 2) if dense else (24, 8, 24, 8))
             self._file_layout.setSpacing(1 if dense else 16)
             self._workspace_chrome.layout().setSpacing(1 if dense else 8)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):

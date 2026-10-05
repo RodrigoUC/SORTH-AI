@@ -206,13 +206,21 @@ prepared. Preparation never toggles the permission checkbox or starts a server.
 
 Status is selectable by mouse/keyboard. ES/EN messages distinguish missing bundle,
 unprepared component, integrity/version errors, cancellation and ready state. A
-native client selector shows read-only, keyboard-copyable JSON using the verified
+native client selector shows read-only, keyboard-copyable JSON or field values using the verified
 absolute companion command. OpenCode V2 defaults disconnected; Claude guidance
-warns that client restart may start the process. ChatGPT shows manual HTTPS/tunnel
+warns that client restart may start the process. ChatGPT web shows manual HTTPS/tunnel
 requirements rather than an invalid local config. Copy is explicit and does not
 modify client files. Real Qt offscreen lifecycle tests and ES/EN renders cover
 these views; native Windows host/packaged acceptance remains a separate gate.
 
+
+### ChatGPT MCP client guide
+The existing native client selector distinguishes desktop STDIO from web remote
+connections. Desktop field instructions preserve the verified companion path and
+separate --serve argument; there is no guessed path in source/unprepared mode.
+The localized copy block is field reference text, not shell syntax or JSON.
+Permission status, verification, opt-in, clipboard-only actions and commercial
+connection caveats remain unchanged. Web instructions do not offer a local command.
 
 ### Guided MCP setup refinement
 The existing MCP section uses three native, numbered step headings because the
@@ -464,13 +472,18 @@ resize, hide, close and reduced-motion preferences retain their cancellation rul
 The minimum schedule window reserves room for the taller installed Segoe UI
 metrics observed in correctly fonted Windows offscreen checks. Dense shell gaps
 are 1px, outer vertical insets total 4px, and consultation pages use a 2px top
-inset. Spacious shell gaps are 8px. This recovers whitespace at every existing
+inset. Spacious shell gaps are 8px, with 8px top/bottom outer insets. The
+16px spacious inset budget also retains four rows immediately above 920px, where
+restoring the previous 20px/12px insets clipped native Windows list rows.
+This recovers whitespace at every existing
 mode boundary without changing fonts, normal table rows, action targets, notices
 or visible export scope. Content thresholds stay at 760/802/920px and never
 read the current viewport. Native layout still settles before page reveal.
 
 A portable regression increases native table-header size requirements by 4px and 8px
-and crosses each boundary in both directions with focused tables. It preserves
+and crosses each boundary in both directions with focused tables under
+native-default, Fusion and Windows styles. It checks the dense/spacious
+whitespace geometry independently from content visibility. It preserves
 font and row sizes and the strict 120px reference reading budget. Windows
 geometry artifacts include font line height, header height and active whitespace
 metrics so platform differences can be diagnosed without relaxing assertions.
@@ -610,3 +623,15 @@ Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped
 theme in Fusion/Windows styles; pixel scaling is separate from native Windows
 acceptance.
+
+## Windows application identity
+
+SORTH-AI is the display name across the native window/masthead, EXE version
+resource, setup and shortcuts. Preserve the original geometric timetable mark
+and navy/teal/violet palette. The native Inno wizard uses high-DPI artwork without
+rasterized text, Spanish/English messages and an optional unchecked desktop link.
+Keep the standard keyboard, cancellation, progress and completion controls; no
+auto-launch, automatic taskbar pinning or cosmetic claim of a verified publisher.
+Storage keys, SORTH.exe, SORTH.App and exact-build installer identifiers remain
+stable. Unsigned review status stays explicit. Windows shell appearance and
+100/150/200% interactive wizard QA are separate from offscreen regression tests.

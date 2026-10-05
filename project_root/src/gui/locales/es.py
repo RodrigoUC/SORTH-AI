@@ -1,16 +1,12 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
-    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.',
-    'Expandir': 'Expandir',
-    'Restaurar': 'Restaurar',
-    'Expandir vista del horario': 'Expandir vista del horario',
-    'Restaurar vista del horario': 'Restaurar vista del horario',
-    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Ocultar temporalmente otros paneles para ampliar esta vista.',
-    'Restaurar los otros paneles (Esc).': 'Restaurar los otros paneles (Esc).',
-    'Alejar cuadrícula': 'Alejar cuadrícula',
-    'Acercar cuadrícula': 'Acercar cuadrícula',
-    'Restablecer zoom al 100%': 'Restablecer zoom al 100%',
+    'Revise los cursos importados y pulse «Generar horario».': 'Revise los cursos importados y pulse «Generar horario».',
+    'Reemplazar el Excel actual': 'Reemplazar el Excel actual',
+    'Excel actual: {old}\nNuevo Excel: {new}': 'Excel actual: {old}\nNuevo Excel: {new}',
+    'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.': 'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.',
+    'Se conservarán los catálogos de recursos, sus disponibilidades, el calendario y las preferencias. Cancelar o un error conserva la sesión actual.': 'Se conservarán los catálogos de recursos, sus disponibilidades, el calendario y las preferencias. Cancelar o un error conserva la sesión actual.',
+    'Reemplazar Excel': 'Reemplazar Excel',
 
     '{room_type} (guardado en el curso)': '{room_type} (guardado en el curso)',
     'La semilla guardada está fuera del intervalo permitido.': 'La semilla guardada está fuera del intervalo permitido.',
@@ -510,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Limpiar horario",
     "Lista detallada": "Lista detallada",
     "Lista detallada del horario": "Lista detallada del horario",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.',
+    'Expandir': 'Expandir',
+    'Restaurar': 'Restaurar',
+    'Expandir vista del horario': 'Expandir vista del horario',
+    'Restaurar vista del horario': 'Restaurar vista del horario',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Ocultar temporalmente otros paneles para ampliar esta vista.',
+    'Restaurar los otros paneles (Esc).': 'Restaurar los otros paneles (Esc).',
+    'Alejar cuadrícula': 'Alejar cuadrícula',
+    'Acercar cuadrícula': 'Acercar cuadrícula',
+    'Restablecer zoom al 100%': 'Restablecer zoom al 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Listo. Cargue un archivo Excel para comenzar.",
     "Lunes": "Lunes",
     "Marcar todos": "Marcar todos",
@@ -551,7 +559,7 @@ MESSAGES = {
     "Resultado de validación": "Resultado de validación",
     "Resumen del Horario": "Resumen del Horario",
     "Revisar importación": "Revisar importación",
-    "SORTH - Sistema de Organización de Horarios": "SORTH - Sistema de Organización de Horarios",
+    "SORTH-AI - Sistema de Organización de Horarios": "SORTH-AI - Sistema de Organización de Horarios",
     "Se encontró una sesión guardada.\n¿Deseas restaurarla?": "Se encontró una sesión guardada.\n¿Deseas restaurarla?",
     "Seleccionar archivo Excel": "Seleccionar archivo Excel",
     "Seleccione el aula, día y hora. Se comprobarán todas las restricciones.": "Seleccione el aula, día y hora. Se comprobarán todas las restricciones.",
@@ -1544,4 +1552,13 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactivo',
     'Fijada: {room}, {day}, {start}–{end}': 'Fijada: {room}, {day}, {start}–{end}',
+})
+
+# Distinguish desktop STDIO from hosted web connections.
+MESSAGES.update({
+    'ChatGPT web (conexión remota)': 'ChatGPT web (conexión remota)',
+    'ChatGPT de escritorio (STDIO)': 'ChatGPT de escritorio (STDIO)',
+    'Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida': 'Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida',
+    'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.': 'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.',
+    '1. En ChatGPT de escritorio, abre la configuración de servidores MCP y añade un servidor con tipo STDIO. Este flujo requiere un cliente con ejecución local en el mismo equipo que SORTH.\n2. Tras guardar el permiso MCP en SORTH, copia cada valor de abajo en su campo: comando y argumentos van separados. No uses SORTH.exe ni el comando de ejemplo del formulario.\n3. Guarda la configuración y revisa los permisos del cliente antes de iniciar o reiniciar el servidor. La conexión con ChatGPT aún no se ha probado.': '1. En ChatGPT de escritorio, abre la configuración de servidores MCP y añade un servidor con tipo STDIO. Este flujo requiere un cliente con ejecución local en el mismo equipo que SORTH.\n2. Tras guardar el permiso MCP en SORTH, copia cada valor de abajo en su campo: comando y argumentos van separados. No uses SORTH.exe ni el comando de ejemplo del formulario.\n3. Guarda la configuración y revisa los permisos del cliente antes de iniciar o reiniciar el servidor. La conexión con ChatGPT aún no se ha probado.',
 })
