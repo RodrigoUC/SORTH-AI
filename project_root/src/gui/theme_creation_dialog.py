@@ -93,7 +93,6 @@ class ThemeCreationDialog(QDialog):
         # Discard metadata even in the stored seed, before any later translation.
         self._seed = _safe_template(candidate)
         self.setObjectName('themeCreationDialog')
-        self.setStyleSheet('QDialog#themeCreationDialog QPushButton { border-width: 2px; }')
         self.setWindowTitle(msg('Crear un tema con IA'))
         self.resize(660, 640)
         outer = QVBoxLayout(self)

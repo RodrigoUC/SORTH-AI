@@ -84,8 +84,8 @@ QFrame#settingsHeader { background: $header; border-radius: 7px; }
 QLabel#settingsTitle { color: $on_header; background: transparent; font-size: 14pt; font-weight: 700; }
 QLabel#settingsSubtitle { color: $on_header_muted; background: transparent; }
 QWidget#settingsContent { background: $surface; border-radius: 7px; }
-QWidget#settingsContent QCheckBox, QWidget#calendarContent QCheckBox, QWidget#resourceContent QCheckBox, QWidget#courseContent QCheckBox, QCheckBox#randomSeed { border: 2px solid transparent; }
-QWidget#settingsContent QCheckBox:focus, QWidget#calendarContent QCheckBox:focus, QWidget#resourceContent QCheckBox:focus, QWidget#courseContent QCheckBox:focus, QCheckBox#randomSeed:focus { border-color: $focus; }
+QCheckBox { border: 1px solid transparent; border-radius: 4px; padding: 1px; }
+QCheckBox:focus { border-color: $focus; background: $accent_soft; }
 QLabel#settingsSectionTitle { color: $heading; font-size: 12pt; font-weight: 700; }
 QLabel#settingsStepTitle { color: $heading; font-weight: 600; }
 QFrame#settingsDivider { background: $divider; border: 0; }
@@ -110,21 +110,27 @@ QPushButton#dangerAction:disabled { color: $disabled_text; border-color: $divide
 QLineEdit, QSpinBox, QDoubleSpinBox, QTimeEdit, QDateEdit, QDateTimeEdit, QComboBox { background: $surface; border: 1px solid $border; border-radius: 4px; padding: 6px; selection-background-color: $accent; selection-color: $on_accent; }
 QWidget#resourceContent QLineEdit, QWidget#resourceContent QComboBox,
 QWidget#courseContent QLineEdit, QWidget#courseContent QSpinBox,
-QWidget#courseContent QTimeEdit, QWidget#courseContent QComboBox { border-width: 2px; }
+QWidget#courseContent QTimeEdit, QWidget#courseContent QComboBox { padding: 7px; }
 QLineEdit { placeholder-text-color: $muted; }
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QTimeEdit:disabled, QDateEdit:disabled, QDateTimeEdit:disabled, QComboBox:disabled, QPlainTextEdit:disabled, QTextEdit:disabled { background: $disabled; color: $disabled_text; }
-QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus, QLineEdit:focus, QSpinBox:focus, QTimeEdit:focus, QComboBox:focus, QTableWidget:focus, QListWidget:focus, QPlainTextEdit:focus, QLabel:focus { border: 2px solid $focus; }
-QPushButton#primaryAction:focus { border: 2px solid $on_primary; }
-QPushButton#dangerAction:focus { border: 2px solid $danger; }
-QPushButton#headerAction:focus { border: 2px solid $on_header; }
-QCheckBox:focus, QTabBar::tab:focus { border: 2px solid $focus; }
+/* Focus changes color, never frame thickness or native content geometry. */
+QPushButton:focus, QPushButton#primaryAction:focus, QPushButton#dangerAction:focus,
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTimeEdit:focus,
+QDateEdit:focus, QDateTimeEdit:focus, QComboBox:focus,
+QTableView:focus, QListView:focus, QTreeView:focus,
+QPlainTextEdit:focus, QTextEdit:focus { border: 1px solid $focus; }
+QPushButton#primaryAction:focus { border-color: $on_primary; }
+QPushButton#dangerAction:focus { border-color: $danger; }
+QPushButton#headerAction:focus { border: 1px solid $on_header; }
+QLabel { border: 1px solid transparent; border-radius: 4px; }
+QLabel:focus { border-color: $focus; }
 QTabWidget::pane { border: 1px solid $divider; background: $surface; }
-QTabBar::tab { padding: 11px 20px; background: $accent_soft; color: $muted; border: 0; margin-right: 3px; }
+QTabBar::tab { padding: 11px 20px; background: $accent_soft; color: $muted; border: 0; border-top: 1px solid transparent; margin-right: 3px; }
 QTabBar::tab:selected { background: $surface; color: $accent; font-weight: 600; border-bottom: 3px solid $accent; }
 QTabBar::tab:hover:!selected { background: $primary_soft; color: $on_primary_soft; }
-QTabBar::tab:focus { border-top: 2px solid $focus; }
-QTableView, QListView, QTreeView, QPlainTextEdit, QTextEdit { background: $surface; alternate-background-color: $surface_alt; border: 1px solid $divider; gridline-color: $divider; selection-background-color: $accent_soft; selection-color: $text; }
-QTableWidget::item:focus { border: 1px solid $focus; }
+QTabBar::tab:focus { border-top: 1px solid $focus; }
+QTableView, QListView, QTreeView, QPlainTextEdit, QTextEdit { border-radius: 4px; background: $surface; alternate-background-color: $surface_alt; border: 1px solid $divider; gridline-color: $divider; selection-background-color: $accent_soft; selection-color: $text; }
+QTableView::item:focus, QListView::item:focus, QTreeView::item:focus { border: 1px solid $focus; border-radius: 3px; }
 QHeaderView::section { background: $header; color: $on_header; padding: 9px 7px; border: 0; border-bottom: 1px solid $header; font-weight: 600; }
 QHeaderView::up-arrow { image: url("$sort_up"); width: 8px; height: 5px; }
 QHeaderView::down-arrow { image: url("$sort_down"); width: 8px; height: 5px; }
@@ -132,7 +138,7 @@ QTableCornerButton::section { background: $header; border: 0; }
 QStatusBar { background: $header; color: $on_header_muted; padding: 5px; }
 QStatusBar QLabel { color: $on_header_muted; }
 QStatusBar QCheckBox { color: $on_header_muted; border: 1px solid transparent; padding: 1px 3px; }
-QStatusBar QCheckBox:focus { border-color: $on_header; }
+QStatusBar QCheckBox:focus { border-color: $on_header; background: $header_hover; }
 QProgressBar { background: $primary_soft; border: 0; border-radius: 3px; }
 QProgressBar::chunk { background: $primary; }
 QMenu, QComboBox QAbstractItemView { background: $surface; color: $text; border: 1px solid $border; selection-background-color: $accent_soft; selection-color: $text; }

@@ -20,7 +20,7 @@ Professional academic workspace with a more recognizable identity than the previ
 - Success: #246448 / #E3F3EA; caution: #88551A / #FFF0D5; danger: #A12D46 / #FCE8EC
 
 ## Components and behavior
-Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a 2px contrasting boundary. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
+Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a restrained 1px contrasting boundary with softly rounded corners. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
 
 Popup menu items use explicit 6px vertical and 28px horizontal padding so
 Qt sizes and paints localized labels with the same box model across native
@@ -51,6 +51,23 @@ automatic detection of the operating system's reduced-motion setting.
 Motion QA uses real Qt event-loop tests, recorded Qt frames, and screenshots at
 1200×800 and 960×640; screenshots alone cannot establish animation behavior.
 Native Windows timing and screen-reader announcement behavior require platform QA.
+
+### Softer shared keyboard focus
+The shared theme uses stable 1px frames for inputs, buttons, tables, lists and
+text editors. Focus changes their semantic boundary color without changing
+thickness; rounded 4px corners replace hard rectangular view outlines. Checkbox
+focus adds the validated soft accent surface and a rounded 1px boundary, retaining
+its previous two-pixel footprint with a one-pixel inset. Selectable labels reserve
+a transparent one-pixel frame; tab focus reserves its top edge before focus.
+Selection keeps its independent soft fill and course-card identity markers.
+
+Resource/course fields retain their previous interior footprint through padding.
+Appearance previews and theme-creation dialogs inherit the same shared focus,
+without separate thick-frame overrides. Existing validated custom-theme colors,
+light/dark/high-contrast semantics, native keyboard behavior and text selection
+are unchanged. Native control paint/geometry tests cover ES/EN, 10/20pt, Fusion
+and Windows styles and 125/150/200% scaling. These are Linux Qt rendering checks;
+native Windows desktop acceptance remains a release gate.
 
 ## Keyboard and assistive-technology support
 Tables use arrow keys for cell navigation and Tab/Shift+Tab to leave; sortable
@@ -492,8 +509,8 @@ covered by Linux offscreen/Fusion/Windows-style tests and synthetic captures;
 native Windows rendering and screen-reader acceptance remain unverified.
 
 Calendar weekdays reuse the Settings checkbox focus-border reserve in the shared
-theme owner: a transparent 2px border is present before focus, which changes only
-its color. Native size hints and text-content height remain stable while tabbing
+theme owner: a transparent 1px border plus 1px inset is present before focus, which changes only
+its color and soft background. Native size hints and text-content height remain stable while tabbing
 and switching ES/EN, including 20pt fonts, without fixing heights or changing
 fonts. Fresh native-style measurements guard against stale cached size hints.
 
@@ -554,8 +571,8 @@ ES/EN light/dark/custom, native-default/Fusion/Windows-style and enlarged-font
 checks are Linux development evidence, not native Windows acceptance.
 
 ### Main seed keyboard focus
-The main-window random-seed checkbox reserves the same transparent 2px focus
-border as the native dialog checkboxes. Focusing changes only its color, keeping
+The main-window random-seed checkbox reserves the same transparent 1px focus
+border and 1px inset as the native dialog checkboxes. Focusing changes only its color, keeping
 the complete ES/EN caption and native checkbox dimensions stable from first show.
 Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped

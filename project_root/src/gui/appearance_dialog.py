@@ -168,8 +168,7 @@ class ThemePreview(QFrame):
         c = spec.colors
         self.setStyleSheet(self.styleSheet() + f'''
             QFrame#themePreview {{ border: 1px solid {c['divider']}; border-radius: 7px; }}
-            QFrame#themePreview QPushButton, QFrame#themePreview QLineEdit, QFrame#themePreview QTableWidget {{ border-width: 2px; }}
-            QFrame#themePreview QLabel {{ border: 2px solid transparent; }}
+            QFrame#themePreview QLabel {{ border: 1px solid transparent; }}
             QFrame#themePreview QLabel:focus {{ border-color: {c['focus']}; }}
             QLabel#themeSampleWarning {{ color: {c['warning']}; background: {c['warning_soft']}; padding: 8px; border-radius: 4px; }}
             QLabel#themeSampleError {{ color: {c['danger']}; background: {c['danger_soft']}; padding: 8px; border-radius: 4px; }}
@@ -227,7 +226,6 @@ class AppearanceDialog(QDialog):
             self._choices['custom'] = self.candidate
             self.candidate_key = 'custom'
         self.setObjectName('appearanceDialog')
-        self.setStyleSheet('QDialog#appearanceDialog QComboBox, QDialog#appearanceDialog QPushButton, QDialog#appearanceDialog QCheckBox { border-width: 2px; }')
         self.setWindowTitle(msg('Apariencia'))
         self.resize(740, 760)
         outer = QVBoxLayout(self)
