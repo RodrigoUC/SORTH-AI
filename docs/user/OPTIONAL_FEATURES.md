@@ -13,6 +13,13 @@ when the new file does not exist; their original store remains untouched.
 
 Currently implemented switches:
 
+- **Avisar de actualizaciones al iniciar / Notify about updates at startup**:
+  OFF by default. After an explicit Settings Save, checks stable official GitHub
+  releases once at startup and shows an unobtrusive notice for a newer version.
+  GitHub receives normal connection/IP metadata, never academic/session data.
+  No automatic download or installation. The always-available manual **Check for
+  updates** button does not commit pending preferences. See [Updates](UPDATES.md).
+
 - **Permitir servidor MCP local / Allow local MCP server**: an explicit startup
   and per-tool-call permission, shared with the headless adapter. A bounded local
   check is required before enabling in the GUI. The separate **Prepare MCP add-on**

@@ -40,6 +40,23 @@ La interfaz cambia de idioma, pero los archivos conservan el formato compatible:
 
 Para elegir o importar un tema desde Configuración, consulta [Apariencia y temas propios](APPEARANCE.md).
 
+## Consultar actualizaciones
+
+Abre **Configuración - General - Buscar actualizaciones** para consultar versiones
+estables oficiales y leer sus novedades. No se consulta la red por defecto;
+**Avisar de actualizaciones al iniciar** requiere marcar y guardar la preferencia.
+GitHub recibe datos normales de conexión, pero no horarios ni archivos de sesión.
+Si no hay publicaciones estables, SORTH lo indica sin afirmar que tu compilación
+sea la última.
+
+En la aplicación empaquetada para Windows, descargar el instalador requiere
+confirmación y comprueba tamaño y SHA-256. El hash no autentica al editor; los
+instaladores actuales no están firmados. Instalar requiere otra confirmación,
+guardar la sesión y validar una copia SQLite antes de cerrar SORTH. Si falla el
+guardado o el respaldo, la aplicación sigue abierta. Conserva además una copia de
+tus archivos y preferencias. Windows conserva sus controles de seguridad; nunca
+omitas SmartScreen o Defender. Consulta [Actualizaciones oficiales](UPDATES.md).
+
 ## 4. Flujo de uso paso a paso
 
 ### Paso 1 - Cargar el archivo Excel

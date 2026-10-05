@@ -291,3 +291,105 @@ def verify_theme_workflow(window, output, result):
         # Restore only this synthetic fixture, preserving useful final evidence.
         appearance.write_bytes(saved)
     result['stages'].append('theme_preserves_session_and_preferences')
+
+
+def verify_update_workflow(window, output, result):
+    """Exercise the shipped worker/UI with synthetic HTTP bytes, never a server.
+
+    This verifies packaging, parsing, localization and safe download ownership;
+    it does not claim live GitHub connectivity, publisher trust or installation.
+    """
+    from . import app_updates
+    from ..gui.update_dialog import UpdateDialog
+    from ..gui.i18n import language_manager
+    from PyQt6.QtWidgets import QApplication
+    from time import monotonic, sleep
+    import hashlib
+    import json
+
+    from .scenario_comparison import session_fingerprint
+    before = session_fingerprint(window._repo.load_session())
+    preferences = window._features.values()
+    original_stream = app_updates._stream
+    manager = language_manager()
+    original_language = manager.language
+    payload = b'MZ synthetic update smoke fixture; never execute'
+    version, tag = '999.0.0', 'v999.0.0'
+    name = f'SORTH-{version}-' + 'a' * 12 + '-windows-x64-unsigned-setup.exe'
+    release = {'draft': False, 'prerelease': False, 'tag_name': tag,
+               'name': 'Synthetic release / publicación sintética',
+               'body': 'Synthetic changelog. No network or installer execution.',
+               'html_url': f'https://github.com/RodrigoUC/SORTH-AI/releases/tag/{tag}',
+               'assets': [{'name': name, 'state': 'uploaded', 'size': len(payload),
+                           'digest': 'sha256:' + hashlib.sha256(payload).hexdigest(),
+                           'browser_download_url': f'https://github.com/RodrigoUC/SORTH-AI/releases/download/{tag}/{name}'}]}
+    feed = []
+
+    def synthetic_stream(url, *, metadata, limit, cancelled, deadline):
+        if cancelled():
+            raise app_updates.UpdateError('cancelled')
+        yield json.dumps(feed).encode('utf-8') if metadata else payload
+
+    def wait_idle(dialog):
+        until = monotonic() + 5
+        while dialog.operation.active and monotonic() < until:
+            QApplication.processEvents()
+            sleep(.005)
+        if dialog.operation.active:
+            dialog.operation.cancel()
+            raise RuntimeError('Synthetic update worker did not finish')
+        QApplication.processEvents()
+
+    app_updates._stream = synthetic_stream
+    dialog = UpdateDialog(window)
+    try:
+        dialog.show()
+        dialog.check()
+        wait_idle(dialog)
+        if dialog.release is not None or dialog.download is not None:
+            raise RuntimeError('Empty release feed created an update')
+        result['stages'].append('updates_empty_feed_truthful')
+        feed.append(release)
+        for locale in ('es', 'en'):
+            manager.set_language(locale, persist=False)
+            dialog.check()
+            wait_idle(dialog)
+            if dialog.release is None or dialog.release.version != version:
+                raise RuntimeError('Synthetic release not displayed')
+            expected = 'Check for updates' if locale == 'en' else 'Buscar actualizaciones'
+            if dialog.check_button.text() != expected:
+                raise RuntimeError('Update controls not localized')
+            QApplication.processEvents()
+            if not dialog.grab().save(str(output / f'updates-{locale}.png')):
+                raise RuntimeError('Update screenshot failed')
+        result['stages'].append('updates_worker_release_es_en')
+        # Source runs intentionally cannot offer installation. Packaged Windows
+        # also exercises the real GUI download worker against synthetic bytes.
+        if dialog._can_install():
+            dialog._confirm_download = lambda: True
+            dialog._download()
+            wait_idle(dialog)
+            if dialog.download is None or not dialog.install_button.isVisible():
+                raise RuntimeError('Verified synthetic download not reviewable')
+            staged_path = dialog.download.path
+            dialog.reject()
+            if staged_path.exists():
+                raise RuntimeError('Cancelled synthetic download not cleaned')
+            result['stages'].append('updates_synthetic_download_cancel')
+        if window._pending_update_installer is not None:
+            raise RuntimeError('Updater queued an installer without confirmation')
+        if session_fingerprint(window._repo.load_session()) != before or window._features.values() != preferences:
+            raise RuntimeError('Checking updates modified session or preferences')
+        result['stages'].append('updates_preserve_data_no_execution')
+        result['update_check_scope'] = 'Synthetic HTTP bytes only; no live network or installer execution.'
+    finally:
+        dialog.reject()
+        # Normal runs have already drained. Preserve ownership even on failure.
+        until = monotonic() + 5
+        while dialog.operation.active and monotonic() < until:
+            QApplication.processEvents()
+            sleep(.005)
+        if not dialog.operation.active:
+            dialog.deleteLater()
+        app_updates._stream = original_stream
+        manager.set_language(original_language, persist=False)

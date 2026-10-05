@@ -1,6 +1,6 @@
 # Privacidad y datos locales
 
-Este aviso describe el código de SORTH revisado el 3 de octubre de 2026. No es una certificación de seguridad ni una garantía de cumplimiento legal. Antes de usar datos institucionales, confirma las reglas de tu organización.
+Este aviso describe el código de SORTH revisado el 5 de octubre de 2026. No es una certificación de seguridad ni una garantía de cumplimiento legal. Antes de usar datos institucionales, confirma las reglas de tu organización.
 
 ## Qué guarda y dónde
 
@@ -34,11 +34,13 @@ Recuperar el JSON de herramientas conserva los parámetros de recursos de la ses
 
 ## Red, diagnósticos y actualizaciones
 
-En los flujos de la GUI y herramientas opcionales revisados no se encontraron clientes de red, telemetría, analítica, envío automático de errores ni un actualizador automático. El flujo importar/generar/guardar/exportar funciona localmente, sin cuenta SORTH ni servicio de IA remoto. Esta revisión de código no equivale a una captura de tráfico de todos los binarios y dependencias.
+El flujo importar/generar/guardar/exportar funciona localmente, sin cuenta SORTH ni servicio de IA remoto. No se añaden telemetría, analítica ni envío automático de errores. La consulta opcional de actualizaciones sí usa la red: **Configuración → Buscar actualizaciones** consulta exclusivamente las publicaciones estables del repositorio oficial `RodrigoUC/SORTH-AI` en GitHub. **Avisar de actualizaciones al iniciar** empieza desactivado y solo consulta al abrir SORTH después de guardarlo activado. No descarga ni instala automáticamente. Esta revisión de código no equivale a una captura de tráfico de todos los binarios y dependencias.
+
+GitHub recibe la dirección IP y los datos normales de conexión HTTPS, la ruta de la publicación/activo solicitado y el identificador genérico `SORTH-update-check`. No se envían horarios, nombres, archivos, rutas locales, preferencias, tokens ni cookies. Las descargas autorizadas pueden redirigirse únicamente a los dominios de almacenamiento de activos de GitHub permitidos por el cliente. Las notas de publicación se muestran como texto, sin ejecutar HTML ni cargar contenido remoto.
 
 La interfaz presenta errores localmente. No se identificó un archivo de registro permanente de la aplicación en el flujo normal. Herramientas de consola pueden imprimir datos o rutas; la prueba optativa de distribución escribe `smoke-result.json` (incluidos errores), una base, exportaciones y capturas en la carpeta de salida indicada. El sistema operativo, antivirus, terminal o servicios de sincronización pueden conservar sus propios registros, fuera del control de SORTH.
 
-Descargar paquetes, instalar dependencias y abrir enlaces del manual/repositorio utiliza servicios externos. Las actualizaciones se obtienen manualmente del origen verificado; conserva una copia de tus datos antes de cambiar de versión.
+Descargar paquetes, instalar dependencias y abrir enlaces del manual/repositorio utiliza servicios externos. El botón de descarga exige tamaño y SHA-256 coincidentes con los metadatos HTTPS del repositorio oficial. Se guarda un archivo temporal separado de las sesiones y la instalación; cancelar o cerrar sin instalar intenta eliminarlo. Un cierre inesperado o una instalación iniciada puede dejar ese temporal para la limpieza normal de Windows. El hash no autentica al editor ni sustituye una firma. Antes de instalar se pide confirmación, se guarda la sesión y se valida una copia SQLite; conserva además una copia de tus archivos y preferencias. No se abre el instalador si falla el guardado o la copia. Windows conserva sus comprobaciones de seguridad; SORTH no acepta sus avisos por ti.
 
 ## Integración MCP voluntaria
 

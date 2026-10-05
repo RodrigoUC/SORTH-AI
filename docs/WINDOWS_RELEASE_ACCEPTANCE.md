@@ -43,7 +43,9 @@ See [official verification guidance](https://jrsoftware.org/isdl-verify.php),
 and [uninstall deletion warnings](https://jrsoftware.org/ishelp/topic_uninstalldeletesection.htm).
 Inno's signature authenticates the compiler installer only; SORTH remains unsigned.
 No certificate, purchase, signing service, trusted certificate, security bypass,
-network updater, or public release is configured.
+automatic installation, or public release is configured. An opt-in official-release
+checker and explicitly confirmed download/launch workflow are described in
+[Updates](user/UPDATES.md). It does not publish or sign a release.
 
 ## Safe update / recovery policy
 
