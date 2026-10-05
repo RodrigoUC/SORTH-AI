@@ -152,13 +152,21 @@ prepared. Preparation never toggles the permission checkbox or starts a server.
 
 Status is selectable by mouse/keyboard. ES/EN messages distinguish missing bundle,
 unprepared component, integrity/version errors, cancellation and ready state. A
-native client selector shows read-only, keyboard-copyable JSON using the verified
+native client selector shows read-only, keyboard-copyable JSON or field values using the verified
 absolute companion command. OpenCode V2 defaults disconnected; Claude guidance
-warns that client restart may start the process. ChatGPT shows manual HTTPS/tunnel
+warns that client restart may start the process. ChatGPT web shows manual HTTPS/tunnel
 requirements rather than an invalid local config. Copy is explicit and does not
 modify client files. Real Qt offscreen lifecycle tests and ES/EN renders cover
 these views; native Windows host/packaged acceptance remains a separate gate.
 
+
+### ChatGPT MCP client guide
+The existing native client selector distinguishes desktop STDIO from web remote
+connections. Desktop field instructions preserve the verified companion path and
+separate --serve argument; there is no guessed path in source/unprepared mode.
+The localized copy block is field reference text, not shell syntax or JSON.
+Permission status, verification, opt-in, clipboard-only actions and commercial
+connection caveats remain unchanged. Web instructions do not offer a local command.
 
 ### Guided MCP setup refinement
 The existing MCP section uses three native, numbered step headings because the

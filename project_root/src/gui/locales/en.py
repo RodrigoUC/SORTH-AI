@@ -1467,3 +1467,12 @@ MESSAGES.update({
     'Inactivo': 'Inactive',
     'Fijada: {room}, {day}, {start}–{end}': 'Pinned: {room}, {day}, {start}–{end}',
 })
+
+# Distinguish desktop STDIO from hosted web connections.
+MESSAGES.update({
+    'ChatGPT web (conexión remota)': 'ChatGPT web (remote connection)',
+    'ChatGPT de escritorio (STDIO)': 'ChatGPT desktop (STDIO)',
+    'Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida': 'Name: sorth-preview\nType: STDIO\nCommand to start: {command}\nArguments: --serve\nEnvironment variables: none required',
+    'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.': 'ChatGPT web uses a remote connection; it cannot run this local path as a URL. It requires HTTPS or Secure MCP Tunnel with separate authorization.\n\n1. If your client shows a STDIO form, choose ChatGPT desktop in this guide.\n2. For the web connection, read the official instructions and authorize its permissions and credentials separately.\n\nSORTH does not create tunnels or keys, open ports, or configure ChatGPT.',
+    '1. En ChatGPT de escritorio, abre la configuración de servidores MCP y añade un servidor con tipo STDIO. Este flujo requiere un cliente con ejecución local en el mismo equipo que SORTH.\n2. Tras guardar el permiso MCP en SORTH, copia cada valor de abajo en su campo: comando y argumentos van separados. No uses SORTH.exe ni el comando de ejemplo del formulario.\n3. Guarda la configuración y revisa los permisos del cliente antes de iniciar o reiniciar el servidor. La conexión con ChatGPT aún no se ha probado.': '1. In ChatGPT desktop, open MCP server settings and add a server with type STDIO. This flow requires a client with local execution on the same computer as SORTH.\n2. After saving the MCP permission in SORTH, copy each value below into its field: command and arguments are separate. Do not use SORTH.exe or the form’s example command.\n3. Save the configuration and review client permissions before starting or restarting the server. The ChatGPT connection has not been tested yet.',
+})
