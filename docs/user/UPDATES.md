@@ -40,7 +40,9 @@ pero no habilitan una descarga supuestamente verificada.
   editor**, no es un análisis antimalware y no sustituye Authenticode. Los
   instaladores revisados actualmente no están firmados.
 - **Guardar, cerrar SORTH e instalar…** pide confirmación separada y empieza en
-  Cancelar. Cancelar deja la sesión abierta. Cerrar la ventana intenta eliminar
+  Cancelar. Cancelar deja la sesión abierta. Instalar cierra Configuración descartando sus
+  cambios de preferencias sin guardar, como indica la confirmación; cancela y
+  guárdalos primero si quieres conservarlos. Cerrar la ventana intenta eliminar
   su descarga temporal; un cierre inesperado puede dejarla para limpieza del SO.
 - Después de confirmar, SORTH guarda la sesión y crea/reabre una copia SQLite
   consistente y validada en la carpeta de datos. Si falla, permanece abierto y

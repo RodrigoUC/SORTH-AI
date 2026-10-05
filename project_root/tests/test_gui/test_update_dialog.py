@@ -902,6 +902,8 @@ def test_install_consent_keeps_full_actions_visible_on_small_screens_at_20pt(tmp
                     assert box.details.horizontalScrollBar().maximum() == 0
                     text = box.details.toPlainText()
                     assert all(word in text for word in ('2.1.0', 'SQLite', 'SHA-256', 'SmartScreen', 'Defender'))
+                    assert ('Unsaved Settings changes will be discarded' if locale == 'en'
+                            else 'Los cambios sin guardar en Configuración se descartarán') in text
                     cancel = box.buttons.button(QDialogButtonBox.StandardButton.Cancel)
                     accept = box.buttons.button(QDialogButtonBox.StandardButton.Yes)
                     assert cancel.isDefault() and not accept.isDefault()

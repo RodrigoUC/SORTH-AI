@@ -90,7 +90,11 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
                                      'theme_unsafe_json_rejected', 'theme_custom_import_apply',
                                      'theme_custom_fresh_process_restart',
                                      'theme_corrupt_fresh_process_fallback',
-                                     'theme_preserves_session_and_preferences'}
+                                     'theme_preserves_session_and_preferences',
+                                     'updates_empty_feed_truthful', 'updates_worker_release_es_en',
+                                     'updates_preserve_data_no_execution'}
+    assert report['update_check_scope'] == 'Synthetic HTTP bytes only; no live network or installer execution.'
+    assert all((output / f'updates-{language}.png').is_file() for language in ('es', 'en'))
     assert (output / 'schedule.png').is_file()
     assert (output / 'plugin-check.png').is_file()
     for language, text in [('es', 'Horario completo'), ('en', 'Complete schedule')]:
