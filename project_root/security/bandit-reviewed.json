@@ -246,5 +246,21 @@
     "count": 1,
     "reviewed_on": "2026-10-03",
     "reason": "Windows-only developer/CI acceptance of the freshly built reviewed SORTH-MCP.exe. The executable is verified against the compiled GUI trust anchor and complete ZIP/file inventory before use. Calls use a fixed --probe or --serve argument array, no shell, 20-second timeout, Python-free child PATH and temporary synthetic preferences/session data only. The harness neither installs into a real user profile nor contacts a model/client/network service."
+  },
+  {
+    "file": "tools/prepare_release_sources.py",
+    "test_id": "B404",
+    "code_sha256": "99f5efc75b46d76401c381798ec2e7c4abf97330ed2e9f56955c7bc6a3b6759c",
+    "count": 1,
+    "reviewed_on": "2026-10-05",
+    "reason": "Source-only packaging invokes the trusted system 7z/7zz located by shutil.which, never downloaded software. Fixed list/stream-only commands use argument arrays without a shell, an explicit -- separator, disabled filename wildcards, a 120-second kill timer, and bounded stdout. Input archives and selected member bytes are exact size/SHA-256 pinned; traversal, links, duplicates, binary selections and unexpected redirects are rejected. Vendor code is never installed or executed."
+  },
+  {
+    "file": "tools/prepare_release_sources.py",
+    "test_id": "B603",
+    "code_sha256": "1c6df12959af2d2571cbf11169b57ae477bac0c3fce3274608472ee82e36a9c0",
+    "count": 1,
+    "reviewed_on": "2026-10-05",
+    "reason": "Source-only packaging invokes the trusted system 7z/7zz located by shutil.which, never downloaded software. Fixed list/stream-only commands use argument arrays without a shell, an explicit -- separator, disabled filename wildcards, a 120-second kill timer, and bounded stdout. Input archives and selected member bytes are exact size/SHA-256 pinned; traversal, links, duplicates, binary selections and unexpected redirects are rejected. Vendor code is never installed or executed."
   }
 ]
