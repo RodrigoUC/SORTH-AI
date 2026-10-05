@@ -19,6 +19,14 @@ inputs and schedule) or explicitly unpin *all* and apply. No automatic remapping
 Changing the duration of an unpinned sibling alone is permitted if the pinned
 part's identity, duration and split-part count stay valid.
 
+Reimporting a changed repeated-code course with saved resource relationships or
+pins additionally requires explicit positional-identity review, even with optional
+Excel preview disabled. This lists the affected associations and pins, preserves
+the existing ordinal IDs only after confirmation, and never remaps them to rows.
+Ordinary orphan and incompatible-pin reviews still apply afterward. Identical
+normalized rows cannot reveal their reordering; see
+[Excel import review](EXCEL_IMPORT_WORKFLOW.md#revisión-obligatoria-de-asociaciones-por-posición).
+
 Generation validates all pinned assignments together using the independent
 validator, then reserves their occupancy on isolated copies. Greedy passes and
 retries skip them. Confirmed manual LAB exceptions are carried only for their

@@ -45,6 +45,32 @@ llamada debe terminar antes de liberar el lector o finalizar el cierre. No se
 utiliza terminación forzada de hilos. Al cancelar se descarta el resultado aunque
 la llamada de terceros todavía continúe.
 
+## Revisión obligatoria de asociaciones por posición
+
+Los identificadores G1, G2 y sus partes divididas dependen del orden de las filas
+con el mismo código. Si un curso tiene varios grupos en la versión actual o la
+nueva, cambia su cantidad, sus preferencias ordenadas o sus propiedades de sesión,
+y tiene recursos asociados o fijaciones, SORTH pide una confirmación adicional.
+Esta protección funciona aunque **Vista previa de cambios del Excel** esté
+desactivada. También incluye recursos guardados cuyo parámetro esté inactivo.
+
+**Revisar asociaciones del Excel** muestra las propiedades anteriores y propuestas,
+los recursos con sus alias e identificadores, su estado activo/inactivo y las
+fijaciones afectadas. **Continuar sin reasignar** acepta conservar las asociaciones
+compatibles por el mismo identificador; no identifica filas ni traslada personas,
+grupos de estudiantes o fijaciones. Después siguen las revisiones habituales de
+relaciones eliminadas y fijaciones incompatibles. Cancelar, Escape o Intro con el
+detalle enfocado conservan todos los datos. La aceptación no se guarda hasta que
+termina la verificación del archivo y la transacción; si cambian los bytes, se
+revisa de nuevo el candidato nuevo.
+
+Un cambio intencional de preferencias también puede requerir esta revisión: el
+Excel no contiene una identidad estable por fila que permita distinguirlo de un
+reordenamiento. Las filas normalizadas idénticas siguen siendo indistinguibles;
+intercambiarlas no puede detectarse y no provoca este aviso. Revise manualmente las
+asociaciones cuando reorganice grupos idénticos. No se adivinan reasignaciones ni
+se cambia el formato del Excel.
+
 ## Accesibilidad y localización
 
 Controles nativos y nombres accesibles en ES/EN; Escape y Cancelar conservan la

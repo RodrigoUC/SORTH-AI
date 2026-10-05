@@ -1451,3 +1451,19 @@ MESSAGES.update({
 MESSAGES.update({
     'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.': 'Could not export to {filename}. The schedule is preserved. Check the destination and try again.',
 })
+
+# Explicit review of changed positional session identities.
+MESSAGES.update({
+    'Revisar asociaciones del Excel': 'Review Excel associations',
+    'Hay cambios en cursos con varios grupos y asociaciones guardadas. G1, G2 y sus partes dependen del orden de las filas. SORTH no puede comprobar que sigan representando al mismo grupo.': 'Courses with multiple groups and saved associations have changed. G1, G2 and their parts depend on row order. SORTH cannot verify that they still represent the same group.',
+    'Al continuar, las asociaciones y fijaciones compatibles se conservan por identificador, sin reasignarlas a otras filas. Las eliminaciones y los conflictos se revisan después. Cancelar conserva todos los datos actuales.': 'Continuing keeps compatible associations and pins by identifier, without moving them to other rows. Removals and conflicts are reviewed next. Cancel preserves all current data.',
+    'Asociaciones que requieren revisión': 'Associations requiring review',
+    'Continuar sin reasignar': 'Continue without remapping',
+    'Duración: {minutes} min; tipo: {room_type}; estudiantes: {size}; aula preferida: {room}; día preferido: {day}; inicio preferido: {time}.': 'Duration: {minutes} min; type: {room_type}; students: {size}; preferred room: {room}; preferred day: {day}; preferred start: {time}.',
+    'Antes: {details}': 'Before: {details}',
+    'Excel propuesto: {details}': 'Proposed Excel: {details}',
+    'Este identificador ya no aparece en el Excel propuesto.': 'This identifier is no longer present in the proposed Excel file.',
+    '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
+    'Inactivo': 'Inactive',
+    'Fijada: {room}, {day}, {start}–{end}': 'Pinned: {room}, {day}, {start}–{end}',
+})
