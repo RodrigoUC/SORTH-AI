@@ -12,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict
 from openpyxl.xml.constants import XLSX, XLSM, XLTX, XLTM
-from openpyxl.utils.cell import get_column_letter
+from openpyxl.utils.cell import get_column_letter, range_boundaries
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
@@ -67,6 +67,70 @@ class ExcelImport:
 
 class ImportCancelled(Exception):
     """Cooperative cancellation; never reported as a malformed workbook."""
+
+
+class _FormulaResults:
+    """Cache provenance lost by data_only/pandas, bounded to import columns.
+
+    One bit per row records explicit saved results and range result coverage.
+    No formula/value text or rectangular cell collection is retained.
+    """
+
+    def __init__(self, max_rows, max_columns, max_cells):
+        self.max_rows, self.max_columns, self.max_cells = max_rows, max_columns, max_cells
+        self.saved = {}
+        self.required = {}
+        self.missing = {}
+        self.oversized_columns = self.invalid_columns = 0
+        self.oversized_header = self.invalid_header = False
+
+    def add_range(self, reference, row, column):
+        # Limit syntax before parsing integers or constructing any row bitset.
+        pattern = r'\$?[A-Za-z]{1,3}\$?[1-9][0-9]{0,6}'
+        if not reference or not re.fullmatch(pattern + r'(?::' + pattern + r')?', reference):
+            self.invalid_columns |= 1 << (column - 1)
+            self.invalid_header |= row == 1
+            return
+        left, top, right, bottom = range_boundaries(reference.upper())
+        if left > right or top > bottom:
+            self.invalid_columns |= 1 << (column - 1)
+            self.invalid_header |= row == 1
+            return
+        # Project metadata onto the bounded columns we can import. An ignored
+        # data-only array does not acquire validation of its unconsumed values.
+        columns = ((1 << min(right, self.max_columns)) - (1 << (left - 1))
+                   if left <= self.max_columns else 0)
+        if (left, top) != (column, row):
+            self.invalid_columns |= columns | (1 << (column - 1))
+            self.invalid_header |= top == 1 or row == 1
+        elif (bottom > self.max_rows or right > self.max_columns or
+              bottom * right > self.max_cells):
+            self.oversized_columns |= columns
+            self.oversized_header |= top == 1
+        else:
+            rows = (1 << bottom) - (1 << (top - 1))
+            for index in range(left, right + 1):
+                self.required[index] = self.required.get(index, 0) | rows
+
+    def check(self, sheet, columns, *, headers=False):
+        for column in columns:
+            if ((headers and self.oversized_header) or
+                    (not headers and self.oversized_columns & (1 << (column - 1)))):
+                raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
+            if ((headers and self.invalid_header) or
+                    (not headers and self.invalid_columns & (1 << (column - 1)))):
+                raise ExcelImportError("No se pudo leer el libro. Ábralo en Excel y guarde una copia .xlsx sin contraseña.")
+            absent = self.required.get(column, 0) & ~self.saved.get(column, 0)
+            missing_row = self.missing.get(column)
+            if missing_row is not None:
+                absent |= 1 << (missing_row - 1)
+            if headers:
+                absent &= 1
+            if absent:
+                row = (absent & -absent).bit_length()
+                raise ExcelImportError(notice(
+                    "Hoja {sheet}, celda {cell}: la fórmula no tiene un resultado guardado. Recalcule y guarde el libro en Excel, o pegue los valores, antes de importarlo.",
+                    sheet=sheet, cell=f"{get_column_letter(column)}{row}"))
 
 
 class ExcelReader:
@@ -144,6 +208,7 @@ class ExcelReader:
         ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
         relationship_id = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
         sheet_ids = []
+        imported_sheets = []
         sheet_names = set()
         def workbook_sheet(tag, attributes, parents):
             if not parents and tag != ns + 'workbook':
@@ -156,6 +221,7 @@ class ExcelReader:
                         raise ValueError('Duplicate imported worksheet name')
                     sheet_names.add(attributes['name'])
                     sheet_ids.append(attributes[relationship_id])
+                    imported_sheets.append((attributes[relationship_id], attributes['name']))
         self._scan_xml(archive, workbook_path, workbook_sheet)
         directory, filename = posixpath.split(workbook_path)
         relationships_path = posixpath.join(directory, '_rels', filename + '.rels')
@@ -177,7 +243,8 @@ class ExcelReader:
             if identifier in sheet_ids:
                 targets[identifier] = attributes
         self._scan_xml(archive, relationships_path, relationship)
-        for sheet_id in sheet_ids:
+        self._formula_results = {}
+        for sheet_id, sheet_name in imported_sheets:
             self._checkpoint()
             relation = targets[sheet_id]
             if relation.get('Type') != 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet':
@@ -192,8 +259,16 @@ class ExcelReader:
             data_parent = (ns + 'worksheet',)
             row_parent = data_parent + (ns + 'sheetData',)
             cell_parent = row_parent + (ns + 'row',)
+            value_parent = cell_parent + (ns + 'c',)
+            results = _FormulaResults(self.MAX_DATA_ROWS + 1, self.MAX_DATA_COLUMNS, self.MAX_SHEET_CELLS)
+            cell = {}
             def worksheet_element(tag, attributes, parents):
                 nonlocal row, column, max_row, max_column
+                if parents == value_parent + (ns + 'v',):
+                    # Element.findtext reads v.text, never child/tail text.
+                    # A malformed nested element cannot turn an empty cache
+                    # into a usable result after pandas has discarded it.
+                    cell['in_value'] = False
                 if not parents and tag != ns + 'worksheet':
                     raise ValueError('Invalid worksheet namespace')
                 # openpyxl parses every direct row child as a cell, regardless
@@ -236,15 +311,47 @@ class ExcelReader:
                         raise ValueError('Worksheet cells must be in increasing column order')
                     row_columns.add(column)
                     max_column = max(max_column, column)
+                    cell.clear()
+                    cell.update(type=attributes.get('t', 'n'), formula=False,
+                                value=False, text=False, inline=False, in_value=False)
+                elif parents == value_parent:
+                    if tag == ns + 'f' and not cell['formula']:
+                        cell['formula'] = True
+                        if attributes.get('t') in ('array', 'dataTable'):
+                            # ref covers results only. Do not follow data-table
+                            # r1/r2 inputs or include surrounding table headers.
+                            results.add_range(attributes.get('ref'), row, column)
+                    elif tag == ns + 'v' and not cell['value']:
+                        # Match openpyxl's first direct-child lookup, including
+                        # empty caches; later or nested values cannot repair it.
+                        cell['value'] = cell['in_value'] = True
+                    elif tag == ns + 'is':
+                        cell['inline'] = True
+                    return
                 else:
                     return
                 if (max_row > self.MAX_DATA_ROWS + 1 or
                         max_column > self.MAX_DATA_COLUMNS or
                         max_row * max_column > self.MAX_SHEET_CELLS):
                     raise ExcelImportError("El libro supera el límite de importación. Divídalo en archivos más pequeños.")
-            self._scan_xml(archive, path, worksheet_element)
+            def worksheet_text(text, parents):
+                if cell.get('in_value') and parents == value_parent + (ns + 'v',):
+                    cell['text'] = True
+            def worksheet_end(tag, parents):
+                if tag == ns + 'v' and parents == value_parent:
+                    cell['in_value'] = False
+                elif tag == ns + 'c' and parents == cell_parent:
+                    cached = cell['value'] and (cell['text'] or cell['type'] == 'str')
+                    saved = (cell['inline'] if cell['type'] == 'inlineStr' else cached)
+                    if saved:
+                        results.saved[column] = results.saved.get(column, 0) | (1 << (row - 1))
+                    if cell['formula'] and (not cached or cell['type'] == 'inlineStr'):
+                        results.missing.setdefault(column, row)
+            self._scan_xml(archive, path, worksheet_element, on_end=worksheet_end, on_text=worksheet_text)
+            results.check(sheet_name, range(1, self.MAX_DATA_COLUMNS + 1), headers=True)
+            self._formula_results[sheet_name] = results
 
-    def _scan_xml(self, archive, path, on_start):
+    def _scan_xml(self, archive, path, on_start, *, on_end=None, on_text=None):
         """Streaming SAX-style scan without a tree, DTDs or entity expansion."""
         parser = expat.ParserCreate(namespace_separator='}')
         stack = []
@@ -254,7 +361,13 @@ class ExcelReader:
             on_start(tag, attributes, tuple(stack))
             stack.append(tag)
         parser.StartElementHandler = start_element
-        parser.EndElementHandler = lambda tag: stack.pop()
+        def end_element(tag):
+            stack.pop()
+            if on_end is not None:
+                on_end(tag, tuple(stack))
+        parser.EndElementHandler = end_element
+        if on_text is not None:
+            parser.CharacterDataHandler = lambda text: on_text(text, tuple(stack))
         def reject_entities(*args):
             raise ValueError('Workbook XML must not contain DTDs or entities')
         parser.StartDoctypeDeclHandler = reject_entities
@@ -274,6 +387,7 @@ class ExcelReader:
         self._source_bytes = source_bytes
         self._cancelled = cancelled or (lambda: False)
         self._sheets = None
+        self._formula_results = {}
 
     def _source(self):
         return BytesIO(self._source_bytes) if self._source_bytes is not None else self.file_path
@@ -343,6 +457,8 @@ class ExcelReader:
                 # their ignored behavior, and literal "#N/A" remains text.
                 consumed = ({"# de aula", "capacidad", "descripcion", "campus"} if sheet == "Aulas"
                             else {"curso", "nombre", "horas", "aula", "dias"})
+                self._formula_results[sheet].check(
+                    sheet, [column for column, field in enumerate(frame.columns, 1) if field in consumed])
                 for column, field in enumerate(frame.columns, 1):
                     if field in consumed:
                         invalid = frame[field].isna()

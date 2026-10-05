@@ -12,7 +12,8 @@ from tests.test_infrastructure.test_excel_error_cells import error_workbook
 
 
 @pytest.mark.parametrize('language,expected', [('es', 'error de Excel'), ('en', 'Excel error')])
-def test_cached_formula_error_preserves_disk_pin_resources_and_history(window, tmp_path, monkeypatch, language, expected):
+@pytest.mark.parametrize('missing_cache', [False, True], ids=['cached-error', 'missing-result'])
+def test_formula_error_preserves_disk_pin_resources_and_history(window, tmp_path, monkeypatch, language, expected, missing_cache):
     window.resources = SchedulingResources((ResourceCatalog('teacher', True,
         (Resource('t-synthetic', 'Synthetic teacher'),), (('BIO-G1', ('t-synthetic',)),)),))
     assert window._save_session()
@@ -20,7 +21,14 @@ def test_cached_formula_error_preserves_disk_pin_resources_and_history(window, t
     history = encoded(vars(window._history))
     db_path = tmp_path / 'session.db'
     disk = db_path.read_bytes()
-    path = error_workbook(tmp_path / 'cached-error.xlsx', formula=True)
+    if missing_cache:
+        from tests.test_infrastructure.test_excel_formula_results import workbook, formula
+        path = tmp_path / 'missing-result.xlsx'
+        path.write_bytes(workbook([('Cursos', 'B3', formula())]))
+        expected = ('Recalcule y guarde el libro en Excel, o pegue los valores' if language == 'es'
+                    else 'Recalculate and save the workbook in Excel, or paste values')
+    else:
+        path = error_workbook(tmp_path / 'cached-error.xlsx', formula=True)
     errors = []
     monkeypatch.setattr(QMessageBox, 'critical', lambda *args: errors.append(str(args[2])))
     monkeypatch.setattr(window._import, '_review_candidate', lambda *args: pytest.fail('Invalid workbook reached acceptance review'))
