@@ -26,6 +26,18 @@ from tools.windows_test_batches import BATCHES, batch_for_nodeid, verify_invento
     ("tests/test_gui/test_settings_design.py::test_new", "gui-layout"),
     ("tests/test_gui/test_settings_design_extra.py::test_new", "gui"),
     ("tests/test_gui/test_new.py::test_case[test_settings_design.py]", "gui"),
+    ("tests/test_gui/test_calendar_dialog_layout.py::test_new[param]", "gui-layout"),
+    ("tests/test_gui/test_calendar_dialog_layout_extra.py::test_new", "gui"),
+    ("tests/test_gui/test_new.py::test_case[test_calendar_dialog_layout.py]", "gui"),
+    ("tests/test_gui/test_help_details_keyboard.py::test_new[param]", "gui-layout"),
+    ("tests/test_gui/test_help_details_keyboard_extra.py::test_new", "gui"),
+    ("tests/test_gui/test_new.py::test_case[test_help_details_keyboard.py]", "gui"),
+    ("tests/test_gui/test_resource_dialog_layout.py::test_new[param]", "gui-layout"),
+    ("tests/test_gui/test_resource_dialog_layout_extra.py::test_new", "gui"),
+    ("tests/test_gui/test_new.py::test_case[test_resource_dialog_layout.py]", "gui"),
+    ("tests/test_gui/test_theme_creation_dialog.py::test_new[param]", "gui-layout"),
+    ("tests/test_gui/test_theme_creation_dialog_extra.py::test_new", "gui"),
+    ("tests/test_gui/test_new.py::test_case[test_theme_creation_dialog.py]", "gui"),
     ("tests/test_gui_extra.py::test_new", "remaining"),
     ("tests/test_new_layer/test_new.py::test_new", "remaining"),
     ("tests/test_domain.py::test_value[tests/test_gui/value]", "remaining"),
@@ -143,6 +155,11 @@ def test_real_pytest_batches_capture_skips_failures_and_distinct_junit(tmp_path)
     (gui / "test_project_dialog_layout.py").write_text(
         "def test_project_layout_routing(): pass\n", encoding="utf-8"
     )
+    for name in ("calendar_dialog_layout", "help_details_keyboard",
+                 "resource_dialog_layout", "theme_creation_dialog"):
+        (gui / f"test_{name}.py").write_text(
+            "def test_new_layout_module_routing(): pass\n", encoding="utf-8"
+        )
     for directory in (gui / "new_gui_directory", tmp_path / "tests/new_layer"):
         directory.mkdir()
         (directory / f"test_{directory.name}.py").write_text("def test_auto_included(): pass\n", encoding="utf-8")
@@ -156,14 +173,14 @@ def test_real_pytest_batches_capture_skips_failures_and_distinct_junit(tmp_path)
             args.extend([f"--regression-batch={batch}", f"--junitxml=tests-{batch}.xml"])
         result = subprocess.run(args, cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
         assert result.returncode == (1 if batch in ("gui", "gui-layout", "theme-runtime") else 0), result.stdout + result.stderr
-    expected_counts = {"all": 16, "gui": 5, "gui-layout": 5, "theme-runtime": 4, "remaining": 2}
+    expected_counts = {"all": 20, "gui": 5, "gui-layout": 9, "theme-runtime": 4, "remaining": 2}
     assert verify_inventories(tmp_path) == expected_counts
     full = json.loads((tmp_path / "tests-all-inventory.json").read_text())["nodeids"]
     for batch in BATCHES:
         selected = json.loads((tmp_path / f"tests-{batch}-inventory.json").read_text())["nodeids"]
         assert selected == [nodeid for nodeid in full if batch_for_nodeid(nodeid) == batch]
     layout_report = ET.parse(tmp_path / "tests-gui-layout.xml").getroot()
-    assert len(layout_report.findall(".//testcase")) == 5
+    assert len(layout_report.findall(".//testcase")) == 9
     assert any(case.get("name") == "test_project_layout_routing"
                for case in layout_report.findall(".//testcase"))
     assert len(layout_report.findall(".//failure")) == 1

@@ -18,11 +18,18 @@ BATCHES = ("gui", "gui-layout", "theme-runtime", "remaining")
 # Measured Windows real-font runs spend over 200 seconds in these layout and
 # palette matrices alone. Keep their full modules together in a fresh serial
 # process rather than letting an expanding GUI batch hit its eight-minute cap.
+# The desktop MCP guide review hit that cap with no assertion failure while
+# these additional native-layout matrices remained in GUI. Keep whole modules
+# here so future parametrizations retain the same exact-coverage contract.
 GUI_LAYOUT_FILES = frozenset({
     "tests/test_gui/test_appearance_dialog.py",
     "tests/test_gui/test_compact_optional_controls.py",
     "tests/test_gui/test_project_dialog_layout.py",
     "tests/test_gui/test_settings_design.py",
+    "tests/test_gui/test_calendar_dialog_layout.py",
+    "tests/test_gui/test_help_details_keyboard.py",
+    "tests/test_gui/test_resource_dialog_layout.py",
+    "tests/test_gui/test_theme_creation_dialog.py",
 })
 
 

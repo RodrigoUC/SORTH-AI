@@ -120,7 +120,7 @@ def test_help_details_focused_buttons_fit_fresh_native_metrics(
             viewer.close()
 
 
-@pytest.mark.parametrize('client', ['opencode', 'claude', 'chatgpt'])
+@pytest.mark.parametrize('client', ['opencode', 'claude', 'chatgpt', 'chatgpt_desktop'])
 @pytest.mark.parametrize('locale', ['es', 'en'])
 @pytest.mark.parametrize('backwards', [False, True], ids=['Tab', 'Shift-Tab'])
 def test_help_keyboard_reveals_controls_and_links(presentation, client, locale, backwards):
