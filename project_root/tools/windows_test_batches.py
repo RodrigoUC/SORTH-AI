@@ -30,6 +30,12 @@ GUI_LAYOUT_FILES = frozenset({
     "tests/test_gui/test_help_details_keyboard.py",
     "tests/test_gui/test_resource_dialog_layout.py",
     "tests/test_gui/test_theme_creation_dialog.py",
+    # Run37268686625 measured GUI459s/480s and layout259s/360s. These
+    # complete native-layout modules transfer ~42s without changing a limit or
+    # omitting any case; new parametrizations keep the same exact routing.
+    "tests/test_gui/test_update_dialog.py",
+    "tests/test_gui/test_main_seed_focus.py",
+    "tests/test_gui/test_menu_layout.py",
 })
 
 
