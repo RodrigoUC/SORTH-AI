@@ -125,18 +125,25 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = self._main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(24, 20, 24, 12)
+        main_layout.setContentsMargins(24, 8, 24, 8)
         main_layout.setSpacing(8)
 
-        main_layout.addLayout(self._create_file_section())
+        self._workspace_chrome = QWidget()
+        chrome_layout = QVBoxLayout(self._workspace_chrome)
+        chrome_layout.setContentsMargins(0, 0, 0, 0)
+        chrome_layout.setSpacing(0)
+        # Keep child visibility independent: asynchronous status/theme updates
+        # must never uncover the shell while the schedule is expanded.
+        main_layout.addWidget(self._workspace_chrome)
+        chrome_layout.addLayout(self._create_file_section())
         self._feature_notice = QLabel()
         self._feature_notice.setWordWrap(True)
         self._feature_notice.setAccessibleName(msg('Datos de funciones desactivadas'))
-        main_layout.addWidget(self._feature_notice)
+        chrome_layout.addWidget(self._feature_notice)
         self._theme_recovery_notice = QLabel()
         self._theme_recovery_notice.setObjectName('themeRecoveryNotice')
         self._theme_recovery_notice.setWordWrap(True)
-        main_layout.addWidget(self._theme_recovery_notice)
+        chrome_layout.addWidget(self._theme_recovery_notice)
         theme_manager().changed.connect(self._refresh_theme_recovery_notice)
         self._refresh_theme_recovery_notice()
         from .resource_dialog import RESOURCE_TITLES
@@ -148,7 +155,7 @@ class MainWindow(QMainWindow):
             resource_actions.addWidget(button)
             self.resource_buttons[kind] = button
         resource_actions.addStretch()
-        main_layout.addLayout(resource_actions)
+        chrome_layout.addLayout(resource_actions)
         self._compact_tools = QWidget()
         compact_row = QHBoxLayout(self._compact_tools)
         compact_row.setContentsMargins(0, 0, 0, 0)
@@ -181,7 +188,7 @@ class MainWindow(QMainWindow):
         shortcut.triggered.connect(lambda: self._compact_tools_button.showMenu() if self._compact_tools.isVisible() else None)
         self.addAction(shortcut)
         self._compact_tools.hide()
-        main_layout.addWidget(self._compact_tools)
+        chrome_layout.addWidget(self._compact_tools)
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
@@ -204,7 +211,11 @@ class MainWindow(QMainWindow):
         self.schedule_viewer.tabs.currentChanged.connect(
             lambda _index: self._motion.reveal(self.schedule_viewer.tabs.currentWidget()))
 
-        main_layout.addLayout(self._create_actions_section())
+        self._workspace_actions = QWidget()
+        self._workspace_actions.setLayout(self._create_actions_section())
+        self._workspace_actions.layout().setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self._workspace_actions)
+        self.schedule_viewer.expanded_changed.connect(self._set_schedule_expanded)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -1846,7 +1857,16 @@ class MainWindow(QMainWindow):
         self._update_export_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
 
+    def _set_schedule_expanded(self, expanded):
+        self._motion.finish()
+        self._workspace_chrome.setVisible(not expanded)
+        self._workspace_actions.setVisible(not expanded)
+        self.tabs.tabBar().setVisible(not expanded)
+        self._update_compact_overview()
+
     def _on_main_view_changed(self, *_):
+        if self.tabs.currentWidget() is not self.schedule_viewer:
+            self.schedule_viewer.set_expanded(False)
         # Responsive chrome changes geometry. Finish that synchronous native
         # layout before revealing the new page, otherwise its resize correctly
         # cancels the just-started animation. No event pumping or delayed input.
@@ -1890,6 +1910,11 @@ class MainWindow(QMainWindow):
         self._compact_summary.setText(join_messages(' · ', summary))
         self._compact_summary.setToolTip(self._feature_notice.text())
         self._compact_summary.setAccessibleDescription(self._feature_notice.text())
+        # A hidden resource/notice row changes the nested shell's hint. Settle
+        # it before the outer stretch budget on both navigation and resize.
+        self._file_layout.activate()
+        self._workspace_chrome.layout().activate()
+        self._main_layout.activate()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1900,9 +1925,14 @@ class MainWindow(QMainWindow):
             # Native Segoe UI chrome consumes more height than the Linux
             # fallback at the same 10pt. Spend whitespace first, leaving fonts,
             # action targets, visible scopes and reading rows unchanged.
-            self._main_layout.setSpacing(2 if dense else 8)
-            self._main_layout.setContentsMargins(*(16, 4, 16, 4) if dense else (24, 20, 24, 12))
-            self._file_layout.setSpacing(2 if dense else 16)
+            # Segoe UI plus stable label borders needs this small whitespace
+            # reserve to retain four full rows at compact threshold heights.
+            # Keep a 16px vertical reserve when spacious chrome returns at 921px;
+            # restoring 20+12px insets there clips the fourth Windows list row.
+            self._main_layout.setSpacing(1 if dense else 8)
+            self._main_layout.setContentsMargins(*(16, 2, 16, 2) if dense else (24, 8, 24, 8))
+            self._file_layout.setSpacing(1 if dense else 16)
+            self._workspace_chrome.layout().setSpacing(1 if dense else 8)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
                 self._update_feature_notice()
                 self._update_compact_overview()

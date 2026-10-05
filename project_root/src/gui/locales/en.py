@@ -506,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Clear schedule",
     "Lista detallada": "Detailed list",
     "Lista detallada del horario": "Detailed schedule list",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Grid zoom: {percent}%. Reset to 100%.',
+    'Expandir': 'Expand',
+    'Restaurar': 'Restore',
+    'Expandir vista del horario': 'Expand schedule view',
+    'Restaurar vista del horario': 'Restore schedule view',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Temporarily hide other panels to enlarge this view.',
+    'Restaurar los otros paneles (Esc).': 'Restore the other panels (Esc).',
+    'Alejar cuadrícula': 'Zoom out grid',
+    'Acercar cuadrícula': 'Zoom in grid',
+    'Restablecer zoom al 100%': 'Reset zoom to 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Ready. Load an Excel file to get started.",
     "Lunes": "Monday",
     "Marcar todos": "Select all",

@@ -78,7 +78,8 @@ class ScheduleGridDelegate(QStyledItemDelegate):
         text_rect = rect.adjusted(self.INSET, 7, -8, -7)
         painter.setClipRect(text_rect)
         y = text_rect.top()
-        normal = QFont(option.font)
+        item_font = index.data(Qt.ItemDataRole.FontRole)
+        normal = QFont(item_font if isinstance(item_font, QFont) else option.font)
         bold = QFont(normal)
         bold.setBold(True)
         if card.conflict_label:

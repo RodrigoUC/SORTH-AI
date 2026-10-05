@@ -506,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Limpiar horario",
     "Lista detallada": "Lista detallada",
     "Lista detallada del horario": "Lista detallada del horario",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.',
+    'Expandir': 'Expandir',
+    'Restaurar': 'Restaurar',
+    'Expandir vista del horario': 'Expandir vista del horario',
+    'Restaurar vista del horario': 'Restaurar vista del horario',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Ocultar temporalmente otros paneles para ampliar esta vista.',
+    'Restaurar los otros paneles (Esc).': 'Restaurar los otros paneles (Esc).',
+    'Alejar cuadrícula': 'Alejar cuadrícula',
+    'Acercar cuadrícula': 'Acercar cuadrícula',
+    'Restablecer zoom al 100%': 'Restablecer zoom al 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Listo. Cargue un archivo Excel para comenzar.",
     "Lunes": "Lunes",
     "Marcar todos": "Marcar todos",
