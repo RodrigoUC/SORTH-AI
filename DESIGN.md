@@ -20,7 +20,44 @@ Professional academic workspace with a more recognizable identity than the previ
 - Success: #246448 / #E3F3EA; caution: #88551A / #FFF0D5; danger: #A12D46 / #FCE8EC
 
 ## Components and behavior
-Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a 2px contrasting boundary. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
+Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a restrained 1px contrasting boundary with softly rounded corners. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
+
+Popup menu items use explicit 6px vertical and 28px horizontal padding so
+Qt sizes and paints localized labels with the same box model across native
+styles. This retains right-hand breathing room for schedule tools at enlarged
+text sizes without consuming space in the compact four-row schedule layout.
+
+## Expanded schedule consultation and grid zoom
+The shared search row offers one native **Expandir / Restaurar** toggle for
+Lista detallada, Cuadrícula por aula and Por aula. Expansion hides the outer
+file/configuration/resource panels, course tab bar and generation/export row;
+it keeps the same schedule widgets, global filters, local room selector,
+selection, scope feedback and status/cancellation controls. Escape restores
+panels and focus to the toggle. Navigating to course management also restores
+the shell. Child visibility continues updating while its parent shell is hidden,
+so resize, theme recovery and asynchronous status updates cannot uncover it.
+
+The classroom grid adds native minus, percentage/reset and plus controls in
+that same search row, visible only on its tab. Zoom is window-local, 75–200% in
+25-point increments, with 100% reset; no session/settings writes are made.
+Row geometry, time labels, day headers and course-card text scale together.
+Columns use the available viewport with a scaled readability floor and native
+horizontal scrolling. The existing table and its selected block remain intact.
+The controls reuse localized wrappers, focused-native metric reservations and
+shared theme tokens; normal compact views retain four readable table rows.
+
+### Reliable spin-button pointer targets
+The shared theme explicitly owns both stacked spin-button rectangles and their
+arrow assets for integer, decimal, time and date controls. This avoids mixing
+Windows 11 side-by-side native buttons with a stylesheet edit field that reserves
+only one button width: the text editor must never cover a visible button. Native
+step, repeat, keyboard, range, validation and persistence behavior remain intact.
+Hover, pressed, disabled and range-limit arrows use existing semantic tokens.
+Tests route clicks through the actual child under the pointer rather than directly
+to the spinbox; a horizontal-native-geometry proxy reproduces the overlap on Linux.
+Native Windows styles are included when available, but the proxy is not Windows
+rendering acceptance. Light/dark/high-contrast/custom, 10/20pt, scaling and the
+classroom Save flow are covered without changing saved data or capacity bounds.
 
 ## Localization behavior
 The language selector uses native language names and the shared navy header contrast token. Switching updates only marked presentation properties on existing Qt controls, retaining editing state, focus, filters and selection. The locale applies to owned widgets, never to the operating system or persisted domain data. Exact schedule times remain HH:mm and CSV/Excel use their existing Spanish headers and day names in every interface language. Native system file pickers retain the OS language. Future RTL languages require a dedicated layout review before release.
@@ -46,6 +83,23 @@ automatic detection of the operating system's reduced-motion setting.
 Motion QA uses real Qt event-loop tests, recorded Qt frames, and screenshots at
 1200×800 and 960×640; screenshots alone cannot establish animation behavior.
 Native Windows timing and screen-reader announcement behavior require platform QA.
+
+### Softer shared keyboard focus
+The shared theme uses stable 1px frames for inputs, buttons, tables, lists and
+text editors. Focus changes their semantic boundary color without changing
+thickness; rounded 4px corners replace hard rectangular view outlines. Checkbox
+focus adds the validated soft accent surface and a rounded 1px boundary, retaining
+its previous two-pixel footprint with a one-pixel inset. Selectable labels reserve
+a transparent one-pixel frame; tab focus reserves its top edge before focus.
+Selection keeps its independent soft fill and course-card identity markers.
+
+Resource/course fields retain their previous interior footprint through padding.
+Appearance previews and theme-creation dialogs inherit the same shared focus,
+without separate thick-frame overrides. Existing validated custom-theme colors,
+light/dark/high-contrast semantics, native keyboard behavior and text selection
+are unchanged. Native control paint/geometry tests cover ES/EN, 10/20pt, Fusion
+and Windows styles and 125/150/200% scaling. These are Linux Qt rendering checks;
+native Windows desktop acceptance remains a release gate.
 
 ## Keyboard and assistive-technology support
 Tables use arrow keys for cell navigation and Tab/Shift+Tab to leave; sortable
@@ -83,6 +137,20 @@ Optional-tool preferences use one versioned atomic JSON record, separate from
 QSettings language/motion preferences. Failed saves keep committed flags and
 original bytes. Malformed/future settings require an explicit preserve-and-reset
 action; the native recovery message explains that schedule data never changes.
+
+### Excel input template
+
+The file action row exposes **Plantilla Excel…** beside **Cargar Excel**. Its
+native localized button reserves focused metrics without adding another row or
+changing adjacent controls. A native save picker writes a fresh synthetic
+workbook; Cancel and failures never change the live session. The status bar
+retains the latest outcome and errors use the existing keyboard-readable dialog.
+Workbook headers retain the reader's Spanish contract, with separate ES/EN
+instructions, text identifiers, capacity validation, frozen headers and clearly
+fictional examples. Required/optional distinctions are also stated in words.
+Generation uses the existing atomic export writer and requires no bundled asset,
+network, optional resources or current project data. Native Windows acceptance
+remains separate from Linux Qt and LibreOffice development previews.
 
 ## Staged Excel import
 
@@ -389,11 +457,11 @@ The schedule shell uses three independent, deterministic presentation budgets.
 Selection-help captions and retained-data notices return above 760px. Secondary summary/resource chrome
 returns above 802px; below that it remains in the established native F7 menu.
 Dense gaps/insets remain through 920px, so the full chrome can fit four readable
-rows before spacious margins return. The native 2px focused-frame cost is included. No mode decision reads the current viewport,
+rows before spacious margins return. Stable native focus frames and label borders are included. No mode decision reads the current viewport,
 avoiding responsive feedback or oscillation. The thresholds are verified on both
 sides with actual native metrics and every optional feature restored.
 
-The viewer uses 2px inter-row gaps in dense mode, retaining native fonts, table
+The viewer uses 1px inter-row gaps in dense mode, retaining native fonts, table
 row heights, action targets, the visible scope line and existing F6/F7 routes.
 Spacious windows restore the 6px viewer gaps. Counts, filters, details and exports
 retain their existing semantics; no preference or domain data changes.
@@ -417,14 +485,19 @@ resize, hide, close and reduced-motion preferences retain their cancellation rul
 ### Native schedule whitespace reserve
 The minimum schedule window reserves room for the taller installed Segoe UI
 metrics observed in correctly fonted Windows offscreen checks. Dense shell gaps
-are 2px, outer vertical insets total 8px, and consultation pages use a 2px top
-inset. Spacious shell gaps are 8px. This recovers whitespace at every existing
+are 1px, outer vertical insets total 4px, and consultation pages use a 2px top
+inset. Spacious shell gaps are 8px, with 8px top/bottom outer insets. The
+16px spacious inset budget also retains four rows immediately above 920px, where
+restoring the previous 20px/12px insets clipped native Windows list rows.
+This recovers whitespace at every existing
 mode boundary without changing fonts, normal table rows, action targets, notices
 or visible export scope. Content thresholds stay at 760/802/920px and never
 read the current viewport. Native layout still settles before page reveal.
 
-A portable regression increases native table-header size requirements by 4px
-and crosses each boundary in both directions with focused tables. It preserves
+A portable regression increases native table-header size requirements by 4px and 8px
+and crosses each boundary in both directions with focused tables under
+native-default, Fusion and Windows styles. It checks the dense/spacious
+whitespace geometry independently from content visibility. It preserves
 font and row sizes and the strict 120px reference reading budget. Windows
 geometry artifacts include font line height, header height and active whitespace
 metrics so platform differences can be diagnosed without relaxing assertions.
@@ -495,8 +568,8 @@ covered by Linux offscreen/Fusion/Windows-style tests and synthetic captures;
 native Windows rendering and screen-reader acceptance remain unverified.
 
 Calendar weekdays reuse the Settings checkbox focus-border reserve in the shared
-theme owner: a transparent 2px border is present before focus, which changes only
-its color. Native size hints and text-content height remain stable while tabbing
+theme owner: a transparent 1px border plus 1px inset is present before focus, which changes only
+its color and soft background. Native size hints and text-content height remain stable while tabbing
 and switching ES/EN, including 20pt fonts, without fixing heights or changing
 fonts. Fresh native-style measurements guard against stale cached size hints.
 
@@ -557,8 +630,8 @@ ES/EN light/dark/custom, native-default/Fusion/Windows-style and enlarged-font
 checks are Linux development evidence, not native Windows acceptance.
 
 ### Main seed keyboard focus
-The main-window random-seed checkbox reserves the same transparent 2px focus
-border as the native dialog checkboxes. Focusing changes only its color, keeping
+The main-window random-seed checkbox reserves the same transparent 1px focus
+border and 1px inset as the native dialog checkboxes. Focusing changes only its color, keeping
 the complete ES/EN caption and native checkbox dimensions stable from first show.
 Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped

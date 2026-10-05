@@ -8,12 +8,20 @@ from PyQt6.QtCore import QTimer, QEventLoop
 from PyQt6.QtWidgets import QApplication, QDialog
 from ..gui.i18n import language_manager
 from ..infrastructure.excel_reader import ExcelReader, ExcelImportError
+from ..infrastructure.excel_template import write_import_template
 from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..scheduling.time_model import TimeModel
 from .scheduling_service import SchedulingService
 
 
 def verify_workflow(window, output, result):
+    template = output / 'import-template.xlsx'
+    write_import_template(template)
+    imported = ExcelReader(template).load_validated()
+    if imported.warnings or len(imported.classrooms) != 2 or sum(
+            course.number_of_groups for course in imported.courses) != 3:
+        raise RuntimeError('Generated Excel template did not round-trip.')
+    result['stages'].append('import_template_roundtrip')
     course = window.course_manager.get_courses()[0]
     edited_name = 'Revisión Ω / 日本語'
     def edit():

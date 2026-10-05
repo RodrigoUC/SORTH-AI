@@ -506,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Clear schedule",
     "Lista detallada": "Detailed list",
     "Lista detallada del horario": "Detailed schedule list",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Grid zoom: {percent}%. Reset to 100%.',
+    'Expandir': 'Expand',
+    'Restaurar': 'Restore',
+    'Expandir vista del horario': 'Expand schedule view',
+    'Restaurar vista del horario': 'Restore schedule view',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Temporarily hide other panels to enlarge this view.',
+    'Restaurar los otros paneles (Esc).': 'Restore the other panels (Esc).',
+    'Alejar cuadrícula': 'Zoom out grid',
+    'Acercar cuadrícula': 'Zoom in grid',
+    'Restablecer zoom al 100%': 'Reset zoom to 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Ready. Load an Excel file to get started.",
     "Lunes": "Monday",
     "Marcar todos": "Select all",
@@ -1473,6 +1485,13 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactive',
     'Fijada: {room}, {day}, {start}–{end}': 'Pinned: {room}, {day}, {start}–{end}',
+    'Plantilla Excel…': 'Excel template…',
+    'Guardar plantilla Excel': 'Save Excel template',
+    'Archivos Excel (*.xlsx)': 'Excel files (*.xlsx)',
+    'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.': 'Save an .xlsx template with instructions and fictional examples to fill in and import. The current session is unchanged.',
+    'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.': 'Could not save the template to {filename}. Check the destination and try again.',
+    'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.': 'Could not save the template. Close the file if it is open and check destination permissions.',
+    'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.': 'Template saved: {filename}. Replace the examples and use Load Excel.',
 })
 
 # Distinguish desktop STDIO from hosted web connections.

@@ -84,7 +84,7 @@ def test_source_smoke_runs_isolated_and_exports(tmp_path):
     assert set(report['stages']) == {'icon_svg_png_decode', 'bundled_excel_import', 'background_schedule',
                                      'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'qt_render', 'language_switch_es_en',
                                      'course_dialog_edit_save', 'new_window_restore',
-                                     'reopened_export_content', 'invalid_input_preserves_session',
+                                     'reopened_export_content', 'invalid_input_preserves_session', 'import_template_roundtrip',
                                      'large_workbook_schedule_export',
                                      'theme_builtin_preview_cancel', 'theme_builtin_apply',
                                      'theme_unsafe_json_rejected', 'theme_custom_import_apply',

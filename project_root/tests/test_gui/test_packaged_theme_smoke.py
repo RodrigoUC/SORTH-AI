@@ -13,7 +13,7 @@ LEGACY_STAGES = {
     'icon_svg_png_decode', 'bundled_excel_import', 'background_schedule',
     'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'language_switch_es_en',
     'qt_render', 'course_dialog_edit_save', 'new_window_restore',
-    'reopened_export_content', 'invalid_input_preserves_session',
+    'reopened_export_content', 'invalid_input_preserves_session', 'import_template_roundtrip',
     'large_workbook_schedule_export',
 }
 THEME_STAGES = {

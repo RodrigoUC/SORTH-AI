@@ -190,21 +190,30 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
         locale.set_language(previous_language, persist=False)
 
 
-@pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
+@pytest.mark.parametrize('style_name', [None, 'Fusion', 'Windows'], ids=['native-default', 'Fusion', 'Windows'])
 @pytest.mark.parametrize('language', ['es', 'en'])
-def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name):
+@pytest.mark.parametrize('header_allowance', [4, 8])
+def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name, header_allowance):
     """A native header change must retain the four-list-row reference budget.
 
     Native Segoe UI exposed a height deficit that Linux font metrics concealed.
-    Keep real widget fonts and rows, and give every header a four-pixel larger
+    Keep real widget fonts and rows, and give every header a four- or eight-pixel larger
     native size requirement so tight platform-specific seams fail locally too.
     """
+    import json
+    from pathlib import Path
+
+    snapshots = []
+    report_dir = Path(__file__).resolve().parents[2] / 'build' / 'reports'
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report = report_dir / f'schedule-budget-header-{style_name}-{language}-{header_allowance}.json'
     app = QApplication.instance()
     locale = language_manager()
     previous_language = locale.language
     previous_style = app.style().objectName()
     try:
-        app.setStyle(style_name)
+        if style_name is not None:
+            app.setStyle(style_name)
         locale.set_language(language, persist=False)
         window.resources = SchedulingResources(tuple(ResourceCatalog(kind, True) for kind in RESOURCE_KINDS))
         window.calendar = ProjectCalendar(('Lunes', 'Domingo'), 0, 1440, ())
@@ -226,7 +235,7 @@ def test_schedule_budget_reserves_native_header_metric_variation(window, languag
         rows = [table.rowHeight(0) for table in tables]
         for table in tables:
             header = table.horizontalHeader()
-            header.setMinimumHeight(header.sizeHint().height() + 4)
+            header.setMinimumHeight(header.sizeHint().height() + header_allowance)
         heights = (640, 760, 761, 802, 803, 804, 920, 921, 922,
                    921, 920, 804, 803, 802, 761, 760, 640)
         for height in heights:
@@ -238,6 +247,24 @@ def test_schedule_budget_reserves_native_header_metric_variation(window, languag
                 table.setFocus()
                 app.processEvents()
                 assert window.size() == QSize(960, height)
+                margins = window._main_layout.contentsMargins()
+                snapshots.append({
+                    'size': [window.width(), window.height()], 'tab': index,
+                    'viewport_height': table.viewport().height(),
+                    'reference_list_row_height': rows[0],
+                    'row_height': table.rowHeight(0), 'font': table.font().toString(),
+                    'font_line_height': table.fontMetrics().height(),
+                    'header_allowance': header_allowance,
+                    'header_height': table.horizontalHeader().height(),
+                    'main_spacing': window._main_layout.spacing(),
+                    'main_margins': [margins.left(), margins.top(), margins.right(), margins.bottom()],
+                    'scope_visible': viewer._export_scope_hint.isVisible(),
+                    'table_focused': table.hasFocus(),
+                })
+                report.write_text(json.dumps(snapshots, indent=2), encoding='utf-8')
+                expected_margins = (16, 2, 16, 2) if height <= 920 else (24, 8, 24, 8)
+                assert (margins.left(), margins.top(), margins.right(), margins.bottom()) == expected_margins
+                assert window._main_layout.spacing() == (1 if height <= 920 else 8)
                 assert table.hasFocus()
                 assert table.font().toString() == fonts[index]
                 assert table.rowHeight(0) == rows[index]

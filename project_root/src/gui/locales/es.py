@@ -506,6 +506,18 @@ MESSAGES = {
     "Limpiar horario": "Limpiar horario",
     "Lista detallada": "Lista detallada",
     "Lista detallada del horario": "Lista detallada del horario",
+
+    'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.': 'Zoom de la cuadrícula: {percent}%. Restablecer al 100%.',
+    'Expandir': 'Expandir',
+    'Restaurar': 'Restaurar',
+    'Expandir vista del horario': 'Expandir vista del horario',
+    'Restaurar vista del horario': 'Restaurar vista del horario',
+    'Ocultar temporalmente otros paneles para ampliar esta vista.': 'Ocultar temporalmente otros paneles para ampliar esta vista.',
+    'Restaurar los otros paneles (Esc).': 'Restaurar los otros paneles (Esc).',
+    'Alejar cuadrícula': 'Alejar cuadrícula',
+    'Acercar cuadrícula': 'Acercar cuadrícula',
+    'Restablecer zoom al 100%': 'Restablecer zoom al 100%',
+
     "Listo. Cargue un archivo Excel para comenzar.": "Listo. Cargue un archivo Excel para comenzar.",
     "Lunes": "Lunes",
     "Marcar todos": "Marcar todos",
@@ -1540,6 +1552,13 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactivo',
     'Fijada: {room}, {day}, {start}–{end}': 'Fijada: {room}, {day}, {start}–{end}',
+    'Plantilla Excel…': 'Plantilla Excel…',
+    'Guardar plantilla Excel': 'Guardar plantilla Excel',
+    'Archivos Excel (*.xlsx)': 'Archivos Excel (*.xlsx)',
+    'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.': 'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.',
+    'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.': 'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.',
+    'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.': 'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.',
+    'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.': 'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.',
 })
 
 # Distinguish desktop STDIO from hosted web connections.

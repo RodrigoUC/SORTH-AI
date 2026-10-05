@@ -61,6 +61,10 @@ omitas SmartScreen o Defender. Consulta [Actualizaciones oficiales](UPDATES.md).
 
 ### Paso 1 - Cargar el archivo Excel
 
+Si aún no tienes el archivo, pulsa **Plantilla Excel…** junto a **Cargar Excel**.
+Guarda la plantilla, lee sus instrucciones y reemplaza los ejemplos ficticios
+por tus aulas y cursos. Consulta [la guía de importación](EXCEL_IMPORT_WORKFLOW.md#crear-un-archivo-con-la-plantilla).
+
 1. Haz clic en **Cargar Excel**.
 2. Selecciona el archivo `.xlsx` con las hojas `Aulas` y `Cursos`.
 3. El nombre del archivo aparecerá en verde junto al botón si la carga fue exitosa.
@@ -146,6 +150,12 @@ En la barra inferior:
 ### Paso 7 - Revisar el horario generado
 
 En la pestaña **Horario Generado** tienes tres vistas:
+
+#### Ampliar la vista y acercar la cuadrícula
+- **Expandir**, junto a Buscar, amplía cualquiera de las tres vistas del horario y oculta temporalmente los otros paneles. **Restaurar** o **Esc** vuelve al espacio de trabajo habitual.
+- Se conservan filtros, aula, pestaña y selección. Los controles de estado y cancelación permanecen disponibles. Si abre la gestión de cursos desde una sesión, se restauran los otros paneles.
+- En **Cuadrícula por aula**, **−** y **+** ajustan el zoom entre **75% y 200%**, en pasos de 25 puntos. Pulse el porcentaje para volver al **100%**. El texto y los bloques cambian de tamaño; use las barras de desplazamiento para recorrer la cuadrícula ampliada.
+- Estas opciones sólo cambian la presentación de esta ventana; no modifican asignaciones, filtros de exportación ni archivos exportados.
 
 #### Lista Detallada
 - Muestra todos los grupos asignados con código, nombre, aula, día y horario.
