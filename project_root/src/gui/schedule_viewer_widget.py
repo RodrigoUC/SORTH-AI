@@ -962,7 +962,9 @@ class ScheduleViewerWidget(QWidget):
         # line reserves pending/no-match guidance without moving the timetable.
         self._result_label.ensurePolished()
         metrics = QFontMetricsF(self._result_label.font(), self._result_label)
-        self._result_label.setMinimumHeight(2 * math.ceil(metrics.height()))
+        margins = self._result_label.contentsMargins()
+        self._result_label.setMinimumHeight(
+            2 * math.ceil(metrics.height()) + margins.top() + margins.bottom())
         # Shared filters define the export set in every view. The grid-local
         # classroom count belongs beside its selector, never in this label.
         visible = len(self._matching_gids)
