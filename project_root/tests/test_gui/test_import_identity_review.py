@@ -9,6 +9,7 @@ from src.application.edit_history import encoded
 from src.gui.i18n import language_manager
 from src.gui.i18n_widgets import QDialog
 from src.gui.import_identity_dialog import ImportIdentityDialog
+from src.gui.import_replacement_dialog import ImportReplacementDialog
 from src.gui.import_preview_dialog import ImportPreviewDialog
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
@@ -163,6 +164,7 @@ def test_superseded_candidate_cannot_reuse_identity_consent(window, tmp_path, mo
             return QDialog.DialogCode.Accepted
         return QDialog.DialogCode.Rejected
     monkeypatch.setattr(ImportIdentityDialog, 'exec', review)
+    monkeypatch.setattr(ImportReplacementDialog, 'exec', review)
     window._import.start(path)
     wait_for_import(window)
     assert reviews == [path, replacement]

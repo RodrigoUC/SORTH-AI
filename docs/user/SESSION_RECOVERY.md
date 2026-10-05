@@ -105,3 +105,22 @@ los originales. El EXE de ventana escribe JSON porque no dispone de consola fiab
 Una versión reciente puede migrar el candidato a su esquema: **no** lo use para
 producir una copia para un ejecutable anterior. La vuelta atrás utiliza el resguardo
 previo y su versión compatible, conservando por separado los cambios recientes.
+
+### Cargar otro Excel después de limpiar
+
+**Limpiar horario** elimina asignaciones; conserva cursos, aulas y asociaciones
+para volver a generar. No hace falta limpiar antes de importar otro libro.
+Al cargar un Excel de una ruta diferente del último importado, SORTH primero lo
+valida y pide **Reemplazar el Excel actual**, aunque el horario ya esté vacío.
+Confirmar sustituye cursos y aulas por los del nuevo libro y elimina asignaciones,
+fijaciones, restricciones de aulas y asociaciones de recursos a sesiones previas.
+No se trasladan asociaciones por coincidencia de identificadores. Los catálogos
+de docentes, grupos de estudiantes y estudiantes, sus disponibilidades, el
+calendario y las preferencias se conservan. Cancelar o fallar la lectura,
+verificación, presentación o escritura conserva la sesión anterior.
+
+Volver a cargar la misma ruta sigue siendo una actualización: conserva las
+asociaciones compatibles y mantiene la revisión obligatoria de identidades cuando
+cambian cursos con grupos repetidos. Una ruta distinta se trata como reemplazo,
+aunque contenga los mismos datos. Si el archivo cambia durante la revisión, la
+nueva versión se valida y se pide consentimiento de nuevo.
