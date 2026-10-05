@@ -124,3 +124,10 @@ asociaciones compatibles y mantiene la revisión obligatoria de identidades cuan
 cambian cursos con grupos repetidos. Una ruta distinta se trata como reemplazo,
 aunque contenga los mismos datos. Si el archivo cambia durante la revisión, la
 nueva versión se valida y se pide consentimiento de nuevo.
+
+Después de una importación confirmada, SORTH muestra **Gestión de Cursos**, limpia
+su búsqueda anterior y permite revisar los datos recién cargados. El mensaje de
+éxito indica que el siguiente paso es **Generar horario**: importar datos no crea
+asignaciones automáticamente. Esto también se aplica a **Importar con avisos**;
+los avisos de aulas desconocidas se revisan antes de aceptar. Cancelar o fallar
+la importación conserva la pestaña, búsqueda y sesión anteriores.

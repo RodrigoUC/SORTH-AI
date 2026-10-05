@@ -1,6 +1,7 @@
 """en presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Revise los cursos importados y pulse «Generar horario».': 'Review the imported courses and click “Generate schedule”.',
     'Reemplazar el Excel actual': 'Replace the current Excel workbook',
     'Excel actual: {old}\nNuevo Excel: {new}': 'Current Excel: {old}\nNew Excel: {new}',
     'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.': 'The new Excel workbook will replace the current courses and classrooms. Schedule assignments, pins, classroom restrictions, and teacher, student-group and student links to previous sessions will be lost. Associations will not be transferred by identifier.',

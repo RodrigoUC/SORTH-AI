@@ -164,3 +164,61 @@ def test_replacement_presentation_failure_rolls_back_sql_and_resources(window, t
     window._import.start(path)
     wait_for_import(window)
     assert snapshot(window) == before
+
+
+@pytest.mark.parametrize('action', ['accept', 'cancel', 'escape', 'return', 'save_failure'])
+def test_warning_button_reveals_imported_courses_only_after_commit(window, tmp_path, monkeypatch, action):
+    import pandas as pd
+    from src.gui.i18n_widgets import QMessageBox as LocalizedMessageBox
+    prepare(window, tmp_path)
+    window.pinned_group_ids.clear()
+    for group in window.current_groups:
+        group.pinned = False
+    window._on_schedule_cleared()
+    window.tabs.setCurrentIndex(1)
+    window.course_manager._search.setText('old-filter-no-match')
+    window.show()
+    before = snapshot(window)
+    path = tmp_path / 'new-with-warnings.xlsx'
+    # Same warning type and totals as the reported screenshot; synthetic data.
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame({'# DE AULA': [f'R{i}' for i in range(12)],
+                      'CAPACIDAD': [30] * 12}).to_excel(writer, sheet_name='Aulas', index=False)
+        pd.DataFrame({'Curso': [f'NEW{i}' for i in range(155)],
+                      'Horas': ['0800-0900'] * 155,
+                      'Aula': ['UNKNOWN'] * 54 + ['R0'] * 101}).to_excel(writer, sheet_name='Cursos', index=False)
+    if action == 'save_failure':
+        monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: (_ for _ in ()).throw(OSError('save failure')))
+    observed = []
+    original_exec = LocalizedMessageBox.exec
+    def review(dialog):
+        def interact():
+            observed.append((dialog.text(), dialog.detailedText()))
+            button = dialog.button(QMessageBox.StandardButton.Ok)
+            assert 'Importar con avisos' in button.text()
+            if action in ('escape', 'return'):
+                QTest.keyClick(dialog, Qt.Key.Key_Escape if action == 'escape' else Qt.Key.Key_Return)
+            else:
+                target = button if action in ('accept', 'save_failure') else dialog.button(QMessageBox.StandardButton.Cancel)
+                QTest.mouseClick(target, Qt.MouseButton.LeftButton)
+        QTimer.singleShot(10, interact)
+        return original_exec(dialog)
+    monkeypatch.setattr(LocalizedMessageBox, 'exec', review)
+    window._import.start(str(path))
+    wait_for_import(window)
+    assert len(observed) == 1 and '54' in observed[0][0]
+    assert observed[0][1].count('UNKNOWN') == 54
+    if action == 'accept':
+        assert window.tabs.currentIndex() == 0
+        assert window.course_manager.table.rowCount() == 155
+        assert not window.course_manager._search.text()
+        assert all(not window.course_manager.table.isRowHidden(i) for i in range(155))
+        assert window.btn_generate.isEnabled()
+        assert window.current_schedule is None
+        assert 'Genere' in window.status_bar.currentMessage() or 'Generar horario' in window.status_bar.currentMessage()
+        assert '155' in window.status_bar.currentMessage()
+        assert len(window._repo.load_session()['courses']) == 155
+    else:
+        assert window.tabs.currentIndex() == 1
+        assert window.course_manager._search.text() == 'old-filter-no-match'
+        assert snapshot(window) == before

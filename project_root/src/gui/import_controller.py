@@ -106,6 +106,14 @@ class ImportController(QObject):
             self.candidate_name = None
             self.window._set_import_candidate(None)
             self.window._set_import_busy(False)
+            # Importing inputs does not generate assignments. Reveal the actual
+            # accepted rows instead of leaving the user on an empty timetable.
+            # Navigate only after the durable commit; cancel/error keep the view.
+            self.window.tabs.setCurrentIndex(0)
+            self.window.course_manager.table.setFocus()
+            self.window.status_bar.showMessage(join_messages(' ', (
+                self.window.status_bar.currentMessage(),
+                msg('Revise los cursos importados y pulse «Generar horario».'))))
             return
         # Changed files enter the complete review flow again, never a silent merge.
         if self.worker.previous is not None:
