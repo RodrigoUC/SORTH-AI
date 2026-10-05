@@ -556,3 +556,17 @@ Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped
 theme in Fusion/Windows styles; pixel scaling is separate from native Windows
 acceptance.
+
+### Excel input template
+
+The file action row exposes **Plantilla Excel…** beside **Cargar Excel**. Its
+native localized button reserves focused metrics without adding another row or
+changing adjacent controls. A native save picker writes a fresh synthetic
+workbook; Cancel and failures never change the live session. The status bar
+retains the latest outcome and errors use the existing keyboard-readable dialog.
+Workbook headers retain the reader's Spanish contract, with separate ES/EN
+instructions, text identifiers, capacity validation, frozen headers and clearly
+fictional examples. Required/optional distinctions are also stated in words.
+Generation uses the existing atomic export writer and requires no bundled asset,
+network, optional resources or current project data. Native Windows acceptance
+remains separate from Linux Qt and LibreOffice development previews.

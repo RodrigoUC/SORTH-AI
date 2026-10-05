@@ -1466,4 +1466,11 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactive',
     'Fijada: {room}, {day}, {start}–{end}': 'Pinned: {room}, {day}, {start}–{end}',
+    'Plantilla Excel…': 'Excel template…',
+    'Guardar plantilla Excel': 'Save Excel template',
+    'Archivos Excel (*.xlsx)': 'Excel files (*.xlsx)',
+    'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.': 'Save an .xlsx template with instructions and fictional examples to fill in and import. The current session is unchanged.',
+    'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.': 'Could not save the template to {filename}. Check the destination and try again.',
+    'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.': 'Could not save the template. Close the file if it is open and check destination permissions.',
+    'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.': 'Template saved: {filename}. Replace the examples and use Load Excel.',
 })

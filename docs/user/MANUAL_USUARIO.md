@@ -44,6 +44,10 @@ Para elegir o importar un tema desde Configuración, consulta [Apariencia y tema
 
 ### Paso 1 - Cargar el archivo Excel
 
+Si aún no tienes el archivo, pulsa **Plantilla Excel…** junto a **Cargar Excel**.
+Guarda la plantilla, lee sus instrucciones y reemplaza los ejemplos ficticios
+por tus aulas y cursos. Consulta [la guía de importación](EXCEL_IMPORT_WORKFLOW.md#crear-un-archivo-con-la-plantilla).
+
 1. Haz clic en **Cargar Excel**.
 2. Selecciona el archivo `.xlsx` con las hojas `Aulas` y `Cursos`.
 3. El nombre del archivo aparecerá en verde junto al botón si la carga fue exitosa.

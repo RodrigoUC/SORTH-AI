@@ -6,6 +6,35 @@ del Excel** está desactivada inicialmente. Activarla añade una revisión expl�
 antes del reemplazo; desactivarla mantiene la validación, los avisos existentes y
 la confirmación de conflictos con sesiones fijadas.
 
+## Crear un archivo con la plantilla
+
+Junto a **Cargar Excel**, pulse **Plantilla Excel…** y elija dónde guardar el
+archivo `.xlsx`. No requiere cursos cargados ni conexión a Internet. Guardarlo
+no importa datos ni cambia la sesión actual.
+
+El libro contiene **Instrucciones** en español e **Instructions** en inglés,
+más las hojas de entrada **Aulas** y **Cursos**. Los nombres de estas hojas y
+sus encabezados permanecen en español en ambos idiomas de la interfaz.
+
+- Reemplace o elimine todos los ejemplos ficticios antes de importar.
+- Conserve los encabezados en la fila 1. Los campos obligatorios son **# DE AULA**
+  y **Curso**; hacen falta al menos un aula y un curso. Complete **CAPACIDAD**
+  con un entero no negativo para evitar el aviso de capacidad omitida.
+- Cada fila de Cursos equivale a un grupo. Repita el código para varios grupos;
+  una columna «Cantidad de Grupos» no se usa.
+- Las horas son texto `HHMM-HHMM`, como `0800-0900`. Las preferencias de aula,
+  hora y día pueden quedar vacías. `I` significa martes y `M`, miércoles.
+- Docentes, cohortes, equipos y disponibilidades son opcionales y se configuran
+  en SORTH; no son columnas de este importador.
+- Guarde el libro editado, pulse **Cargar Excel** y revise los datos antes de
+  generar el horario. La validación de Excel orienta la entrada; la validación
+  de SORTH sigue siendo la autoridad al importar.
+
+Cancelar el selector no escribe nada. Una escritura fallida conserva el archivo
+anterior. El selector nativo confirma los reemplazos; si SORTH añade `.xlsx` y
+el destino resultante ya existe, solicita confirmación adicional con **No**
+como respuesta predeterminada.
+
 ## Flujo y garantías
 
 1. El selector devuelve inmediatamente a la interfaz. Un único lector captura
