@@ -192,11 +192,12 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
 
 @pytest.mark.parametrize('style_name', ['Fusion', 'Windows'])
 @pytest.mark.parametrize('language', ['es', 'en'])
-def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name):
+@pytest.mark.parametrize('header_allowance', [4, 8])
+def test_schedule_budget_reserves_native_header_metric_variation(window, language, style_name, header_allowance):
     """A native header change must retain the four-list-row reference budget.
 
     Native Segoe UI exposed a height deficit that Linux font metrics concealed.
-    Keep real widget fonts and rows, and give every header a four-pixel larger
+    Keep real widget fonts and rows, and give every header a four- or eight-pixel larger
     native size requirement so tight platform-specific seams fail locally too.
     """
     app = QApplication.instance()
@@ -226,7 +227,7 @@ def test_schedule_budget_reserves_native_header_metric_variation(window, languag
         rows = [table.rowHeight(0) for table in tables]
         for table in tables:
             header = table.horizontalHeader()
-            header.setMinimumHeight(header.sizeHint().height() + 4)
+            header.setMinimumHeight(header.sizeHint().height() + header_allowance)
         heights = (640, 760, 761, 802, 803, 804, 920, 921, 922,
                    921, 920, 804, 803, 802, 761, 760, 640)
         for height in heights:

@@ -1925,10 +1925,12 @@ class MainWindow(QMainWindow):
             # Native Segoe UI chrome consumes more height than the Linux
             # fallback at the same 10pt. Spend whitespace first, leaving fonts,
             # action targets, visible scopes and reading rows unchanged.
-            self._main_layout.setSpacing(2 if dense else 8)
-            self._main_layout.setContentsMargins(*(16, 4, 16, 4) if dense else (24, 20, 24, 12))
-            self._file_layout.setSpacing(2 if dense else 16)
-            self._workspace_chrome.layout().setSpacing(2 if dense else 8)
+            # Segoe UI plus stable label borders needs this small whitespace
+            # reserve to retain four full rows at compact threshold heights.
+            self._main_layout.setSpacing(1 if dense else 8)
+            self._main_layout.setContentsMargins(*(16, 2, 16, 2) if dense else (24, 20, 24, 12))
+            self._file_layout.setSpacing(1 if dense else 16)
+            self._workspace_chrome.layout().setSpacing(1 if dense else 8)
             if hasattr(self, '_feature_notice') and hasattr(self, '_history'):
                 self._update_feature_notice()
                 self._update_compact_overview()
