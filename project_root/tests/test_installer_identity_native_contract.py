@@ -11,7 +11,7 @@ def test_identity_is_read_from_installed_native_surfaces():
         '$installer.VersionInfo',
         "$appVersion.ProductName -cne 'SORTH-AI'",
         "$appVersion.FileDescription -cne 'SORTH-AI - Sistema de Organizacion de Horarios'",
-        "$setupVersion.ProductName -cne 'SORTH-AI'",
+        "$setupVersion.ProductName.TrimEnd(' ') -cne 'SORTH-AI'",
         '$record.DisplayName -cne "SORTH-AI $($info.build_id) (unsigned review)"',
         'Check-IconPath $record.DisplayIcon $exe',
         'New-Object -ComObject WScript.Shell',

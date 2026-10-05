@@ -67,7 +67,9 @@ function Check-NativeIdentity([string]$stage, [bool]$expectDesktop = $false) {
         ConvertTo-Json -Depth 5 | Set-Content "build/reports/native-identity-$stage.json"
     if ($appVersion.ProductName -cne 'SORTH-AI') { throw 'Installed EXE product identity mismatch.' }
     if ($appVersion.FileDescription -cne 'SORTH-AI - Sistema de Organizacion de Horarios') { throw 'Installed EXE description identity mismatch.' }
-    if ($setupVersion.ProductName -cne 'SORTH-AI') { throw 'Setup product identity mismatch.' }
+    # Inno stores fixed-width version strings padded with trailing ASCII spaces.
+    # Keep the raw resource above; normalize only that padding for comparison.
+    if ($setupVersion.ProductName.TrimEnd(' ') -cne 'SORTH-AI') { throw 'Setup product identity mismatch.' }
     if ($record.DisplayName -cne "SORTH-AI $($info.build_id) (unsigned review)") { throw 'Registered display name mismatch.' }
     Check-IconPath $record.DisplayIcon $exe
     Check-Shortcut $start $exe
