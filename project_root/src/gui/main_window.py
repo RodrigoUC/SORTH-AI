@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         notice.setVisible(bool(manager.recovery_issue or manager.startup_issue))
 
     def _init_ui(self):
-        self.setWindowTitle(msg('SORTH - Sistema de Organización de Horarios'))
+        self.setWindowTitle(msg('SORTH-AI - Sistema de Organización de Horarios'))
         self._set_window_icon()
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumSize(960, 640)
@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
         header.setObjectName("brandHeader")
         heading = QHBoxLayout(header)
         heading.setContentsMargins(16, 6, 16, 6)
-        title = QLabel("SORTH")
+        title = QLabel("SORTH-AI")
         title.setObjectName("appTitle")
         heading.addWidget(title)
         subtitle = QLabel(msg('Organización de horarios académicos'))

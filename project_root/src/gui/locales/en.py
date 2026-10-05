@@ -540,7 +540,7 @@ MESSAGES = {
     "Resultado de validación": "Validation result",
     "Resumen del Horario": "Schedule Summary",
     "Revisar importación": "Review import",
-    "SORTH - Sistema de Organización de Horarios": "SORTH - Academic Schedule Organizer",
+    "SORTH-AI - Sistema de Organización de Horarios": "SORTH-AI - Academic Schedule Organizer",
     "Se encontró una sesión guardada.\n¿Deseas restaurarla?": "A saved session was found.\nWould you like to restore it?",
     "Seleccionar archivo Excel": "Select Excel file",
     "Seleccione el aula, día y hora. Se comprobarán todas las restricciones.": "Select the classroom, day and time. All restrictions will be checked.",
