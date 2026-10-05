@@ -3,11 +3,13 @@ from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
+import queue
 import socket
 import ssl
 import sys
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -65,6 +67,12 @@ def network(monkeypatch, tmp_path):
     """Every socket is synthetic; preserve the full real validation pipeline."""
     responses, requests, connections, hooks = [], [], [], {}
 
+    def context():
+        # Unit-test deadlines must not depend on loading the host trust store.
+        # Production still calls ssl.create_default_context with secure defaults.
+        hooks.get('context', lambda: None)()
+        return SimpleNamespace(check_hostname=True, verify_mode=ssl.CERT_REQUIRED)
+
     class Socket:
         def settimeout(self, timeout):
             assert 0 < timeout <= updates.NETWORK_TIMEOUT
@@ -98,6 +106,7 @@ def network(monkeypatch, tmp_path):
             self.closed = True
 
     monkeypatch.setattr(updates.http.client, 'HTTPSConnection', Connection)
+    monkeypatch.setattr(updates.ssl, 'create_default_context', context)
     monkeypatch.setattr(updates.tempfile, 'gettempdir', lambda: str(tmp_path))
     yield responses, requests, connections, hooks
     for record in list(updates._DOWNLOADS.values()):
@@ -124,7 +133,9 @@ def test_frozen_identity_includes_exact_build(tmp_path, monkeypatch):
     b'{"version":"2.0.0","version":"3.0.0"}',
     json.dumps({'version': '2.0.0', 'source_commit': 'b' * 40, 'build_id': '2.0.0-' + 'a' * 12}).encode(),
     json.dumps({'version': 'bad', 'source_commit': 'a' * 40, 'build_id': 'bad-' + 'a' * 12}).encode(),
-    json.dumps({'version': '2.0.0', 'source_commit': None, 'build_id': '2.0.0'}).encode()])
+    json.dumps({'version': '2.0.0', 'source_commit': None, 'build_id': '2.0.0'}).encode()],
+    ids=['empty-object', 'array', 'invalid-json', 'oversized', 'duplicate-version',
+         'mismatched-build', 'invalid-version', 'missing-commit'])
 def test_corrupt_frozen_identity_never_guesses_source_version(raw, tmp_path, monkeypatch):
     (tmp_path / 'build-identity.json').write_bytes(raw)
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
@@ -155,7 +166,9 @@ def test_empty_releases_truthful_and_no_credentials_sent(network, monkeypatch, c
 
 
 @pytest.mark.parametrize('value', ['2.0', 'v2.0.0', '2.0.0-dev', '2.0.0-abcdef123456', '02.0.0',
-                                 '2.0.0+', '2.0.0+bad..id', '2.0.0\n', '', None, 2, '9' * 129])
+                                 '2.0.0+', '2.0.0+bad..id', '2.0.0\n', '', None, 2, '9' * 129],
+    ids=['incomplete', 'tag-prefix', 'prerelease', 'build-id', 'leading-zero', 'empty-build',
+         'invalid-build', 'newline', 'empty', 'null', 'integer', 'oversized'])
 def test_invalid_current_version_fails_before_network(network, value):
     with pytest.raises(updates.UpdateError, match='invalid_version'):
         updates.check_updates(value)
@@ -176,7 +189,8 @@ def test_equal_and_older_are_never_offered(network, current):
 
 
 @pytest.mark.parametrize('record', [metadata('3.0.0', draft=True), metadata('3.0.0', prerelease=True),
-                                    metadata('3.0.0-rc.1'), metadata('preview'), metadata('03.0.0')])
+                                    metadata('3.0.0-rc.1'), metadata('preview'), metadata('03.0.0')],
+    ids=['draft', 'prerelease-flag', 'prerelease-tag', 'nonsemantic-tag', 'leading-zero'])
 def test_drafts_prereleases_and_nonsemantic_tags_are_ignored(network, record):
     network[0].append(json_response([record]))
     assert updates.check_updates('2.0.0').state == 'no_releases'
@@ -205,7 +219,10 @@ def test_full_bounded_scan_is_not_falsely_reported_current(network):
     b'[{"draft":false,"draft":true}]', b'[' * 2000 + b']' * 2000,
     json.dumps([metadata(draft='false')]).encode(), json.dumps([metadata(prerelease=0)]).encode(),
     json.dumps([metadata(assets={})]).encode(), json.dumps([None]).encode(),
-    json.dumps([metadata('2.0.0') for _ in range(101)]).encode()])
+    json.dumps([metadata('2.0.0') for _ in range(101)]).encode()],
+    ids=['object', 'null', 'non-finite', 'trailing-data', 'invalid-utf8', 'duplicate-key',
+         'excessive-nesting', 'string-draft', 'integer-prerelease', 'invalid-assets',
+         'null-release', 'oversized-page'])
 def test_malformed_metadata_is_not_treated_as_no_updates(network, raw):
     network[0].append(Response(raw))
     with pytest.raises(updates.UpdateError, match='invalid_metadata'):
@@ -222,7 +239,8 @@ def test_malformed_metadata_is_not_treated_as_no_updates(network, raw):
     'https://github.com/RodrigoUC/SORTH-AI/releases/tag/v2.1.0#fragment',
     'https://github.com/RodrigoUC/SORTH-AI/releases/tag/%2e%2e',
     'https://github.com\\@evil.invalid/path', '//github.com/path', 'https://github.com/\npath', None,
-])
+], ids=['http', 'host-suffix', 'userinfo', 'explicit-port', 'wrong-owner', 'query',
+        'fragment', 'encoded-traversal', 'backslash', 'scheme-relative', 'newline', 'null'])
 def test_malicious_release_page_never_reaches_ui(network, url):
     network[0].append(json_response([metadata(html_url=url)]))
     with pytest.raises(updates.UpdateError, match='invalid_url'):
@@ -245,7 +263,9 @@ def test_release_notes_are_bounded_text(network):
     ({'size': updates.MAX_INSTALLER_BYTES + 1}, 'invalid_asset'), ({'size': '12'}, 'invalid_asset'),
     ({'state': 'new'}, 'invalid_asset'), ({'browser_download_url': 'https://evil.invalid/x.exe'}, 'invalid_asset'),
     ({'name': 'SORTH-2.2.0-abcdef123456-windows-x64-unsigned-setup.exe'}, 'invalid_asset'),
-])
+], ids=['missing-digest', 'invalid-digest', 'wrong-algorithm', 'uppercase-algorithm',
+        'empty-size', 'negative-size', 'boolean-size', 'oversized', 'string-size',
+        'not-uploaded', 'wrong-host', 'wrong-version'])
 def test_unverifiable_asset_preserves_release_but_disables_download(network, changes, issue):
     value = metadata()
     value['assets'][0].update(changes)
@@ -261,7 +281,8 @@ def test_unverifiable_asset_preserves_release_but_disables_download(network, cha
 @pytest.mark.parametrize('filename', ['setup.exe', '../setup.exe', 'C:\\setup.exe',
     'SORTH-2.1.0-abcdef123456-windows-x64-unsigned-setup.exe.zip',
     'SORTH-2.1.0-abcdef123456-windows-arm64-unsigned-setup.exe',
-    'SORTH-2.1.0-abcdef123456-windows-x64-unsigned-setup.exe:evil'])
+    'SORTH-2.1.0-abcdef123456-windows-x64-unsigned-setup.exe:evil'],
+    ids=['generic', 'traversal', 'absolute', 'zip-suffix', 'wrong-architecture', 'alternate-stream'])
 def test_only_exact_packaging_filename_is_accepted(network, filename):
     value = metadata()
     value['assets'][0]['name'] = filename
@@ -277,7 +298,8 @@ def test_multiple_installers_are_ambiguous_without_guessing(network):
 
 
 @pytest.mark.parametrize('status,code', [(403, 'rate_limited'), (429, 'rate_limited'),
-                                      (404, 'network_error'), (500, 'network_error'), (206, 'network_error')])
+                                      (404, 'network_error'), (500, 'network_error'), (206, 'network_error')],
+    ids=['forbidden', 'rate-limit', 'missing', 'server-error', 'partial-response'])
 def test_http_errors_have_safe_fixed_codes(network, status, code):
     network[0].append(Response(b'private error diagnostics', status=status))
     with pytest.raises(updates.UpdateError, match=code):
@@ -292,7 +314,8 @@ def test_metadata_redirect_rejected_even_to_github(network):
 
 
 @pytest.mark.parametrize('headers', [[('Content-Length', '999999999')],
-    [('Content-Length', '3'), ('Content-Length', '3')], [('Content-Length', '-1')], [('Content-Encoding', 'gzip')]])
+    [('Content-Length', '3'), ('Content-Length', '3')], [('Content-Length', '-1')], [('Content-Encoding', 'gzip')]],
+    ids=['oversized', 'duplicate-length', 'negative-length', 'compressed'])
 def test_invalid_or_oversize_response_headers_fail_closed(network, headers):
     network[0].append(Response(b'[]', headers=headers))
     with pytest.raises(updates.UpdateError, match='size_limit|invalid_response'):
@@ -318,7 +341,8 @@ def test_truncated_content_length_fails(network):
         updates.check_updates('2.0.0')
 
 
-@pytest.mark.parametrize('error,code', [(OSError('secret'), 'network_error'), (TimeoutError('secret'), 'timeout')])
+@pytest.mark.parametrize('error,code', [(OSError('secret'), 'network_error'), (TimeoutError('secret'), 'timeout')],
+                         ids=['network', 'timeout'])
 def test_network_errors_do_not_expose_raw_messages(network, error, code):
     network[0].append(error)
     with pytest.raises(updates.UpdateError) as found:
@@ -412,7 +436,10 @@ def test_verified_download_is_atomic_private_fixed_path_and_rehashable(network, 
     'https://release-assets.githubusercontent.com/arbitrary/path',
     'https://raw.githubusercontent.com/attacker/repo/setup.exe', '//evil.invalid/setup.exe',
     'file:///tmp/setup.exe', 'https://127.0.0.1/setup.exe', 'https://[::1]/setup.exe',
-    '/relative-redirect', 'https://release-assets.githubusercontent.com/github-production-release-asset/1/a#fragment'])
+    '/relative-redirect', 'https://release-assets.githubusercontent.com/github-production-release-asset/1/a#fragment'],
+    ids=['http', 'wrong-host', 'wrong-repository', 'host-suffix', 'userinfo', 'explicit-port',
+         'traversal', 'wrong-path', 'raw-host', 'scheme-relative', 'local-file', 'ipv4', 'ipv6',
+         'relative', 'fragment'])
 def test_malicious_redirect_never_contacted_and_stage_removed(network, tmp_path, location):
     network[0].append(Response(status=302, headers=[('Location', location)]))
     with pytest.raises(updates.UpdateError, match='invalid_url'):
@@ -427,7 +454,8 @@ def test_redirect_chain_is_bounded(network, tmp_path):
     assert len(network[1]) == updates.MAX_REDIRECTS + 1 and not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize('payload', [PAYLOAD[:-1], PAYLOAD + b'extra', b'x' * len(PAYLOAD)])
+@pytest.mark.parametrize('payload', [PAYLOAD[:-1], PAYLOAD + b'extra', b'x' * len(PAYLOAD)],
+                         ids=['truncated', 'oversized', 'wrong-digest'])
 def test_wrong_size_or_digest_never_leaves_executable(network, tmp_path, payload):
     network[0].append(Response(payload, content_type='application/octet-stream'))
     with pytest.raises(updates.UpdateError, match='integrity_error|size_limit'):
@@ -526,7 +554,8 @@ def test_reverification_cancellable(network):
 
 @pytest.mark.parametrize('asset', [updates.InstallerAsset('../evil.exe', 'https://evil.invalid', len(PAYLOAD), SHA256),
     updates.InstallerAsset('SORTH-2.1.0-abcdef123456-windows-x64-unsigned-setup.exe',
-                          'https://evil.invalid', len(PAYLOAD), SHA256)])
+                          'https://evil.invalid', len(PAYLOAD), SHA256)],
+    ids=['invalid-name', 'wrong-host'])
 def test_download_revalidates_caller_supplied_release(network, asset):
     with pytest.raises(updates.UpdateError, match='invalid_asset|invalid_url'):
         updates.download_installer(replace(release(), installer=asset))
@@ -562,6 +591,41 @@ def test_http_client_cannot_reconnect_automatically_after_cancellation(network):
     network[0].append(json_response([]))
     updates.check_updates('2.0.0')
     assert all(connection.auto_open == 0 for connection in network[2])
+
+
+@pytest.mark.parametrize('reason', ['cancelled', 'timeout'])
+def test_slow_ssl_context_never_starts_a_late_connection(network, monkeypatch, reason):
+    """Model trust-store loading completing after cancellation/absolute expiry."""
+    stopped, events, sockets = threading.Event(), queue.Queue(), []
+    clock = [0.0]
+    monkeypatch.setattr(updates.time, 'monotonic', lambda: clock[0])
+
+    def finish_context():
+        if reason == 'cancelled':
+            stopped.set()
+        else:
+            clock[0] = 101.0
+
+    def must_not_connect():
+        pytest.fail('expired/cancelled SSL setup must never initiate a connection')
+
+    network[3].update(context=finish_context, connect=must_not_connect)
+    updates._pump(updates.API_URL + '?per_page=100&page=1', True, updates.MAX_METADATA_BYTES,
+                  100.0, stopped, events, sockets)
+    assert not network[1] and not sockets
+    assert len(network[2]) == 1 and network[2][0].closed
+    if reason == 'timeout':
+        kind, error = events.get_nowait()
+        assert kind == 'error' and error.code == 'timeout'
+    else:
+        assert events.empty()
+
+
+def test_parameter_ids_are_windows_environment_safe(request):
+    # pytest exports full node IDs as PYTEST_CURRENT_TEST on every platform.
+    # In particular, never expand large JSON/byte fixtures into that variable.
+    node_ids = [item.nodeid for item in request.session.items if item.path == request.node.path]
+    assert node_ids and max(map(len, node_ids)) < 200
 
 
 def test_staged_file_tamper_before_final_verification_never_returns_download(network, tmp_path, monkeypatch):
@@ -612,7 +676,8 @@ def test_no_network_or_writes_when_module_is_imported(network):
     assert not network[1]
 
 
-@pytest.mark.parametrize('raw', [b'2.0.0' + b' ' * 130 + b'bad', b'wrong', b'\xff'])
+@pytest.mark.parametrize('raw', [b'2.0.0' + b' ' * 130 + b'bad', b'wrong', b'\xff'],
+                         ids=['truncated', 'invalid-version', 'invalid-encoding'])
 def test_source_identity_rejects_corrupt_or_truncated_version(tmp_path, monkeypatch, raw):
     package = tmp_path / 'src' / 'application' / 'app_updates.py'
     package.parent.mkdir(parents=True)
@@ -625,7 +690,8 @@ def test_source_identity_rejects_corrupt_or_truncated_version(tmp_path, monkeypa
 
 @pytest.mark.parametrize('headers', [[('Transfer-Encoding', 'compress')],
     [('Transfer-Encoding', 'chunked'), ('Content-Length', '2')],
-    [('Transfer-Encoding', 'chunked'), ('Transfer-Encoding', 'chunked')]])
+    [('Transfer-Encoding', 'chunked'), ('Transfer-Encoding', 'chunked')]],
+    ids=['compressed', 'mixed-length', 'duplicate-transfer'])
 def test_ambiguous_framing_is_rejected(network, headers):
     network[0].append(Response(b'[]', headers=headers))
     with pytest.raises(updates.UpdateError, match='invalid_response'):

@@ -251,6 +251,9 @@ def _pump(url, metadata, limit, deadline, stopped, events, connection):
                 timeout=min(NETWORK_TIMEOUT, max(.001, deadline - time.monotonic())),
                 context=ssl.create_default_context())
             try:
+                # Loading the platform trust store can outlast the deadline or
+                # cancellation. Never start a connection after that work ends.
+                _check(stopped.is_set, deadline)
                 conn.connect()
                 # Keep the socket even if HTTPConnection detaches it for a
                 # Connection: close response. Only this worker owns close().

@@ -939,8 +939,13 @@ def test_install_consent_keeps_full_actions_visible_on_small_screens_at_20pt(tmp
         print('Consent body scrolls; complete Cancel/install footer remains visible')
     ''')
     source = f'EXPECTED_SIZE = {screen_size!r}\n' + source
-    env = dict(os.environ, QT_QPA_PLATFORM=f'offscreen:configfile={config}')
+    # Qt splits QPA arguments on every colon, including a Windows drive colon.
+    # Keep the config option relative to the child's isolated working directory.
+    project_root = Path(__file__).resolve().parents[2]
+    pythonpath = os.pathsep.join(filter(None, (str(project_root), os.environ.get('PYTHONPATH'))))
+    env = dict(os.environ, QT_QPA_PLATFORM=f'offscreen:configfile={config.name}',
+               PYTHONPATH=pythonpath)
     result = subprocess.run([sys.executable, '-c', source], env=env,
-                            cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, timeout=10)
+                            cwd=tmp_path, capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'complete Cancel/install footer remains visible' in result.stdout
