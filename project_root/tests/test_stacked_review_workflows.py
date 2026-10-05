@@ -71,3 +71,9 @@ def test_windows_regression_gate_is_bounded_and_diagnostic():
     assert "if: always()" in evidence
     assert "project_root/build/reports/*.json" in evidence
     assert "project_root/build/reports/*.xml" in evidence
+
+
+def test_windows_evidence_includes_expanded_schedule_captures():
+    text = (ROOT / '.github/workflows/windows-review.yml').read_text()
+    evidence = text.split('      - name: Upload test and smoke evidence', 1)[1]
+    assert 'project_root/build/reports/schedule-focus-zoom-*.png' in evidence

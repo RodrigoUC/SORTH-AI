@@ -176,6 +176,7 @@ jobs:
             project_root/build/reports/installed-smoke/
             project_root/build/reports/*.txt
             project_root/build/reports/*.xml
+            project_root/build/reports/schedule-focus-zoom-*.png
             project_root/build/reports/packaged-smoke/*.log
             project_root/build/reports/packaged-smoke/*.json
             project_root/build/reports/packaged-smoke/*.png
