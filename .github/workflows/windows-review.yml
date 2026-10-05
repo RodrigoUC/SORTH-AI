@@ -184,3 +184,67 @@ jobs:
             project_root/build/reports/packaged-smoke/*.csv
           if-no-files-found: ignore
           retention-days: 7
+
+  release-candidate:
+    # Same run as the complete Windows suite/build/smoke/installer checks above.
+    # This job has no publishing permission and executes no downloaded binaries.
+    needs: windows-build-and-smoke
+    runs-on: windows-2025
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install fixed Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12.10'
+      - name: Fetch exact same-run Windows review files
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+        run: |
+          python project_root/tools/release_pipeline.py download-review --run-id $env:SOURCE_RUN_ID --directory review-download
+          if ($LASTEXITCODE -ne 0) { throw 'Review artifact verification failed.' }
+      - name: Prepare pinned third-party sources or report hold
+        id: sources
+        shell: pwsh
+        working-directory: project_root
+        run: |
+          if (-not (Test-Path tools/prepare_release_sources.py)) {
+            'prepared=false' >> $env:GITHUB_OUTPUT
+            'Release candidate held: reviewed third-party source packager is not integrated.' >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          $sevenZip = Get-Command 7z -ErrorAction Stop
+          Write-Host "Installed extraction tool: $($sevenZip.Source)"
+          & $sevenZip.Source i
+          if ($LASTEXITCODE -ne 0) { throw 'Installed 7-Zip verification failed.' }
+          python tools/prepare_release_sources.py --output build/release-sources/THIRD-PARTY-SOURCES.tar.gz
+          if ($LASTEXITCODE -ne 0) { throw 'Third-party source bundle preparation failed.' }
+          'prepared=true' >> $env:GITHUB_OUTPUT
+      - name: Seal exact-source first-release candidate
+        if: steps.sources.outputs.prepared == 'true'
+        shell: pwsh
+        env:
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          python project_root/tools/release_pipeline.py candidate --review review-download/artifacts --manual review-download/docs/MANUAL_USUARIO.pdf --sources project_root/build/release-sources/THIRD-PARTY-SOURCES.tar.gz --output release-candidate --sha $env:SOURCE_COMMIT --run-id $env:SOURCE_RUN_ID --attempt $env:SOURCE_RUN_ATTEMPT
+          if ($LASTEXITCODE -ne 0) { throw 'Release candidate sealing failed.' }
+      - name: Upload sealed candidate for later explicit approval
+        if: steps.sources.outputs.prepared == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: SORTH-release-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-candidate/
+          if-no-files-found: error
+          retention-days: 14

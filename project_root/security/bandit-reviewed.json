@@ -262,5 +262,21 @@
     "count": 1,
     "reviewed_on": "2026-10-05",
     "reason": "Source-only packaging invokes the trusted system 7z/7zz located by shutil.which, never downloaded software. Fixed list/stream-only commands use argument arrays without a shell, an explicit -- separator, disabled filename wildcards, a 120-second kill timer, and bounded stdout. Input archives and selected member bytes are exact size/SHA-256 pinned; traversal, links, duplicates, binary selections and unexpected redirects are rejected. Vendor code is never installed or executed."
+  },
+  {
+    "file": "tools/release_pipeline.py",
+    "test_id": "B404",
+    "code_sha256": "99f5efc75b46d76401c381798ec2e7c4abf97330ed2e9f56955c7bc6a3b6759c",
+    "count": 1,
+    "reviewed_on": "2026-10-05",
+    "reason": "Subprocess import is limited to the reviewed absolute-path Git argv helper; release publication uses fixed-host HTTPS and never executes downloaded artifacts."
+  },
+  {
+    "file": "tools/release_pipeline.py",
+    "test_id": "B603",
+    "code_sha256": "f40dd8b4238c37b06c939e8aaf6fc550e7a3ef31afa9ea71b5696faea75f54e5",
+    "count": 1,
+    "reviewed_on": "2026-10-05",
+    "reason": "Release preparation uses the installed absolute Git executable for bounded read-only repository inspection and exact git archive creation. Arguments are fixed commands and validated full SHAs/controlled paths; shell execution, credentials, remote writes and downloaded program execution are absent."
   }
 ]

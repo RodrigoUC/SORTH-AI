@@ -1,0 +1,82 @@
+name: Publish approved first release
+
+# workflow_run loads this controller from the default branch, never the approval
+# branch. Treat that run/commit/artifact as data; execute only integrated main.
+on:
+  workflow_run:
+    workflows: [First release approval]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-first-release-v2.0.0
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'RodrigoUC/SORTH-AI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'release-approval/v2.0.0' && github.event.workflow_run.head_repository.full_name == 'RodrigoUC/SORTH-AI'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      publish: ${{ steps.approval.outputs.publish }}
+    steps:
+      - name: Check out integrated main controller code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install fixed Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12.10'
+      - name: Read approval as data and validate exact trigger provenance
+        id: approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          APPROVAL_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          git show "$EVENT_SHA:.github/release-approval.json" > "$RUNNER_TEMP/release-approval.json"
+          python project_root/tools/release_pipeline.py controller --event-sha "$EVENT_SHA" --approval-run-id "$APPROVAL_RUN_ID" --approval "$RUNNER_TEMP/release-approval.json" >> "$GITHUB_OUTPUT"
+
+  publisher:
+    if: needs.validate.outputs.publish == 'true'
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Check out integrated main publisher code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install fixed Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12.10'
+      - name: Read exact approval commit without running its code
+        env:
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: git show "$EVENT_SHA:.github/release-approval.json" > "$RUNNER_TEMP/release-approval.json"
+      - name: Fetch and verify the approved immutable candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          APPROVAL_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python project_root/tools/release_pipeline.py fetch --event-sha "$EVENT_SHA" --approval-run-id "$APPROVAL_RUN_ID" --approval "$RUNNER_TEMP/release-approval.json" --directory "$RUNNER_TEMP/release-candidate"
+      - name: Create draft, upload once, verify digests, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          APPROVAL_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python project_root/tools/release_pipeline.py publish --event-sha "$EVENT_SHA" --approval-run-id "$APPROVAL_RUN_ID" --approval "$RUNNER_TEMP/release-approval.json" --directory "$RUNNER_TEMP/release-candidate"
