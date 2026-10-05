@@ -179,10 +179,17 @@ QCheckBox::indicator:disabled, QAbstractItemView::indicator:disabled { border-co
 QCheckBox::indicator:checked:disabled, QAbstractItemView::indicator:checked:disabled { image: url("$disabled_check_mark"); }
 QComboBox::down-arrow { image: url("$control_down"); width: 8px; height: 5px; }
 QComboBox::down-arrow:disabled { image: url("$disabled_control_down"); }
+/* Own the button rectangles as well as their arrows. Mixing stylesheet arrows
+   with Windows 11 native spin buttons can separate painting from hit testing. */
+QSpinBox::up-button, QDoubleSpinBox::up-button, QTimeEdit::up-button, QDateEdit::up-button, QDateTimeEdit::up-button { subcontrol-origin: padding; subcontrol-position: top right; width: 24px; border: none; border-left: 1px solid $border; background: $surface_alt; }
+QSpinBox::down-button, QDoubleSpinBox::down-button, QTimeEdit::down-button, QDateEdit::down-button, QDateTimeEdit::down-button { subcontrol-origin: padding; subcontrol-position: bottom right; width: 24px; border: none; border-left: 1px solid $border; background: $surface_alt; }
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover, QTimeEdit::up-button:hover, QDateEdit::up-button:hover, QDateTimeEdit::up-button:hover, QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover, QTimeEdit::down-button:hover, QDateEdit::down-button:hover, QDateTimeEdit::down-button:hover { background: $accent_soft; }
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed, QTimeEdit::up-button:pressed, QDateEdit::up-button:pressed, QDateTimeEdit::up-button:pressed, QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed, QTimeEdit::down-button:pressed, QDateEdit::down-button:pressed, QDateTimeEdit::down-button:pressed { background: $primary_soft; }
+QSpinBox::up-button:disabled, QDoubleSpinBox::up-button:disabled, QTimeEdit::up-button:disabled, QDateEdit::up-button:disabled, QDateTimeEdit::up-button:disabled, QSpinBox::down-button:disabled, QDoubleSpinBox::down-button:disabled, QTimeEdit::down-button:disabled, QDateEdit::down-button:disabled, QDateTimeEdit::down-button:disabled { background: $disabled; }
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow, QTimeEdit::up-arrow, QDateEdit::up-arrow, QDateTimeEdit::up-arrow { image: url("$control_up"); width: 8px; height: 5px; }
-QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled, QTimeEdit::up-arrow:disabled, QDateEdit::up-arrow:disabled, QDateTimeEdit::up-arrow:disabled { image: url("$disabled_control_up"); }
+QSpinBox::up-arrow:off, QDoubleSpinBox::up-arrow:off, QTimeEdit::up-arrow:off, QDateEdit::up-arrow:off, QDateTimeEdit::up-arrow:off, QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled, QTimeEdit::up-arrow:disabled, QDateEdit::up-arrow:disabled, QDateTimeEdit::up-arrow:disabled { image: url("$disabled_control_up"); }
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow, QTimeEdit::down-arrow, QDateEdit::down-arrow, QDateTimeEdit::down-arrow { image: url("$control_down"); width: 8px; height: 5px; }
-QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled, QTimeEdit::down-arrow:disabled, QDateEdit::down-arrow:disabled, QDateTimeEdit::down-arrow:disabled { image: url("$disabled_control_down"); }
+QSpinBox::down-arrow:off, QDoubleSpinBox::down-arrow:off, QTimeEdit::down-arrow:off, QDateEdit::down-arrow:off, QDateTimeEdit::down-arrow:off, QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled, QTimeEdit::down-arrow:disabled, QDateEdit::down-arrow:disabled, QDateTimeEdit::down-arrow:disabled { image: url("$disabled_control_down"); }
 QGroupBox { border: 1px solid $divider; border-radius: 4px; margin-top: 10px; padding-top: 8px; }
 QGroupBox::title { color: $heading; subcontrol-origin: margin; left: 8px; }
 QProgressBar { color: $on_primary_soft; }

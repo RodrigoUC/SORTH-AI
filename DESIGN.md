@@ -597,3 +597,15 @@ Columns use the available viewport with a scaled readability floor and native
 horizontal scrolling. The existing table and its selected block remain intact.
 The controls reuse localized wrappers, focused-native metric reservations and
 shared theme tokens; normal compact views retain four readable table rows.
+### Reliable spin-button pointer targets
+The shared theme explicitly owns both stacked spin-button rectangles and their
+arrow assets for integer, decimal, time and date controls. This avoids mixing
+Windows 11 side-by-side native buttons with a stylesheet edit field that reserves
+only one button width: the text editor must never cover a visible button. Native
+step, repeat, keyboard, range, validation and persistence behavior remain intact.
+Hover, pressed, disabled and range-limit arrows use existing semantic tokens.
+Tests route clicks through the actual child under the pointer rather than directly
+to the spinbox; a horizontal-native-geometry proxy reproduces the overlap on Linux.
+Native Windows styles are included when available, but the proxy is not Windows
+rendering acceptance. Light/dark/high-contrast/custom, 10/20pt, scaling and the
+classroom Save flow are covered without changing saved data or capacity bounds.
