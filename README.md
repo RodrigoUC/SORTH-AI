@@ -136,6 +136,10 @@ explica su evolución incremental sin cambiar las cuatro capas:
 ## Distribución
 
 La distribución predeterminada para Windows es una carpeta con `SORTH.exe` y sus dependencias; no requiere instalar Python en el equipo destino. Debe extraerse y conservarse completa. Consulta [Distribución para Windows](docs/release/WINDOWS_DISTRIBUTION.md) para compilar, verificar y publicar sin desactivar las protecciones de seguridad. El workflow **Windows review build** genera paquetes de revisión sin firma y un manual PDF actualizado como artefactos temporales de Actions; no publica versiones. Los ejecutables y PDF antiguos ya no se guardan en el árbol fuente.
+### Consultar actualizaciones
+
+En **Configuración → General → Buscar actualizaciones** puedes ver la versión/compilación instalada y consultar las publicaciones estables oficiales. El aviso al iniciar es opcional y empieza desactivado. Las compilaciones de revisión con el mismo número de versión no se ofrecen como una actualización, y un repositorio sin publicaciones lo indica expresamente. En Windows empaquetado, descargar verifica SHA-256; instalar requiere otra confirmación, guardar y respaldar la sesión, y cerrar SORTH. El hash no acredita una firma de editor. Consulta [Actualizaciones seguras](docs/user/UPDATES.md) y [privacidad](PRIVACY.md).
+
 
 ## Historial de Cambios
 

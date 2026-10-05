@@ -73,9 +73,26 @@ def main():
         if not icon.isNull():
             window.setWindowIcon(icon)
         window.show()
+        # Only the actual desktop entrypoint may initiate opt-in network work.
+        # Constructing MainWindow in tests, scripts or previews stays offline.
+        if window._features.enabled('auto_update_check'):
+            from src.gui.update_startup import start_update_notice
+            start_update_notice(window)
         result = app.exec()
     finally:
         session_lock.unlock()
+    if window._update_close_accepted and window._pending_update_installer is not None:
+        from src.application.update_launch import launch_pending_update
+        from src.application.app_updates import discard_download
+        download, window._pending_update_installer = window._pending_update_installer, None
+        try:
+            # The hash is checked again after the event loop and session lock
+            # have ended. No silent install, shell, elevation or bypass flags.
+            launch_pending_update(download)
+        except Exception:
+            discard_download(download)
+            QMessageBox.warning(None, str(msg('Actualizaciones')), str(msg(
+                'No se pudo iniciar el instalador verificado. La sesión y su copia de seguridad se conservaron. Puedes volver a abrir SORTH e intentarlo de nuevo.')))
     sys.exit(result)
 
 

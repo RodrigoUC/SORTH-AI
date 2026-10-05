@@ -270,6 +270,8 @@ def run_smoke_test(app, output_dir: Path, *, theme_probe=None) -> int:
             verify_workflow(window, output_dir, result)
             from .packaged_workflow import verify_theme_workflow
             verify_theme_workflow(window, output_dir, result)
+            from .packaged_workflow import verify_update_workflow
+            verify_update_workflow(window, output_dir, result)
             finish()
         except Exception:
             finish(traceback.format_exc())

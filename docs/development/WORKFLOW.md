@@ -79,6 +79,19 @@ exacta de IDs y los tests del distribuidor comprueban rutas, nombres parecidos y
 la ejecución real de cada módulo añadido. La duración depende del runner; un
 lote verde aislado no sustituye la verificación completa de inventarios.
 
+### Reserva para las matrices del actualizador
+
+El [run Windows 37268686625](https://github.com/RodrigoUC/SORTH-AI/actions/runs/37268686625)
+terminó el lote GUI en 458,85 segundos frente a su límite de 480; sus fallos
+fueron de pruebas portables y no un timeout. Layout consumió 259,46 segundos de
+360. Para conservar margen sin ampliar límites, los módulos completos
+`test_update_dialog.py` (8,11 s), `test_main_seed_focus.py` (20,57 s) y
+`test_menu_layout.py` (12,94 s) pasan a `gui-layout`. La suma medida transfiere
+unos 42 segundos. Los casos, parametrizaciones y guard de inventario exacto se
+conservan; las pruebas del distribuidor comprueban también nombres parecidos y
+la ejecución real de los tres módulos. Los tiempos del siguiente runner pueden
+variar y se deben verificar, no asumirse.
+
 ## Suite completa en cuatro procesos
 
 Desde la raíz del repositorio, entra en `project_root` (`cd project_root`) y usa

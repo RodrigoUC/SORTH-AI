@@ -649,3 +649,25 @@ auto-launch, automatic taskbar pinning or cosmetic claim of a verified publisher
 Storage keys, SORTH.exe, SORTH.App and exact-build installer identifiers remain
 stable. Unsigned review status stays explicit. Windows shell appearance and
 100/150/200% interactive wizard QA are separate from offscreen regression tests.
+
+### Official-release update review
+The General Settings section reuses its existing scroll-owned, responsive native
+button/checkbox system for **Buscar actualizaciones** and an OFF-by-default startup
+notice preference. Checking opens a separate native dialog; it never saves pending
+Settings changes. The dialog uses shared semantic colors, localized controls,
+plain-text selectable status, a read-only changelog and native progress/cancel.
+Remote notes never render HTML or resolve embedded links. Full labels wrap in
+compact/enlarged-font layouts; the Close action stays outside the scroll body.
+
+Only a newer stable semantic version is offered. Empty feeds, unavailable
+installers, offline/rate-limit/invalid responses, cancellation and review builds
+with the same version have distinct truthful messages. Network/hash work runs
+outside Qt; close waits asynchronously for cancellation and cleanup. Opening a
+release page is explicit. Downloading never implies installation. Installation
+confirmation uses a scrollable read-only plain-text body with a responsive
+Cancel/install footer outside the scroller. Both actions stay within the available
+screen at enlarged fonts. It defaults to Cancel, names the version and unsigned/hash distinction,
+and explains save/validated-backup/close before Windows handles the installer.
+A failed save or backup leaves the session open and drops the pending launch.
+No new visual tokens, installation telemetry, or changes to academic data are
+introduced by release checks.
