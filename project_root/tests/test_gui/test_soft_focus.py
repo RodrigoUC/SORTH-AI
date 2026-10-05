@@ -95,11 +95,15 @@ def test_shared_focus_geometry_and_paint(style, spec, language, points):
         app.setStyle(previous)
 
 
+@pytest.mark.parametrize('style', ['Fusion', 'Windows'])
 @pytest.mark.parametrize('spec', THEMES, ids=lambda spec: spec.name)
-def test_semantic_action_focus_and_tab_selection(spec):
+def test_semantic_action_focus_and_tab_selection(spec, style):
     from PyQt6.QtWidgets import QTabWidget
     app = QApplication.instance()
+    previous_style = app.style().objectName()
+    app.setStyle(style)
     root = QWidget(); layout = QVBoxLayout(root)
+    root.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
     buttons = []
     for role in ('primaryAction', 'headerAction', 'dangerAction'):
         button = QPushButton('Action'); button.setObjectName(role)
@@ -109,11 +113,14 @@ def test_semantic_action_focus_and_tab_selection(spec):
     preview_theme(root, spec)
     root.show(); root.activateWindow(); app.processEvents()
     try:
-        for button, color in zip(buttons, ('on_primary', 'on_header', 'danger')):
+        for button, color in zip(buttons, ('on_primary', 'on_header', 'focus')):
+            root.setFocus(); app.processEvents()
+            resting = button.grab().toImage()
             size = button.sizeHint()
             button.setFocus(); app.processEvents()
             assert button.sizeHint() == size
             image = button.grab().toImage()
+            assert image != resting, 'Keyboard focus must be distinguishable from resting paint.'
             assert image.pixelColor(image.width()//2, 0).name() == spec.colors[color].lower()
         bar = tabs.tabBar()
         before = bar.tabRect(0)
@@ -124,3 +131,4 @@ def test_semantic_action_focus_and_tab_selection(spec):
         assert tabs.currentIndex() == 1
     finally:
         root.close()
+        app.setStyle(previous_style)

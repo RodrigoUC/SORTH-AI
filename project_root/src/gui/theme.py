@@ -120,7 +120,6 @@ QDateEdit:focus, QDateTimeEdit:focus, QComboBox:focus,
 QTableView:focus, QListView:focus, QTreeView:focus,
 QPlainTextEdit:focus, QTextEdit:focus { border: 1px solid $focus; }
 QPushButton#primaryAction:focus { border-color: $on_primary; }
-QPushButton#dangerAction:focus { border-color: $danger; }
 QPushButton#headerAction:focus { border: 1px solid $on_header; }
 QLabel { border: 1px solid transparent; border-radius: 4px; }
 QLabel:focus { border-color: $focus; }
