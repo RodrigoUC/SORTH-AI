@@ -591,7 +591,9 @@ installers, offline/rate-limit/invalid responses, cancellation and review builds
 with the same version have distinct truthful messages. Network/hash work runs
 outside Qt; close waits asynchronously for cancellation and cleanup. Opening a
 release page is explicit. Downloading never implies installation. Installation
-confirmation defaults to Cancel, names the version and unsigned/hash distinction,
+confirmation uses a scrollable read-only plain-text body with a responsive
+Cancel/install footer outside the scroller. Both actions stay within the available
+screen at enlarged fonts. It defaults to Cancel, names the version and unsigned/hash distinction,
 and explains save/validated-backup/close before Windows handles the installer.
 A failed save or backup leaves the session open and drops the pending launch.
 No new visual tokens, installation telemetry, or changes to academic data are

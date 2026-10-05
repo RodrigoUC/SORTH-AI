@@ -20,7 +20,7 @@ from src.gui.i18n import language_manager, msg
 from src.gui.i18n_widgets import QDialogButtonBox, QMessageBox
 from src.gui.locales import LANGUAGES
 from src.gui.theme_contract import validate_theme
-from src.gui.update_dialog import UpdateDialog
+from src.gui.update_dialog import UpdateDialog, InstallConfirmation
 from src.gui.update_operation import UpdateOperation
 
 
@@ -365,17 +365,17 @@ def test_verified_installer_transfers_only_after_explicit_confirmation(
     def confirm(box):
         prompted.append(box)
         assert verified == [download]
-        assert box.textFormat() == Qt.TextFormat.PlainText
-        assert box.defaultButton() is box.button(QMessageBox.StandardButton.Cancel)
-        assert box.standardButtons() == (QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
-        assert '2.1.0' in box.text() and 'SHA-256' in box.text()
-        assert 'SmartScreen' in box.text() and 'SQLite' in box.text()
-        assert 'Guardar, cerrar e instalar' in box.button(QMessageBox.StandardButton.Yes).text()
+        assert box.details.isReadOnly() and box.details.tabChangesFocus()
+        assert box.buttons.button(QDialogButtonBox.StandardButton.Cancel).isDefault()
+        assert box.buttons.standardButtons() == (QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.Cancel)
+        assert '2.1.0' in box.details.toPlainText() and 'SHA-256' in box.details.toPlainText()
+        assert 'SmartScreen' in box.details.toPlainText() and 'SQLite' in box.details.toPlainText()
+        assert 'Guardar, cerrar e instalar' in box.buttons.button(QDialogButtonBox.StandardButton.Yes).text()
         assert dialog.window._pending_update_installer is None
         assert dialog.download is download
-        return QMessageBox.StandardButton.Yes if approved else QMessageBox.StandardButton.Cancel
+        return InstallConfirmation.DialogCode.Accepted if approved else InstallConfirmation.DialogCode.Rejected
     monkeypatch.setattr(app_updates, 'verify_download', verify)
-    monkeypatch.setattr(QMessageBox, 'exec', confirm)
+    monkeypatch.setattr(InstallConfirmation, 'exec', confirm)
     dialog = make_dialog()
     dialog.show()
     show_result(dialog, release)
@@ -405,7 +405,7 @@ def test_integrity_failure_never_prompts_and_forgets_installer(make_dialog, monk
     def fail(*args, **kwargs):
         raise app_updates.UpdateError('integrity_error')
     monkeypatch.setattr(app_updates, 'verify_download', fail)
-    monkeypatch.setattr(QMessageBox, 'exec', lambda box: pytest.fail('Unverified installer prompted'))
+    monkeypatch.setattr(InstallConfirmation, 'exec', lambda box: pytest.fail('Unverified installer prompted'))
     dialog = make_dialog()
     show_result(dialog, release)
     dialog.download = download
@@ -569,7 +569,7 @@ def test_closing_during_late_result_never_installs_or_prompts(make_dialog, monke
         assert released.wait(2)
         return download
     monkeypatch.setattr(app_updates, {'download': 'download_installer', 'verify': 'verify_download'}[kind], blocked)
-    monkeypatch.setattr(QMessageBox, 'exec', lambda box: pytest.fail('Cancelled verification prompted'))
+    monkeypatch.setattr(InstallConfirmation, 'exec', lambda box: pytest.fail('Cancelled verification prompted'))
     dialog = make_dialog()
     dialog.show()
     show_result(dialog, release)
@@ -634,7 +634,7 @@ def test_enter_on_native_install_confirmation_defaults_to_cancel(make_dialog, mo
     show_result(dialog, release)
     def cancel_default():
         box = QApplication.activeModalWidget()
-        assert isinstance(box, QMessageBox)
+        assert isinstance(box, InstallConfirmation)
         QTest.keyClick(box, Qt.Key.Key_Return)
     QTimer.singleShot(0, cancel_default)
     assert not dialog._confirm_install()
@@ -665,7 +665,7 @@ def test_direct_native_destruction_cancels_and_drains_without_process_abort(targ
         from PyQt6 import sip
         from PyQt6.QtWidgets import QApplication, QWidget
         from PyQt6.QtCore import QCoreApplication, QEvent
-        from src.gui.update_dialog import UpdateDialog
+        from src.gui.update_dialog import UpdateDialog, InstallConfirmation
         from src.application import app_updates
         app = QApplication([])
         entered, cancelled_seen, drained = Event(), Event(), Event()
@@ -770,8 +770,9 @@ def test_closing_during_nested_confirmation_rejects_stale_yes(
         getattr(dialog, dismiss)()
         assert not dialog.isVisible()
         # Emulate a queued affirmative arriving after dismissal.
-        return QMessageBox.StandardButton.Yes
-    monkeypatch.setattr(QMessageBox, 'exec', confirm)
+        return (InstallConfirmation.DialogCode.Accepted if kind == 'install'
+                else QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(InstallConfirmation if kind == 'install' else QMessageBox, 'exec', confirm)
     if kind == 'install':
         dialog._finished('download', download)
         monkeypatch.setattr(app_updates, 'verify_download', lambda *a, **kw: download)
@@ -800,7 +801,7 @@ def test_native_deletion_inside_real_confirmation_never_aborts_or_transfers(targ
         from PyQt6 import sip
         from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
         from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
-        from src.gui.update_dialog import UpdateDialog
+        from src.gui.update_dialog import UpdateDialog, InstallConfirmation
         from src.application import app_updates
         app = QApplication([])
         calls, discarded, prompted = [], [], []
@@ -823,7 +824,7 @@ def test_native_deletion_inside_real_confirmation_never_aborts_or_transfers(targ
             'https://github.com/RodrigoUC/SORTH-AI/releases/tag/v2.1.0', asset)
         dialog._show_release(app_updates.UpdateResult('available', '2.0.0', release))
         def destroy():
-            assert isinstance(app.activeModalWidget(), QMessageBox)
+            assert isinstance(app.activeModalWidget(), InstallConfirmation if KIND == 'install' else QMessageBox)
             prompted.append(True)
             (dialog if TARGET == 'dialog' else owner).deleteLater()
             QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
@@ -845,3 +846,99 @@ def test_native_deletion_inside_real_confirmation_never_aborts_or_transfers(targ
                             cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, timeout=8)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'Native confirmation deletion safe' in result.stdout
+
+
+@pytest.mark.parametrize('screen_size', [(640, 480), (720, 540)])
+def test_install_consent_keeps_full_actions_visible_on_small_screens_at_20pt(tmp_path, screen_size):
+    """Real small-screen native geometry, not just a small parent window."""
+    import json
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    width, height = screen_size
+    config = tmp_path / 'offscreen.json'
+    config.write_text(json.dumps({'screens': [{'name': 'compact', 'width': width, 'height': height}]}))
+    source = textwrap.dedent('''
+        from types import SimpleNamespace
+        from PyQt6.QtCore import QCoreApplication, QEvent, QTimer, Qt
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QApplication, QWidget, QStyleFactory, QDialogButtonBox
+        from src.application import app_updates
+        from src.gui.update_dialog import UpdateDialog, InstallConfirmation
+        from src.gui.i18n import language_manager, msg
+        app = QApplication([])
+        app_updates.current_identity = lambda: SimpleNamespace(version='2.0.0', build_id=None)
+        calls = []
+        def forbidden(*args, **kwargs):
+            calls.append(True)
+            raise AssertionError('No network or installer may run')
+        for name in ('check_updates', 'download_installer', 'verify_download', '_stream'):
+            setattr(app_updates, name, forbidden)
+        UpdateDialog._can_install = staticmethod(lambda: True)
+        completed = []
+        for style in ('Fusion', 'Windows'):
+            if style not in QStyleFactory.keys():
+                continue
+            app.setStyle(style)
+            for locale in ('es', 'en'):
+                language_manager().set_language(locale, persist=False)
+                owner = QWidget()
+                owner._pending_update_installer = None
+                dialog = UpdateDialog(owner)
+                dialog.setStyleSheet('QPushButton, QLabel, QPlainTextEdit { font-size: 20pt; }')
+                dialog.resize(460, 420)
+                dialog.show()
+                dialog.release = SimpleNamespace(version='2.1.0')
+                def inspect():
+                    box = app.activeModalWidget()
+                    assert isinstance(box, InstallConfirmation)
+                    available = box.screen().availableGeometry()
+                    assert (available.width(), available.height()) == EXPECTED_SIZE
+                    assert available.contains(box.frameGeometry()), (style, locale, box.frameGeometry(), available)
+                    assert box.details.isReadOnly() and box.details.tabChangesFocus()
+                    assert box.details.font().pointSizeF() == 20
+                    assert box.details.height() > 100
+                    assert box.details.horizontalScrollBar().maximum() == 0
+                    text = box.details.toPlainText()
+                    assert all(word in text for word in ('2.1.0', 'SQLite', 'SHA-256', 'SmartScreen', 'Defender'))
+                    cancel = box.buttons.button(QDialogButtonBox.StandardButton.Cancel)
+                    accept = box.buttons.button(QDialogButtonBox.StandardButton.Yes)
+                    assert cancel.isDefault() and not accept.isDefault()
+                    assert accept.text() == str(msg('Guardar, cerrar e instalar'))
+                    assert cancel.hasFocus()
+                    for button in (cancel, accept):
+                        assert button.width() >= button.minimumSizeHint().width()
+                        assert button.height() >= button.minimumSizeHint().height()
+                        assert available.contains(button.mapToGlobal(button.rect().topLeft()))
+                        assert available.contains(button.mapToGlobal(button.rect().bottomRight()))
+                    seen = set()
+                    for _ in range(8):
+                        focused = app.focusWidget()
+                        seen.add(focused)
+                        QTest.keyClick(focused, Qt.Key.Key_Tab)
+                        app.processEvents()
+                    assert {cancel, accept, box.details} <= seen
+                    box.details.setFocus()
+                    QTest.keyClick(box.details, Qt.Key.Key_PageDown)
+                    app.processEvents()
+                    assert box.details.verticalScrollBar().value() > 0
+                    assert available.contains(cancel.mapToGlobal(cancel.rect().bottomRight()))
+                    QTest.keyClick(box, Qt.Key.Key_Escape)
+                    completed.append((style, locale))
+                QTimer.singleShot(75, inspect)
+                assert not dialog._confirm_install()
+                assert owner._pending_update_installer is None and not calls
+                dialog.reject()
+                owner.deleteLater()
+                QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+                app.processEvents()
+        assert len(completed) >= 2
+        print('Consent body scrolls; complete Cancel/install footer remains visible')
+    ''')
+    source = f'EXPECTED_SIZE = {screen_size!r}\n' + source
+    env = dict(os.environ, QT_QPA_PLATFORM=f'offscreen:configfile={config}')
+    result = subprocess.run([sys.executable, '-c', source], env=env,
+                            cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'complete Cancel/install footer remains visible' in result.stdout

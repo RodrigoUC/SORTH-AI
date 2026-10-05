@@ -162,8 +162,9 @@ def test_settings_update_entrypoint_never_saves_pending_preferences(window, monk
     seen, closed = [], []
     pending = object()
 
-    class UpdateDialog:
+    class UpdateDialog(QObject):
         def __init__(self, target, parent):
+            super().__init__(parent)
             assert target is window and parent is dialog
             seen.append(self)
 
@@ -174,6 +175,7 @@ def test_settings_update_entrypoint_never_saves_pending_preferences(window, monk
 
         def deleteLater(self):
             seen.append('disposed')
+            super().deleteLater()
 
     monkeypatch.setattr(update_dialog, 'UpdateDialog', UpdateDialog)
     monkeypatch.setattr(window, 'close', lambda: closed.append(True))

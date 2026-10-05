@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, QUrl, QTimer
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (QVBoxLayout, QScrollArea, QWidget, QFrame,
                              QPlainTextEdit, QApplication)
-from .i18n import msg, language_manager
+from .i18n import msg, language_manager, Message
 from .i18n_widgets import (QDialog, QLabel, QPushButton, QMessageBox, QProgressBar,
                           QDialogButtonBox, ResponsiveDialogButtonBox, ResponsiveActionLabels)
 from .update_operation import UpdateOperation
@@ -40,6 +40,43 @@ ERROR_MESSAGES.update({
     'metadata_limit': ERROR_MESSAGES['too_large'],
     'installer_unavailable': ERROR_MESSAGES['no_installer'],
 })
+
+
+class InstallConfirmation(QDialog):
+    """Long consequential consent keeps both explicit actions on screen."""
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(msg('Confirmar instalación'))
+        layout = QVBoxLayout(self)
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setTabChangesFocus(True)
+        self.details.setAccessibleName(str(msg('Detalles de la instalación')))
+        self._text_message = text
+        self.details.setPlainText(str(text))
+        language_manager().changed.connect(self._language_changed)
+        layout.addWidget(self.details, 1)
+        self.buttons = ResponsiveDialogButtonBox(
+            QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.button(QDialogButtonBox.StandardButton.Yes).setText(msg('Guardar, cerrar e instalar'))
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        cancel = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel.setDefault(True)
+        cancel.setFocus(Qt.FocusReason.TabFocusReason)
+        # The complete body scrolls; the responsive action footer never does.
+        available = self.screen().availableGeometry()
+        self.resize(min(620, max(320, available.width() - 32)),
+                    min(520, max(260, available.height() - 48)))
+
+    def _language_changed(self):
+        scroll = self.details.verticalScrollBar().value()
+        self.details.setAccessibleName(str(msg('Detalles de la instalación')))
+        self.details.setPlainText(self._text_message.render() if isinstance(self._text_message, Message)
+                                  else str(self._text_message))
+        self.details.verticalScrollBar().setValue(scroll)
+
 
 
 class UpdateDialog(QDialog):
@@ -248,21 +285,16 @@ class UpdateDialog(QDialog):
         self._confirmation = confirmation
         try:
             answer = confirmation.exec()
-            return not sip.isdeleted(self) and not self._closed and answer == QMessageBox.StandardButton.Yes
+            accepted = (QDialog.DialogCode.Accepted if isinstance(confirmation, InstallConfirmation)
+                        else QMessageBox.StandardButton.Yes)
+            return not sip.isdeleted(self) and not self._closed and answer == accepted
         finally:
             self._confirmation = None
             if not sip.isdeleted(confirmation):
                 confirmation.deleteLater()
 
     def _confirm_install(self):
-        confirmation = QMessageBox(self)
-        confirmation.setWindowTitle(msg('Confirmar instalación'))
-        confirmation.setIcon(QMessageBox.Icon.Warning)
-        confirmation.setTextFormat(Qt.TextFormat.PlainText)
-        confirmation.setText(msg('Se instalará SORTH {version} desde RodrigoUC/SORTH-AI. El archivo coincide con el SHA-256 publicado en GitHub, pero no tiene firma de editor.\n\nSORTH guardará la sesión y creará una copia SQLite validada antes de cerrarse. Si no puede hacerlo, no iniciará el instalador. Conserva además una copia de tus archivos y preferencias; una versión nueva puede cambiar el formato de datos. Cierra las otras instancias de SORTH.\n\nEl instalador se abrirá después de cerrar esta aplicación y requerirá tus pasos en Windows. No omitas advertencias de SmartScreen o Defender. ¿Guardar, cerrar e iniciar el instalador?', version=self.release.version))
-        confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
-        confirmation.button(QMessageBox.StandardButton.Yes).setText(msg('Guardar, cerrar e instalar'))
-        confirmation.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        confirmation = InstallConfirmation(msg('Se instalará SORTH {version} desde RodrigoUC/SORTH-AI. El archivo coincide con el SHA-256 publicado en GitHub, pero no tiene firma de editor.\n\nSORTH guardará la sesión y creará una copia SQLite validada antes de cerrarse. Si no puede hacerlo, no iniciará el instalador. Conserva además una copia de tus archivos y preferencias; una versión nueva puede cambiar el formato de datos. Cierra las otras instancias de SORTH.\n\nEl instalador se abrirá después de cerrar esta aplicación y requerirá tus pasos en Windows. No omitas advertencias de SmartScreen o Defender. ¿Guardar, cerrar e iniciar el instalador?', version=self.release.version), self)
         return self._exec_confirmation(confirmation)
 
     def _finished(self, status, result):

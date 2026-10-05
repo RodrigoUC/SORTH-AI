@@ -1611,3 +1611,5 @@ MESSAGES.update({
     'Descargar instalador': 'Descargar instalador',
     'Descargar SORTH {version} desde la publicación oficial de RodrigoUC/SORTH-AI en GitHub ({size} bytes). Se guardará temporalmente y se verificará su SHA-256. El instalador no está firmado y no se ejecutará hasta otra confirmación. ¿Descargar ahora?': 'Descargar SORTH {version} desde la publicación oficial de RodrigoUC/SORTH-AI en GitHub ({size} bytes). Se guardará temporalmente y se verificará su SHA-256. El instalador no está firmado y no se ejecutará hasta otra confirmación. ¿Descargar ahora?',
 })
+
+MESSAGES['Detalles de la instalación'] = 'Detalles de la instalación'
