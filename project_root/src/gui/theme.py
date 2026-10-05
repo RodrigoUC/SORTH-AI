@@ -136,6 +136,7 @@ QStatusBar QCheckBox:focus { border-color: $on_header; }
 QProgressBar { background: $primary_soft; border: 0; border-radius: 3px; }
 QProgressBar::chunk { background: $primary; }
 QMenu, QComboBox QAbstractItemView { background: $surface; color: $text; border: 1px solid $border; selection-background-color: $accent_soft; selection-color: $text; }
+QMenu::item { padding: 6px 28px; }
 QMenu::item:selected { background: $accent_soft; color: $accent; }
 QToolTip { background: $header; color: $on_header; border: 1px solid $header; padding: 6px; }
 QScrollBar:vertical { background: $surface_alt; width: 14px; }
