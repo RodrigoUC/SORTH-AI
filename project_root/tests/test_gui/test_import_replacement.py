@@ -10,6 +10,7 @@ from src.gui.import_identity_dialog import ImportIdentityDialog
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
 from src.scheduling.time_model import TimeModel
+from src.scheduling.project_calendar import ProjectCalendar
 from tests.test_gui.test_background_import import window, workbook, session
 from tests.test_gui.import_helpers import wait_for_import
 
@@ -20,7 +21,11 @@ def prepare(window, tmp_path):
     wait_for_import(window)
     window.resources = SchedulingResources(tuple(ResourceCatalog(kind, kind != 'student_group',
         (Resource('resource-1', 'Resource', ((1, 480, 1000),)),),
-        (('BIO-G1', ('resource-1',)),)) for kind in ('teacher', 'student_group', 'student')))
+        (('BIO-G1', ('resource-1',)),)) for kind in ('student', 'student_group', 'teacher')))
+    window.calendar = ProjectCalendar(('Lunes', 'Martes'), 480, 1020, ((720, 780),))
+    window.chk_random_seed.setChecked(False)
+    window.seed_input.setValue(37)
+    window._features.save({**window._features.values(), 'project_calendar': True})
     window.classroom_restrictions = {'R': {'BIO'}}
     window._save_session()
     return path
@@ -44,6 +49,7 @@ def test_other_workbook_requires_consent_and_replaces_links(window, tmp_path, mo
         assert window.current_schedule is None
     before = snapshot(window)
     catalogs = window.resources.catalogs
+    calendar, features = window.calendar, window._features.values()
     path = workbook(tmp_path / 'new.xlsx', count=2)
     observed = []
     def review(dialog):
@@ -77,6 +83,9 @@ def test_other_workbook_requires_consent_and_replaces_links(window, tmp_path, mo
     assert saved['resources'] == window.resources
     assert not saved['pinned_group_ids'] and not saved['assignments']
     assert saved['excel_path'] == path
+    assert saved['calendar'] == window.calendar == calendar
+    assert window._features.values() == features
+    assert saved['seed'] == window.seed_input.value() == 37
 
 
 def test_repeated_clear_import_and_same_path_update(window, tmp_path, monkeypatch):
