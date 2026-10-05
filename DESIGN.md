@@ -22,6 +22,11 @@ Professional academic workspace with a more recognizable identity than the previ
 ## Components and behavior
 Use native Segoe UI with DejaVu Sans fallback, keeping the existing 10pt desktop density. Keep existing keyboard shortcuts and native input behavior. Selection has a light violet surface; focused controls have a 2px contrasting boundary. A focused teal action uses a white inset boundary; the navy header action uses white. Destructive schedule actions retain explicit text and confirmation. Course category fills remain stable and shared with exported spreadsheets; labels and exact times carry meaning independently of color. Existing dialogs outside this palette slice retain their behavior and local status styling.
 
+Popup menu items use explicit 6px vertical and 28px horizontal padding so
+Qt sizes and paints localized labels with the same box model across native
+styles. This retains right-hand breathing room for schedule tools at enlarged
+text sizes without consuming space in the compact four-row schedule layout.
+
 ## Localization behavior
 The language selector uses native language names and the shared navy header contrast token. Switching updates only marked presentation properties on existing Qt controls, retaining editing state, focus, filters and selection. The locale applies to owned widgets, never to the operating system or persisted domain data. Exact schedule times remain HH:mm and CSV/Excel use their existing Spanish headers and day names in every interface language. Native system file pickers retain the OS language. Future RTL languages require a dedicated layout review before release.
 
@@ -556,3 +561,22 @@ Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped
 theme in Fusion/Windows styles; pixel scaling is separate from native Windows
 acceptance.
+
+## Expanded schedule consultation and grid zoom
+The shared search row offers one native **Expandir / Restaurar** toggle for
+Lista detallada, Cuadrícula por aula and Por aula. Expansion hides the outer
+file/configuration/resource panels, course tab bar and generation/export row;
+it keeps the same schedule widgets, global filters, local room selector,
+selection, scope feedback and status/cancellation controls. Escape restores
+panels and focus to the toggle. Navigating to course management also restores
+the shell. Child visibility continues updating while its parent shell is hidden,
+so resize, theme recovery and asynchronous status updates cannot uncover it.
+
+The classroom grid adds native minus, percentage/reset and plus controls in
+that same search row, visible only on its tab. Zoom is window-local, 75–200% in
+25-point increments, with 100% reset; no session/settings writes are made.
+Row geometry, time labels, day headers and course-card text scale together.
+Columns use the available viewport with a scaled readability floor and native
+horizontal scrolling. The existing table and its selected block remain intact.
+The controls reuse localized wrappers, focused-native metric reservations and
+shared theme tokens; normal compact views retain four readable table rows.
