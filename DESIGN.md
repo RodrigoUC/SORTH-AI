@@ -556,3 +556,15 @@ Its existing seed behavior, action-row height and compact table budget remain
 unchanged. Fresh focused metrics and native caption rasters cover every shipped
 theme in Fusion/Windows styles; pixel scaling is separate from native Windows
 acceptance.
+
+## Windows application identity
+
+SORTH-AI is the display name across the native window/masthead, EXE version
+resource, setup and shortcuts. Preserve the original geometric timetable mark
+and navy/teal/violet palette. The native Inno wizard uses high-DPI artwork without
+rasterized text, Spanish/English messages and an optional unchecked desktop link.
+Keep the standard keyboard, cancellation, progress and completion controls; no
+auto-launch, automatic taskbar pinning or cosmetic claim of a verified publisher.
+Storage keys, SORTH.exe, SORTH.App and exact-build installer identifiers remain
+stable. Unsigned review status stays explicit. Windows shell appearance and
+100/150/200% interactive wizard QA are separate from offscreen regression tests.

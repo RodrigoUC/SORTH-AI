@@ -38,7 +38,8 @@ def main():
         sys.exit(run(sys.argv[1:]))
     _set_windows_app_id()
     app = QApplication(sys.argv)
-    app.setApplicationName("SORTH")
+    app.setApplicationName("SORTH")  # Stable settings/data identity.
+    app.setApplicationDisplayName("SORTH-AI")
     app.setOrganizationName("SORTH")
 
     icon_path = _resolve_icon_path()
