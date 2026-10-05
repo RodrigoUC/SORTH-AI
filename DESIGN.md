@@ -138,6 +138,20 @@ QSettings language/motion preferences. Failed saves keep committed flags and
 original bytes. Malformed/future settings require an explicit preserve-and-reset
 action; the native recovery message explains that schedule data never changes.
 
+### Excel input template
+
+The file action row exposes **Plantilla Excel…** beside **Cargar Excel**. Its
+native localized button reserves focused metrics without adding another row or
+changing adjacent controls. A native save picker writes a fresh synthetic
+workbook; Cancel and failures never change the live session. The status bar
+retains the latest outcome and errors use the existing keyboard-readable dialog.
+Workbook headers retain the reader's Spanish contract, with separate ES/EN
+instructions, text identifiers, capacity validation, frozen headers and clearly
+fictional examples. Required/optional distinctions are also stated in words.
+Generation uses the existing atomic export writer and requires no bundled asset,
+network, optional resources or current project data. Native Windows acceptance
+remains separate from Linux Qt and LibreOffice development previews.
+
 ## Staged Excel import
 
 A native status-bar cancel action accompanies the existing busy indicator; a new

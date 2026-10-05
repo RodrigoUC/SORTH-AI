@@ -1552,6 +1552,13 @@ MESSAGES.update({
     '{kind} ({state}): {resources}': '{kind} ({state}): {resources}',
     'Inactivo': 'Inactivo',
     'Fijada: {room}, {day}, {start}–{end}': 'Fijada: {room}, {day}, {start}–{end}',
+    'Plantilla Excel…': 'Plantilla Excel…',
+    'Guardar plantilla Excel': 'Guardar plantilla Excel',
+    'Archivos Excel (*.xlsx)': 'Archivos Excel (*.xlsx)',
+    'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.': 'Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.',
+    'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.': 'No se pudo guardar la plantilla en {filename}. Revise el destino e inténtelo de nuevo.',
+    'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.': 'No se pudo guardar la plantilla. Cierre el archivo si está abierto y revise los permisos del destino.',
+    'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.': 'Plantilla guardada: {filename}. Reemplace los ejemplos y use Cargar Excel.',
 })
 
 # Distinguish desktop STDIO from hosted web connections.

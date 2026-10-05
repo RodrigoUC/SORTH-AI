@@ -22,6 +22,7 @@ from ..scheduling.classroom import Classroom
 from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
 from .import_controller import ImportController
+from .excel_template import TemplateSaveButton, save_import_template
 from .theme import apply_theme, theme_manager
 from .motion import MotionController, update_busy_indicator
 from .features import FeaturePreferences
@@ -389,6 +390,9 @@ class MainWindow(QMainWindow):
             msg('Abrir un archivo Excel (.xlsx) con las hojas:\n  • Aulas: # DE AULA y CAPACIDAD (entero ≥ 0)\n  • Cursos: Curso; cada fila es un grupo sugerido\nOpcionales: Nombre de Curso, Horas (0800-1055), Aula y Días (L,I,M,J,V,S).\nLos encabezados van en la fila 1; el orden de columnas no importa.')
         )
         btn_load.clicked.connect(self._load_excel)
+        self.btn_template = TemplateSaveButton(msg('Plantilla Excel…'))
+        self.btn_template.setToolTip(msg('Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.'))
+        self.btn_template.clicked.connect(lambda: save_import_template(self))
 
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
         self.btn_add_classroom.setToolTip(
@@ -406,6 +410,7 @@ class MainWindow(QMainWindow):
         file_row.addWidget(lbl)
         file_row.addWidget(self.excel_path_label, 1)
         file_row.addWidget(btn_load)
+        file_row.addWidget(self.btn_template)
         file_row.addWidget(self.btn_add_classroom)
         file_row.addWidget(self.btn_restrictions)
         layout.addLayout(file_row)
