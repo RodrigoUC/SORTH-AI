@@ -1,6 +1,13 @@
 """es presentation catalog. Keep keys stable; edit values to revise wording."""
 
 MESSAGES = {
+    'Revise los cursos importados y pulse «Generar horario».': 'Revise los cursos importados y pulse «Generar horario».',
+    'Reemplazar el Excel actual': 'Reemplazar el Excel actual',
+    'Excel actual: {old}\nNuevo Excel: {new}': 'Excel actual: {old}\nNuevo Excel: {new}',
+    'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.': 'El nuevo Excel reemplazará los cursos y las aulas actuales. Se perderán las asignaciones del horario, las fijaciones, las restricciones de aulas y las asociaciones de docentes, grupos de estudiantes y estudiantes con las sesiones anteriores. No se trasladarán asociaciones por identificador.',
+    'Se conservarán los catálogos de recursos, sus disponibilidades, el calendario y las preferencias. Cancelar o un error conserva la sesión actual.': 'Se conservarán los catálogos de recursos, sus disponibilidades, el calendario y las preferencias. Cancelar o un error conserva la sesión actual.',
+    'Reemplazar Excel': 'Reemplazar Excel',
+
     '{room_type} (guardado en el curso)': '{room_type} (guardado en el curso)',
     'La semilla guardada está fuera del intervalo permitido.': 'La semilla guardada está fuera del intervalo permitido.',
     'Comparación pendiente': 'Comparación pendiente',
