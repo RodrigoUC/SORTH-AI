@@ -1,9 +1,9 @@
-UPSTREAM NOTICES: setuptools 84.0.0
-Wheel: setuptools-84.0.0-py3-none-any.whl
-SHA-256: 51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670
+UPSTREAM NOTICES: setuptools 84.1.0
+Wheel: setuptools-84.1.0-py3-none-any.whl
+SHA-256: 5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9
 The following upstream text is preserved; inclusion does not imply every component ships in SORTH.
 
-===== BEGIN setuptools-84.0.0.dist-info/licenses/LICENSE =====
+===== BEGIN setuptools-84.1.0.dist-info/licenses/LICENSE =====
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to
 deal in the Software without restriction, including without limitation the
@@ -22,7 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 
-===== END setuptools-84.0.0.dist-info/licenses/LICENSE =====
+===== END setuptools-84.1.0.dist-info/licenses/LICENSE =====
 
 ===== BEGIN setuptools/_vendor/autocommand-2.2.2.dist-info/LICENSE =====
 GNU LESSER GENERAL PUBLIC LICENSE
