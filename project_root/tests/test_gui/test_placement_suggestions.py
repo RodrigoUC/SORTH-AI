@@ -1,10 +1,11 @@
+from pathlib import Path
 from copy import deepcopy
 import pytest
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMessageBox, QDialogButtonBox
 from src.gui.main_window import MainWindow
 from src.gui.placement_options_dialog import PlacementOptionsDialog
-from src.gui.features import FeaturePreferences
+from src.infrastructure.feature_preferences import FeaturePreferences
 from src.gui.i18n import language_manager
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.course import Course
@@ -14,7 +15,7 @@ from src.scheduling.classroom import Classroom
 @pytest.fixture
 def window(tmp_path):
     settings = QSettings(str(tmp_path/'preferences.ini'), QSettings.Format.IniFormat)
-    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('A', 2, 60, 'REGULAR')])
     groups = w.course_manager.get_courses()[0].generate_groups()
@@ -50,7 +51,7 @@ def test_opt_in_persists_toggles_and_cancel_never_changes(window):
     assert all(button.isHidden() for button in window.schedule_viewer._suggestion_controls)
     enable(window)
     assert all(not button.isHidden() for button in window.schedule_viewer._suggestion_controls)
-    assert FeaturePreferences(window._features.settings).enabled('placement_suggestions')
+    assert FeaturePreferences(path=window._features.path).enabled('placement_suggestions')
 
 
 def test_explicit_selection_applies_one_and_undo_restores(window):

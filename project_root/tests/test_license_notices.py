@@ -11,21 +11,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_committed_inventory_matches_lock_and_has_all_notice_files():
-    inventory = json.loads((ROOT / 'third_party/wheel-inventory.json').read_text())
+    inventory = json.loads((ROOT / 'third_party/wheel-inventory.json').read_text(encoding='utf-8'))
     lock = ROOT / 'project_root/requirements-windows.lock'
     assert inventory['lock_sha256'] == lock_digest(lock)
-    lines = [line for line in lock.read_text().splitlines() if line and not line.startswith('#')]
+    lines = [line for line in lock.read_text(encoding='utf-8').splitlines() if line and not line.startswith('#')]
     assert len(inventory['packages']) == len(lines)
     for row in inventory['packages']:
-        assert row['sha256'] in lock.read_text()
+        assert row['sha256'] in lock.read_text(encoding='utf-8')
         path = ROOT / 'third_party' / row['notice_file']
         text = path.read_text(encoding='utf-8')
         assert row['wheel'] in text
         assert row['upstream_notice_files']
         for notice in row['upstream_notice_files']:
             assert 'BEGIN ' + notice['path'] in text
-    assert 'Version 3, 29 June 2007' in (ROOT / 'LICENSE').read_text()
-    assert 'GPL-3.0-only' in (ROOT / 'LICENSING.md').read_text()
+    assert 'Version 3, 29 June 2007' in (ROOT / 'LICENSE').read_text(encoding='utf-8')
+    assert 'GPL-3.0-only' in (ROOT / 'LICENSING.md').read_text(encoding='utf-8')
 
 
 def make_wheel(tmp_path):
@@ -36,7 +36,7 @@ def make_wheel(tmp_path):
         archive.writestr('example-1.0.dist-info/METADATA', 'Name: example\nVersion: 1.0\nLicense-Expression: MIT\n')
         archive.writestr('example-1.0.dist-info/licenses/LICENSE', 'Original notice\r\nKeep this text.\n')
     lock = tmp_path / 'requirements.lock'
-    lock.write_text('example==1.0 --hash=sha256:' + hashlib.sha256(wheel.read_bytes()).hexdigest() + '\n')
+    lock.write_text('example==1.0 --hash=sha256:' + hashlib.sha256(wheel.read_bytes()).hexdigest() + '\n', encoding='utf-8')
     return wheels, wheel, lock
 
 
@@ -45,7 +45,7 @@ def test_collector_preserves_original_text_and_hashes(tmp_path):
     output = tmp_path / 'output'
     assert collect(wheels, lock, output) == 1
     assert b'Original notice\r\nKeep this text.\n' in (output / 'licenses/example.txt').read_bytes()
-    data = json.loads((output / 'wheel-inventory.json').read_text())
+    data = json.loads((output / 'wheel-inventory.json').read_text(encoding='utf-8'))
     assert data['packages'][0]['sha256'] == hashlib.sha256(wheel.read_bytes()).hexdigest()
 
 
@@ -74,7 +74,7 @@ def test_lock_identity_is_stable_across_git_line_endings(tmp_path):
 
 
 def test_committed_upstream_notice_bytes_match_inventory_hashes():
-    inventory = json.loads((ROOT / 'third_party/wheel-inventory.json').read_text())
+    inventory = json.loads((ROOT / 'third_party/wheel-inventory.json').read_text(encoding='utf-8'))
     for package in inventory['packages']:
         content = (ROOT / 'third_party' / package['notice_file']).read_bytes()
         for notice in package['upstream_notice_files']:

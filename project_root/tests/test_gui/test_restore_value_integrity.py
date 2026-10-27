@@ -1,4 +1,6 @@
 """Malformed saved values cannot be silently normalized by Qt and autosave."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import sqlite3
 
 import pytest
@@ -14,7 +16,7 @@ from src.scheduling.course import Course
 def window(tmp_path):
     repo = SessionRepository(str(tmp_path / 'session.db'))
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
-    win = MainWindow(repo, restore_session=False, feature_settings=settings)
+    win = MainWindow(repo, restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     yield win
     win._unsaved = False
     win.close()
@@ -26,10 +28,10 @@ def test_out_of_range_seed_restore_blocks_autosave_without_clamping(window, tmp_
     repo.save_session(None, seed, {}, [Course('BIO', 1, 60, 'REGULAR')], {}, None)
     before = (tmp_path / 'session.db').read_bytes()
 
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
 
     assert window._restore_failed
-    assert not window._save_session()
+    assert not window.session.save()
     assert (tmp_path / 'session.db').read_bytes() == before
     assert repo.load_session()['seed'] == seed
 
@@ -45,20 +47,21 @@ def test_assignments_without_courses_cannot_be_discarded_by_restore(window, tmp_
         con.execute('DELETE FROM courses')
     before = (tmp_path / 'session.db').read_bytes()
 
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
 
     assert window._restore_failed
-    assert not window._save_session()
+    assert not window.session.save()
     assert (tmp_path / 'session.db').read_bytes() == before
-    assert repo.load_session()['assignments'] == {'BIO-G1': ('R', 1, 480, 540)}
+    with pytest.raises(ValueError):
+        repo.load_session()
 
 
 @pytest.mark.parametrize('seed', [None, 0, 999999])
 def test_valid_empty_session_restores_and_roundtrips_seed(window, seed):
     window._repo.save_session(None, seed, {}, [], {}, None)
 
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
 
     assert not window._restore_failed
-    assert window._save_session()
+    assert window.session.save()
     assert window._repo.load_session()['seed'] == seed

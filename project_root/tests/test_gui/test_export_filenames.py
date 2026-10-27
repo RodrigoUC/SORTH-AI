@@ -50,7 +50,7 @@ def test_unrecognized_suffix_appends_selected_format(
                         lambda *a: (str(selected), f'Format (*.{extension})'))
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: pytest.fail('Unexpected confirmation'))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     assert_export_content(target, extension)
     assert selected.read_bytes() == b'preserve entered destination'
     assert target.name in window.status_bar.currentMessage()
@@ -68,7 +68,7 @@ def test_supported_extension_overrides_filter_with_matching_bytes(
                         lambda *a: (str(target), f'Format (*.{selected_format})'))
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: pytest.fail('Unexpected confirmation'))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     assert_export_content(target, extension.lower())
     assert target.name in window.status_bar.currentMessage()
     assert not (tmp_path / f'{target.name}.{selected_format}').exists()

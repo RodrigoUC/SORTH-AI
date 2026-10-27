@@ -20,11 +20,11 @@ Se conservan PyQt6, las hojas `Aulas`/`Cursos`, los formatos Excel/CSV y SQLite.
 
 ## Verificación local
 
-Desde `project_root`, instale `requeriments.txt` en un entorno virtual y ejecute:
+Desde `project_root`, instale `requirements-dev.txt` en un entorno virtual y ejecute:
 
 ```bash
 python -m pytest -q
-python benchmark.py
+python tools/benchmark_scheduler.py
 python gui_app.py
 ```
 

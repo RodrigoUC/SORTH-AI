@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QScrollArea, QStyleFactory, QStyle, QStyleOptionComboBox, QWidget
 
-from src.gui.features import FEATURES
+from src.infrastructure.feature_preferences import FEATURES
 from src.gui.i18n import language_manager
 from src.gui.settings_dialog import SettingsDialog
 from tests.test_gui.test_mcp_setup_ux import window, settle_settings_layout, caption_preserved_across_soft_breaks

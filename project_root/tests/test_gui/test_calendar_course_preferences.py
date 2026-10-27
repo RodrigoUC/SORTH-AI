@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from copy import deepcopy
 import pytest
 from PyQt6.QtCore import QSettings
@@ -37,7 +39,7 @@ def test_default_new_course_choices_and_initial_time_unchanged():
 @pytest.fixture
 def window(tmp_path):
     w=MainWindow(SessionRepository(str(tmp_path/'session.db')),restore_session=False,
-                 feature_settings=QSettings(str(tmp_path/'prefs.ini'),QSettings.Format.IniFormat))
+                 feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path/'prefs.ini'),QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     w.course_manager.courses=[Course('SUN',1,60,'REGULAR',preferred_day='Domingo',preferred_start_min=1380)]
     w.course_manager._refresh_table()
     yield w

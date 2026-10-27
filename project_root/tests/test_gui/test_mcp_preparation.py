@@ -1,4 +1,5 @@
 """Preparation is an explicit transaction, separate from feature permission."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 import ast
 import json
 from pathlib import Path
@@ -10,8 +11,8 @@ import pytest
 from PyQt6.QtCore import QProcess, QSettings, Qt
 from PyQt6.QtWidgets import QApplication, QDialogButtonBox, QMessageBox
 
-from src.application import mcp_component
-from src.application.mcp_preferences import enabled
+from src.infrastructure import mcp_component
+from src.infrastructure.mcp_preferences import enabled
 from src.gui.i18n import language_manager
 from src.gui.locales import LANGUAGES
 from src.gui.main_window import MainWindow
@@ -24,7 +25,7 @@ from src.infrastructure.session_repository import SessionRepository
 @pytest.fixture
 def window(tmp_path):
     q = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
-    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_settings=q)
+    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((q).fileName()) + '.features.json')))
     yield w
     w.close()
 
@@ -82,7 +83,7 @@ def test_preparation_persists_without_enabling_when_settings_cancelled(window, m
     destination = Path(bundle['path'])
     def prepare(**kwargs):
         destination.mkdir(parents=True, exist_ok=True)
-        (destination / 'installed').write_text('verified')
+        (destination / 'installed').write_text('verified', encoding='utf-8')
         kwargs['progress']('checking')
         return bundle
     monkeypatch.setattr(mcp_component, 'prepare_component', prepare)
@@ -93,7 +94,7 @@ def test_preparation_persists_without_enabling_when_settings_cancelled(window, m
     assert not dialog.controls['mcp_server'].isChecked()
     assert not enabled(window._features.path)
     dialog.reject()
-    assert (destination / 'installed').read_text() == 'verified'
+    assert (destination / 'installed').read_text(encoding='utf-8') == 'verified'
     assert not enabled(window._features.path)
 
 
@@ -266,7 +267,7 @@ def test_new_controls_live_translate_without_changing_configuration(window, bund
 def test_new_ui_catalog_coverage_including_status_mappings():
     root = Path(__file__).parents[2] / 'src' / 'gui'
     for filename in ['mcp_client_help.py', 'settings_dialog.py']:
-        tree = ast.parse((root / filename).read_text())
+        tree = ast.parse((root / filename).read_text(encoding='utf-8'))
         strings = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'msg':

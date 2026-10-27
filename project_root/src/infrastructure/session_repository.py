@@ -27,7 +27,7 @@ class SessionRepository:
     The database lives in the current user's SORTH application-data directory.
     """
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     @staticmethod
     def default_path() -> Path:
@@ -41,33 +41,10 @@ class SessionRepository:
             base = candidate if candidate.is_absolute() else Path.home() / ".local" / "share"
         return base / "SORTH" / "sorth_session.db"
 
-    @staticmethod
-    def legacy_path() -> Path:
-        base = (Path(sys.executable).parent if getattr(sys, "frozen", False)
-                else Path(__file__).resolve().parents[2])
-        return base / "data" / "sorth_session.db"
-
     def __init__(self, db_path: str | None = None):
-        self.migration_backup: Path | None = None
-        self.schema_backup: Path | None = None
         target = Path(db_path) if db_path is not None else self.default_path()
         self._db_path = str(target)
-        if db_path is None:
-            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            legacy = self.legacy_path()
-            # Any existing destination wins, even when corrupt or empty. Never
-            # replace user data with an older copy or silently fall back.
-            if not target.exists() and legacy.exists() and legacy != target:
-                backup = self._snapshot(legacy, target.parent, "legacy-session-")
-                self.migration_backup = backup
-                staged = self._snapshot(backup, target.parent, ".migration-")
-                try:
-                    # Atomic, no-clobber installation. A competing instance wins.
-                    os.link(staged, target)
-                except FileExistsError:
-                    pass
-                finally:
-                    staged.unlink(missing_ok=True)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._init_db()
 
     @staticmethod
@@ -103,27 +80,19 @@ class SessionRepository:
             if con.execute("PRAGMA quick_check").fetchone()[0] != "ok":
                 raise sqlite3.DatabaseError("SQLite integrity check failed")
             version = con.execute("PRAGMA user_version").fetchone()[0]
-            if version > self.SCHEMA_VERSION:
-                raise sqlite3.DatabaseError(
-                    f"Session schema {version} is newer than supported {self.SCHEMA_VERSION}. "
-                    "Open it with the newer SORTH version; do not overwrite it."
-                )
-            # Schema3 introduced a mandatory resource contract for saved
-            # sessions. Missing/corrupt new-format rows are not legacy defaults.
-            # Check before CREATE TABLE or migration writes can repair evidence.
-            if version >= 3:
-                self._read_resource_contract(con)
-            if version >= 4:
-                self._read_calendar_contract(con)
-            if version == self.SCHEMA_VERSION:
-                # Current-format opening is read-only. Never rewrite schema/header
-                # bytes before complete semantic validation of saved constraints.
-                self.load_session()
+            tables = con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            if tables:
+                if version != self.SCHEMA_VERSION:
+                    raise sqlite3.DatabaseError(
+                        f"Unsupported session schema {version}; expected {self.SCHEMA_VERSION}. "
+                        "The original database is preserved. Open a current-format session "
+                        "or import the source workbook into a new session."
+                    )
+                # Opening a current session validates without rewriting its bytes.
+                self._load_session(con)
                 return
-            if version < self.SCHEMA_VERSION and con.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
-                path = Path(self._db_path)
-                self.schema_backup = self._snapshot(path, path.parent, "schema-session-")
+            if version != 0:
+                raise sqlite3.DatabaseError("Session schema has no tables; restore a backup")
             con.executescript("""
                 BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS project_calendar (
@@ -137,6 +106,7 @@ class SessionRepository:
                     id          INTEGER PRIMARY KEY CHECK (id = 1),
                     excel_path  TEXT,
                     seed        INTEGER,
+                    schedule_present INTEGER NOT NULL CHECK (schedule_present IN (0, 1)),
                     saved_at    TEXT DEFAULT (datetime('now'))
                 );
 
@@ -182,40 +152,10 @@ class SessionRepository:
                     day             INTEGER NOT NULL,
                     start_min       INTEGER NOT NULL,
                     end_min         INTEGER NOT NULL,
-                    lab_override    INTEGER NOT NULL DEFAULT 0
+                    lab_override    INTEGER NOT NULL DEFAULT 0 CHECK (lab_override IN (0, 1)),
+                    pinned          INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))
                 );
             """)
-            # Older sessions did not persist enrollment. Add the missing column
-            # in place so existing courses, suggestions and schedules survive.
-            # Zero preserves the Course default when the original size is unknown.
-            course_columns = {
-                row["name"] for row in con.execute("PRAGMA table_info(courses)")
-            }
-            if "size" not in course_columns:
-                con.execute(
-                    "ALTER TABLE courses ADD COLUMN size INTEGER NOT NULL DEFAULT 0"
-                )
-
-            assignment_columns = {
-                row["name"] for row in con.execute("PRAGMA table_info(assignments)")
-            }
-            if "lab_override" not in assignment_columns:
-                con.execute(
-                    "ALTER TABLE assignments ADD COLUMN lab_override INTEGER NOT NULL DEFAULT 0"
-                )
-            if "pinned" not in assignment_columns:
-                con.execute("ALTER TABLE assignments ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))")
-            if version < 4:
-                con.execute("INSERT OR IGNORE INTO project_calendar SELECT 1, ? WHERE EXISTS (SELECT 1 FROM session WHERE id=1)",
-                            (json.dumps(ProjectCalendar().to_dict(), ensure_ascii=False),))
-            if version < 3 and con.execute("SELECT 1 FROM session WHERE id=1").fetchone():
-                # Only a genuine legacy migration initializes absence, in the
-                # same transaction as the schema change and after the backup.
-                con.execute("INSERT OR IGNORE INTO scheduling_resources VALUES (1, ?)",
-                            (json.dumps(SchedulingResources().to_data()),))
-            # Validate the migrated snapshot before accepting any DDL or header
-            # changes. A separate reader cannot see these uncommitted tables.
-            self._load_session(con)
             con.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
 
     @contextmanager
@@ -258,13 +198,14 @@ class SessionRepository:
                         (json.dumps(resources.to_data(), ensure_ascii=False),))
             # Session metadata
             con.execute("""
-                INSERT INTO session (id, excel_path, seed, saved_at)
-                VALUES (1, ?, ?, datetime('now'))
+                INSERT INTO session (id, excel_path, seed, schedule_present, saved_at)
+                VALUES (1, ?, ?, ?, datetime('now'))
                 ON CONFLICT(id) DO UPDATE SET
                     excel_path = excluded.excel_path,
                     seed       = excluded.seed,
+                    schedule_present = excluded.schedule_present,
                     saved_at   = excluded.saved_at
-            """, (excel_path, seed))
+            """, (excel_path, seed, int(assignments is not None)))
 
             # Classrooms
             con.execute("DELETE FROM classrooms")
@@ -395,6 +336,9 @@ class SessionRepository:
                 r["classroom_name"], r["day"], r["start_min"], r["end_min"]
             )
 
+        schedule_present = self._decode_boolean(row["schedule_present"], "schedule_present")
+        if assignments and not schedule_present:
+            raise ValueError("Assignments exist without a generated schedule; restore a backup")
         calendar = self._read_calendar_contract(con)
         self._validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar)
         return {
@@ -405,7 +349,7 @@ class SessionRepository:
             "classrooms":   classrooms,
             "courses":      courses,
             "restrictions": restrictions,
-            "assignments":  assignments if assignments else None,
+            "assignments":  assignments if schedule_present else None,
             "lab_overrides": lab_overrides,
             "pinned_group_ids": pinned_group_ids,
         }
@@ -442,18 +386,15 @@ class SessionRepository:
 
     @staticmethod
     def _validate_resources(resources, courses, classrooms, restrictions, assignments, lab_overrides, calendar):
-        # Preserve the legacy loader's repair flow for old LAB placements when
-        # no optional records exist. A resource-bearing snapshot is strictly
-        # checked before any write, or before it can become the live session.
+        # Every snapshot uses the same domain rules before save and restore.
         from copy import deepcopy
         groups = [g for c in courses for g in c.generate_groups()]
         errors = resources.structure_issues({g.group_id for g in groups}, TimeModel.from_calendar(calendar))
-        if calendar != ProjectCalendar() or any(c.resources or c.memberships for c in resources.catalogs):
-            rooms = deepcopy(classrooms)
-            for name, room in rooms.items():
-                room.allowed_courses = restrictions.get(name)
-            errors.extend(validate_schedule(assignments or {}, groups, rooms,
-                          TimeModel.from_calendar(calendar), lab_overrides, resources))
+        rooms = deepcopy(classrooms)
+        for name, room in rooms.items():
+            room.allowed_courses = restrictions.get(name)
+        errors.extend(validate_schedule(assignments or {}, groups, rooms,
+                      TimeModel.from_calendar(calendar), lab_overrides, resources))
         if errors:
             raise ValueError('; '.join(str(e) for e in errors))
 

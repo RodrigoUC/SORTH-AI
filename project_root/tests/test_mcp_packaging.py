@@ -26,7 +26,7 @@ def payload(tmp_path):
     internal.mkdir(parents=True)
     (app / 'SORTH-MCP.exe').write_bytes(b'MZ-synthetic-test-only')
     (internal / 'python312.dll').write_bytes(b'synthetic-native-runtime')
-    (internal / 'build-identity.json').write_text(json.dumps(identity('a' * 40)))
+    (internal / 'build-identity.json').write_text(json.dumps(identity('a' * 40)), encoding='utf-8')
     for name in ('LICENSE', 'LICENSING.md', 'third_party/licenses/cpython-3.12.10.txt'):
         target = internal / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ def test_payload_has_release_bound_inventory_and_compilable_trust_anchor(payload
         assert set(zf.namelist()) == {row['path'] for row in manifest['files']}
         assert 'SORTH-MCP.exe' in zf.namelist()
         assert all(not i.is_dir() and i.date_time == (1980, 1, 1, 0, 0, 0) for i in zf.infolist())
-    module = ast.parse((output / '_sorth_mcp_bundle.py').read_text())
+    module = ast.parse((output / '_sorth_mcp_bundle.py').read_text(encoding='utf-8'))
     assert ast.literal_eval(module.body[0].value) == manifest
     before = archive.read_bytes()
     assert create(payload) == manifest
@@ -101,21 +101,21 @@ def test_payload_rejects_modified_archive_and_compiled_anchor(payload):
     with pytest.raises(ValueError, match='integrity'):
         mcp_payload.verify_payload(archive, output, 'a' * 40)
     create(payload)
-    (output / '_sorth_mcp_bundle.py').write_text('MANIFEST = {}\n')
+    (output / '_sorth_mcp_bundle.py').write_text('MANIFEST = {}\n', encoding='utf-8')
     with pytest.raises(ValueError, match='anchor'):
         mcp_payload.verify_payload(archive, output, 'a' * 40)
 
 
 def test_payload_rejects_stale_source_and_incomplete_notices(payload):
     app, _, _ = payload
-    (app / '_internal/build-identity.json').write_text(json.dumps(identity('b' * 40)))
+    (app / '_internal/build-identity.json').write_text(json.dumps(identity('b' * 40)), encoding='utf-8')
     with pytest.raises(ValueError, match='identity'):
         create(payload)
-    (app / '_internal/build-identity.json').write_text(json.dumps(identity('a' * 40)))
+    (app / '_internal/build-identity.json').write_text(json.dumps(identity('a' * 40)), encoding='utf-8')
     inventory = app / '_internal/third_party/mcp/wheel-inventory.json'
-    data = json.loads(inventory.read_text())
+    data = json.loads(inventory.read_text(encoding='utf-8'))
     data['packages'].pop()
-    inventory.write_text(json.dumps(data))
+    inventory.write_text(json.dumps(data), encoding='utf-8')
     with pytest.raises(ValueError, match='Incomplete'):
         create(payload)
 
@@ -182,7 +182,7 @@ def test_console_spec_copies_sdk_metadata_and_isolates_internal_directory(monkey
     context = {'SPECPATH': str(ROOT), 'Analysis': factory('analysis', SimpleNamespace(
         pure=[], scripts=[], binaries=[], datas=[])), 'PYZ': factory('pyz'),
         'EXE': factory('exe'), 'COLLECT': factory('collect')}
-    exec(compile((ROOT / 'SORTH-MCP.spec').read_text(), 'SORTH-MCP.spec', 'exec'), context)
+    exec(compile((ROOT / 'SORTH-MCP.spec').read_text(encoding='utf-8'), 'SORTH-MCP.spec', 'exec'), context)
     assert calls['exe'][1]['console'] is True
     assert calls['exe'][1]['contents_directory'] == '_internal'
     assert calls['exe'][1]['exclude_binaries'] is True
@@ -193,9 +193,9 @@ def test_console_spec_copies_sdk_metadata_and_isolates_internal_directory(monkey
 
 
 def test_build_and_ci_use_companion_before_sdk_free_gui():
-    build = (ROOT / 'build_exe.ps1').read_text()
-    companion = (ROOT / 'build_mcp.ps1').read_text()
-    workflow = (ROOT.parent / '.github/workflows/windows-review.yml').read_text()
+    build = (ROOT / 'build_exe.ps1').read_text(encoding='utf-8')
+    companion = (ROOT / 'build_mcp.ps1').read_text(encoding='utf-8')
+    workflow = (ROOT.parent / '.github/workflows/windows-review.yml').read_text(encoding='utf-8')
     assert build.index('build_mcp.ps1') < build.index('-m PyInstaller @buildArgs')
     assert "'--hidden-import', '_sorth_mcp_bundle'" in build
     assert '[switch]$WithoutMcp' in build
@@ -203,4 +203,4 @@ def test_build_and_ci_use_companion_before_sdk_free_gui():
     assert '--no-index' in companion
     assert 'tools/frozen_mcp_smoke.py' in workflow
     assert 'tools/mcp_payload.py notices' in companion
-    assert 'companion-dependencies' in (ROOT.parent / '.github/workflows/security-review.yml').read_text()
+    assert 'companion-dependencies' in (ROOT.parent / '.github/workflows/security-review.yml').read_text(encoding='utf-8')

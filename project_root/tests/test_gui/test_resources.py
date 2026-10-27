@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from dataclasses import replace
 from PyQt6.QtCore import QSettings, QTime, Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox, QApplication
@@ -15,7 +17,7 @@ from tests.test_scheduling.test_teaching_resources import data
 @pytest.fixture
 def window(tmp_path):
     w=MainWindow(SessionRepository(str(tmp_path/'session.db')),restore_session=False,
-                 feature_settings=QSettings(str(tmp_path/'settings.ini'),QSettings.Format.IniFormat))
+                 feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path/'settings.ini'),QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     courses,groups,rooms,resources=data()
     w._classrooms=rooms
     w.course_manager.load_courses_from_excel(courses)
@@ -31,7 +33,7 @@ def activate(window,kind):
     window.resources=resources
     values=window._features.values();values[kind]=True
     window._features.save(values);window._apply_feature_preferences()
-    assert window._save_session()
+    assert window.session.save()
 
 
 @pytest.mark.parametrize('kind',RESOURCE_KINDS)
@@ -120,7 +122,7 @@ def test_restore_preserves_off_coverage_with_records(window):
     activate(window,'teacher')
     off=replace(window.resources.catalog('teacher'),enabled=False)
     assert window._commit_resource_change(SchedulingResources((off,)),clear_schedule=True)
-    window._restore_session_if_exists(confirm=False,show_status=False)
+    window.session.restore(confirm=False,show_status=False)
     assert not window._restore_failed
     assert not window.resources.catalog('teacher').enabled
     assert not window._features.enabled('teacher')
@@ -141,10 +143,10 @@ def test_corrupt_preferences_do_not_hide_or_disable_restored_resources(window,mo
     schedule=dict(window.current_schedule)
     path=window._features.path
     path.write_text('{broken synthetic preferences',encoding='utf-8')
-    from src.gui.features import FeaturePreferences
-    window._features=FeaturePreferences(window._features.settings)
+    from src.infrastructure.feature_preferences import FeaturePreferences
+    window._features=FeaturePreferences(path=window._features.path)
     assert window._features.load_error
-    window._restore_session_if_exists(confirm=False,show_status=False)
+    window.session.restore(confirm=False,show_status=False)
     assert not window._restore_failed
     assert window.resources.catalog('teacher').enabled
     assert not window.resource_buttons['teacher'].isHidden()
@@ -255,9 +257,9 @@ def test_preference_rollback_failure_locks_but_session_flags_remain_authoritativ
     # The cached JSON flag is stale, but cannot silently turn the saved rules off.
     assert not window._features.enabled('teacher')
     reopened = MainWindow(SessionRepository(window._repo._db_path), restore_session=False,
-                          feature_settings=window._features.settings)
+                          feature_preferences=FeaturePreferences(path=window._features.path))
     assert not reopened.resources.catalog('teacher').enabled
-    reopened._restore_session_if_exists(confirm=False, show_status=False)
+    reopened.session.restore(confirm=False, show_status=False)
     assert reopened.resources == original_resources
     assert not reopened._restore_failed
     reopened._unsaved = False
@@ -296,7 +298,7 @@ def test_resource_edits_for_long_course_codes_survive_reopen(window, kind):
     catalog = ResourceCatalog(kind, True, (resource,), ((gid, (resource.id,)),))
     assert window._commit_resource_change(SchedulingResources((catalog,)))
     assert window._repo.load_session()['resources'].catalog(kind) == catalog
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
     assert not window._restore_failed
     assert window.resources.catalog(kind) == catalog
     assert window.current_schedule == assignments

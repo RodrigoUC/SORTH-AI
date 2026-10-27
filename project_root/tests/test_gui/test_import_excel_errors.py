@@ -17,7 +17,7 @@ from tests.test_infrastructure.test_excel_error_cells import error_workbook
 def test_cached_formula_error_preserves_disk_pin_resources_and_history(window, tmp_path, monkeypatch, language, expected):
     window.resources = SchedulingResources((ResourceCatalog('teacher', True,
         (Resource('t-synthetic', 'Synthetic teacher'),), (('BIO-G1', ('t-synthetic',)),)),))
-    assert window._save_session()
+    assert window.session.save()
     before = encoded(window._capture_edit_state())
     history = encoded(vars(window._history))
     db_path = tmp_path / 'session.db'
@@ -72,7 +72,7 @@ def test_reimported_split_groups_keep_exact_pins_and_resources_then_cancel_safel
         )) for kind in ('teacher', 'student_group', 'student')))
     resources = window.resources.to_data()
     window.schedule_viewer.display_schedule(window.current_schedule, TimeModel.default(), window.current_groups)
-    assert window._save_session()
+    assert window.session.save()
 
     for _ in range(2):
         window._import.start(path)

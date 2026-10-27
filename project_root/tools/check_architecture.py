@@ -15,27 +15,14 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_LAYERS = {
     "scheduling": {"scheduling"},
-    "application": {"application", "scheduling", "infrastructure"},
-    "infrastructure": {"infrastructure", "scheduling"},
+    "application": {"application", "scheduling"},
+    "infrastructure": {"infrastructure", "application", "scheduling"},
     "gui": {"gui", "application", "infrastructure", "scheduling"},
-    "mcp_adapter": {"mcp_adapter", "application"},
-    "ui": {"ui", "scheduling"},  # Existing Tkinter adapter; not the desktop entrypoint.
-    "bootstrap": {"bootstrap", "application", "infrastructure", "scheduling"},
+    "mcp_adapter": {"mcp_adapter", "application", "infrastructure", "scheduling"},
+    "bootstrap": {"bootstrap", "application", "infrastructure", "scheduling", "gui"},
 }
-# These are named compatibility/composition seams, not exemptions for whole layers.
-GUI_DIAGNOSTICS = {
-    "src.application.packaged_smoke",
-    "src.application.packaged_workflow",
-}
-IMPORT_EXCEPTIONS = {
-    # The GUI worker explicitly composes the reader for its scheduling use case.
-    ("src.gui.scheduler_worker", "src.bootstrap.scheduling"),
-    # Optional worker composes the shared in-memory exporter; no GUI or session IO.
-    ("src.mcp_adapter.worker", "src.infrastructure.schedule_exporter"),
-    ("src.mcp_adapter.worker", "src.scheduling.time_model"),
-    # Preserve SchedulingService(path) when its default reader is composed externally.
-    ("src.application.scheduling_service", "src.bootstrap.scheduling"),
-}
+# Presentation's scheduling worker is an explicit composition entrypoint.
+IMPORT_EXCEPTIONS = {("src.gui.scheduler_worker", "src.bootstrap.scheduling")}
 
 
 @dataclass(frozen=True)
@@ -89,16 +76,13 @@ def import_problem(module: str, imported: str) -> str | None:
         target_layer = target_parts[1]
         if (module, imported) in IMPORT_EXCEPTIONS:
             return None
-        if module in GUI_DIAGNOSTICS and target_layer == "gui":
-            return None
         if target_layer not in ALLOWED_LAYERS.get(layer, set()):
             return f"{layer or 'src'} must not import layer {target_layer}"
     elif layer == "scheduling" and root not in sys.stdlib_module_names:
         return "the scheduling domain must use only its own modules and the standard library"
     elif root in {"PyQt6", "tkinter"}:
         if layer in {"application", "infrastructure", "mcp_adapter"}:
-            if module not in GUI_DIAGNOSTICS and module != "src.infrastructure.gui_session_lock":
-                return "UI dependencies belong to presentation, not this module"
+            return "UI dependencies belong to presentation, not this module"
     elif root in {"mcp", "anyio"} and layer != "mcp_adapter":
         return "optional MCP dependencies belong to mcp_adapter"
     return None
@@ -119,6 +103,8 @@ def check_architecture(source_root=ROOT / "src") -> list[Violation]:
             is_package=path.name == "__init__.py", known_modules=modules,
         ):
             reason = import_problem(module, imported)
+            if reason is None and imported.startswith('src.') and imported not in modules:
+                reason = 'first-party import target does not exist'
             if reason:
                 violations.append(Violation(relative, line, imported, reason))
     return violations

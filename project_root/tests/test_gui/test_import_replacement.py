@@ -27,7 +27,7 @@ def prepare(window, tmp_path):
     window.seed_input.setValue(37)
     window._features.save({**window._features.values(), 'project_calendar': True})
     window.classroom_restrictions = {'R': {'BIO'}}
-    window._save_session()
+    window.session.save()
     return path
 
 
@@ -114,7 +114,7 @@ def test_repeated_clear_import_and_same_path_update(window, tmp_path, monkeypatc
         groups[0].assignment = next(iter(assignment.values()))
         window.current_groups, window.current_schedule = groups, assignment
         window.schedule_viewer.display_schedule(assignment, TimeModel.default(), groups)
-        window._save_session()
+        window.session.save()
 
 
 @pytest.mark.parametrize('failure', ['invalid', 'save'])

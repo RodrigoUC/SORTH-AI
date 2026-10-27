@@ -9,19 +9,11 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 
 - `check_architecture.py`: guard AST de los límites del README.
   Comando: `python tools/check_architecture.py`; no importa ni ejecuta la app.
-- `windows_test_batches.py`: plugin pytest que divide la suite Windows en tres
-  lotes seriales: GUI (`tests/test_gui/`, salvo el siguiente archivo), cambio de
-  tema en ejecución (`tests/test_gui/test_theme_runtime.py`) y el resto, sin
-  excluir tests nuevos. Los nuevos casos de ese archivo entran automáticamente
-  en su lote; los nuevos archivos y directorios siguen entrando en GUI o el resto.
-  El workflow recoge primero el inventario completo; cada lote conserva sus IDs
-  seleccionados y su JUnit. `python tools/windows_test_batches.py --verify
-  build/reports` exige una unión exacta sin IDs duplicados, faltantes ni ajenos.
-  El lote GUI conserva el límite de ocho minutos; el cambio de tema en ejecución
-  tiene siete minutos y el resto conserva cuatro. Los tres mantienen los
-  diagnósticos de bloqueo a los 120 segundos. Aunque falle un lote, se ejecutan
-  los siguientes para reunir evidencia; cualquier fallo de tests o inventario
-  bloquea la construcción del paquete.
+- `windows_test_batches.py`: divide la suite en cuatro procesos seriales:
+  `gui`, `gui-layout`, `theme-runtime` y `remaining`. La colección completa y
+  `python tools/windows_test_batches.py --verify build/reports` comprueban que
+  la unión de IDs sea exacta, sin duplicados ni omisiones. Consulte el
+  [procedimiento completo](../../docs/development/WORKFLOW.md#suite-completa-en-cuatro-procesos).
 
 ## Medición y diagnóstico
 
@@ -32,15 +24,12 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 - `benchmark_editor_operations.py`: operaciones del editor con datos sintéticos.
 - `recover_session.py`: recuperación explícita a un destino nuevo; no usar datos
   reales en capturas o artefactos públicos.
-- `verify_cross_version_recovery.py`: comprobación de compatibilidad de recuperación.
 
 ## Datos y recursos de desarrollo
 
 - `generate_demo_assets.py`: JSON sintético e iconos reproducibles. La procedencia
   está en [data/input/PROVENANCE.md](../data/input/PROVENANCE.md).
 - `build_demo_workbook.mjs`: genera el Excel sintético a partir del JSON.
-- `convert_png_to_ico.py`: conversión auxiliar histórica del icono. La generación
-  reproducible oficial usa `generate_demo_assets.py`.
 - `fonts/`: recurso tipográfico del generador de manual, con su licencia.
 
 ## Documentación y distribución
@@ -57,9 +46,8 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 - `security_review.py`: controles estáticos y de dependencias.
 
 Los puntos de entrada públicos `build_exe.ps1`, `build_mcp.ps1`, `gui_app.py`,
-`main.py` y `mcp_app.py` permanecen en `project_root`. Los scripts históricos
-`benchmark.py`, `convert_png_to_ico.py` y `generate_courses_json.py` son adaptadores
-pequeños de compatibilidad; su implementación está en `tools/`.
+`main.py` y `mcp_app.py` permanecen en `project_root`. Las herramientas se ejecutan
+directamente desde `tools/`; no hay scripts de reenvío en la raíz.
 
 Antes de mover una herramienta, revisa sus consumidores en `.github/workflows`,
 PowerShell, archivos `.spec`, pruebas, documentación e importaciones Python.

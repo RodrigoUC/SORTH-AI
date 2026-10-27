@@ -3,13 +3,13 @@ from PyQt6 import sip
 from PyQt6.QtWidgets import QVBoxLayout, QScrollArea, QWidget, QFrame, QSizePolicy, QApplication
 from .i18n_widgets import QDialog, QLabel, QCheckBox, QDialogButtonBox, QMessageBox, QPushButton, ResponsiveActionLabels, ResponsiveDialogButtonBox, QComboBox
 from .i18n import msg
-from .features import FEATURES, McpPreferenceConflict
+from ..infrastructure.feature_preferences import FEATURES, McpPreferenceConflict
 from PyQt6.QtCore import QSignalBlocker, QTimer, Qt
 from .mcp_availability import McpAvailabilityProbe
 from .mcp_preparation import McpPreparation
 from .mcp_client_help import McpClientHelp
-from ..application import mcp_component
-from ..application.mcp_preferences import enabled as mcp_permission_enabled
+from ..infrastructure import mcp_component
+from ..infrastructure.mcp_preferences import enabled as mcp_permission_enabled
 from ..scheduling.teaching_resources import RESOURCE_KINDS
 
 

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-LEGACY_STAGES = {
+WORKFLOW_STAGES = {
     'icon_svg_png_decode', 'bundled_excel_import', 'background_schedule',
     'excel_csv_export', 'pdf_export', 'sqlite_roundtrip', 'language_switch_es_en',
     'qt_render', 'course_dialog_edit_save', 'new_window_restore',
@@ -55,7 +55,7 @@ def test_source_smoke_covers_themes_without_touching_external_profile(tmp_path):
     for relative in report['preference_paths'].values():
         path = (output / relative).resolve()
         assert path.is_relative_to(output / 'smoke-profile') and path.is_file()
-    assert LEGACY_STAGES | THEME_STAGES <= set(report['stages'])
+    assert WORKFLOW_STAGES | THEME_STAGES <= set(report['stages'])
     assert set(report['text_rendering']) == {'startup', 'es', 'en'}
     for text_report in report['text_rendering'].values():
         assert text_report['ok'] and text_report['family_count'] > 0
@@ -108,7 +108,7 @@ def test_restart_probe_rejects_missing_synthetic_profile(tmp_path):
 def test_restart_launcher_requires_fresh_successful_matching_evidence(tmp_path, monkeypatch,
                                                                     frozen, failure):
     from PyQt6 import QtCore
-    from src.application.packaged_workflow import _theme_restart
+    from src.bootstrap.packaged_workflow import _theme_restart
     started = []
     killed = []
     environments = []
@@ -180,8 +180,9 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QApplication
-from src.application import packaged_smoke
-from src.gui import features, i18n, motion, main_window
+from src.bootstrap import packaged_smoke
+from src.infrastructure import feature_preferences as features
+from src.gui import i18n, motion, main_window
 
 class ExplicitOnlySettings(QSettings):
     def __init__(self, *args, **kwargs):
@@ -233,20 +234,20 @@ print(json.dumps(paths))
                            capture_output=True, text=True, timeout=30)
     assert child.returncode == 0, child.stderr
     paths = json.loads(child.stdout.strip().splitlines()[-1])
-    assert set(paths) == {'language', 'motion', 'feature_legacy', 'features', 'appearance'}
+    assert set(paths) == {'language', 'motion', 'features', 'appearance'}
     for name, relative in paths.items():
         path = (output / relative).resolve()
         assert path.is_relative_to(output / 'smoke-profile')
         if name != 'appearance':
             assert path.is_file()
-    assert paths['language'] == paths['motion'] == paths['feature_legacy']
+    assert paths['language'] == paths['motion']
     assert (output / paths['language']).suffix == '.ini'
     assert (output / paths['features']).name == 'optional-features.json'
 
 
 def test_smoke_containment_guard_rejects_misdirected_adapter_before_write(tmp_path, monkeypatch):
     from PyQt6.QtCore import QSettings
-    from src.application import packaged_smoke
+    from src.bootstrap import packaged_smoke
     for key in ('HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA',
                 'XDG_CONFIG_HOME', 'XDG_DATA_HOME'):
         monkeypatch.setenv(key, str(tmp_path / 'external'))

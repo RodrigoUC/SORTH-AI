@@ -1,4 +1,5 @@
 """Modal settings invocations release native controls without waiting for GC."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 from pathlib import Path
 from threading import Event
 import time
@@ -19,7 +20,7 @@ from src.infrastructure.session_repository import SessionRepository
 def window(tmp_path):
     settings = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
     owner = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                       restore_session=False, feature_settings=settings)
+                       restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     owner.show()
     QApplication.processEvents()
     yield owner
@@ -74,7 +75,6 @@ def test_nested_preview_cancel_releases_both_dialogs_and_preserves_state(window,
     before_features = window._features.values()
     before_database = Path(window._repo._db_path).read_bytes()
     before_motion = window._motion.reduced
-    before_settings = window._features.settings.allKeys()
     before_optional = window._features.path.exists()
 
     def run_appearance(dialog):
@@ -104,14 +104,13 @@ def test_nested_preview_cancel_releases_both_dialogs_and_preserves_state(window,
     assert window._features.values() == before_features
     assert Path(window._repo._db_path).read_bytes() == before_database
     assert window._motion.reduced == before_motion
-    assert window._features.settings.allKeys() == before_settings
     assert window._features.path.exists() == before_optional
 
 
 @pytest.mark.parametrize('dismiss', ['reject', 'close'])
 def test_settings_disposal_waits_for_pending_mcp_cleanup(window, monkeypatch, dismiss):
-    from src.application import mcp_component
-    from src.application.mcp_preferences import enabled
+    from src.infrastructure import mcp_component
+    from src.infrastructure.mcp_preferences import enabled
 
     cleanup_finished = Event()
     cancellation_seen = Event()

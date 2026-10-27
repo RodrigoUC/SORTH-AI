@@ -42,7 +42,7 @@ def test_resolved_collision_needs_consent(window, tmp_path, monkeypatch,
     monkeypatch.setattr(QMessageBox, 'exec', confirm)
     modals = []
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: modals.append(self.windowTitle()))
-    window._export_schedule(filtered=filtered)
+    window.export.save(filtered=filtered)
     assert len(prompts) == 1
     assert window.current_schedule == before
     assert (tmp_path / 'session.db').read_bytes() == session_bytes
@@ -90,7 +90,7 @@ def test_explicit_destination_keeps_picker_approval_and_dispatch(
                             lambda self, assignments, output, _kind=kind, **kwargs:
                             called.append((_kind, output)))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     expected = {'xlsx': 'excel', 'csv': 'csv', 'pdf': 'pdf'}[path.suffix[1:].lower()]
     assert called == [(expected, str(path))]
 
@@ -105,10 +105,10 @@ def test_missing_resolved_target_and_picker_cancel_do_not_prompt(
     monkeypatch.setattr(QMessageBox, 'exec', lambda *a: pytest.fail('Unexpected confirmation'))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     window.status_bar.showMessage('Previous outcome')
-    window._export_schedule()
+    window.export.save()
     assert window.status_bar.currentMessage() == 'Previous outcome'
     assert not list(tmp_path.glob('report*'))
-    window._export_schedule()
+    window.export.save()
     assert (tmp_path / f'report.{extension}').stat().st_size
 
 
@@ -141,7 +141,7 @@ def test_real_qt_picker_resolved_collision_preserves_bytes(
     monkeypatch.setattr(QMessageBox, 'exec', decline)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
     try:
-        window._export_schedule()
+        window.export.save()
         assert target.read_bytes() == b'original'
         assert len(prompts) == 1
         assert ('already exists' if language == 'en' else 'ya existe') in prompts[0]
@@ -173,7 +173,7 @@ def test_real_overwrite_prompt_default_and_dismissal(
         else:
             QTest.keyClick(dialog, Qt.Key.Key_Return if action == 'enter' else Qt.Key.Key_Escape)
     QTimer.singleShot(0, respond)
-    window._export_schedule()
+    window.export.save()
     assert observations == [(True, True, True)]
     assert (target.read_bytes() == b'original') is (action != 'yes')
 
@@ -193,7 +193,7 @@ def test_approved_resolved_overwrite_still_preserves_bytes_on_atomic_failure(
     def fail_replace(source, destination):
         raise PermissionError('synthetic locked export')
     monkeypatch.setattr(os, 'replace', fail_replace)
-    window._export_schedule()
+    window.export.save()
     assert target.read_bytes() == b'original'
     assert not list(tmp_path.glob('.sorth-export-*'))
     assert target.name in window.status_bar.currentMessage()
@@ -224,7 +224,7 @@ def test_resolved_symlink_destination_needs_consent(
         return QMessageBox.StandardButton.Yes if approve else QMessageBox.StandardButton.No
     monkeypatch.setattr(QMessageBox, 'exec', confirm)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     assert len(prompts) == 1 and str(target) in prompts[0]
     if approve:
         assert not target.is_symlink() and target.stat().st_size
@@ -259,7 +259,7 @@ def test_overwrite_confirmation_treats_literal_filename_as_plain_text(
     monkeypatch.setattr(QMessageBox, 'exec', decline)
     try:
         manager.set_language(language, persist=False)
-        window._export_schedule()
+        window.export.save()
         assert observations == [(Qt.TextFormat.PlainText, True)]
         assert target.read_bytes() == b'original'
     finally:
@@ -283,7 +283,7 @@ def test_resolved_destination_inspection_failure_keeps_prior_export(
         return original_exists(path)
     monkeypatch.setattr(Path, 'exists', inaccessible)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     assert target.read_bytes() == b'original'
     assert target.name in window.status_bar.currentMessage()
     assert ('No se pudo exportar' in window.status_bar.currentMessage()

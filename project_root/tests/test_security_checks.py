@@ -20,9 +20,9 @@ class SecurityGateTests(unittest.TestCase):
             root = Path(folder)
             checksum = 'a' * 64
             (root / 'requirements-mcp.lock').write_text(
-                '# generated\npackage[extra]==1.0 \\\n    --hash=sha256:' + checksum + '\n    # via manifest\n')
-            (root / 'requirements-mcp.txt').write_text('package==1.0\n')
-            (root / 'requirements-mcp-dev.txt').write_text('-r requirements-mcp.txt\n')
+                '# generated\npackage[extra]==1.0 \\\n    --hash=sha256:' + checksum + '\n    # via manifest\n', encoding='utf-8')
+            (root / 'requirements-mcp.txt').write_text('package==1.0\n', encoding='utf-8')
+            (root / 'requirements-mcp-dev.txt').write_text('-r requirements-mcp.txt\n', encoding='utf-8')
             with patch('tools.security_review.ROOT', root):
                 self.assertEqual(validate_lock('requirements-mcp.lock',
                     ('requirements-mcp.txt', 'requirements-mcp-dev.txt')), {'package': '1.0'})
@@ -33,14 +33,14 @@ class SecurityGateTests(unittest.TestCase):
             checksum = 'a' * 64
             (root / 'optional.lock').write_text(
                 'base==1.0 --hash=sha256:' + checksum + '\n' +
-                'windows-only==2.0; sys_platform == "win32" --hash=sha256:' + checksum + '\n')
+                'windows-only==2.0; sys_platform == "win32" --hash=sha256:' + checksum + '\n', encoding='utf-8')
             output = root / 'audit-only.txt'
             with patch('tools.security_review.ROOT', root):
                 pins = write_audit_inventory('optional.lock', output)
             self.assertEqual(pins, {'base': '1.0', 'windows-only': '2.0'})
-            self.assertIn('windows-only==2.0 --hash=sha256:', output.read_text())
-            self.assertNotIn('sys_platform', output.read_text())
-            self.assertIn('never install', output.read_text())
+            self.assertIn('windows-only==2.0 --hash=sha256:', output.read_text(encoding='utf-8'))
+            self.assertNotIn('sys_platform', output.read_text(encoding='utf-8'))
+            self.assertIn('never install', output.read_text(encoding='utf-8'))
 
     def test_audit_inventory_rejects_ambiguous_versions_and_invalid_markers(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -51,7 +51,7 @@ class SecurityGateTests(unittest.TestCase):
                                  ['package==1.0; sys_platform == "win32"',
                                   'package==2.0; sys_platform == "linux"']):
                 (root / 'optional.lock').write_text('\n'.join(
-                    item + ' --hash=sha256:' + checksum for item in requirements))
+                    item + ' --hash=sha256:' + checksum for item in requirements), encoding='utf-8')
                 with patch('tools.security_review.ROOT', root), self.assertRaises(ValueError):
                     write_audit_inventory('optional.lock', root / 'audit-only.txt')
 
@@ -59,8 +59,8 @@ class SecurityGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             for name in ('requirements-windows.lock', 'requirements.txt', 'requirements-dev.txt', 'requirements-docs.txt'):
-                (root / name).write_text((ROOT / name).read_text())
-            (root / 'requirements.txt').write_text('pandas==0.0.1\n')
+                (root / name).write_text((ROOT / name).read_text(encoding='utf-8'), encoding='utf-8')
+            (root / 'requirements.txt').write_text('pandas==0.0.1\n', encoding='utf-8')
             with patch('tools.security_review.ROOT', root), self.assertRaises(ValueError):
                 validate_lock()
 
@@ -93,19 +93,19 @@ class SecurityGateTests(unittest.TestCase):
     def test_real_bandit_finding_and_syntax_error_fail_differently(self):
         with tempfile.TemporaryDirectory() as folder:
             source, output = Path(folder) / 'sample.py', Path(folder) / 'report.json'
-            source.write_text('eval(input())\n')
+            source.write_text('eval(input())\n', encoding='utf-8')
             command = [sys.executable, '-m', 'bandit', '--ignore-nosec', str(source), '-f', 'json', '-o', str(output)]
             process = subprocess.run(command, capture_output=True, text=True, check=False)
-            self.assertTrue(review_bandit(json.loads(output.read_text()), [], process.returncode))
-            source.write_text('def invalid(\n')
+            self.assertTrue(review_bandit(json.loads(output.read_text(encoding='utf-8')), [], process.returncode))
+            source.write_text('def invalid(\n', encoding='utf-8')
             process = subprocess.run(command, capture_output=True, text=True, check=False)
             with self.assertRaises(ValueError):
-                review_bandit(json.loads(output.read_text()), [], process.returncode)
+                review_bandit(json.loads(output.read_text(encoding='utf-8')), [], process.returncode)
 
     def test_failed_tool_cannot_reuse_stale_report(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / 'report.json'
-            output.write_text('{"dependencies": []}')
+            output.write_text('{"dependencies": []}', encoding='utf-8')
             with self.assertRaises(FileNotFoundError):
                 execute([sys.executable, '-c', 'raise SystemExit(2)'], output)
             self.assertFalse(output.exists())
@@ -115,11 +115,11 @@ class SecurityGateTests(unittest.TestCase):
             with patch('sys.argv', ['security_review.py', 'static', '--output-dir', folder]), \
                     patch('tools.security_review.execute', side_effect=OSError('synthetic outage')):
                 self.assertEqual(main(), 2)
-            result = json.loads((Path(folder) / 'static-status.json').read_text())
+            result = json.loads((Path(folder) / 'static-status.json').read_text(encoding='utf-8'))
             self.assertEqual(result['status'], 'incomplete')
 
     def test_workflow_privilege_and_pinning_contract(self):
-        workflow = (ROOT.parent / '.github/workflows/security-review.yml').read_text()
+        workflow = (ROOT.parent / '.github/workflows/security-review.yml').read_text(encoding='utf-8')
         self.assertIn('contents: read', workflow)
         self.assertIn('persist-credentials: false', workflow)
         for manifest in ('requirements-mcp.txt', 'requirements-mcp-dev.txt', 'requirements-mcp.lock'):
@@ -132,8 +132,17 @@ class SecurityGateTests(unittest.TestCase):
         actions = re.findall(r'uses: (\S+)', workflow)
         self.assertEqual(len(actions), 3)
         self.assertTrue(all(re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action) for action in actions))
-        dependabot = (ROOT.parent / '.github/dependabot.yml').read_text()
+        dependabot = (ROOT.parent / '.github/dependabot.yml').read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'package-ecosystem: (\S+)', dependabot), ['github-actions'])
+
+
+    def test_bandit_fingerprint_normalizes_windows_and_posix_paths(self):
+        """The same reviewed code must have the same identity on each host OS."""
+        finding = {'filename': './src/infrastructure/example.py', 'test_id': 'B404',
+                   'code': '1 import subprocess\n2 import sys\n'}
+        expected = fingerprint(finding)
+        for filename in (r'.\src\infrastructure\example.py', r'src\infrastructure\example.py'):
+            self.assertEqual(fingerprint({**finding, 'filename': filename}), expected)
 
 
 if __name__ == '__main__':

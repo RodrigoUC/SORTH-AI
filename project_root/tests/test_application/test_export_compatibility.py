@@ -26,11 +26,12 @@ def test_shipped_workbook_export_preserves_every_assignment_and_constraint(tmp_p
     from collections import Counter
     from pathlib import Path
     from src.application.scheduling_service import SchedulingService
+    from src.bootstrap.scheduling import create_excel_reader
     from src.infrastructure.excel_reader import ExcelReader
     from tests.test_integration_demo_excel import assert_valid_assignments
 
     source = Path(__file__).resolve().parents[2] / 'data/input/Cursos_Ejemplo.xlsx'
-    assignments, groups = SchedulingService(str(source), seed=42).run()
+    assignments, groups = SchedulingService(str(source), seed=42, reader_factory=create_excel_reader).run()
     original = assignments.copy()
     exporter = ScheduleExporter(TimeModel.default())
     csv_path, xlsx_path = tmp_path / 'all.csv', tmp_path / 'all.xlsx'

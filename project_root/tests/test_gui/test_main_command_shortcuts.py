@@ -1,4 +1,6 @@
 """Explicit main commands survive native caption/mnemonic replacement."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from collections import Counter
 
 import pytest
@@ -9,6 +11,7 @@ from PyQt6.QtWidgets import QApplication, QVBoxLayout
 from src.gui.i18n import language_manager
 from src.gui.i18n_widgets import QDialog, QLineEdit
 from src.gui.main_window import MainWindow
+from src.gui.export_controller import ExportController
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.classroom import Classroom
 from src.scheduling.course import Course
@@ -19,15 +22,15 @@ def commands(tmp_path, monkeypatch):
     calls = Counter()
     monkeypatch.setattr(MainWindow, '_load_excel', lambda self: calls.update(['load']))
     monkeypatch.setattr(MainWindow, '_generate_schedule', lambda self: calls.update(['generate']))
-    monkeypatch.setattr(MainWindow, '_export_schedule', lambda self, **kwargs: calls.update(['export']))
+    monkeypatch.setattr(ExportController, 'save', lambda self, **kwargs: calls.update(['export']))
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                        feature_settings=QSettings(str(tmp_path / 'preferences.ini'),
-                                                   QSettings.Format.IniFormat))
+                        feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'preferences.ini'),
+                                                   QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('C', 1, 60, 'REGULAR')])
     window.current_groups = window.course_manager.courses[0].generate_groups()
     window.current_schedule = {'C-G1': ('R', 1, 480, 540)}
-    window._update_export_actions()
+    window.export.refresh_actions()
     window.show()
     window.activateWindow()
     QApplication.processEvents()

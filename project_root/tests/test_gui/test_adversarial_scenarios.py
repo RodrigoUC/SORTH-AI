@@ -16,7 +16,7 @@ def test_unsupported_snapshot_never_replaces_working(tmp_path, monkeypatch, kind
     window=MainWindow(repo,restore_session=False)
     window._classrooms={'R':Classroom('R',30,'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('OLD',1,60,'REGULAR')])
-    assert window._save_session()
+    assert window.session.save()
     dialog=ProjectDialog(window)
     meta=scenario_metadata()
     if kind=='future_format': meta['format_version']=999
@@ -42,7 +42,7 @@ def test_unrenderable_seed_never_replaces_working(tmp_path, monkeypatch):
     window=MainWindow(repo,restore_session=False)
     window._classrooms={'R':Classroom('R',30,'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('OLD',1,60,'REGULAR')])
-    assert window._save_session()
+    assert window.session.save()
     dialog=ProjectDialog(window)
     source=SessionRepository(str(tmp_path/'alternative.db'))
     source.save_session(None,2**40,{'R':Classroom('R',30,'REGULAR')},[Course('NEW',1,60,'REGULAR')],{}, {})

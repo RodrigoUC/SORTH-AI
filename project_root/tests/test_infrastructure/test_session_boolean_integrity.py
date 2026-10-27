@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from src.application.recovery_command import recover_candidate
+from src.bootstrap.recovery_command import recover_candidate
 from src.infrastructure.session_repository import SessionRepository
 from src.scheduling.classroom import Classroom
 from src.scheduling.course import Course
@@ -35,14 +35,6 @@ def corrupt(path, field, value):
         con.execute(f'UPDATE {table} SET {field}=?{where}', (value,))
 
 
-def downgrade(path, version):
-    with sqlite3.connect(path) as con:
-        con.execute('DROP TABLE project_calendar')
-        if version < 3:
-            con.execute('DROP TABLE scheduling_resources')
-        if version < 2:
-            con.execute('ALTER TABLE assignments DROP COLUMN pinned')
-        con.execute(f'PRAGMA user_version={version}')
 
 
 @pytest.mark.parametrize('field', ['force_split', 'lab_override'])
@@ -53,14 +45,14 @@ def test_malformed_boolean_blocks_open_load_save_and_recovery_without_rewriting(
     corrupt(path, field, value)
     before = path.read_bytes()
 
-    with pytest.raises(ValueError, match=field):
+    with pytest.raises((ValueError, sqlite3.DatabaseError), match=field + '|integrity'):
         SessionRepository(str(path))
     with pytest.raises(ValueError, match=field):
         repo.load_session()
     with pytest.raises(ValueError, match=field):
         repo.save_session(None, 43, {}, [], {}, None)
     candidate = tmp_path / 'candidate.db'
-    with pytest.raises(ValueError, match=field):
+    with pytest.raises((ValueError, sqlite3.DatabaseError), match=field + '|integrity'):
         recover_candidate(path, candidate)
 
     assert path.read_bytes() == before
@@ -82,30 +74,10 @@ def test_malformed_pinned_boolean_is_rejected_on_existing_repository(tmp_path, v
     assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize('version', [1, 2, 3])
-@pytest.mark.parametrize('field', ['force_split', 'lab_override'])
-def test_bad_legacy_boolean_rolls_back_schema_and_preserves_original_backup(tmp_path, version, field):
-    path = tmp_path / 'legacy.db'
-    saved(path, resources=version >= 3)
-    downgrade(path, version)
-    corrupt(path, field, 'false')
-    before = path.read_bytes()
-    with pytest.raises(ValueError, match=field):
-        SessionRepository(str(path))
-    assert path.read_bytes() == before
-    backups = list(tmp_path.glob('schema-session-*.db'))
-    assert len(backups) == 1
-    for source in [path, backups[0]]:
-        with sqlite3.connect(source) as con:
-            assert con.execute('PRAGMA user_version').fetchone()[0] == version
-            assert not con.execute("SELECT 1 FROM sqlite_master WHERE name='project_calendar'").fetchone()
-            table = 'courses' if field == 'force_split' else 'assignments'
-            where = " WHERE code='LONG'" if field == 'force_split' else ''
-            assert con.execute(f'SELECT {field}, typeof({field}) FROM {table}{where}').fetchone() == ('false', 'text')
 
 
 @pytest.mark.parametrize('value', [0, 1, '0', '1', 0.0, 1.0])
-@pytest.mark.parametrize('version', [1, 2, 3, 4])
+@pytest.mark.parametrize('version', [SessionRepository.SCHEMA_VERSION])
 def test_valid_sqlite_boolean_storage_survives_versions_and_recovery(tmp_path, value, version):
     path = tmp_path / 'session.db'
     saved(path, resources=version >= 3)
@@ -113,8 +85,6 @@ def test_valid_sqlite_boolean_storage_survives_versions_and_recovery(tmp_path, v
     # integers; these have always been valid and do not need truthiness.
     corrupt(path, 'force_split', value)
     corrupt(path, 'lab_override', value)
-    if version < 4:
-        downgrade(path, version)
     original = path.read_bytes()
     candidate = tmp_path / 'candidate.db'
     recover_candidate(path, candidate)

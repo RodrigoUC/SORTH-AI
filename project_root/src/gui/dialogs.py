@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from ..scheduling.classroom import Classroom
 
-from .i18n import msg, language_manager
+from .i18n import msg
 from .i18n_widgets import (
     QListWidget, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QWidget
 )

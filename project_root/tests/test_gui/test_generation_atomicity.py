@@ -1,3 +1,6 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
+from tests.feature_preferences import enable_features
 from contextlib import contextmanager
 from copy import deepcopy
 import pytest
@@ -13,9 +16,9 @@ from src.scheduling.classroom import Classroom
 @pytest.fixture
 def window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path/'settings.ini'), QSettings.Format.IniFormat)
-    settings.setValue('features/undo_redo', True)
+    enable_features(settings, 'undo_redo')
     w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False,
-                   feature_settings=settings)
+                   feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
     w._on_schedule_done({'BIO-G1': ('R', 1, 480, 540)}, w.course_manager.courses[0].generate_groups())

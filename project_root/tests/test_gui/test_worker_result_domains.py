@@ -1,4 +1,7 @@
 """Only accepted session data crosses the GUI worker result boundary."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
+from tests.feature_preferences import enable_features
 from contextlib import contextmanager
 from copy import deepcopy
 import time
@@ -95,9 +98,9 @@ def test_cancellation_during_result_cleanup_never_emits_result(monkeypatch, canc
 def generated_window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
     for feature in ('undo_redo', 'pinned_sessions', 'placement_suggestions'):
-        settings.setValue('features/' + feature, True)
+        enable_features(settings, feature)
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                        restore_session=False, feature_settings=settings)
+                        restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 4, 60, 'REGULAR', size=20)])
     window.chk_random_seed.setChecked(False)

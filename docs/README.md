@@ -46,8 +46,9 @@ sintéticos al añadir evidencia nueva.
 - [Aceptación nativa Windows](WINDOWS_RELEASE_ACCEPTANCE.md) y [registro](WINDOWS_ACCEPTANCE_RECORD.md)
 - [Licencias](LICENSING_REVIEW.md) y [disponibilidad del código fuente](SOURCE_AVAILABILITY.md)
 
-Las rutas históricas `project_root/MANUAL_USUARIO.md` y
-`project_root/WINDOWS_DISTRIBUTION.md` conservan enlaces de compatibilidad.
+El manual y la distribución tienen una única fuente en `docs/user` y `docs/release`.
 Edita las guías canónicas en `docs/user` y `docs/release`; no dupliques su contenido.
 `MCP_OPTIONAL.md` conserva su ubicación porque forma parte del contrato del
 complemento y del empaquetado actual.
+
+La [consolidación 3.0.0](evidence/consolidation-3.0/REPORT.md) documenta los contratos actuales y su verificación.

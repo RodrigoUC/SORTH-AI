@@ -75,7 +75,7 @@ def test_invalid_lab_assignment_is_blocked_before_export(app, tmp_path, monkeypa
     warnings = []
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args))
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: pytest.fail('Invalid export must be blocked'))
-    window._export_schedule()
+    window.export.save()
     assert warnings and 'excepción' in warnings[0][2]
     window.close()
 

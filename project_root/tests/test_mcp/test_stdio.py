@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture(autouse=True)
 def explicit_mcp_permission(tmp_path_factory, monkeypatch):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     path = tmp_path_factory.mktemp('mcp-permission') / 'optional-features.json'
     set_enabled(path, True)
     monkeypatch.setenv('SORTH_TEST_PREF', str(path))
@@ -280,7 +280,7 @@ def _locked_requirements():
     from packaging.requirements import Requirement
     from packaging.utils import canonicalize_name
     entries = {}
-    text = (ROOT / "requirements-mcp.lock").read_text().replace("\\\n", " ")
+    text = (ROOT / "requirements-mcp.lock").read_text(encoding='utf-8').replace("\\\n", " ")
     for line in text.splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
             continue
@@ -351,7 +351,7 @@ def test_hash_lock_explicitly_covers_windows_only_dependencies():
 
 
 def test_off_blocks_existing_client_and_discards_inflight_result(tmp_path, monkeypatch):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     from src.mcp_adapter.server import build_server
     from mcp.types import CallToolRequest, CallToolRequestParams
     path = tmp_path / 'preferences.json'
@@ -375,7 +375,7 @@ def test_off_blocks_existing_client_and_discards_inflight_result(tmp_path, monke
 
 
 def test_revocation_then_reenable_discards_previous_generation(tmp_path, monkeypatch):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     from src.application.schedule_preview import generate_preview
     from src.mcp_adapter.server import build_server
     from mcp.types import CallToolRequest, CallToolRequestParams

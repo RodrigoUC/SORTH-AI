@@ -27,8 +27,8 @@ def window(tmp_path):
     win.current_groups[0].assignment = win.current_schedule['BIO-G1']
     win.current_groups[0].lab_override = True
     win.schedule_viewer.display_schedule(win.current_schedule, TimeModel.default(), win.current_groups)
-    win._update_export_actions()
-    win._save_session()
+    win.export.refresh_actions()
+    win.session.save()
     yield win
     win._unsaved = False
     win.close()
