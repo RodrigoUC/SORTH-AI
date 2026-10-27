@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "scope": "all wheels in Windows build lock; not a frozen binary SBOM",
-  "lock_sha256": "fb3e07b02011e462eeaf4705842c6de411672a2032d1426cbc6ea669a96dd20f",
+  "lock_sha256": "0cf419f59c81130f893dd4812d154182530b7465f60cba4a323ca62acc2e15d9",
   "packages": [
     {
       "name": "altgraph",
@@ -360,9 +360,9 @@
     },
     {
       "name": "pillow",
-      "version": "12.3.0",
-      "wheel": "pillow-12.3.0-cp312-cp312-win_amd64.whl",
-      "sha256": "a2b55dd6b2a4c4b7d87ffa56bdb33fdc5fdb9a462173861a7bc097f17d91cb09",
+      "version": "13.0.0",
+      "wheel": "pillow-13.0.0-cp312-cp312-win_amd64.whl",
+      "sha256": "ff3fe9eb621fbb9db4c4be33ab946f6bac5f98ab50ca8d3260503653656c961b",
       "license_expression": "MIT-CMU",
       "license_metadata": null,
       "license_classifiers": [],
@@ -370,16 +370,17 @@
         "Release notes, https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
         "Changelog, https://github.com/python-pillow/Pillow/releases",
         "Documentation, https://pillow.readthedocs.io",
-        "Funding, https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi",
-        "Homepage, https://python-pillow.github.io",
+        "Funding, https://tidelift.com/lifter/search/pypi/pillow",
+        "Homepage, https://python-pillow.org",
         "Mastodon, https://fosstodon.org/@pillow",
+        "Security, https://pillow.readthedocs.io/en/stable/handbook/security.html",
         "Source, https://github.com/python-pillow/Pillow"
       ],
       "notice_file": "licenses/pillow.txt",
       "upstream_notice_files": [
         {
-          "path": "pillow-12.3.0.dist-info/licenses/LICENSE",
-          "sha256": "4f7866a74802c6326f81faff59a56546b6aec2b10b91973e0e9308de95e79857"
+          "path": "pillow-13.0.0.dist-info/licenses/LICENSE",
+          "sha256": "988ffe8ab3480b0f4e9a0ab2702bffd73d9fb6b47198043fb3ba101a62fac236"
         }
       ]
     },
@@ -655,9 +656,9 @@
     },
     {
       "name": "pypdf",
-      "version": "6.19.0",
-      "wheel": "pypdf-6.19.0-py3-none-any.whl",
-      "sha256": "7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14",
+      "version": "6.21.2",
+      "wheel": "pypdf-6.21.2-py3-none-any.whl",
+      "sha256": "1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084",
       "license_expression": "BSD-3-Clause",
       "license_metadata": null,
       "license_classifiers": [],
@@ -670,7 +671,7 @@
       "notice_file": "licenses/pypdf.txt",
       "upstream_notice_files": [
         {
-          "path": "pypdf-6.19.0.dist-info/licenses/LICENSE",
+          "path": "pypdf-6.21.2.dist-info/licenses/LICENSE",
           "sha256": "a97ac230e5f33ef10a5367a850eb01f91f1a0b064e34742c7794d2294557f524"
         }
       ]
@@ -834,9 +835,9 @@
     },
     {
       "name": "setuptools",
-      "version": "84.0.0",
-      "wheel": "setuptools-84.0.0-py3-none-any.whl",
-      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "version": "84.1.0",
+      "wheel": "setuptools-84.1.0-py3-none-any.whl",
+      "sha256": "5231689c6ac8156cd155cfb98c3fd6fb252c3e7e9bd3d78b64d3c55f132624c9",
       "license_expression": "MIT",
       "license_metadata": null,
       "license_classifiers": [],
@@ -848,7 +849,7 @@
       "notice_file": "licenses/setuptools.txt",
       "upstream_notice_files": [
         {
-          "path": "setuptools-84.0.0.dist-info/licenses/LICENSE",
+          "path": "setuptools-84.1.0.dist-info/licenses/LICENSE",
           "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741"
         },
         {

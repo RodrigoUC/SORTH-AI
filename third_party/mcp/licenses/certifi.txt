@@ -1,9 +1,9 @@
-UPSTREAM NOTICES: certifi 2026.7.22
-Wheel: certifi-2026.7.22-py3-none-any.whl
-SHA-256: 62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775
+UPSTREAM NOTICES: certifi 2026.10.19
+Wheel: certifi-2026.10.19-py3-none-any.whl
+SHA-256: 42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b
 The following upstream text is preserved; inclusion does not imply every component ships in SORTH.
 
-===== BEGIN certifi-2026.7.22.dist-info/licenses/LICENSE =====
+===== BEGIN certifi-2026.10.19.dist-info/licenses/LICENSE =====
 This package contains a modified version of ca-bundle.crt:
 
 ca-bundle.crt -- Bundle of CA Root Certificates
@@ -25,4 +25,4 @@ one at http://mozilla.org/MPL/2.0/.
 ***** END LICENSE BLOCK *****
 @(#) $RCSfile: certdata.txt,v $ $Revision: 1.80 $ $Date: 2011/11/03 15:11:58 $
 
-===== END certifi-2026.7.22.dist-info/licenses/LICENSE =====
+===== END certifi-2026.10.19.dist-info/licenses/LICENSE =====
