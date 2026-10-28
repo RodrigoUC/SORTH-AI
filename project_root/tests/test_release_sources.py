@@ -328,17 +328,44 @@ def test_7z_windows_names_do_not_bypass_identity_size_or_content_pins(tmp_path, 
     assert len(calls) == (2 if changed == "bytes" else 1)
 
 
-def test_7z_native_nested_listing_and_streaming(tmp_path):
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("reported", ["include/QtCore/", "include\\QtCore\\"])
+def test_7z_native_final_empty_fields_keep_the_field_separator(newline, reported):
+    """Real supplier 7z archives end with directory records and an empty Block."""
+    data = newline.join([f"Path = {reported}", "Size = 0", "Attributes = D drwxr-xr-x",
+                         "CRC = ", "Encrypted = -", "Method = ", "Block = ", "", ""]).encode()
+    member = sources.seven_zip_inventory(data)["include/qtcore"]
+    assert member.name == "include/QtCore"
+    assert member.listed_name == reported
+    assert member.is_directory and member.size == 0
+
+
+def test_7z_final_path_space_is_not_silently_trimmed():
+    data = b"Size = 3\nAttributes = A\nEncrypted = -\nPath = config.opt \n\n"
+    with pytest.raises(sources.SourceError, match="member"):
+        sources.seven_zip_inventory(data)
+
+
+@pytest.mark.parametrize("container", ["zip", "7z"])
+def test_7z_native_nested_listing_and_streaming(tmp_path, container):
     """Exercise the system CLI on Windows CI instead of only a fake listing."""
     executable = shutil.which("7z") or shutil.which("7zz")
     if not executable:
         pytest.skip("System 7-Zip is required for the native listing regression")
-    path = tmp_path / "supplier.zip"
+    path = tmp_path / f"supplier.{container}"
     content = b"original supplier text\r\n"
-    with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("include/QtCore/", b"")
-        archive.writestr("include/QtCore/config.opt", content)
-        archive.writestr("include/QtCore/unselected.txt", b"not selected")
+    if container == "zip":
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("include/QtCore/", b"")
+            archive.writestr("include/QtCore/config.opt", content)
+            archive.writestr("include/QtCore/unselected.txt", b"not selected")
+    else:
+        directory = tmp_path / "include" / "QtCore"
+        directory.mkdir(parents=True)
+        (directory / "config.opt").write_bytes(content)
+        (directory / "unselected.txt").write_bytes(b"not selected")
+        sources.bounded_command([executable, "a", "-t7z", "-bd", "-y", "--", str(path),
+                                 str(tmp_path / "include")], sources.MAX_LISTING)
     item = pin(content, path="include/QtCore/config.opt", destination="supplier/config.opt")
     assert sources.selected_7z(path, {"files": [item]}, executable) == {item["destination"]: content}
 

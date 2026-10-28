@@ -82,8 +82,10 @@ en Windows a nombres canónicos para compararlos con el manifiesto y conserva el
 nombre listado para leer el archivo exacto. Se mantienen los controles de rutas,
 duplicados, enlaces, tamaño y SHA-256; los lectores ZIP no normalizan encabezados
 no válidos. Un rechazo de nombre en el listado identifica el archivo proveedor y
-el miembro original escapado. La regresión nativa ejecuta el `7z` instalado sobre
-un archivo sintético con rutas anidadas durante la suite Windows.
+el miembro original escapado. Los campos vacíos del listado, incluido `Block = `
+al final de un directorio, conservan su separador; no se recortan espacios de
+valores o nombres. La regresión nativa ejecuta el `7z` instalado sobre archivos
+ZIP y 7z sintéticos con rutas anidadas durante la suite Windows.
 
 El inventario oficial de `windows-2025` consultado el
 2026-10-05 incluye 7zip 26.03; la imagen cambia, por lo que el log real sigue

@@ -235,11 +235,14 @@ def seven_zip_inventory(data: bytes) -> dict[str, SevenZipMember]:
     text = data.decode("utf-8-sig").replace("\r\n", "\n")
     result = {}
     total = 0
-    for block in re.split(r"\n\s*\n", text.strip()):
+    # Preserve trailing field spaces: native 7z directory records end in
+    # "Block = ". Stripping whitespace would corrupt that delimiter and can
+    # also hide an unsafe trailing space when Path happens to be the last field.
+    for block in re.split(r"\n\s*\n", text.strip("\n")):
         fields = {}
         for line in block.splitlines():
             if " = " not in line:
-                raise SourceError("Unsupported 7-Zip listing")
+                raise SourceError(f"Unsupported 7-Zip listing line: {line!r}")
             key, value = line.split(" = ", 1)
             if key in fields:
                 raise SourceError("Duplicate 7-Zip field")
