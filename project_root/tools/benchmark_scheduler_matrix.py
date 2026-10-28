@@ -127,7 +127,7 @@ def run(name, profile=False, memory=False, scheduler_type=Scheduler):
     if complete != all(g.is_assigned() for g in groups): raise AssertionError('Success disagrees with assignments')
     if profiler:
         stream=io.StringIO(); pstats.Stats(profiler,stream=stream).sort_stats('cumulative').print_stats(35)
-        Path(args.out).with_name(f'{Path(args.out).stem}-{name}-profile.txt').write_text(stream.getvalue())
+        Path(args.out).with_name(f'{Path(args.out).stem}-{name}-profile.txt').write_text(stream.getvalue(), encoding='utf-8')
         profiler.dump_stats(str(Path(args.out).with_name(f'{Path(args.out).stem}-{name}.prof')))
     return dict(case=name, groups=len(groups), rooms=len(state.classrooms), assigned=len(state.assignments),
                 complete=complete, schedule_seconds=elapsed, setup_seconds=setup,
@@ -152,5 +152,5 @@ if __name__ == "__main__":
         if args.profile: run(name, profile=True)
         if args.memory: result['peak_traced_bytes']=run(name,memory=True)['peak_traced_bytes']
         report['results'].append(result)
-        Path(args.out).write_text(json.dumps(report, indent=2))
+        Path(args.out).write_text(json.dumps(report, indent=2), encoding='utf-8')
         print(json.dumps({k:result[k] for k in ['case','groups','rooms','assigned','median_seconds','assignment_sha256','domain_entries','peak_traced_bytes']}), flush=True)

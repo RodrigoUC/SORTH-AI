@@ -58,13 +58,6 @@ def test_composite_failure_rolls_back_project(repo, tmp_path, monkeypatch):
     assert repo.load_session()['seed'] == 42
 
 
-def test_preserve_legacy_is_idempotent_and_source_unchanged(repo, tmp_path):
-    before = Path(repo._db_path).read_bytes()
-    catalog = ProjectRepository(tmp_path/'projects.db')
-    first = catalog.preserve_legacy(repo, scenario_metadata())
-    assert catalog.preserve_legacy(repo, scenario_metadata()) == first
-    assert len(catalog.list_scenarios()) == 1
-    assert Path(repo._db_path).read_bytes() == before
 
 
 def test_future_catalog_and_snapshot_preserved(repo, tmp_path):
@@ -182,3 +175,19 @@ def test_failed_rename_preserves_both_snapshots(repo, tmp_path):
     with pytest.raises(sqlite3.IntegrityError):
         catalog.rename(b, 'a')
     assert [r['name'] for r in catalog.list_scenarios()] == ['A', 'B']
+
+
+def test_current_catalog_open_is_readonly_and_does_not_recreate_missing_tables(repo, tmp_path):
+    """Opening damaged accepted storage must preserve evidence for recovery."""
+    path = tmp_path / 'projects.db'
+    catalog = ProjectRepository(path)
+    catalog.create_project('P', 'A', repo, scenario_metadata())
+    before = path.read_bytes()
+    ProjectRepository(path)
+    assert path.read_bytes() == before
+    with sqlite3.connect(path) as con:
+        con.execute('DROP TABLE scenarios')
+    damaged = path.read_bytes()
+    with pytest.raises(sqlite3.DatabaseError):
+        ProjectRepository(path)
+    assert path.read_bytes() == damaged

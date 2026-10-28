@@ -1,12 +1,10 @@
 """Opt-in management tools; atomic preferences never gate domain safety."""
 from pathlib import Path
-import json
 import os
 import tempfile
 
-from PyQt6.QtCore import QIODevice, QSaveFile, QSettings
-from ..application.mcp_preferences import default_path, read_record, preferences_lock, update_permission
-from ..application.optional_features import Feature, FEATURES
+from .mcp_preferences import default_path, read_record, preferences_lock, update_permission, write_record
+from ..application.optional_features import FEATURES
 
 
 class McpPreferenceConflict(OSError):
@@ -15,15 +13,9 @@ class McpPreferenceConflict(OSError):
 
 class FeaturePreferences:
     VERSION = 1
-    MAX_BYTES = 65536
 
-    def __init__(self, settings=None, path=None):
-        # Existing language/motion QSettings are read-only here. An explicit INI
-        # adapter gives tests and embedders an isolated sibling JSON destination.
-        self.settings = settings if settings is not None else QSettings('SORTH', 'SORTH')
-        self.path = Path(path) if path is not None else (
-            Path(str(settings.fileName()) + '.features.json') if settings is not None else
-            default_path())
+    def __init__(self, path=None):
+        self.path = Path(path) if path is not None else default_path()
         self.load_error = None
         self._record = {'version': self.VERSION, 'features': {}}
         try:
@@ -32,18 +24,7 @@ class FeaturePreferences:
             self.load_error = str(error)
 
     def _read(self):
-        if self.path.exists():
-            return read_record(self.path)
-        # Force a real parse before trusting status; never setValue/sync this store.
-        keys = self.settings.allKeys()
-        if self.settings.status() != QSettings.Status.NoError:
-            raise OSError('Existing preferences cannot be read safely')
-        legacy = {}
-        for key in keys:
-            if key.startswith('features/') and key != 'features/mcp_server':
-                value = self.settings.value(key)
-                legacy[key[9:]] = value is True or (isinstance(value, str) and value.lower() == 'true')
-        return {'version': self.VERSION, 'features': legacy}
+        return read_record(self.path)
 
     def refresh(self):
         try:
@@ -60,22 +41,7 @@ class FeaturePreferences:
         return {feature.key: self.enabled(feature.key) for feature in FEATURES}
 
     def _write_atomic(self, record):
-        data = (json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False) + '\n').encode('utf-8')
-        if len(data) > self.MAX_BYTES:
-            raise ValueError('Preferences exceed the supported size')
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        output = QSaveFile(str(self.path))
-        output.setDirectWriteFallback(False)
-        if not output.open(QIODevice.OpenModeFlag.WriteOnly):
-            raise OSError('Could not open atomic preference transaction')
-        try:
-            if output.write(data) != len(data):
-                raise OSError('Could not write complete preferences')
-            if not output.commit():
-                raise OSError('Could not commit preferences')
-        finally:
-            # Cancels only an uncommitted temporary file, never the destination.
-            output.cancelWriting()
+        write_record(self.path, record)
         self._record = record
         self.load_error = None
 

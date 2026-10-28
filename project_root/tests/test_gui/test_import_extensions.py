@@ -15,7 +15,7 @@ def prepare(window):
         (Resource('teacher-local', 'Alias'),), (('BIO-G1', ('teacher-local',)),)),))
     window.calendar = ProjectCalendar(('Lunes', 'Domingo'), 0, 1440, ())
     window._features.save({**window._features.values(), 'undo_redo': True, 'teacher': True})
-    assert window._save_session()
+    assert window.session.save()
     candidate = window._capture_edit_state()
     candidate['pinned_group_ids'] = set()
     assert window._commit_edit(candidate, 'Unpin')

@@ -131,7 +131,7 @@ class BulkCourseDialog(QDialog):
         try:
             if self.window._busy or self.window._restore_failed or not self.window._features.enabled('bulk_operations'):
                 raise EditError('La herramienta no está disponible. Cierre el diálogo y revise Configuración.')
-            accepted = apply_bulk(self.window._history, self.window._capture_edit_state(), self.plan,
+            apply_bulk(self.window._history, self.window._capture_edit_state(), self.plan,
                 self.window.course_manager.selected_course_codes(), self.window._persist_edit_state,
                 enabled=self.window._features.enabled('undo_redo'))
         except Exception as error:

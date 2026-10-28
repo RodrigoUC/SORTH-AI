@@ -50,7 +50,7 @@ def test_late_assignment_failure_rolls_back_all_replaced_tables(tmp_path):
     with sqlite3.connect(path) as con:
         con.execute("CREATE TRIGGER deny_assignment BEFORE INSERT ON assignments BEGIN SELECT RAISE(ABORT, 'injected failure'); END")
     with pytest.raises(sqlite3.IntegrityError, match='injected'):
-        repo.save_session('new.xlsx', None, {}, [], {}, {'NEW': ('R', 1, 480, 540)})
+        repo.save_session('new.xlsx', None, {'R': Classroom('R', 30, 'REGULAR')}, [Course('NEW', 1, 60, 'REGULAR')], {}, {'NEW-G1': ('R', 1, 480, 540)})
     assert records(path) == original
 
 
@@ -86,44 +86,14 @@ def test_newer_schema_is_rejected_without_change_or_backup(tmp_path):
     with sqlite3.connect(path) as con:
         con.execute('PRAGMA user_version=999')
     original = path.read_bytes()
-    with pytest.raises(sqlite3.DatabaseError, match='newer'):
+    with pytest.raises(sqlite3.DatabaseError, match='Unsupported session schema'):
         SessionRepository(str(path))
     assert path.read_bytes() == original
     assert not list(tmp_path.glob('schema-session-*'))
 
 
-def test_legacy_migration_keeps_premigration_backup_and_is_idempotent(tmp_path):
-    path = tmp_path / 'legacy.db'
-    populate(path)
-    with sqlite3.connect(path) as con:
-        con.execute('PRAGMA user_version=0')
-        con.execute('ALTER TABLE courses DROP COLUMN size')
-        con.execute('ALTER TABLE assignments DROP COLUMN lab_override')
-    original = records(path)
-    repo = SessionRepository(str(path))
-    assert records(repo.schema_backup) == original
-    with sqlite3.connect(repo.schema_backup) as con:
-        assert con.execute('PRAGMA user_version').fetchone()[0] == 0
-    assert repo.load_session()['lab_overrides'] == set()
-    assert SessionRepository(str(path)).schema_backup is None
-    assert len(list(tmp_path.glob('schema-session-*'))) == 1
 
 
-def test_schema_migration_failure_is_atomic(tmp_path):
-    path = tmp_path / 'legacy.db'
-    populate(path)
-    with sqlite3.connect(path) as con:
-        con.execute('PRAGMA user_version=0')
-        con.execute('ALTER TABLE courses DROP COLUMN size')
-        con.execute('DROP TABLE assignments')
-        con.execute('CREATE VIEW assignments AS SELECT 1 AS group_id')
-    original = records(path)
-    with pytest.raises(sqlite3.OperationalError):
-        SessionRepository(str(path))
-    assert records(path) == original
-    with sqlite3.connect(path) as con:
-        assert con.execute('PRAGMA user_version').fetchone()[0] == 0
-        assert 'size' not in {r[1] for r in con.execute('PRAGMA table_info(courses)')}
 
 
 @pytest.mark.parametrize('limit', ['MAX_FILE_BYTES', 'MAX_EXPANDED_BYTES', 'MAX_ARCHIVE_MEMBERS'])

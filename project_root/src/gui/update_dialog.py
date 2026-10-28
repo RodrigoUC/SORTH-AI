@@ -9,7 +9,7 @@ from .i18n import msg, language_manager, Message
 from .i18n_widgets import (QDialog, QLabel, QPushButton, QMessageBox, QProgressBar,
                           QDialogButtonBox, ResponsiveDialogButtonBox, ResponsiveActionLabels)
 from .update_operation import UpdateOperation
-from ..application import app_updates
+from ..infrastructure import app_updates
 
 
 ERROR_MESSAGES = {

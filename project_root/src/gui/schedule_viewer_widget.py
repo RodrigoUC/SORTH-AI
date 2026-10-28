@@ -24,7 +24,7 @@ from ..scheduling.time_model import TimeModel
 from ..scheduling.quality import QualitySnapshot, analyze_quality
 from ..scheduling.schedule_grid import build_schedule_grid
 
-from .i18n import msg, plural, language_manager
+from .i18n import msg, language_manager
 from .i18n_widgets import (
     QAction, QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QWidget, ResponsiveDialogButtonBox,
     _keep_qt_owners_alive, _reserve_focused_button_size,

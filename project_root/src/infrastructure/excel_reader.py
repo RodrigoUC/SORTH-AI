@@ -16,6 +16,7 @@ from openpyxl.utils.cell import get_column_letter
 
 from ..scheduling.classroom import Classroom
 from ..scheduling.course import Course
+from ..scheduling.classroom_preferences import classroom_course_map
 from ..scheduling.time_model import TimeModel
 
 # Mapping from Excel day abbreviation to full Spanish name
@@ -330,11 +331,6 @@ class ExcelReader:
                     raise ExcelImportError(notice("Hoja {sheet}, fila 1: falta la columna {columns}. Revise el encabezado.", sheet=sheet, columns=", ".join(missing)))
                 frame = data.iloc[1:].copy()
                 frame.columns = [v if v else f"__extra_{i}" for i, v in enumerate(normalized)]
-                if sheet == "Cursos":
-                    # Validation and every materializer consume the same keys.
-                    # Preserve legacy unambiguous aliases, but never validate
-                    # one column and silently load another.
-                    frame = frame.rename(columns=self._resolve_course_columns(frame.columns))
                 # With keep_default_na=False, real blank cells (including
                 # sparse padding) stay empty strings. NaN here means openpyxl
                 # reported an Excel error, either stored in the file or produced
@@ -342,7 +338,7 @@ class ExcelReader:
                 # Check only selected fields so unused columns/aliases keep
                 # their ignored behavior, and literal "#N/A" remains text.
                 consumed = ({"# de aula", "capacidad", "descripcion", "campus"} if sheet == "Aulas"
-                            else {"curso", "nombre", "horas", "aula", "dias"})
+                            else {"curso", "nombre de curso", "horas", "aula", "dias"})
                 for column, field in enumerate(frame.columns, 1):
                     if field in consumed:
                         invalid = frame[field].isna()
@@ -358,7 +354,7 @@ class ExcelReader:
     def load_validated(self) -> ExcelImport:
         """Validate the complete input before the caller replaces live data.
 
-        Blank preference values retain historical defaults. Malformed nonblank
+        Blank preference values retain documented defaults. Malformed nonblank
         values are errors; harmless fallbacks are reported before confirmation.
         """
         warnings = []
@@ -389,7 +385,7 @@ class ExcelReader:
             self._checkpoint()
             code = self._identifier(row.get("curso"))
             if not code:
-                if any(not self._blank(row.get(c)) for c in ("nombre", "horas", "aula", "dias")):
+                if any(not self._blank(row.get(c)) for c in ("nombre de curso", "horas", "aula", "dias")):
                     errors.append(notice("Cursos, fila {row}: falta Curso (código).", row=index + 1))
                 continue
             course_count += 1
@@ -418,7 +414,9 @@ class ExcelReader:
             raise ExcelImportError(messages)
         classrooms = self.load_classrooms()
         known = set(classrooms)
-        return ExcelImport(classrooms, self.load_courses(known), self.load_course_classroom_map(known), warnings)
+        courses = self.load_courses(known)
+        suggestions = classroom_course_map(courses, known, cancelled=self._checkpoint)
+        return ExcelImport(classrooms, courses, suggestions, warnings)
 
     @staticmethod
     def _blank(value):
@@ -510,7 +508,7 @@ class ExcelReader:
             if not code:
                 continue
 
-            name_raw = self._get(row, col_map, "nombre")
+            name_raw = self._get(row, col_map, "nombre de curso")
             name = str(name_raw).strip() if name_raw is not None else None
 
             horas_raw = self._get(row, col_map, "horas")
@@ -585,33 +583,9 @@ class ExcelReader:
         Only includes classrooms present in known_classrooms (if provided).
         """
         if known_classrooms is None:
-            known_classrooms = set(self.load_classrooms().keys())
-
-        df = self._read_sheet("Cursos")
-        col_map = self._build_col_map(df.columns)
-
-        classroom_courses: dict[str, list[str]] = {}
-        for _, row in df.iterrows():
-            self._checkpoint()
-            code_raw = self._get(row, col_map, "curso")
-            aula_raw = self._get(row, col_map, "aula")
-
-            if code_raw is None or aula_raw is None:
-                continue
-
-            code = str(code_raw).strip()
-            aula = self._identifier(aula_raw)
-
-            if not code or not aula or aula == "-":
-                continue
-            if aula not in known_classrooms:
-                continue
-
-            classroom_courses.setdefault(aula, [])
-            if code not in classroom_courses[aula]:
-                classroom_courses[aula].append(code)
-
-        return classroom_courses
+            known_classrooms = set(self.load_classrooms())
+        return classroom_course_map(self.load_courses(known_classrooms), known_classrooms,
+                                    cancelled=self._checkpoint)
 
     # ------------------------------------------------------------------
     # Parsing helpers
@@ -665,23 +639,6 @@ class ExcelReader:
     # ------------------------------------------------------------------
     # Column mapping
     # ------------------------------------------------------------------
-
-    def _resolve_course_columns(self, columns):
-        """Resolve legacy aliases once; exact headers keep their precedence.
-
-        More than one fallback, or one header claiming multiple fields, is
-        ambiguous and must be corrected before importing any rows.
-        """
-        resolved = {}
-        for key in ("curso", "nombre", "horas", "aula", "dias"):
-            matches = [key] if key in columns else [col for col in columns if key in col]
-            if len(matches) > 1 or (matches and matches[0] in resolved):
-                raise ExcelImportError(notice(
-                    "Hoja {sheet}, fila 1: columnas duplicadas: {columns}. Deje una sola columna de cada tipo.",
-                    sheet="Cursos", columns=", ".join(matches)))
-            if matches:
-                resolved[matches[0]] = key
-        return resolved
 
     def _build_col_map(self, columns) -> dict[str, str]:
         """

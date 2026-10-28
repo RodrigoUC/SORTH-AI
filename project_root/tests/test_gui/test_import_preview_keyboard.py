@@ -28,7 +28,7 @@ def test_shown_preview_requires_explicit_replacement(
         ResourceCatalog(kind, True, (Resource(f"{kind}-synthetic", f"Synthetic {kind}"),),
                         (("BIO-G1", (f"{kind}-synthetic",)),))
         for kind in ("teacher", "student_group", "student")))
-    assert window._save_session()
+    assert window.session.save()
     resources = window.resources
     before = session(window)
     before_edit = encoded(window._capture_edit_state())

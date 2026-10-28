@@ -11,20 +11,9 @@ def test_calendar_roundtrip_and_schema(tmp_path):
     calendar=ProjectCalendar(('Martes','Jueves'),480,1000,((600,620),(800,840)))
     repo.save_session(None,42,{},[],{},None,calendar=calendar)
     assert SessionRepository(str(path)).load_session()['calendar'] == calendar
-    with sqlite3.connect(path) as db: assert db.execute('pragma user_version').fetchone()[0] == 4
+    with sqlite3.connect(path) as db: assert db.execute('pragma user_version').fetchone()[0] == SessionRepository.SCHEMA_VERSION
 
 
-def test_schema3_migration_defaults_backup_and_unknown_calendar(tmp_path):
-    path=tmp_path/'session.db'; repo=SessionRepository(str(path))
-    repo.save_session(None,42,{},[],{},None)
-    with sqlite3.connect(path) as db:
-        db.execute('drop table project_calendar'); db.execute('pragma user_version=3')
-    repo=SessionRepository(str(path))
-    assert repo.schema_backup.exists()
-    assert repo.load_session()['calendar'] == ProjectCalendar()
-    with sqlite3.connect(path) as db:
-        db.execute('update project_calendar set payload=? where id=1',(json.dumps({'version':999}),))
-    with pytest.raises(ValueError): repo.load_session()
 
 
 def test_scenario_validates_own_calendar(tmp_path):

@@ -28,7 +28,7 @@ def test_windows_identity_remains_stable(monkeypatch):
         SetCurrentProcessExplicitAppUserModelID=calls.append)), raising=False)
     gui_app._set_windows_app_id()
     assert calls == ['SORTH.App']
-    source = (ROOT / 'gui_app.py').read_text()
+    source = (ROOT / 'gui_app.py').read_text(encoding='utf-8')
     assert 'app.setApplicationName("SORTH")' in source
     assert 'app.setOrganizationName("SORTH")' in source
     assert 'app.setApplicationDisplayName("SORTH-AI")' in source
@@ -36,7 +36,7 @@ def test_windows_identity_remains_stable(monkeypatch):
 
 
 def test_setup_identity_keeps_review_isolation_and_explicit_icons():
-    source = (ROOT / 'installer/sorth.iss').read_text()
+    source = (ROOT / 'installer/sorth.iss').read_text(encoding='utf-8')
     for setting in ('AppName=SORTH-AI', 'AppId=SORTH-{#BuildId}',
                     'SetupIconFile=..\\assets\\sorth.ico',
                     'VersionInfoProductName=SORTH-AI', 'DisableWelcomePage=no',

@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 
-from src.application.mcp_probe_process import WindowsProbeJob, read_available, stop_owned_process
+from src.infrastructure.mcp_probe_process import WindowsProbeJob, read_available, stop_owned_process
 
 
 def test_owned_probe_descendants_do_not_hold_pipe_or_survive_cleanup(tmp_path):

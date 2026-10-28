@@ -11,12 +11,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-first-release-v2.0.0
+  group: publish-first-release-v3.0.0
   cancel-in-progress: false
 
 jobs:
   validate:
-    if: github.repository == 'RodrigoUC/SORTH-AI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'release-approval/v2.0.0' && github.event.workflow_run.head_repository.full_name == 'RodrigoUC/SORTH-AI'
+    if: github.repository == 'RodrigoUC/SORTH-AI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'release-approval/v3.0.0' && github.event.workflow_run.head_repository.full_name == 'RodrigoUC/SORTH-AI'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

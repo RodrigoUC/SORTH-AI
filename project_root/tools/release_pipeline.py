@@ -20,10 +20,12 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-REPO = 'RodrigoUC/SORTH-AI'
-VERSION = '2.0.0'
-TAG = 'v2.0.0'
 ROOT = Path(__file__).resolve().parents[2]
+REPO = 'RodrigoUC/SORTH-AI'
+# The integrated source version owns release identity; approval data cannot set it.
+VERSION = (ROOT / 'project_root/VERSION').read_text(encoding='utf-8').strip()
+TAG = f'v{VERSION}'
+APPROVAL_BRANCH = f'release-approval/{TAG}'
 APPROVAL = '.github/release-approval.json'
 WORKFLOW = '.github/workflows/windows-review.yml'
 GATES = ('windows_acceptance', 'defender_review', 'native_source_correspondence',
@@ -374,7 +376,7 @@ def verify_run(run, manifest):
 
 def verify_approval_run(run, event_sha, run_id):
     require(run.get('id') == run_id and run.get('head_sha') == event_sha
-            and run.get('head_branch') == 'release-approval/v2.0.0'
+            and run.get('head_branch') == APPROVAL_BRANCH
             and run.get('path') == '.github/workflows/first-release.yml'
             and run.get('event') == 'push' and run.get('status') == 'completed'
             and run.get('conclusion') == 'success'
@@ -438,7 +440,7 @@ def extract_flat(archive, destination, expected=None):
 
 def verify_current_approval(api, event_sha):
     require(bool(SHA.fullmatch(event_sha)), 'Exact approval SHA required')
-    current = api.request('GET', prefix('git/ref/heads/release-approval/v2.0.0'), missing=True)
+    current = api.request('GET', prefix(f'git/ref/heads/{APPROVAL_BRANCH}'), missing=True)
     require(current is not None and current.get('object', {}).get('sha') == event_sha,
             'Approval branch moved or was removed; publication held')
 

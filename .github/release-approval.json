@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "repository": "RodrigoUC/SORTH-AI",
-  "version": "2.0.0",
-  "tag": "v2.0.0",
+  "version": "3.0.0",
+  "tag": "v3.0.0",
   "publish": false,
   "source_commit": null,
   "source_run_id": null,

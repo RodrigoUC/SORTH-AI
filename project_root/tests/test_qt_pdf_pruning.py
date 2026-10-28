@@ -36,7 +36,7 @@ def test_fails_before_removing_any_files(tmp_path, kind):
     if kind == 'unexpected':
         (root / 'qpdf.dll').write_bytes(b'duplicate')
     if kind == 'report_exists':
-        report.write_text('{}')
+        report.write_text('{}', encoding='utf-8')
     with pytest.raises((ValueError, FileExistsError)):
         prune(root, report, scan)
     assert (root / PLUGIN).exists() and (root / LIBRARY).exists()

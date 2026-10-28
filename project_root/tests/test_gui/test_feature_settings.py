@@ -1,8 +1,9 @@
+from pathlib import Path
 from src.application.scenario_comparison import session_fingerprint
 import pytest
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMessageBox
-from src.gui.features import FEATURES, FeaturePreferences
+from src.infrastructure.feature_preferences import FEATURES, FeaturePreferences
 from src.gui.settings_dialog import SettingsDialog
 from src.gui.main_window import MainWindow
 from src.gui.i18n import language_manager
@@ -18,14 +19,14 @@ def settings_at(path):
 @pytest.fixture
 def window(tmp_path):
     w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False,
-                   feature_settings=settings_at(tmp_path/'preferences.ini'))
+                   feature_preferences=FeaturePreferences(path=Path(str((settings_at(tmp_path/'preferences.ini')).fileName()) + '.features.json')))
     yield w
     w._unsaved = False
     w.close()
 
 
 def test_default_registry_contains_only_implemented_extras(tmp_path):
-    prefs = FeaturePreferences(settings_at(tmp_path/'preferences.ini'))
+    prefs = FeaturePreferences(path=Path(str((settings_at(tmp_path/'preferences.ini')).fileName()) + '.features.json'))
     assert prefs.values() == {feature.key: False for feature in FEATURES}
     assert not prefs.enabled('unknown_future_feature')
 
@@ -34,17 +35,17 @@ def test_default_registry_contains_only_implemented_extras(tmp_path):
 def test_malformed_values_fail_closed(tmp_path, malformed):
     settings = settings_at(tmp_path/'preferences.ini')
     settings.setValue('features/pinned_sessions', malformed)
-    assert not FeaturePreferences(settings).enabled('pinned_sessions')
+    assert not FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')).enabled('pinned_sessions')
 
 
 def test_restart_and_future_keys_preserved(tmp_path):
     path = tmp_path/'preferences.ini'
     settings = settings_at(path)
     settings.setValue('features/future_feature', 'preserved')
-    FeaturePreferences(settings).save({feature.key: feature.key == 'pinned_sessions' for feature in FEATURES})
-    prefs = FeaturePreferences(settings_at(path))
+    FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')).save({feature.key: feature.key == 'pinned_sessions' for feature in FEATURES})
+    prefs = FeaturePreferences(path=Path(str((settings_at(path)).fileName()) + '.features.json'))
     assert prefs.values() == {feature.key: feature.key == 'pinned_sessions' for feature in FEATURES}
-    assert prefs.settings.value('features/future_feature') == 'preserved'
+    assert settings.value('features/future_feature') == 'preserved'
     assert not prefs.enabled('future_feature')
     with pytest.raises(ValueError):
         prefs.save({'project_calendar': False, 'pinned_sessions': 'true', 'project_scenarios': False})
@@ -55,7 +56,7 @@ def test_cancel_and_escape_do_not_write(window):
     dialog.controls['pinned_sessions'].setChecked(True)
     dialog.reject()
     assert not window._features.enabled('pinned_sessions')
-    assert window._features.settings.allKeys() == []
+    assert not window._features.path.exists()
     assert window.btn_projects.isHidden()
     assert all(control.isHidden() for control in window.schedule_viewer._pin_controls)
 
@@ -68,7 +69,7 @@ def test_save_shows_features_then_restart_restores(window, tmp_path):
     assert not window.btn_projects.isHidden()
     assert all(not control.isHidden() for control in window.schedule_viewer._pin_controls)
     other = MainWindow(SessionRepository(str(tmp_path/'other.db')), restore_session=False,
-                       feature_settings=settings_at(tmp_path/'preferences.ini'))
+                       feature_preferences=FeaturePreferences(path=Path(str((settings_at(tmp_path/'preferences.ini')).fileName()) + '.features.json')))
     assert not other.btn_projects.isHidden()
     assert other._features.enabled('pinned_sessions')
     other.close()
@@ -101,8 +102,8 @@ def test_disabled_pins_preserved_enforced_and_explained(window, monkeypatch, tmp
     assert window.pinned_group_ids == {'BIO-G1'}
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: QMessageBox.StandardButton.Cancel)
     assert not window._confirm_pin_inputs(classrooms={})
-    restarted = MainWindow(window._repo, restore_session=False, feature_settings=settings_at(tmp_path/'preferences.ini'))
-    restarted._restore_session_if_exists(confirm=False)
+    restarted = MainWindow(window._repo, restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings_at(tmp_path/'preferences.ini')).fileName()) + '.features.json')))
+    restarted.session.restore(confirm=False)
     assert restarted.pinned_group_ids == {'BIO-G1'}
     assert restarted._pinned_assignments() == assignments
     assert not restarted._feature_notice.isHidden()

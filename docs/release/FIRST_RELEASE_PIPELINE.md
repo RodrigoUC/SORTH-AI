@@ -1,10 +1,14 @@
-# Primera release retenida: 2.0.0 / v2.0.0
+# Primera release retenida: 3.0.0 / v3.0.0
 
 Este procedimiento **prepara** la publicación. El archivo
 `.github/release-approval.json` se entrega con `publish: false`, sin SHA aprobado,
 sin archivos aprobados y con todos los controles pendientes. Integrar el código
 no crea una etiqueta, borrador ni release. No cambia permisos generales del
 repositorio, instala credenciales persistentes ni activa protecciones nuevas.
+
+La identidad de la candidata procede de `project_root/VERSION`, actualmente
+3.0.0. El manifiesto y el controlador deben coincidir con esa versión; una
+aprobación no puede elegir otra versión ni reutilizar una candidata anterior.
 
 ## Dos identidades distintas, sin aprobación circular
 
@@ -24,7 +28,7 @@ repositorio, instala credenciales persistentes ni activa protecciones nuevas.
    traducción realmente incluida; no exige traducciones que no se distribuyen. Tiene
    `contents: read` y `actions: read`; no ejecuta los binarios descargados.
 4. Revisar los archivos finales de ese candidato. Después, sólo con aprobación
-   explícita, crear `release-approval/v2.0.0` a partir del SHA candidato. Cambiar
+   explícita, crear `release-approval/v3.0.0` a partir del SHA candidato. Cambiar
    **únicamente** `.github/release-approval.json`. El SHA de esta aprobación es
    distinto del SHA de la aplicación: la aplicación ya fue construida y no se
    reconstruye. No es necesario predecir el hash del commit de aprobación.
@@ -47,12 +51,12 @@ no modificar políticas ni credenciales para eludirlo.
 
 `SORTH-release-candidate-<run_id>-<run_attempt>` dura 14 días e incluye:
 
-- Un ZIP completo `SORTH-windows-x64-2.0.0-<sha12>-unsigned.zip`.
+- Un ZIP completo `SORTH-windows-x64-3.0.0-<sha12>-unsigned.zip`.
 - Exactamente un instalador
-  `SORTH-2.0.0-<sha12>-windows-x64-unsigned-setup.exe`, compatible con el
+  `SORTH-3.0.0-<sha12>-windows-x64-unsigned-setup.exe`, compatible con el
   reconocimiento estricto del actualizador, con un límite de 512 MiB.
 - `MANUAL_USUARIO.pdf` y `build-info.json` del mismo resultado Windows.
-- `SORTH-2.0.0-<sha40>-source.tar.gz`, producido desde el commit exacto.
+- `SORTH-3.0.0-<sha40>-source.tar.gz`, producido desde el commit exacto.
 - `THIRD-PARTY-SOURCES.tar.gz`.
 - `SHA256SUMS.txt`, con una entrada por cada archivo público excepto él mismo.
 - `release-candidate.json`, recibo de revisión con SHA, run, attempt y tamaños y
@@ -113,7 +117,7 @@ automática de su contenido:
 - `public_release_authorized`: aprobación del mantenedor de etiqueta, SHA,
   notas y lista/digests exactos que se harán públicos.
 
-El manifiesto requiere versión 2.0.0, tag v2.0.0, repositorio correcto, IDs
+El manifiesto requiere versión 3.0.0, tag v3.0.0, repositorio correcto, IDs
 enteros, hashes completos, lista exacta y todos los controles anteriores.
 Poner `publish: true` y hacer push de la rama de aprobación es la acción que
 habilita publicación; requiere esa autorización. La aprobación de preparar o

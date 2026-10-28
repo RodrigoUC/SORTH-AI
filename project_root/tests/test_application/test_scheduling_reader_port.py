@@ -63,7 +63,7 @@ def test_reader_loads_only_missing_data_and_preserves_inputs(supplied, expected)
     assert vars(reader.courses[0]) == original_course
 
 
-def test_complete_data_never_uses_legacy_composition(monkeypatch):
+def test_complete_data_never_uses_external_composition(monkeypatch):
     import src.bootstrap.scheduling as composition
     reader = FakeReader()
 
@@ -109,33 +109,8 @@ def test_explicit_empty_data_does_not_trigger_file_fallback():
     ) == ({}, [])
 
 
-def test_legacy_path_api_uses_named_composition_bridge(monkeypatch):
-    import src.bootstrap.scheduling as composition
-    reader = FakeReader()
-    paths = []
-
-    def factory(path):
-        paths.append(path)
-        return reader
-
-    monkeypatch.setattr(composition, 'create_excel_reader', factory)
-    assignments, _ = SchedulingService('legacy.xlsx', 42).run()
-    assert assignments
-    assert paths == ['legacy.xlsx']
-    assert reader.calls == ['validated']
 
 
-def test_explicit_excel_composition_matches_legacy_result():
-    path = str(Path(__file__).resolve().parents[2] / 'data/input/Cursos_Ejemplo.xlsx')
-    legacy_assignments, legacy_groups = SchedulingService(path, 42).run()
-    explicit_assignments, explicit_groups = SchedulingService(
-        path, 42, reader_factory=create_excel_reader,
-    ).run()
-    assert legacy_assignments == explicit_assignments
-    def signature(group):
-        return dict(vars(group), domain=[(room.name, day, start)
-                                        for room, day, start in group.domain])
-    assert list(map(signature, legacy_groups)) == list(map(signature, explicit_groups))
 
 
 def test_injected_reader_and_composition_import_run_without_site_packages(tmp_path):
@@ -165,3 +140,8 @@ assert not any(name.startswith(('PyQt', 'mcp', 'pandas', 'openpyxl', 'sqlite3',
     )
     assert result.returncode == 0, result.stderr
     assert list(tmp_path.iterdir()) == []
+
+
+def test_missing_input_requires_explicit_reader():
+    with pytest.raises(ValueError, match='explicit reader_factory'):
+        SchedulingService('source.xlsx').run()

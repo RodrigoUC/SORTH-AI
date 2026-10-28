@@ -120,7 +120,7 @@ def main():
             app.processEvents()
         report['results'].append(result)
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(report, indent=2) + '\n')
+        args.output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         print(json.dumps(dict(size=size, medians={name: value['median_wall_ms']
             for name, value in result['measurements'].items()})), flush=True)
 

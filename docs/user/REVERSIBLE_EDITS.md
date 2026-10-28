@@ -4,7 +4,7 @@ Optional settings `undo_redo` and `bulk_operations` start disabled. They expose
 implemented native tools only. Bulk editing requires Undo and redo explicitly
 enabled; changing one preference never silently enables another. Settings use
 the existing feature preferences contract (integrate with the latest atomic
-settings implementation, not the legacy INI writer).
+shared atomic JSON settings implementation).
 
 ## Undo contract
 

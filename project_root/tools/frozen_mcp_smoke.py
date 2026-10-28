@@ -45,7 +45,7 @@ def isolated_environment(directory):
 async def sdk_contract(executable, preferences, environment, directory):
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     parameters = StdioServerParameters(command=str(executable),
                                        args=['--serve', '--preferences', str(preferences)],
                                        env=environment, cwd=str(directory))
@@ -136,8 +136,8 @@ async def wire_cancellation(executable, preferences, environment, directory):
 
 def prepare_from_gui(app_dir, identity_dir, directory, environment):
     from PyInstaller.archive.readers import CArchiveReader
-    from src.application.mcp_component import ComponentContext, ComponentError, prepare_component
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_component import ComponentContext, ComponentError, prepare_component
+    from src.infrastructure.mcp_preferences import set_enabled
     from tools.mcp_payload import verify_payload
     app_dir = Path(app_dir).resolve(strict=True)
     bundle_dir = app_dir / '_internal'
@@ -187,8 +187,8 @@ def prepare_from_gui(app_dir, identity_dir, directory, environment):
 
 def run(app_dir, identity_dir, output):
     require(sys.platform == 'win32', 'Frozen Windows acceptance must run on Windows')
-    from src.application.mcp_preferences import set_enabled
-    from src.application.mcp_component import ComponentError, installed_command
+    from src.infrastructure.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_component import ComponentError, installed_command
     from tools.build_identity import identity
     expected = identity(os.environ['SOURCE_COMMIT'])
     with tempfile.TemporaryDirectory(prefix='sorth-frozen-mcp-') as temporary:
@@ -207,7 +207,7 @@ def run(app_dir, identity_dir, output):
                 and status['sdk_version'] == '1.30.0', 'Frozen probe SDK metadata missing')
         require(all(status[k] == expected[k] for k in ('version', 'source_commit', 'build_id')),
                 'Frozen companion build identity mismatch')
-        require(json.loads(preferences.read_text())['features']['mcp_server'] is False,
+        require(json.loads(preferences.read_text(encoding='utf-8'))['features']['mcp_server'] is False,
                 'Probe changed synthetic preferences')
         set_enabled(preferences, True)
         asyncio.run(asyncio.wait_for(wire_cancellation(executable, preferences, environment, directory), 90))

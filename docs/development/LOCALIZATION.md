@@ -24,7 +24,7 @@ Spanish remains the default; English is the first additional locale.
 
 ## Compatibility
 
-The selector changes presentation only. Import sheets remain exactly `Aulas` and `Cursos`. CSV/Excel keep seven detail columns in the existing order, legacy-compatible group IDs, Spanish day names, HH:mm times, sheet names, sanitization and UTF-8 BOM/comma CSV. Full export and Ctrl+S still include every assignment; filtered export uses shared Search/Classroom/Day/Status only. A localized export format would be a separate explicit feature.
+The selector changes presentation only. Import sheets remain exactly `Aulas` and `Cursos`. CSV/Excel keep seven detail columns in the existing order, canonical group IDs, Spanish day names, HH:mm times, sheet names, sanitization and UTF-8 BOM/comma CSV. Full export and Ctrl+S still include every assignment; filtered export uses shared Search/Classroom/Day/Status only. A localized export format would be a separate explicit feature.
 
 ## Verification
 

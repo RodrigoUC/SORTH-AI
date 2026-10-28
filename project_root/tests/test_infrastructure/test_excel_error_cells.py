@@ -74,14 +74,14 @@ def test_errors_in_ignored_columns_and_extra_sheets_stay_ignored(tmp_path, sheet
 
 
 @pytest.mark.parametrize('header,cell', [('Horas sugeridas', 'B3'), ('Aula sugerida', 'D3'), ('Días sugeridos', 'E3')])
-def test_error_cells_in_selected_aliases_are_not_silently_dropped(tmp_path, header, cell):
+def test_errors_in_undocumented_headers_are_ignored(tmp_path, header, cell):
     path = error_workbook(tmp_path / 'alias.xlsx', cell=cell)
     book = load_workbook(path)
     book['Cursos'][cell[0] + '1'] = header
     book['Cursos']['G1'] = 'Ignored'
     book.save(path)
-    with pytest.raises(ExcelImportError, match=f'Cursos, celda {cell}.*error de Excel'):
-        ExcelReader(str(path)).load_validated()
+    assert ExcelReader(str(path)).load_validated().courses
+
 
 
 @pytest.mark.parametrize('literal', ['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A'])

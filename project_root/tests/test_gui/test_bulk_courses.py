@@ -1,3 +1,6 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
+from tests.feature_preferences import enable_features
 from copy import deepcopy
 import pytest
 from PyQt6.QtCore import QSettings, Qt, QItemSelectionModel
@@ -16,8 +19,8 @@ from src.scheduling.course import Course
 def window(tmp_path):
     settings = QSettings(str(tmp_path/'prefs.ini'), QSettings.Format.IniFormat)
     for key in ('undo_redo', 'bulk_operations'):
-        settings.setValue('features/'+key, True)
-    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+        enable_features(settings, key)
+    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 50, 'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR', size=10),
         Course('CHEM', 1, 60, 'REGULAR', size=20), Course('OTHER', 1, 60, 'REGULAR', size=40)])

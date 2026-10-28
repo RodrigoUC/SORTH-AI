@@ -23,7 +23,7 @@ CLI = SKILL / "scripts" / "validate_theme.py"
 
 @pytest.fixture
 def data():
-    return json.loads((SKILL / "assets" / "academic-light.sorth-theme.json").read_text())
+    return json.loads((SKILL / "assets" / "academic-light.sorth-theme.json").read_text(encoding='utf-8'))
 
 
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.stem)
@@ -35,7 +35,7 @@ def test_complete_examples_pass_canonical_contract(path):
 
 
 def test_schema_is_generated_from_canonical_contract():
-    schema = json.loads((SKILL / "references" / "sorth-theme-v1.schema.json").read_text())
+    schema = json.loads((SKILL / "references" / "sorth-theme-v1.schema.json").read_text(encoding='utf-8'))
     assert schema == theme_json_schema()
     assert len(EXAMPLES) >= 2
     assert {load_theme_file(path).mode for path in EXAMPLES} == {"light", "dark"}
@@ -183,7 +183,7 @@ def test_reports_actual_failing_pair_without_mutation(data):
 
 
 def test_dark_focus_uses_actual_surface_not_fixed_white_course_gutter():
-    data = json.loads((SKILL / "assets" / "midnight-dark.sorth-theme.json").read_text())
+    data = json.loads((SKILL / "assets" / "midnight-dark.sorth-theme.json").read_text(encoding='utf-8'))
     data["colors"]["focus"] = "#FFFFFF"
     validate_theme(data)
     data["colors"]["focus"] = data["colors"]["surface"]
@@ -240,7 +240,7 @@ def test_wrapper_copied_elsewhere_requires_canonical_source(tmp_path):
 def test_wrapper_reports_invalid_data_without_success(data, tmp_path):
     data["stylesheet"] = "QWidget { color: red; }"
     target = tmp_path / "invalid.sorth-theme.json"
-    target.write_text(json.dumps(data))
+    target.write_text(json.dumps(data), encoding='utf-8')
     result = subprocess.run([sys.executable, str(CLI), str(target), "--json"],
                             capture_output=True, text=True, timeout=15)
     assert result.returncode == 2

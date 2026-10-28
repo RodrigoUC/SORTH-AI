@@ -1,4 +1,4 @@
-"""Excel composition shared by the GUI, CLI and historical path-based API."""
+"""Explicit Excel input composition shared by the GUI and CLI."""
 from ..application.scheduling_ports import SchedulingInputReader
 
 

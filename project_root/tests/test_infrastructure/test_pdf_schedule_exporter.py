@@ -102,8 +102,9 @@ def test_pdf_font_and_runtime_dependency_are_shipped():
     root = Path(__file__).resolve().parents[2]
     assert (root / 'assets/fonts/DejaVuSans.ttf').stat().st_size > 100000
     assert (root / 'assets/fonts/DejaVu-LICENSE.txt').exists()
-    assert 'reportlab==4.4.9' in (root / 'requirements.txt').read_text()
-    assert "str(root / 'assets')" in (root / 'SORTH.spec').read_text()
+    assert 'reportlab==4.4.9' in (root / 'requirements.txt').read_text(encoding='utf-8')
+    assert "--add-data" in (root / "build_exe.ps1").read_text(encoding='utf-8')
+    assert "(Join-Path $PSScriptRoot 'assets') + ';assets'" in (root / "build_exe.ps1").read_text(encoding='utf-8')
 
 
 @pytest.mark.parametrize('language', ['es', 'en'])

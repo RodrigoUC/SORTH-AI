@@ -25,12 +25,12 @@ class Group:
         self.preferred_start_min = preferred_start_min
         self.preferred_day = preferred_day
 
-        # For split groups (duration > 180 min)
+        # Identity metadata for sessions split from one original group.
         self.parent_group_id = parent_group_id
         self.subgroup_index = subgroup_index
         self.total_subgroups = total_subgroups
 
-        # CSP fields
+        # Candidate placement state; intervals use minutes from midnight.
         # domain entries: (classroom, day_index, start_min)
         self.domain: list[tuple] = []
         # assignment: (classroom_name, day_index, start_min, end_min)

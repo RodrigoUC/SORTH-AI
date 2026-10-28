@@ -36,7 +36,7 @@ def build_candidate(directory):
     for name in names - {'SHA256SUMS.txt'}:
         (directory / name).write_bytes(name.encode())
     rp.write_json(directory / 'build-info.json', {
-        'version': '2.0.0', 'source_commit': SHA, 'build_id': f'2.0.0-{SHA[:12]}', 'signed': False})
+        'version': '3.0.0', 'source_commit': SHA, 'build_id': f'3.0.0-{SHA[:12]}', 'signed': False})
     sums = ''.join(f'{rp.digest(directory / n)}  {n}\n' for n in sorted(names - {'SHA256SUMS.txt'}))
     (directory / 'SHA256SUMS.txt').write_text(sums)
     assets = {n: rp.record(directory / n) for n in names}
@@ -77,7 +77,7 @@ class FakeGitHub:
 
     def request(self, method, path, data=None, **kwargs):
         self.calls.append((method, path, data))
-        if path.endswith('/git/ref/heads/release-approval/v2.0.0'):
+        if path.endswith('/git/ref/heads/release-approval/v3.0.0'):
             return {'object': {'sha': EVENT}}
         if path.endswith('/git/ref/heads/main'):
             return {'object': {'sha': EVENT if self.changed_main else SHA}}
@@ -138,6 +138,16 @@ class ReleaseTests(unittest.TestCase):
         rp.verify_candidate(self.directory, SHA, self.approval)
         rp.validate_approval(self.approval, publishing=True)
         self.assertEqual(len([n for n in self.approval['assets'] if n.endswith('.exe')]), 1)
+
+    def test_release_approval_and_controller_match_the_current_build_version(self):
+        """A main-version update must not leave the release gate on an older tag."""
+        current = (rp.ROOT / 'project_root/VERSION').read_text(encoding='utf-8').strip()
+        template = rp.read_json(rp.ROOT / rp.APPROVAL)
+        self.assertEqual(template['version'], current)
+        self.assertEqual(template['tag'], f'v{current}')
+        rp.validate_approval(template)
+        controller = (rp.ROOT / '.github/workflows/publish-first-release.yml').read_text(encoding='utf-8')
+        self.assertIn(f"github.event.workflow_run.head_branch == 'release-approval/v{current}'", controller)
 
     def test_wrong_identity_and_schema_rejected(self):
         for key, value in [('version', '2.0.1'), ('tag', 'v2.0.1'), ('source_commit', 'a' * 12),
@@ -244,7 +254,7 @@ class ReleaseTests(unittest.TestCase):
         for current in (None, {'object': {'sha': 'f' * 40}}):
             class RevokedAPI(FakeGitHub):
                 def request(self, method, path, data=None, **kwargs):
-                    if path.endswith('/git/ref/heads/release-approval/v2.0.0'):
+                    if path.endswith('/git/ref/heads/release-approval/v3.0.0'):
                         return current
                     return super().request(method, path, data, **kwargs)
             api = RevokedAPI(self.approval)
@@ -255,7 +265,7 @@ class ReleaseTests(unittest.TestCase):
     def test_revocation_after_upload_keeps_draft(self):
         class RevokedAPI(FakeGitHub):
             def request(self, method, path, data=None, **kwargs):
-                if path.endswith('/git/ref/heads/release-approval/v2.0.0') and self.assets:
+                if path.endswith('/git/ref/heads/release-approval/v3.0.0') and self.assets:
                     return None
                 return super().request(method, path, data, **kwargs)
         api = RevokedAPI(self.approval)
@@ -382,7 +392,7 @@ class ReleaseTests(unittest.TestCase):
         source = Path(self.temp.name) / 'source-repository'
         source.mkdir()
         (source / 'project_root').mkdir()
-        (source / 'project_root/VERSION').write_text('2.0.0\n')
+        (source / 'project_root/VERSION').write_text('3.0.0\n')
         (source / 'README.md').write_text('Synthetic source fixture.\n')
         native_path = '_internal/PyQt6/QtCore.pyd'
         native = b'synthetic Qt bytes'
@@ -402,7 +412,7 @@ class ReleaseTests(unittest.TestCase):
         installer_name = next(n for n in names if n.endswith('.exe'))
         for name in (archive_name, installer_name):
             (review / name).write_bytes(b'synthetic fixture bytes')
-        info = {'version': '2.0.0', 'source_commit': sha, 'build_id': f'2.0.0-{sha[:12]}', 'signed': False,
+        info = {'version': '3.0.0', 'source_commit': sha, 'build_id': f'3.0.0-{sha[:12]}', 'signed': False,
                 'files': [{'path': native_path, 'size': len(native), 'sha256': hashlib.sha256(native).hexdigest()}]}
         rp.write_json(review / 'build-info.json', info)
         with zipfile.ZipFile(review / archive_name, 'w') as zf:
@@ -591,7 +601,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('contents: write', release + windows)
         self.assertIn('workflow_run:', controller)
         self.assertIn("github.event.workflow_run.event == 'push'", controller)
-        self.assertIn("github.event.workflow_run.head_branch == 'release-approval/v2.0.0'", controller)
+        self.assertIn("github.event.workflow_run.head_branch == 'release-approval/v3.0.0'", controller)
         self.assertIn('ref: main', controller.split('  publisher:', 1)[1])
         self.assertNotIn('pull_request_target', release + windows + controller)
         for ref in re.findall(r'uses:\s+[^@\s]+@([^\s#]+)', release + windows + controller):
@@ -600,7 +610,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('persist-credentials: false', release + controller)
 
     def test_controller_rejects_wrong_approval_trigger_provenance(self):
-        run = {'id': 123, 'head_sha': EVENT, 'head_branch': 'release-approval/v2.0.0',
+        run = {'id': 123, 'head_sha': EVENT, 'head_branch': 'release-approval/v3.0.0',
                'path': '.github/workflows/first-release.yml', 'event': 'push',
                'status': 'completed', 'conclusion': 'success',
                'repository': {'full_name': rp.REPO}, 'head_repository': {'full_name': rp.REPO}}

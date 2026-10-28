@@ -76,7 +76,7 @@ Se rechaza XML de hoja mal formado: celdas fuera de sus filas, etiquetas de celd
 - `CAPACIDAD` debe ser un entero no negativo. Si falta, se avisa que se usará 0.
 - Los errores de Excel en columnas importadas (también los resultados de fórmulas guardados como error) se rechazan indicando hoja y celda; nunca se convierten en valores vacíos. Los textos literales como `#N/A` siguen siendo textos. No se calculan fórmulas y las columnas u hojas no utilizadas siguen ignorándose.
 - `Horas` y `Días` vacíos o `-` mantienen los valores predeterminados; los valores no vacíos mal escritos muestran la hoja y fila que debe corregirse.
-- Los alias históricos no ambiguos (por ejemplo `Horas sugeridas`, `Días sugeridos` o `Aula sugerida`) reciben la misma validación y avisos. El encabezado exacto tiene prioridad, incluso vacío; si faltara y hubiera varios alias para el mismo campo, se pide corregirlos.
+- Sólo se interpretan los encabezados documentados; las columnas adicionales se ignoran. No se admiten alias de formatos anteriores.
 - Las referencias a aulas desconocidas siguen importándose sin esa preferencia, pero ahora se muestran como avisos antes de confirmar.
 - Cancelar la selección, cancelar los avisos o recibir un error de validación conserva los datos y el horario abierto.
 
@@ -113,7 +113,7 @@ Si usa fórmulas, recalcule y guarde el libro en Excel antes de importar, o pegu
 La organización conserva estas cuatro capas. El árbol muestra sus módulos principales;
 [el índice de documentación](../docs/README.md) reúne las guías por audiencia.
 El [mapa de responsabilidades y guardas](../docs/architecture/ARCHITECTURE.md)
-explica los límites, adaptadores opcionales y excepciones de compatibilidad.
+explica los límites y adaptadores vigentes.
 
 ```
 src/
@@ -260,6 +260,10 @@ Las sesiones divididas deben cumplir:
 - Hoja "Asignaciones": lista detallada con código, nombre, grupo, aula, día, hora inicio/fin
 - Hoja "Por Aula": misma información ordenada por aula → día → hora
 
+### PDF
+
+La [guía PDF](../docs/user/PDF_EXPORT_NOTES.md) describe alcance, filtros, tipografía y límites de impresión.
+
 ### CSV
 - Lista detallada en formato plano, codificación UTF-8 con BOM
 
@@ -298,6 +302,7 @@ Antes de compilar en Python 3.12 x64, instala `requirements-windows.lock` con `-
 ```
 project_root/
 ├── src/
+│   ├── bootstrap/
 │   ├── application/
 │   ├── scheduling/
 │   ├── infrastructure/
@@ -310,73 +315,8 @@ project_root/
 ├── assets/              # Icono de la aplicación
 ├── main.py              # Punto de entrada CLI
 ├── gui_app.py           # Punto de entrada GUI (con stylesheet global 10pt)
-└── requeriments.txt
+└── requirements-dev.txt
 ```
-
----
-
-## Historial de Cambios
-
-### v2.0
-
-#### Algoritmo (`src/scheduling/scheduler.py`)
-- **Reemplazo de backtracking por Greedy con reintentos**: evita explorar el árbol completo. El tiempo depende de grupos, aulas, candidatos y restricciones
-- **Contadores incrementales**: `_day_load`, `_time_load`, `_classroom_uses`, `_course_slots` actualizados en O(1) al asignar
-- **Preferencias blandas**: pass 1 estricto + hasta 3 reintentos relajados para grupos sin asignar
-- **Sugerencias por grupo individual**: cada grupo lleva su propia `suggested_classroom`, `preferred_day` y `preferred_start_min`
-- **Restricción bidireccional por grupo**: evalúa `suggested_classroom` del grupo, no solo el `course_code`
-- **Tipo de sala**: LAB es obligatorio para la generación automática; REGULAR conserva la preferencia de ordenamiento. Una excepción LAB en aula regular requiere asignación manual confirmada.
-- **Horario extendido a 22:00**
-- **Umbral de split a 270 min**, chunk mínimo de 60 min
-- **Control de split por curso**: `force_split=True` fuerza división, `force_split=False` la desactiva, `None` usa el umbral automático
-- **Fallback de candidatos**: si ±30 min produce dominio vacío, usa día completo con paso 30 min
-
-#### Lectura de Excel (`src/infrastructure/excel_reader.py`)
-- Aulas inexistentes en `Cursos` ignoradas silenciosamente
-- `load_courses()` acepta `known_classrooms` para filtrar referencias inválidas
-- `load_course_classroom_map()` filtra con `known_classrooms`
-- `group_suggestions` preserva sugerencia individual de cada fila
-- Tipo de sala inferido desde el aula sugerida real, no solo del sufijo del código
-
-#### Exportador (`src/infrastructure/schedule_exporter.py`)
-- Reescrito completamente para modelo de minutos
-- Grilla con `merge_cells` proporcional a duración
-- Colores por curso (no por aula)
-- Hojas: una por aula + "Asignaciones" + "Por Aula"
-
-#### Aplicación (`src/application/scheduling_service.py`)
-- Acepta `classrooms` externo para incluir aulas agregadas desde GUI
-- Resetea `occupancy` y `allowed_courses` al inicio de cada run
-- `TimeModel` con `DAY_END = 22 * 60`
-
-#### Persistencia (`src/infrastructure/session_repository.py`)
-- **SQLite** (la carpeta de datos del usuario (`%LOCALAPPDATA%/SORTH/sorth_session.db` en Windows)): almacena aulas, cursos con sugerencias por grupo, restricciones, asignaciones y metadatos (ruta Excel, semilla)
-- **Esquema relacional**: tablas `session`, `classrooms`, `courses`, `course_group_suggestions`, `restrictions`, `assignments`
-- **Guardado automático**: se invoca tras cada acción relevante (cargar Excel, editar cursos, generar horario, eliminar grupo)
-- **Restauración al inicio**: si existe sesión guardada con cursos, se ofrece restaurarla mediante diálogo al abrir la aplicación
-
-#### GUI
-- **`QThread` worker**: scheduler en hilo separado, barra de progreso indeterminada
-- **Diálogos con header coloreado**: reemplazan `QMessageBox` en toda la app
-- **Pestañas con contraste**: activa en azul `#1967D2` texto blanco, inactiva gris
-- **Fuente global 10pt** via stylesheet en `gui_app.py`
-- **`QTimeEdit`** para hora preferida en `CourseDialog`
-- **Control de split por curso** en `CourseDialog`: combo con tres opciones (Automático / Forzar división / No dividir)
-- **Tipo de aula editable** en `AddClassroomDialog` (auto-detectado pero modificable)
-- **Colores por curso** en cuadrícula y Excel exportado
-- **`_SortableItem`**: ordenamiento correcto de días (Lunes→Sábado) y horas (numérico)
-- **Búsqueda en tiempo real**: código/nombre en Gestión de Cursos y Lista Detallada; aula/grupo en Por Aula
-- **Botones Editar/Eliminar** al pie de Lista Detallada y Por Aula + menú contextual
-- **Eliminar grupo**: actualiza lista, por aula y cuadrícula en tiempo real
-- **Resumen**: tarjetas KPI + tablas por día/aula + grupos sin asignar
-- **Restricciones**: panel con checkboxes individuales por curso por aula
-
-### v1.0
-- Versión inicial con modelo de bloques de 1 hora
-- Lectura de Excel con hojas `Capacidad aulas` y `Aulas`
-- Configuración de cursos mediante JSON
-- Algoritmo CSP con backtracking, MRV y LCV
-- Exportación a Excel y CSV
 
 ---
 
@@ -416,3 +356,11 @@ columnas compatibles: la marca de excepción se consulta en la sesión de SORTH.
 ## Ejemplo incluido
 
 `data/input/Cursos_Ejemplo.xlsx` contiene 8 aulas ficticias y 12 cursos de demostración. Sus 36 grupos producen 42 sesiones al dividir los proyectos largos. Todos los datos son sintéticos; no corresponden a una institución. Véase `data/input/PROVENANCE.md`.
+
+## Contratos de esta versión
+
+Se utiliza únicamente la interfaz PyQt6. Las herramientas se ejecutan desde `tools/`.
+La sesión usa esquema SQLite 5, el catálogo de proyectos esquema 2 y los metadatos
+de escenarios formato 2. Se rechazan otros formatos conservando sus archivos intactos;
+no hay migraciones automáticas. Importe el Excel original en una sesión nueva.
+Una sesión sin generar y un resultado sin asignaciones se guardan como estados distintos.

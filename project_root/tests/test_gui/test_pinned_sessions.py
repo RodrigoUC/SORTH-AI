@@ -1,3 +1,6 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
+from tests.feature_preferences import enable_features
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from copy import deepcopy
@@ -15,8 +18,8 @@ from src.scheduling.time_model import TimeModel
 def window(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat)
-    settings.setValue('features/pinned_sessions', True)
-    window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_settings=settings)
+    enable_features(settings, 'pinned_sessions')
+    window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 2, 60, 'REGULAR')])
     groups = window.course_manager.get_courses()[0].generate_groups()

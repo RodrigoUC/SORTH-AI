@@ -41,7 +41,7 @@ def test_frozen_probe_requires_build_identity(monkeypatch, capsys, tmp_path):
     assert mcp_app.main(['--probe']) == 2
     assert json.loads(capsys.readouterr().out)['status'] == 'runtime_error'
     identity = {'version': '2.0.0', 'source_commit': 'a' * 40, 'build_id': '2.0.0-' + 'a' * 12}
-    (tmp_path / 'build-identity.json').write_text(json.dumps(identity))
+    (tmp_path / 'build-identity.json').write_text(json.dumps(identity), encoding='utf-8')
     assert mcp_app.main(['--probe']) == 0
     assert json.loads(capsys.readouterr().out)['build_id'] == identity['build_id']
 

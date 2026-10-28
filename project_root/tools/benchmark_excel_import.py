@@ -2,6 +2,7 @@
 
 Run from project_root: python tools/benchmark_excel_import.py --output /tmp/import-qa
 """
+from src.infrastructure.feature_preferences import FeaturePreferences
 import argparse
 import json
 import platform
@@ -48,7 +49,7 @@ def run(output, sizes):
             path = root/f'{count}.xlsx'
             workbook(path, count)
             window = MainWindow(SessionRepository(str(root/f'{count}.db')), restore_session=False,
-                                feature_settings=QSettings(str(root/f'{count}.ini'), QSettings.Format.IniFormat))
+                                feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(root/f'{count}.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
             window.resize(1200, 800)
             window.show()
             app.processEvents()
@@ -94,7 +95,7 @@ def run(output, sizes):
         path = root/'preview.xlsx'
         workbook(path, 3)
         window = MainWindow(SessionRepository(str(root/'preview.db')), restore_session=False,
-                            feature_settings=QSettings(str(root/'preview.ini'), QSettings.Format.IniFormat))
+                            feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(root/'preview.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
         window._classrooms = {'R': Classroom('R', 20, 'REGULAR'), 'OLD': Classroom('OLD', 10, 'REGULAR')}
         window.course_manager.load_courses_from_excel([Course('SYN-00000', 2, 90, 'REGULAR'), Course('OLD',1,60,'REGULAR')])
         window.classroom_restrictions = {'R': {'SYN-00000'}}
@@ -116,7 +117,7 @@ def run(output, sizes):
         window._set_import_busy(False)
         window._unsaved=False
         window.close()
-    (output/'measurements.json').write_text(json.dumps(report, indent=2)+'\n')
+    (output/'measurements.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 """Native appearance changes are presentation-only, bounded and commit-first."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 import json
 from pathlib import Path
 import pytest
@@ -79,7 +80,7 @@ def test_custom_saved_payload_survives_deleted_import_and_restart(manager, tmp_p
     data = theme.builtin_themes()[1].spec.to_dict()
     data['name'] = 'Personal imported theme'
     imported = tmp_path / 'custom.sorth-theme.json'
-    imported.write_text(json.dumps(data))
+    imported.write_text(json.dumps(data), encoding='utf-8')
     spec = parse_theme(imported.read_bytes())
     manager.save_and_apply(spec)
     imported.unlink()
@@ -179,14 +180,14 @@ def test_main_theme_change_never_writes_domain_or_changes_other_preferences(mana
     settings.setValue('interface/language', 'es')
     settings.sync()
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                        restore_session=False, feature_settings=settings)
+                        restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     try:
         window._classrooms = {'A1': Classroom('A1', 30, 'REGULAR')}
         window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
         window.current_schedule = {'BIO-G1': ('A1', 1, 480, 540)}
         window.current_groups = [Group('BIO-G1', 60, 'REGULAR', course_code='BIO')]
         window.schedule_viewer.display_schedule(window.current_schedule, TimeModel.default(), window.current_groups)
-        window._save_session()
+        window.session.save()
         before_record = deepcopy(window._repo.load_session())
         before_bytes = Path(window._repo._db_path).read_bytes()
         before_flags = window._features.values()

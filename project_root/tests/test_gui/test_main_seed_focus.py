@@ -1,4 +1,6 @@
 """First-show native seed focus must preserve the complete caption and size."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import pytest
 from PyQt6.QtCore import Qt, QSettings, QSize
 from PyQt6.QtTest import QTest
@@ -34,7 +36,7 @@ def test_seed_first_focus_keeps_native_caption_and_reading_budget(tmp_path, styl
         manager.set_language(language, persist=False)
         appearance._apply(next(choice.spec for choice in builtin_themes() if choice.key == theme))
         window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                            feature_settings=QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat))
+                            feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
         window.resize(960, 640)
         window.show()
         window.activateWindow()

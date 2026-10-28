@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.mark.parametrize('name', ['windows-review.yml', 'security-review.yml', 'mcp-optional.yml'])
 def test_main_and_review_stacks_have_read_only_review_gates(name):
-    text = (ROOT / '.github' / 'workflows' / name).read_text()
+    text = (ROOT / '.github' / 'workflows' / name).read_text(encoding='utf-8')
     assert '  pull_request:\n    branches: [main, feat/optional-mcp-preview, feat/product-controls-and-scenarios, feat/import-performance-layer]' in text
     assert '  push:\n    branches: [main]' in text
     assert 'pull_request_target:' not in text
@@ -20,7 +20,7 @@ def test_main_and_review_stacks_have_read_only_review_gates(name):
 
 
 def test_windows_regression_gate_is_bounded_and_diagnostic():
-    text = (ROOT / ".github/workflows/windows-review.yml").read_text().split("\n  release-candidate:", 1)[0]
+    text = (ROOT / ".github/workflows/windows-review.yml").read_text(encoding='utf-8').split("\n  release-candidate:", 1)[0]
     steps = {
         block.splitlines()[0]: block
         for block in text.split("      - name: ")[1:]
@@ -74,6 +74,6 @@ def test_windows_regression_gate_is_bounded_and_diagnostic():
 
 
 def test_windows_evidence_includes_expanded_schedule_captures():
-    text = (ROOT / '.github/workflows/windows-review.yml').read_text()
+    text = (ROOT / '.github/workflows/windows-review.yml').read_text(encoding='utf-8')
     evidence = text.split('      - name: Upload test and smoke evidence', 1)[1]
     assert 'project_root/build/reports/schedule-focus-zoom-*.png' in evidence

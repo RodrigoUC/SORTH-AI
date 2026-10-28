@@ -2,7 +2,8 @@
 
 GitHub's asset digest checks transfer integrity against metadata obtained over
 HTTPS. It is NOT a publisher signature, malware scan, or approval of an unsigned
-release. No account, cookies, tokens, session data, or automatic checks are used.
+release. No account, cookies, tokens or session data are used. Startup checks
+require the separately saved opt-in preference.
 """
 from __future__ import annotations
 

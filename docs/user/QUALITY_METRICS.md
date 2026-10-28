@@ -106,7 +106,7 @@ No se infiere que una asignación ordinaria fue manual. El cociente es
 
 - El diálogo de resumen existente muestra explicaciones, valores, pendientes y
   excepciones; el botón Cerrar permanece fuera del contenido desplazable.
-- `benchmark.py --json` añade `quality` sin incluir el análisis en la región cronometrada.
+- `tools/benchmark_scheduler.py --json` añade `quality` sin incluir el análisis en la región cronometrada.
 - `tests/fixtures/quality/partial_schedule.json` es sintético. Sus oráculos de
   aritmética son independientes de las funciones de puntuación del planificador.
 - `test_quality.py` cubre resultados parciales/vacíos/completos/divididos,
