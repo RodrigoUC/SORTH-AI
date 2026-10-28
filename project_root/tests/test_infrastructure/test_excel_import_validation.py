@@ -82,7 +82,7 @@ def test_empty_workbook_and_wrong_sheet_names(tmp_path):
 @pytest.mark.parametrize('filename', ['corrupt.xlsx', 'legacy.xls', 'input.csv'])
 def test_unsupported_or_corrupt_files(tmp_path, filename):
     path = tmp_path / filename
-    path.write_text('not a workbook')
+    path.write_text('not a workbook', encoding='utf-8')
     with pytest.raises(ExcelImportError, match='xlsx'):
         ExcelReader(str(path)).load_validated()
 
@@ -122,47 +122,12 @@ def test_shipped_workbook_imports_without_loss():
     assert sum(c.number_of_groups for c in result.courses) == 36
 
 
-@pytest.mark.parametrize('header,value,message', [
-    ('Horas sugeridas', 'not-a-time', 'fila 2: Horas'),
-    ('Horas sugeridas', '0800-0700', 'fila 2: Horas'),
-    ('Días sugeridos', 'X', 'fila 2: Días'),
-])
-def test_optional_aliases_receive_the_same_validation(tmp_path, header, value, message):
-    path = workbook(tmp_path, courses={'Curso': ['BIO'], header: [value]})
-    with pytest.raises(ExcelImportError, match=message):
-        ExcelReader(str(path)).load_validated()
 
 
-def test_valid_aliases_and_unknown_room_warning_are_preserved(tmp_path):
-    path = workbook(tmp_path, courses={
-        'Curso': ['BIO'], 'Nombre de Curso': ['Biología'],
-        'Horas sugeridas': ['0800-1000'], 'Días sugeridos': ['L'],
-        'Aula sugerida': ['MISSING'],
-    })
-    result = ExcelReader(str(path)).load_validated()
-    course = result.courses[0]
-    assert (course.name, course.duration_min, course.preferred_day, course.preferred_start_min) == (
-        'Biología', 120, 'Lunes', 480)
-    assert course.suggested_classroom is None
-    assert len(result.warnings) == 1
-    assert "'MISSING'" in str(result.warnings[0])
 
 
-def test_valid_room_alias_is_used_for_preferences_and_restrictions(tmp_path):
-    path = workbook(tmp_path, courses={'Curso': ['BIO'], 'Aula sugerida': ['601']})
-    result = ExcelReader(str(path)).load_validated()
-    assert result.courses[0].suggested_classroom == '601'
-    assert result.classroom_course_map == {'601': ['BIO']}
 
 
-@pytest.mark.parametrize('headers', [
-    {'Horas sugeridas': ['0800-0900'], 'Horas preferidas': ['0900-1000']},
-    {'Nombre y Horas': ['0800-0900']},
-])
-def test_ambiguous_aliases_fail_before_materialization(tmp_path, headers):
-    path = workbook(tmp_path, courses={'Curso': ['BIO'], **headers})
-    with pytest.raises(ExcelImportError, match='columnas duplicadas'):
-        ExcelReader(str(path)).load_validated()
 
 
 def test_blank_exact_column_keeps_precedence_over_alias(tmp_path):
@@ -176,8 +141,8 @@ def test_blank_exact_column_keeps_precedence_over_alias(tmp_path):
     assert not result.warnings
 
 
-def test_missing_course_code_with_alias_values_is_rejected(tmp_path):
-    path = workbook(tmp_path, courses={'Curso': ['BIO', ''], 'Horas sugeridas': ['', '0800-0900']})
+def test_missing_course_code_with_preference_values_is_rejected(tmp_path):
+    path = workbook(tmp_path, courses={'Curso': ['BIO', ''], 'Horas': ['', '0800-0900']})
     with pytest.raises(ExcelImportError, match='fila 3: falta Curso'):
         ExcelReader(str(path)).load_validated()
 
@@ -192,4 +157,18 @@ def test_literal_nan_room_identifier_keeps_preferences_and_restrictions(tmp_path
     assert course.group_suggestions[0]['aula'] == room
     assert course.generate_groups()[0].suggested_classroom == room
     assert result.classroom_course_map == {room: ['BIO']}
+    assert not result.warnings
+
+
+def test_undocumented_headers_do_not_change_preferences(tmp_path):
+    path = workbook(tmp_path, courses={
+        'Curso': ['BIO'], 'Nombre de Curso': ['Biología'],
+        'Horas sugeridas': ['invalid'], 'Días sugeridos': ['X'],
+        'Aula sugerida': ['MISSING'],
+    })
+    result = ExcelReader(str(path)).load_validated()
+    course = result.courses[0]
+    assert course.name == 'Biología'
+    assert course.duration_min == 60
+    assert course.preferred_day is None and course.suggested_classroom is None
     assert not result.warnings

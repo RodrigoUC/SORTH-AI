@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import pytest
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMessageBox
@@ -14,7 +16,7 @@ from src.application.calendar_transition import preview_calendar_change
 @pytest.fixture
 def window(tmp_path):
     window=MainWindow(SessionRepository(str(tmp_path/'session.db')),restore_session=False,
-                      feature_settings=QSettings(str(tmp_path/'prefs.ini'),QSettings.Format.IniFormat))
+                      feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path/'prefs.ini'),QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     window._classrooms={'A':Classroom('A',50,'REGULAR')}
     window.current_groups=Course(code='C',name='Course',number_of_groups=1,duration_min=60,required_room_type='REGULAR').generate_groups()
     yield window
@@ -23,7 +25,7 @@ def window(tmp_path):
 
 
 def test_cancel_leaves_calendar_and_database_unchanged(window):
-    window._save_session()
+    window.session.save()
     before=window._repo.load_session()['calendar']
     dialog=CalendarDialog(window)
     dialog.days['Lunes'].setChecked(False)
@@ -32,7 +34,7 @@ def test_cancel_leaves_calendar_and_database_unchanged(window):
 
 
 def test_atomic_failure_preserves_memory_and_disk(window,monkeypatch):
-    window._save_session()
+    window.session.save()
     calendar=ProjectCalendar(('Martes',),480,600,())
     preview=preview_calendar_change(window.calendar,calendar,{},[],{})
     monkeypatch.setattr(QMessageBox,'warning',lambda *a,**k: QMessageBox.StandardButton.Ok)
@@ -47,7 +49,7 @@ def test_apply_hidden_controls_reopen_and_reset(window,monkeypatch):
     assert window._apply_calendar(calendar,preview)
     assert not window._features.enabled('project_calendar')
     assert window._feature_notice.text()
-    window._restore_session_if_exists(confirm=False)
+    window.session.restore(confirm=False)
     assert window.calendar == calendar
     assert window._repo.load_session()['calendar'] == calendar
     dialog=CalendarDialog(window)
@@ -122,14 +124,14 @@ def test_calendar_apply_preserves_explicit_resources_and_pins(window):
 
 
 def test_calendar_undo_redo_is_persistent_and_preserves_soft_preferences(window):
-    from src.gui.features import FEATURES
+    from src.infrastructure.feature_preferences import FEATURES
     course=Course('C',1,60,'REGULAR',preferred_day='Lunes')
     window.course_manager.load_courses_from_excel([course])
     window.current_groups=course.generate_groups()
     window.current_schedule={'C-G1':('A',2,480,540)}
     window.current_groups[0].assignment=window.current_schedule['C-G1']
     window._features.save({feature.key:feature.key=='undo_redo' for feature in FEATURES})
-    window._save_session()
+    window.session.save()
     calendar=ProjectCalendar(('Martes',),480,600,())
     preview=preview_calendar_change(window.calendar,calendar,window.current_schedule,window.current_groups,window._classrooms,resources=window.resources)
     assert window._apply_calendar(calendar,preview)
@@ -166,7 +168,7 @@ def test_sunday_manual_save_export_and_undo_preserve_weekdays(window,tmp_path):
     from src.scheduling.time_model import TimeModel
     from src.scheduling.teaching_resources import SchedulingResources, ResourceCatalog, Resource
     from src.gui.manual_assignment_dialog import ManualAssignmentDialog
-    from src.gui.features import FEATURES
+    from src.infrastructure.feature_preferences import FEATURES
     from src.infrastructure.schedule_exporter import ScheduleExporter
     course=Course('SUN',1,60,'REGULAR')
     window.course_manager.load_courses_from_excel([course])
@@ -201,7 +203,7 @@ def test_calendar_presentation_failure_preserves_exact_session_and_history(windo
     from pathlib import Path
     from src.application.edit_history import encoded
     window.current_groups = None
-    assert window._save_session()
+    assert window.session.save()
     original = window._display_edit_state
     calls = []
     def fail_once(state):

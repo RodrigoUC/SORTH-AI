@@ -14,7 +14,7 @@ from PyQt6.QtGui import QPalette
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QStyleFactory, QWidget
 
-from src.application import app_updates
+from src.infrastructure import app_updates
 from src.gui import theme, update_dialog
 from src.gui.i18n import language_manager, msg
 from src.gui.i18n_widgets import QDialogButtonBox, QMessageBox
@@ -546,13 +546,13 @@ def test_dialog_reuses_live_light_dark_high_contrast_and_custom_themes(make_dial
 
 def test_update_preference_has_full_bilingual_disclosure_and_starts_off(tmp_path):
     from src.application.optional_features import FEATURES
-    from src.gui.features import FeaturePreferences
+    from src.infrastructure.feature_preferences import FeaturePreferences
     from PyQt6.QtCore import QSettings
     feature = next(item for item in FEATURES if item.key == 'auto_update_check')
     for locale in ('es', 'en'):
         assert feature.title in LANGUAGES[locale].messages
         assert feature.description in LANGUAGES[locale].messages
-    preferences = FeaturePreferences(QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat))
+    preferences = FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json'))
     assert not preferences.enabled('auto_update_check')
     assert not preferences.path.exists()
 
@@ -666,7 +666,7 @@ def test_direct_native_destruction_cancels_and_drains_without_process_abort(targ
         from PyQt6.QtWidgets import QApplication, QWidget
         from PyQt6.QtCore import QCoreApplication, QEvent
         from src.gui.update_dialog import UpdateDialog, InstallConfirmation
-        from src.application import app_updates
+        from src.infrastructure import app_updates
         app = QApplication([])
         entered, cancelled_seen, drained = Event(), Event(), Event()
         discarded = []
@@ -802,7 +802,7 @@ def test_native_deletion_inside_real_confirmation_never_aborts_or_transfers(targ
         from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
         from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
         from src.gui.update_dialog import UpdateDialog, InstallConfirmation
-        from src.application import app_updates
+        from src.infrastructure import app_updates
         app = QApplication([])
         calls, discarded, prompted = [], [], []
         download = object()
@@ -858,13 +858,13 @@ def test_install_consent_keeps_full_actions_visible_on_small_screens_at_20pt(tmp
     import textwrap
     width, height = screen_size
     config = tmp_path / 'offscreen.json'
-    config.write_text(json.dumps({'screens': [{'name': 'compact', 'width': width, 'height': height}]}))
+    config.write_text(json.dumps({'screens': [{'name': 'compact', 'width': width, 'height': height}]}), encoding='utf-8')
     source = textwrap.dedent('''
         from types import SimpleNamespace
         from PyQt6.QtCore import QCoreApplication, QEvent, QTimer, Qt
         from PyQt6.QtTest import QTest
         from PyQt6.QtWidgets import QApplication, QWidget, QStyleFactory, QDialogButtonBox
-        from src.application import app_updates
+        from src.infrastructure import app_updates
         from src.gui.update_dialog import UpdateDialog, InstallConfirmation
         from src.gui.i18n import language_manager, msg
         app = QApplication([])

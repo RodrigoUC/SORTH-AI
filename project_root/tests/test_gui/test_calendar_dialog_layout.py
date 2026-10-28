@@ -247,7 +247,7 @@ def test_validation_feedback_and_resizing_keep_focus_reachable(dialog, presentat
 
 
 def test_invalid_calendar_reveals_error_and_cancel_preserves_disk(window, presentation):
-    assert window._save_session()
+    assert window.session.save()
     before = Path(window._repo._db_path).read_bytes()
     dialog = CalendarDialog(window)
     dialog.setStyleSheet('QPushButton, QCheckBox, QLabel, QTimeEdit { font-size: 20pt; }')

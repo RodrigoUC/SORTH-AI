@@ -1,4 +1,5 @@
 """Availability is published only after the companion remains verified."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 import hashlib
 import json
 from pathlib import Path
@@ -10,7 +11,7 @@ import pytest
 from PyQt6.QtCore import QProcess
 from PyQt6.QtWidgets import QApplication
 
-from src.application import mcp_component
+from src.infrastructure import mcp_component
 from src.gui.mcp_availability import McpAvailabilityProbe
 
 
@@ -39,7 +40,7 @@ def installed_bundle(tmp_path, monkeypatch):
     directory.mkdir(parents=True)
     executable = directory / manifest['entrypoint']
     executable.write_bytes(payload)
-    (directory / mcp_component.MARKER).write_text(json.dumps(manifest))
+    (directory / mcp_component.MARKER).write_text(json.dumps(manifest), encoding='utf-8')
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     monkeypatch.setattr(mcp_component, '_load_context', lambda: context)
     report = dict(manifest, status='available', frozen=True)
@@ -147,13 +148,13 @@ def window(tmp_path):
     from src.infrastructure.session_repository import SessionRepository
     settings = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
     owner = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                       restore_session=False, feature_settings=settings)
+                       restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     yield owner
     owner.close()
 
 
 def test_dialog_close_retains_postprobe_verification_owner(window, installed_bundle, monkeypatch):
-    from src.application.mcp_preferences import enabled
+    from src.infrastructure.mcp_preferences import enabled
     from src.gui.settings_dialog import SettingsDialog
     context, executable, report = installed_bundle
     original_command = mcp_component.installed_command

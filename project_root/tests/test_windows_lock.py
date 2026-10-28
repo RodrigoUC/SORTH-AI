@@ -20,13 +20,13 @@ def test_lock_evaluates_windows_markers_even_on_linux(tmp_path):
         make_lock(tmp_path, tmp_path / 'lock.txt')
     dependency = wheel(tmp_path, 'windowsdep')
     assert make_lock(tmp_path, tmp_path / 'lock.txt') == 2
-    result = (tmp_path / 'lock.txt').read_text()
+    result = (tmp_path / 'lock.txt').read_text(encoding='utf-8')
     assert f'windowsdep==1.0 --hash=sha256:{hashlib.sha256(dependency.read_bytes()).hexdigest()}' in result
 
 
 def test_windows_lock_pins_all_entries_with_hashes():
     path = Path(__file__).resolve().parents[1] / 'requirements-windows.lock'
-    lines = [line for line in path.read_text().splitlines() if line and not line.startswith('#')]
+    lines = [line for line in path.read_text(encoding='utf-8').splitlines() if line and not line.startswith('#')]
     assert len(lines) >= 25
     for line in lines:
         name, checksum = line.split(' --hash=sha256:')
@@ -45,14 +45,14 @@ def test_lock_refuses_wrong_python_binary_wheel(tmp_path):
 
 def test_review_workflow_does_not_publish_or_use_write_tokens():
     root = Path(__file__).resolve().parents[2]
-    workflow = (root / '.github/workflows/windows-review.yml').read_text()
+    workflow = (root / '.github/workflows/windows-review.yml').read_text(encoding='utf-8')
     assert 'contents: read' in workflow
     assert 'persist-credentials: false' in workflow
     assert 'pull_request_target' not in workflow
     assert 'secrets.' not in workflow
     assert '--require-hashes' in workflow
     assert '--smoke-test' in workflow
-    assert 'source_commit' in (root / 'project_root/tools/package_windows.py').read_text()
+    assert 'source_commit' in (root / 'project_root/tools/package_windows.py').read_text(encoding='utf-8')
 
 def test_windows_lock_follows_requested_transitive_extras(tmp_path):
     def wheel(name, requirements=''):

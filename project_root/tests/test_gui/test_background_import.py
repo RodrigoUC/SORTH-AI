@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import sqlite3
 import threading
 import time
@@ -24,7 +26,7 @@ from tests.test_gui.import_helpers import wait_for_import
 @pytest.fixture
 def window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path/'preferences.ini'), QSettings.Format.IniFormat)
-    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
     w.classroom_restrictions = {'R': {'BIO'}}
@@ -34,7 +36,7 @@ def window(tmp_path, monkeypatch):
     w.current_groups[0].assignment = w.current_schedule['BIO-G1']
     w.pinned_group_ids = {'BIO-G1'}
     w.schedule_viewer.display_schedule(w.current_schedule, TimeModel.default(), w.current_groups)
-    w._save_session()
+    w.session.save()
     monkeypatch.setattr(QMessageBox, 'critical', lambda *args: None)
     # Tests in this module isolate the pre-existing import/preview contracts.
     # The mandatory identity review has its own real-modal regression coverage.
@@ -406,19 +408,20 @@ def test_import_materialization_failure_preserves_disk_and_live_state(window, tm
     assert session(window) == before
 
 
-@pytest.mark.parametrize('method', ['_invalidate_schedule', '_refresh_overview', '_update_save_state'])
+@pytest.mark.parametrize('method', ['_invalidate_schedule', '_refresh_overview', 'refresh_status'])
 def test_late_import_presentation_failure_rolls_back(window, tmp_path, monkeypatch, method):
     candidate = read_candidate(workbook(tmp_path/'replacement.xlsx', code='NEW'), lambda: False)
     before = session(window)
     disk = (tmp_path/'session.db').read_bytes()
-    original = getattr(window, method)
+    target = window.session if method == "refresh_status" else window
+    original = getattr(target, method)
     calls = []
     def once(*args, **kwargs):
         calls.append(True)
         if len(calls) == 1:
             raise RuntimeError('late presentation')
         return original(*args, **kwargs)
-    monkeypatch.setattr(window, method, once)
+    monkeypatch.setattr(target, method, once)
     with pytest.raises(RuntimeError, match='late presentation'):
         window._commit_import(candidate, set())
     assert (tmp_path/'session.db').read_bytes() == disk
@@ -575,7 +578,7 @@ def test_candidate_identity_is_separate_plain_keyboard_readable_and_localized(
     if accepted_session:
         window.excel_path = str(tmp_path / 'accepted.xlsx')
         window.excel_path_label.setText('accepted.xlsx')
-        window._save_session()
+        window.session.save()
     accepted_path, accepted_label = window.excel_path, window.excel_path_label.text()
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     entered, release = threading.Event(), threading.Event()
@@ -784,7 +787,7 @@ def test_warning_review_has_full_plain_candidate_identity_in_keyboard_details(
         pd.DataFrame({'Curso': ['BIO'], 'Aula': ['MISSING']}).to_excel(writer, sheet_name='Cursos', index=False)
     window.excel_path = str(tmp_path / 'accepted.xlsx')
     window.excel_path_label.setText('accepted.xlsx')
-    window._save_session()
+    window.session.save()
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     original_exec, observed = QMessageBox.exec, []
     def review(dialog):
@@ -886,7 +889,7 @@ def test_orphaned_resource_review_keeps_candidate_identity_and_default_cancel(wi
     from src.scheduling.teaching_resources import Resource, ResourceCatalog, SchedulingResources
     window.resources = SchedulingResources((ResourceCatalog('teacher', True,
         (Resource('teacher-local', 'Synthetic teacher'),), (('BIO-G1', ('teacher-local',)),)),))
-    window._save_session()
+    window.session.save()
     resources = window.resources
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     path = workbook(tmp_path / 'replacement & resources.xlsx', code='NEW')

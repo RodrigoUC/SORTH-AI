@@ -1,6 +1,6 @@
 import pytest
 
-from benchmark import benchmark_excel, run_once, validate_schedule
+from tools.benchmark_scheduler import benchmark_excel, run_once, validate_schedule
 from src.scheduling.classroom import Classroom
 from src.scheduling.course import Course
 

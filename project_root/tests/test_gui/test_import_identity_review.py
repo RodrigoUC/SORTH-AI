@@ -50,7 +50,7 @@ def prepare(window, tmp_path):
         (('BIO-G1', (f'{kind}-a',)), ('BIO-G2', (f'{kind}-b',))))
         for kind in ('teacher', 'student_group', 'student')))
     window.schedule_viewer.display_schedule(window.current_schedule, TimeModel.default(), groups)
-    assert window._save_session()
+    assert window.session.save()
     return path
 
 

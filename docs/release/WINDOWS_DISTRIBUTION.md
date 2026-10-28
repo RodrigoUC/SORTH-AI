@@ -24,7 +24,7 @@ python -m venv .venv-build
 
 Antes de compilar, ejecuta la [suite completa en cuatro procesos y su verificador](../development/WORKFLOW.md#suite-completa-en-cuatro-procesos), usando `.\.venv-build\Scripts\python.exe` en todos los comandos y la configuración offscreen/fuentes de Windows indicada allí. Comprueba cada código de salida; la verificación de inventarios no sustituye el resultado de los tests.
 
-El lock de Windows fija 29 paquetes transitivos y sus hashes de wheels para CPython 3.12 x64; incluye pruebas, PDF y PyInstaller. `requirements.txt` fija las dependencias directas de ejecución; `requirements-dev.txt` añade pruebas y documentación. `requeriments.txt` conserva el nombre histórico como alias de desarrollo. No instalar el lock de Windows en Linux o macOS.
+El lock de Windows fija 29 paquetes transitivos y sus hashes de wheels para CPython 3.12 x64; incluye pruebas, PDF y PyInstaller. `requirements.txt` fija las dependencias directas de ejecución; `requirements-dev.txt` añade pruebas y documentación. No instalar el lock de Windows en Linux o macOS.
 
 La resolución de dependencias es reproducible; esto no promete ejecutables idénticos byte por byte ni demuestra ausencia de vulnerabilidades. La imagen `windows-2025` del runner sigue recibiendo actualizaciones. Guardar el inventario y revisar cambios del lock antes de aprobarlos.
 

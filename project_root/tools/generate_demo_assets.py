@@ -57,7 +57,7 @@ def demo_data():
                 'Modelos y patrones', 'Exploración de datos', 'Trabajo colaborativo',
                 'Sistemas y procesos', 'Presentación de ideas', 'Taller de prototipos',
                 'Proyecto integrador', 'Laboratorio de modelos', 'Laboratorio de prototipos']
-    rows, config = [], []
+    rows = []
     days = ['L', 'I', 'M', 'J', 'V', 'S']
     for index, subject in enumerate(subjects):
         code = f'DEM{101 + index}' + ('L' if index >= 10 else '')
@@ -66,10 +66,8 @@ def demo_data():
         end = '1400' if duration == 6 else ('0930' if duration == 1.5 else '1000')
         for group in range(3):
             rows.append([code, f'{subject} (ejemplo)', 1, '0800-' + end, room, days[(index + group * 2) % 6]])
-        config.append({'code': code, 'name': f'{subject} (ejemplo)', 'number_of_groups': 3,
-                       'duration': duration, 'suggested_classroom': room})
     return {'Aulas': [['# DE AULA', 'DESCRIPCIÓN', 'CAMPUS', 'CAPACIDAD', 'CAPACIDAD 80%']] + rooms,
-            'Cursos': [['Curso', 'Nombre de Curso', 'Cantidad de Grupos', 'Horas', 'Aula', 'Días']] + rows}, {'courses': config}
+            'Cursos': [['Curso', 'Nombre de Curso', 'Cantidad de Grupos', 'Horas', 'Aula', 'Días']] + rows}
 
 
 def generate(root=ROOT):
@@ -78,10 +76,8 @@ def generate(root=ROOT):
     (root / 'data/input').mkdir(parents=True, exist_ok=True)
     (root / 'assets/sorth.svg').write_bytes(icon_svg())
     (root / 'assets/sorth.ico').write_bytes(icon_ico())
-    (root / 'schedule-board.png').write_bytes(icon_png(256))
-    sheets, config = demo_data()
-    for name, data in [('demo_source.json', sheets), ('courses_config.json', config)]:
-        (root / 'data/input' / name).write_bytes((json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+    sheets = demo_data()
+    (root / 'data/input/demo_source.json').write_bytes((json.dumps(sheets, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
 
 
 if __name__ == '__main__':

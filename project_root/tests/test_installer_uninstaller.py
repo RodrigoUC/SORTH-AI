@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_lifecycle_uses_registered_build_and_native_paths():
-    script = (ROOT / 'tools/test_installer.ps1').read_text()
+    script = (ROOT / 'tools/test_installer.ps1').read_text(encoding='utf-8')
     assert 'SORTH-$($info.build_id)_is1' in script
     assert "if (Test-Path -LiteralPath $uninstallKey) { throw" in script
     assert '(Get-Item -LiteralPath $exe -ErrorAction Stop).FullName' in script
@@ -26,7 +26,7 @@ def test_lifecycle_uses_registered_build_and_native_paths():
 
 
 def test_resolver_never_executes_registry_commands_or_guesses():
-    script = (ROOT / 'tools/installer_test_helpers.ps1').read_text()
+    script = (ROOT / 'tools/installer_test_helpers.ps1').read_text(encoding='utf-8')
     assert 'Invoke-Expression' not in script
     assert 'Start-Process' not in script
     assert 'Get-ChildItem' not in script

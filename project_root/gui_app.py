@@ -34,7 +34,7 @@ def _set_windows_app_id() -> None:
 
 def main():
     if "--recover-session" in sys.argv:
-        from src.application.recovery_command import run
+        from src.bootstrap.recovery_command import run
         sys.exit(run(sys.argv[1:]))
     _set_windows_app_id()
     app = QApplication(sys.argv)
@@ -49,7 +49,7 @@ def main():
 
     if "--smoke-test" in sys.argv:
         import argparse
-        from src.application.packaged_smoke import run_smoke_test
+        from src.bootstrap.packaged_smoke import run_smoke_test
         parser = argparse.ArgumentParser(description="Validate SORTH in an isolated session")
         parser.add_argument("--smoke-test", action="store_true")
         parser.add_argument("--smoke-output", type=Path, required=True)
@@ -60,7 +60,7 @@ def main():
     # Ownership must precede all repository creation, migration and restore.
     # Keep the lock alive through the event loop, including close-time saves.
     from src.infrastructure.session_repository import SessionRepository
-    from src.infrastructure.gui_session_lock import acquire_gui_session_lock
+    from src.gui.session_lock import acquire_gui_session_lock
     from src.gui.i18n import msg
     try:
         session_lock = acquire_gui_session_lock(SessionRepository.default_path())
@@ -82,8 +82,8 @@ def main():
     finally:
         session_lock.unlock()
     if window._update_close_accepted and window._pending_update_installer is not None:
-        from src.application.update_launch import launch_pending_update
-        from src.application.app_updates import discard_download
+        from src.infrastructure.update_launch import launch_pending_update
+        from src.infrastructure.app_updates import discard_download
         download, window._pending_update_installer = window._pending_update_installer, None
         try:
             # The hash is checked again after the event loop and session lock

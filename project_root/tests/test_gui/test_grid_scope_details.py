@@ -121,7 +121,7 @@ def test_actual_export_rows_unaffected_by_local_room(app, tmp_path, monkeypatch,
     saved = tmp_path / f'filtered.{extension}'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(saved), ''))
     def exported_ids():
-        window._export_schedule(filtered=True)
+        window.export.save(filtered=True)
         if extension == 'csv':
             with saved.open(encoding='utf-8-sig', newline='') as handle:
                 return {row['Grupo'] for row in csv.DictReader(handle)}

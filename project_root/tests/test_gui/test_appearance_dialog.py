@@ -1,4 +1,5 @@
 """Native preview, local import, explicit commit and compact keyboard contracts."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 import json
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def manager(tmp_path):
 def window(tmp_path, manager):
     settings = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                        restore_session=False, feature_settings=settings)
+                        restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     yield window
     window.close()
 

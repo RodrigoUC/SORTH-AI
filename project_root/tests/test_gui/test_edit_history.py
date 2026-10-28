@@ -1,3 +1,6 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
+from tests.feature_preferences import enable_features
 from copy import deepcopy
 import pytest
 from PyQt6.QtCore import QSettings
@@ -14,8 +17,8 @@ from src.scheduling.course import Course
 def window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path/'settings.ini'), QSettings.Format.IniFormat)
     for key in ('undo_redo', 'pinned_sessions'):
-        settings.setValue('features/'+key, True)
-    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+        enable_features(settings, key)
+    w = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 30, 'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR', size=20)])
     w._on_schedule_done({'BIO-G1': ('R', 1, 480, 540)}, w.course_manager.courses[0].generate_groups())
@@ -82,7 +85,7 @@ def test_hiding_preserves_history_external_edits_invalidate(window):
     window._apply_feature_preferences()
     assert window._travel_history(True)
     window.seed_input.setValue(21)
-    window._save_session()
+    window.session.save()
     assert not window._history.can_redo
 
 
@@ -117,7 +120,7 @@ def test_viewer_remove_failure_and_restore_reset(window, monkeypatch):
     assert window.schedule_viewer._assignments == window.current_schedule
     window._on_group_removed('BIO-G1')
     assert window._history.can_undo
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
     assert not window._history.can_undo
     assert window._history.reset_reason == 'restore'
 
@@ -221,14 +224,14 @@ def test_postcommit_presentation_failure_is_saved_and_locked_not_rolled_back(win
 
 
 def test_no_duplicate_save_state_setter_after_commit(window, monkeypatch):
-    original = window._update_save_state
+    original = window.session.refresh_status
     calls = []
     def second_fails():
         calls.append(True)
         if len(calls) == 2:
             raise RuntimeError('redundant postcommit renderer')
         original()
-    monkeypatch.setattr(window, '_update_save_state', second_fails)
+    monkeypatch.setattr(window.session, 'refresh_status', second_fails)
     assert window._commit_course_edit([], 'delete')
     assert calls == [True]
     assert window._repo.load_session()['courses'] == []
@@ -273,7 +276,7 @@ def test_full_view_filters_focus_selection_preserved_on_pin_and_failed_undo(wind
 def test_persistent_feedback_failure_preserves_old_state_and_disables_editing(window, monkeypatch):
     before = fingerprint(window._capture_edit_state())
     before_db = fingerprint(window._repo.load_session())
-    monkeypatch.setattr(window, '_update_save_state', lambda: (_ for _ in ()).throw(RuntimeError('persistent label failure')))
+    monkeypatch.setattr(window.session, 'refresh_status', lambda: (_ for _ in ()).throw(RuntimeError('persistent label failure')))
     assert not window._commit_course_edit([], 'delete')
     assert fingerprint(window._capture_edit_state()) == before
     assert fingerprint(window._repo.load_session()) == before_db
@@ -413,7 +416,7 @@ def test_combined_calendar_resource_manual_history_reopen_and_export(window, tmp
         consistent()
     assert session_fingerprint(window._repo.load_session()) == final
 
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
     assert not window._restore_failed
     consistent()
     assert session_fingerprint(window._repo.load_session()) == final

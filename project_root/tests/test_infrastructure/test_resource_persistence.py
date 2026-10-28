@@ -38,21 +38,6 @@ def test_partial_save_restore_scenario_and_disabled_roundtrip(tmp_path,kind):
     assert catalog.read(scenario)[0]['resources']==snapshot['resources']
 
 
-def test_migration_from_schema2_backup_is_readable_and_preserves_pins(tmp_path):
-    path=tmp_path/'session.db';repo=SessionRepository(str(path))
-    values=payload(); values.pop('resources')
-    repo.save_session(**values,pinned_group_ids=set(values['assignments']))
-    with sqlite3.connect(path) as con:
-        con.execute('DROP TABLE scheduling_resources');con.execute('PRAGMA user_version=2')
-    migrated=SessionRepository(str(path))
-    assert migrated.schema_backup is not None
-    with sqlite3.connect(migrated.schema_backup) as con:
-        assert con.execute('PRAGMA user_version').fetchone()[0]==2
-        assert con.execute('SELECT COUNT(*) FROM assignments WHERE pinned=1').fetchone()[0]==1
-    loaded=migrated.load_session()
-    assert loaded['resources']==SchedulingResources()
-    assert loaded['pinned_group_ids']==set(values['assignments'])
-    with sqlite3.connect(path) as con: assert con.execute('PRAGMA user_version').fetchone()[0]==SessionRepository.SCHEMA_VERSION
 
 
 def test_invalid_resource_save_preserves_last_transaction(tmp_path):
@@ -147,20 +132,6 @@ def test_missing_resource_table_is_not_recreated_in_saved_schema3(tmp_path):
     assert path.read_bytes()==before
 
 
-@pytest.mark.parametrize('legacy_version',[0,1,2])
-def test_only_legacy_migration_initializes_explicit_empty_contract(tmp_path,legacy_version):
-    path=tmp_path/'session.db';repo=SessionRepository(str(path));values=payload();values.pop('resources');repo.save_session(**values)
-    with sqlite3.connect(path) as con:
-        con.execute('DROP TABLE scheduling_resources');con.execute(f'PRAGMA user_version={legacy_version}')
-    migrated=SessionRepository(str(path))
-    assert migrated.schema_backup is not None
-    with sqlite3.connect(migrated.schema_backup) as con:
-        assert con.execute('PRAGMA user_version').fetchone()[0]==legacy_version
-        assert not con.execute("SELECT 1 FROM sqlite_master WHERE name='scheduling_resources'").fetchone()
-    with sqlite3.connect(path) as con:
-        rows=con.execute('SELECT id,payload FROM scheduling_resources').fetchall()
-        assert rows==[(1,json.dumps(SchedulingResources().to_data()))]
-    assert migrated.load_session()['resources']==SchedulingResources()
 
 
 def test_current_schema_unknown_reference_reopen_and_save_are_readonly(tmp_path):

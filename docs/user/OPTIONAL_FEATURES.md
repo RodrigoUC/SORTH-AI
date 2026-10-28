@@ -50,14 +50,14 @@ only displays copyable configuration and links; it does not modify other apps.
 ## Extension contract
 
 `src/application/optional_features.py` contains the Qt-free feature registry;
-`src/gui/features.py` provides the desktop atomic preference store. Each `Feature`
+`src/infrastructure/feature_preferences.py` coordinates the shared atomic JSON preference store. Each `Feature`
 has a stable key, localized Spanish-source title and localized description.
 The JSON stores a schema version and a `features` object. Only boolean values
 are valid for known keys; unknown keys stay preserved but inactive. Malformed or
 future-format files block ordinary saves without overwriting bytes. Settings
 shows an explicit recovery action: it keeps an exact `.preserved-*.bak` copy of
-an existing JSON file before resetting optional tools to off. Legacy QSettings
-errors also block migration; explicit recovery leaves that source untouched.
+an existing JSON file before resetting optional tools to off. QSettings is used
+only for presentation preferences; it never supplies feature flags or permissions.
 Saving changes only registered keys, preserving future keys. Add a registry entry only together with
 working controls and behavior, never as a placeholder for an unfinished feature.
 

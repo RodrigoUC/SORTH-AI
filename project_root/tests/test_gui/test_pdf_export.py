@@ -31,7 +31,7 @@ def test_pdf_gui_full_filtered_selected_format_and_scope(app, tmp_path, monkeypa
             return str(selected), 'PDF documents (*.pdf)'
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', choose)
         monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-        window._export_schedule(filtered=True)
+        window.export.save(filtered=True)
         path = selected.with_suffix('.pdf')
         output = content(path)
         assert ('Filtered view' if language == 'en' else 'Vista filtrada') in output
@@ -42,7 +42,7 @@ def test_pdf_gui_full_filtered_selected_format_and_scope(app, tmp_path, monkeypa
         assert 'Biología marina' in output
         assert 'BIO-G2' not in output
         monkeypatch.setattr(QMessageBox, 'exec', lambda *a: QMessageBox.StandardButton.Yes)
-        window._export_schedule()
+        window.export.save()
         output = content(path)
         assert ('All assignments' if language == 'en' else 'Todas las asignaciones') in output
         assert ('4 exported of 4 assigned' if language == 'en' else '4 exportadas de 4 asignadas') in output
@@ -63,19 +63,19 @@ def test_pdf_gui_cancel_error_and_empty_filter(app, tmp_path, monkeypatch):
         called = []
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: ('', 'PDF documents (*.pdf)'))
         monkeypatch.setattr(ScheduleExporter, 'to_pdf', lambda *a, **k: called.append(k))
-        window._export_schedule()
+        window.export.save()
         assert not called
         path = tmp_path / 'failed.pdf'
         notices = []
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: (str(path), ''))
         monkeypatch.setattr(_InfoDialog, 'exec', lambda self: notices.append(self.windowTitle()))
         monkeypatch.setattr(ScheduleExporter, 'to_pdf', lambda *a, **k: (_ for _ in ()).throw(PermissionError('locked')))
-        window._export_schedule()
+        window.export.save()
         assert notices == ['Error'] and not path.exists()
         window.schedule_viewer._list_search.setText('no matches anywhere')
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: pytest.fail('Empty export opened picker'))
         monkeypatch.setattr(QMessageBox, 'information', lambda *a: None)
-        window._export_schedule(filtered=True)
+        window.export.save(filtered=True)
         assert window.current_schedule == before
     finally:
         window.close()

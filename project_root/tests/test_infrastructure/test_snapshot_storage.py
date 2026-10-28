@@ -1,4 +1,5 @@
 import sqlite3
+import pytest
 from src.infrastructure.session_repository import SessionRepository
 from src.infrastructure.project_repository import ProjectRepository
 from src.application.scenario_comparison import scenario_metadata
@@ -20,28 +21,13 @@ def test_pins_and_exceptions_survive_immutable_duplicate(tmp_path):
         assert saved['pinned_group_ids']==saved['lab_overrides']=={'A-G1'}
         assert saved['assignments']=={'A-G1':('R',1,480,540)}
 
-def test_old_snapshot_read_migrates_expendable_copy_only(tmp_path):
-    repo=SessionRepository(str(tmp_path/'legacy.db'))
-    repo.save_session(None,42,{},[],{}, {})
-    with sqlite3.connect(repo._db_path) as db:
-        db.execute('ALTER TABLE assignments DROP COLUMN pinned')
-        db.execute('PRAGMA user_version=1')
-    legacy=(tmp_path/'legacy.db').read_bytes()
-    catalog=ProjectRepository(tmp_path/'projects.db')
-    _,sid=catalog.create_project('Project','Old',repo,scenario_metadata())
-    assert (tmp_path/'legacy.db').read_bytes()==legacy
-    before=(tmp_path/'projects.db').read_bytes()
-    saved,_=catalog.read(sid)
-    assert saved['pinned_group_ids']==set()
-    assert (tmp_path/'projects.db').read_bytes()==before
-
-
-def test_future_snapshot_read_preserves_catalog_and_source(tmp_path):
+@pytest.mark.parametrize('version', [1, 4, 999])
+def test_unsupported_snapshot_preserves_catalog_and_source(tmp_path, version):
     repo=SessionRepository(str(tmp_path/'future.db'))
     repo.save_session(None,42,{},[],{}, {})
     catalog=ProjectRepository(tmp_path/'projects.db')
     _,sid=catalog.create_project('Project','One',repo,scenario_metadata())
-    with sqlite3.connect(repo._db_path) as db: db.execute('PRAGMA user_version=999')
+    with sqlite3.connect(repo._db_path) as db: db.execute(f'PRAGMA user_version={version}')
     blob=(tmp_path/'future.db').read_bytes()
     with sqlite3.connect(catalog.path) as db: db.execute('UPDATE scenarios SET snapshot=? WHERE id=?',(blob,sid))
     before=catalog.path.read_bytes()

@@ -30,7 +30,7 @@ def fail(*args, **kwargs):
 
 def test_failed_save_retains_state_after_other_status_messages(window, monkeypatch):
     monkeypatch.setattr(window._repo, "save_session", fail)
-    assert not window._save_session()
+    assert not window.session.save()
     window.status_bar.showMessage("Another successful action")
     assert window._unsaved
     assert window._save_state_label.text() == "Cambios sin guardar"
@@ -42,7 +42,7 @@ def test_failed_save_retains_state_after_other_status_messages(window, monkeypat
                                                 (QMessageBox.StandardButton.Discard, True)])
 def test_failed_save_close_requires_explicit_choice(window, monkeypatch, choice, accepted):
     monkeypatch.setattr(window._repo, "save_session", fail)
-    window._save_session()
+    window.session.save()
     calls = []
     def prompt(*args):
         calls.append(args)
@@ -59,7 +59,7 @@ def test_close_retry_succeeds_without_losing_pending_changes(window, monkeypatch
     real_save = window._repo.save_session
     window.course_manager.load_courses_from_excel([Course("NEW", 1, 60, "REGULAR")])
     monkeypatch.setattr(window._repo, "save_session", fail)
-    window._save_session()
+    window.session.save()
     def prompt(*args):
         monkeypatch.setattr(window._repo, "save_session", real_save)
         return QMessageBox.StandardButton.Retry
@@ -75,11 +75,11 @@ def test_close_retry_succeeds_without_losing_pending_changes(window, monkeypatch
 def test_retry_button_clears_failure_only_after_success(window, monkeypatch):
     real_save = window._repo.save_session
     monkeypatch.setattr(window._repo, "save_session", fail)
-    window._save_session()
-    assert not window._retry_session()
+    window.session.save()
+    assert not window.session.retry()
     assert window._save_error
     monkeypatch.setattr(window._repo, "save_session", real_save)
-    assert window._retry_session()
+    assert window.session.retry()
     assert not window._unsaved
     assert window._retry_save_button.isHidden()
 
@@ -101,7 +101,7 @@ def test_new_edits_after_declining_restore_keep_backup(app, tmp_path, monkeypatc
     monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Rejected)
     win = MainWindow(repo)
     win.course_manager.load_courses_from_excel([Course("NEW", 1, 60, "REGULAR")])
-    assert win._save_session()
+    assert win.session.save()
     backups = list(tmp_path.glob("previous-session-*"))
     assert len(backups) == 1
     assert SessionRepository(str(backups[0])).load_session()["courses"][0].code == "OLD"
@@ -117,7 +117,7 @@ def test_corrupt_startup_shows_error_and_never_writes(app, tmp_path, monkeypatch
     assert win._restore_failed
     assert not win.btn_load.isEnabled()
     assert win._save_state_label.text() == "Sesión no disponible"
-    assert not win._retry_session()
+    assert not win.session.retry()
     assert path.read_bytes() == b"unreadable session"
     win.close()
 
@@ -126,17 +126,17 @@ def test_failed_load_blocks_save_until_readable(window, monkeypatch):
     real_load = window._repo.load_session
     monkeypatch.setattr(window._repo, "has_session", lambda: True)
     monkeypatch.setattr(window._repo, "load_session", fail)
-    window._restore_session_if_exists()
+    window.session.restore()
     assert window._restore_failed
-    assert not window._save_session()
+    assert not window.session.save()
     assert window._repo.load_session == fail
     monkeypatch.setattr(window._repo, "load_session", real_load)
     monkeypatch.setattr(window._repo, "has_session", lambda: False)
-    assert not window._retry_session()
+    assert not window.session.retry()
     assert window._restore_failed and not window.btn_load.isEnabled()
     window._repo.save_session(None, 5, {}, [], {}, None)
     monkeypatch.setattr(window._repo, "has_session", lambda: True)
-    assert window._retry_session()
+    assert window.session.retry()
     assert not window._restore_failed
     assert window.btn_load.isEnabled()
 
@@ -151,7 +151,7 @@ def test_retry_materializes_before_unlocking(window, monkeypatch, tmp_path, reje
     before = (tmp_path / 'session.db').read_bytes()
     render = window.course_manager.load_courses_from_excel
     monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
-    window._restore_session_if_exists(confirm=False)
+    window.session.restore(confirm=False)
     assert window._restore_failed and window._busy
     assert not window.course_manager.get_courses() and set(window._classrooms) == {'R'}
     prompts = []
@@ -159,12 +159,12 @@ def test_retry_materializes_before_unlocking(window, monkeypatch, tmp_path, reje
         prompts.append(dialog)
         return QDialog.DialogCode.Rejected if reject_prompt else QDialog.DialogCode.Accepted
     monkeypatch.setattr(QDialog, 'exec', prompt)
-    assert not window._retry_session()
+    assert not window.session.retry()
     assert window._restore_failed and window._busy and not window.btn_load.isEnabled()
-    assert not window._save_session()
+    assert not window.session.save()
     assert (tmp_path / 'session.db').read_bytes() == before
     monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', render)
-    assert window._retry_session()
+    assert window.session.retry()
     assert not prompts  # Retry itself already authorizes restoration.
     assert not window._restore_failed and not window._busy
     assert [c.code for c in window.course_manager.get_courses()] == ['BIO']
@@ -172,19 +172,19 @@ def test_retry_materializes_before_unlocking(window, monkeypatch, tmp_path, reje
     assert (tmp_path / 'session.db').read_bytes() == before
     window.seed_input.setValue(22)
     assert [c.code for c in repo.load_session()['courses']] == ['BIO']
-    assert window._retry_session()
+    assert window.session.retry()
     assert not list(tmp_path.glob('previous-session-*'))
 
 
 def test_missing_session_after_partial_restore_stays_locked(window, monkeypatch, tmp_path):
     window._repo.save_session(None, 5, {}, [Course('BIO', 1, 60, 'REGULAR')], {}, None)
     monkeypatch.setattr(window.course_manager, 'load_courses_from_excel', fail)
-    window._restore_session_if_exists(confirm=False)
+    window.session.restore(confirm=False)
     before = (tmp_path / 'session.db').read_bytes()
     monkeypatch.setattr(window._repo, 'has_session', lambda: False)
-    assert not window._retry_session()
+    assert not window.session.retry()
     assert window._restore_failed and window._busy
-    assert not window._save_session()
+    assert not window.session.save()
     assert (tmp_path / 'session.db').read_bytes() == before
 
 
@@ -193,7 +193,7 @@ def test_missing_session_after_partial_restore_stays_locked(window, monkeypatch,
 def test_postcommit_comparison_failure_is_saved_and_read_only_retry(window, monkeypatch, tmp_path, comparison_error):
     from src.application.scenario_comparison import session_fingerprint
     window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
-    assert window._save_session()
+    assert window.session.save()
     window._scenario_name = 'Baseline'
     window._scenario_baseline = session_fingerprint(window._repo.load_session())
     load, save = window._repo.load_session, window._repo.save_session
@@ -205,7 +205,7 @@ def test_postcommit_comparison_failure_is_saved_and_read_only_retry(window, monk
         saves.append(kwargs)
         monkeypatch.setattr(window._repo, 'load_session', failed_comparison)
     monkeypatch.setattr(window._repo, 'save_session', committed_save)
-    assert window._save_session()  # Persistence succeeded even if comparison did not.
+    assert window.session.save()  # Persistence succeeded even if comparison did not.
     assert not window._unsaved and window._save_error is None
     assert window._scenario_comparison_error
     assert 'Comparación pendiente' in window._save_state_label.text()
@@ -214,12 +214,12 @@ def test_postcommit_comparison_failure_is_saved_and_read_only_retry(window, monk
     assert not window._retry_save_button.isHidden()
     before = (tmp_path / 'session.db').read_bytes()
     for _ in range(2):
-        assert not window._retry_session()
+        assert not window.session.retry()
     assert len(saves) == 1 and not window._unsaved
     assert (tmp_path / 'session.db').read_bytes() == before
     assert not list(tmp_path.glob('previous-session-*'))
     monkeypatch.setattr(window._repo, 'load_session', load)
-    assert window._retry_session()
+    assert window.session.retry()
     assert len(saves) == 1
     assert window._scenario_comparison_error is None and not window._scenario_dirty
     assert window._retry_save_button.isHidden()
@@ -228,23 +228,23 @@ def test_postcommit_comparison_failure_is_saved_and_read_only_retry(window, monk
     window.seed_input.setValue(window.seed_input.value() + 1)
     assert len(saves) == 2 and not window._unsaved and window._save_error is None
     monkeypatch.setattr(window._repo, 'load_session', load)
-    assert window._retry_session()
+    assert window.session.retry()
     assert window._scenario_dirty
 
 
 def test_unsaved_changes_take_precedence_over_pending_comparison(window, monkeypatch):
     from src.application.scenario_comparison import session_fingerprint
-    assert window._save_session()
+    assert window.session.save()
     window._scenario_name = 'Baseline'
     window._scenario_baseline = session_fingerprint(window._repo.load_session())
     window._scenario_comparison_error = 'Comparison pending'
     save = window._repo.save_session
     monkeypatch.setattr(window._repo, 'save_session', fail)
-    assert not window._save_session()
+    assert not window.session.save()
     assert window._unsaved and window._save_error
-    assert not window._retry_session()
+    assert not window.session.retry()
     monkeypatch.setattr(window._repo, 'save_session', save)
-    assert window._retry_session()
+    assert window.session.retry()
     assert not window._unsaved and window._save_error is None
     assert window._scenario_comparison_error is None
     assert not window._scenario_dirty
@@ -262,7 +262,7 @@ def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeyp
     manager, previous_language = language_manager(), language_manager().language
     manager.set_language(language, persist=False)
     try:
-        assert window._save_session()
+        assert window.session.save()
         window._scenario_name = 'Baseline'
         window._scenario_baseline = session_fingerprint(window._repo.load_session())
         load, save = window._repo.load_session, window._repo.save_session
@@ -272,7 +272,7 @@ def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeyp
             save(**kwargs)
             monkeypatch.setattr(window._repo, 'load_session', comparison_failure)
         monkeypatch.setattr(window._repo, 'save_session', commit_then_fail_comparison)
-        assert window._save_session()
+        assert window.session.save()
         manager.set_language(display_language, persist=False)
         explanation = window._scenario_comparison_error.render()
         window.status_bar.showMessage('Unrelated status')
@@ -305,7 +305,7 @@ def test_f6_retains_comparison_explanation_until_read_only_retry(window, monkeyp
         assert not window._unsaved and window._save_error is None
         monkeypatch.setattr(window._repo, 'load_session', load)
         monkeypatch.setattr(window._repo, 'save_session', lambda **kwargs: pytest.fail('Retry wrote saved data'))
-        assert window._retry_session()
+        assert window.session.retry()
         window.status_bar.showMessage('Another unrelated status')
         recovered = read_status()
         assert explanation not in recovered and 'temporary comparison read failure' not in recovered

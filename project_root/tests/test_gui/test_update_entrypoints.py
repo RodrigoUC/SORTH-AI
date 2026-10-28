@@ -1,4 +1,5 @@
 """Opt-in boundaries, transactional Settings and safe update close ownership."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
@@ -8,7 +9,7 @@ import pytest
 from PyQt6.QtCore import QObject, QSettings, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
-from src.application import app_updates, update_launch
+from src.infrastructure import app_updates, update_launch
 from src.application.scenario_comparison import session_fingerprint
 from src.gui import update_startup, update_dialog
 from src.gui.main_window import MainWindow
@@ -24,7 +25,7 @@ from src.scheduling.course import Course
 def window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
     owner = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                       restore_session=False, feature_settings=settings)
+                       restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Cancel)
     yield owner
     owner._pending_update_installer = None
@@ -195,7 +196,7 @@ def test_settings_update_entrypoint_never_saves_pending_preferences(window, monk
 def test_install_close_refuses_busy_or_recovery_and_discards_download(window, monkeypatch, guard):
     discarded = []
     monkeypatch.setattr(app_updates, 'discard_download', discarded.append)
-    monkeypatch.setattr(window, '_save_session', lambda: pytest.fail('Must not save during work/recovery'))
+    monkeypatch.setattr(window.session, 'save', lambda: pytest.fail('Must not save during work/recovery'))
     pending = window._pending_update_installer = object()
     window.show()
     setattr(window, guard, True)
@@ -218,7 +219,7 @@ def test_install_close_requires_packaged_windows(window, monkeypatch):
 
 @pytest.mark.parametrize('kind', ['generation', 'import'])
 def test_install_close_refuses_workers_with_queued_delivery(window, monkeypatch, kind):
-    monkeypatch.setattr(window, '_save_session', lambda: pytest.fail('Worker still owns pending delivery'))
+    monkeypatch.setattr(window.session, 'save', lambda: pytest.fail('Worker still owns pending delivery'))
     owner, attribute = (window, '_worker') if kind == 'generation' else (window._import, 'worker')
     setattr(owner, attribute, object())
     window._pending_update_installer = object()
@@ -239,7 +240,7 @@ def test_install_close_failure_keeps_window_without_discard_session_route(window
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args))
     pending = window._pending_update_installer = object()
     if failure == 'save':
-        monkeypatch.setattr(window, '_save_session', lambda: False)
+        monkeypatch.setattr(window.session, 'save', lambda: False)
     elif failure == 'backup':
         monkeypatch.setattr(window._repo, 'backup_session',
                             lambda: (_ for _ in ()).throw(OSError('Synthetic failure')))
@@ -273,7 +274,7 @@ def test_install_close_saves_and_validates_backup_even_without_dirty_flag(window
 def test_failed_update_backup_preserves_saved_session_and_scenario_identity(window, monkeypatch):
     window._classrooms = {'ROOM': Classroom('ROOM', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('SYNTHETIC', 1, 60, 'REGULAR')])
-    assert window._save_session()
+    assert window.session.save()
     before = session_fingerprint(window._repo.load_session())
     window._scenario_name = 'Synthetic scenario'
     window._scenario_id = 'synthetic-id'
@@ -299,7 +300,7 @@ def test_failed_update_backup_preserves_saved_session_and_scenario_identity(wind
 def test_main_launches_only_after_safe_close_event_loop_and_session_unlock(
         window, monkeypatch, accepted, launch_fails):
     import gui_app
-    from src.infrastructure import gui_session_lock
+    from src.gui import session_lock as gui_session_lock
 
     app = QApplication.instance()
     events, warnings, discarded = [], [], []
@@ -341,7 +342,7 @@ def test_main_launches_only_after_safe_close_event_loop_and_session_unlock(
 
 def test_main_starts_saved_opt_in_only_after_window_show(window, monkeypatch):
     import gui_app
-    from src.infrastructure import gui_session_lock
+    from src.gui import session_lock as gui_session_lock
 
     enable_notice(window)
     app = QApplication.instance()

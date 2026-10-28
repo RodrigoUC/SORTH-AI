@@ -84,7 +84,7 @@ def test_each_atomic_interval_has_exactly_the_active_sessions():
 
 
 def test_course_colors_are_stable_palette_members_in_any_lookup_order():
-    from src.scheduling.schedule_grid import COURSE_COLORS, course_color
+    from src.scheduling.course_style import COURSE_COLORS, course_color
     codes = ['BIO', 'ÁLGEBRA', 'A', 'Z', 'BIO-long-code']
     forward = {code: course_color(code) for code in codes}
     reverse = {code: course_color(code) for code in reversed(codes)}

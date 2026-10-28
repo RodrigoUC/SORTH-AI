@@ -8,8 +8,7 @@ not approve publication, legal compliance, signing, or production use.
 - `project_root/VERSION` is the package version; `build_id` combines it with the
   exact 12-character source identifier, and `source_commit` retains all 40 hex
   characters. The EXE ProductVersion, ZIP, installer and build manifests carry
-  this identity. Rebuild instructions use `build_exe.ps1`; the legacy spec alone
-  is not the release entry point. ZIP member times are normalized, but bitwise
+  this identity. The only desktop build entry point is `build_exe.ps1`. ZIP member times are normalized, but bitwise
   reproducibility of PyInstaller/compiler output is not claimed.
 - `build-info.json` enumerates every bundled app file, size and SHA-256, including
   native DLLs/plugins. This enables component mapping; it does not supply missing

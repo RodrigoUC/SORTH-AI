@@ -81,7 +81,7 @@ def main(argv=None):
                     assignment_order_sha256=expected[1], exact_results_verified=True,
                     hard_constraints_verified=True)
         report['results'].append(item)
-        options.out.write_text(json.dumps(report, indent=2) + '\n')
+        options.out.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         print(json.dumps(item), flush=True)
 
 

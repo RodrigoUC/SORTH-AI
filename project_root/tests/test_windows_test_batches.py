@@ -185,9 +185,9 @@ def test_real_pytest_batches_capture_skips_failures_and_distinct_junit(tmp_path)
         assert result.returncode == (1 if batch in ("gui", "gui-layout", "theme-runtime") else 0), result.stdout + result.stderr
     expected_counts = {"all": 23, "gui": 5, "gui-layout": 12, "theme-runtime": 4, "remaining": 2}
     assert verify_inventories(tmp_path) == expected_counts
-    full = json.loads((tmp_path / "tests-all-inventory.json").read_text())["nodeids"]
+    full = json.loads((tmp_path / "tests-all-inventory.json").read_text(encoding='utf-8'))["nodeids"]
     for batch in BATCHES:
-        selected = json.loads((tmp_path / f"tests-{batch}-inventory.json").read_text())["nodeids"]
+        selected = json.loads((tmp_path / f"tests-{batch}-inventory.json").read_text(encoding='utf-8'))["nodeids"]
         assert selected == [nodeid for nodeid in full if batch_for_nodeid(nodeid) == batch]
     layout_report = ET.parse(tmp_path / "tests-gui-layout.xml").getroot()
     assert len(layout_report.findall(".//testcase")) == 12
@@ -208,7 +208,7 @@ def test_real_pytest_batches_capture_skips_failures_and_distinct_junit(tmp_path)
         capture_output=True, text=True, timeout=10,
     )
     assert verified.returncode == 0, verified.stdout + verified.stderr
-    assert json.loads((tmp_path / "test-batches-verified.json").read_text()) == expected_counts
+    assert json.loads((tmp_path / "test-batches-verified.json").read_text(encoding='utf-8')) == expected_counts
     (tmp_path / "tests-remaining-inventory.json").unlink()
     missing = subprocess.run(
         [sys.executable, str(root / "tools/windows_test_batches.py"), "--verify", str(tmp_path)],

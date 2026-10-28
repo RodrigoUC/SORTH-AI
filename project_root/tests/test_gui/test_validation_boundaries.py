@@ -1,4 +1,6 @@
 import pytest
+import sqlite3
+from pathlib import Path
 from PyQt6.QtWidgets import QDialog, QFileDialog
 from src.gui.main_window import MainWindow
 from src.infrastructure.session_repository import SessionRepository
@@ -20,7 +22,7 @@ def test_corrupt_worker_result_never_displays_or_saves(window,monkeypatch):
     errors=[]
     monkeypatch.setattr(window,'_on_schedule_error',errors.append)
     monkeypatch.setattr(window.schedule_viewer,'display_schedule',lambda *a: pytest.fail('Must not display'))
-    monkeypatch.setattr(window,'_save_session',lambda: pytest.fail('Must not save'))
+    monkeypatch.setattr(window.session,'save',lambda: pytest.fail('Must not save'))
     window._on_schedule_done({'C-G1':('A',1,700,760)},window.course_manager.get_courses()[0].generate_groups())
     assert errors and window.current_schedule is None
 
@@ -41,20 +43,27 @@ def test_partial_export_dialog_keeps_pending_warning_and_scope(window,monkeypatc
     window._on_schedule_done({groups[0].group_id:('A',1,420,480)},groups)
     titles=[]
     monkeypatch.setattr(QFileDialog,'getSaveFileName',lambda *args: titles.append(args[1]) or ('',''))
-    window._export_schedule()
-    window._export_schedule(filtered=True)
+    window.export.save()
+    window.export.save(filtered=True)
     assert len(titles)==2 and all('parcial, 1 pendientes' in title for title in titles)
     assert 'todas las asignaciones' in titles[0] and 'filtrado' in titles[1]
 
 
 def test_restored_constraint_violation_blocks_presentation_and_overwrite(window,monkeypatch):
-    window._repo.save_session(None,42,window._classrooms,window.course_manager.get_courses(),{}, {'C-G1':('A',1,700,760)})
+    repo = window._repo
+    repo.save_session(None,42,window._classrooms,window.course_manager.get_courses(),{}, None)
+    with sqlite3.connect(repo._db_path) as con:
+        con.execute('UPDATE session SET schedule_present=1')
+        con.execute("INSERT INTO assignments(group_id,classroom_name,day,start_min,end_min) VALUES ('C-G1','A',1,700,760)")
+    before = Path(repo._db_path).read_bytes()
     monkeypatch.setattr(QDialog,'exec',lambda self: QDialog.DialogCode.Accepted)
     monkeypatch.setattr(window.schedule_viewer,'display_schedule',lambda *args: pytest.fail('Invalid restore must not display'))
-    window._restore_session_if_exists()
-    assert window._restore_failed and not window._save_session()
+    window.session.restore()
+    assert window._restore_failed and not window.session.save()
     assert not window.btn_export.isEnabled()
-    assert window._repo.load_session()['assignments']=={'C-G1':('A',1,700,760)}
+    with pytest.raises(ValueError):
+        repo.load_session()
+    assert Path(repo._db_path).read_bytes() == before
 
 
 def test_removing_assignment_updates_complete_status(window):

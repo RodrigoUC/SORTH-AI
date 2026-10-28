@@ -2,7 +2,7 @@
 from threading import Event
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 from PyQt6.QtWidgets import QApplication
-from ..application import app_updates
+from ..infrastructure import app_updates
 
 
 class _UpdateThread(QThread):

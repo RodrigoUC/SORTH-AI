@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from string import Template
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,10 +23,8 @@ def generate(commit, output):
     output.mkdir(parents=True, exist_ok=True)
     parts = tuple(map(int, info["version"].split("."))) + (0,)
     resource = (ROOT / "windows_version_info.txt").read_text(encoding="utf-8")
-    resource = resource.replace("(2, 0, 0, 0)", repr(parts))
-    resource = resource.replace("'2.0.0'", repr(info["version"]))
-    resource = resource.replace("StringStruct('ProductVersion', " + repr(info["version"]) + ")",
-                                "StringStruct('ProductVersion', " + repr(info["build_id"]) + ")")
+    resource = Template(resource).substitute(
+        file_version=repr(parts), version=repr(info['version']), build_id=repr(info['build_id']))
     (output / "windows_version_info.txt").write_text(resource, encoding="utf-8")
     (output / "build-identity.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     return info

@@ -10,11 +10,8 @@ ALGORITHM_VERSION = 'sorth-scheduler-v2'
 
 
 def scenario_metadata(algorithm_version=None, calendar=None):
-    time = TimeModel.from_calendar(calendar or ProjectCalendar())
-    return dict(format_version=1, algorithm_version=algorithm_version,
-                metrics_version=1, calendar=(dict(days=time.index_to_day,
-                start=time.day_start, end=time.day_end, lunch=[time.LUNCH_START, time.LUNCH_END])
-                if time.calendar == ProjectCalendar() else time.calendar.to_dict()))
+    return dict(format_version=2, algorithm_version=algorithm_version,
+                metrics_version=1, calendar=(calendar or ProjectCalendar()).to_dict())
 
 
 def analyze_scenario(data):
@@ -72,7 +69,7 @@ def compare_scenarios(left, right):
         except ValueError:
             supported = False
     supported = supported and all(
-        type(m.get('format_version')) is int and m.get('format_version') == 1
+        type(m.get('format_version')) is int and m.get('format_version') == 2
         and type(m.get('metrics_version')) is int and m.get('metrics_version') == 1 for m in (am, bm))
     return dict(left=analyze_scenario(a) if supported else None,
                 right=analyze_scenario(b) if supported else None,
@@ -85,7 +82,7 @@ def session_fingerprint(data):
     courses, rooms = _inputs(data)
     values = dict(courses=courses, rooms=rooms, restrictions=data['restrictions'],
                   seed=data['seed'], excel_path=data['excel_path'],
-                  assignments=data['assignments'] or {}, lab_overrides=data.get('lab_overrides', ()),
+                  assignments=data['assignments'], lab_overrides=data.get('lab_overrides', ()),
                   pins=data.get('pinned_group_ids', ()),
                   calendar=data.get('calendar', ProjectCalendar()).to_dict(),
                   resources=data.get('resources', SchedulingResources()).to_data())
@@ -96,16 +93,11 @@ def session_fingerprint(data):
 def validate_scenario_metadata(metadata, calendar=None):
     if not isinstance(metadata, dict):
         raise ValueError('Invalid scenario metadata')
-    if (type(metadata.get('format_version')) is not int or metadata.get('format_version') != 1
+    if (type(metadata.get('format_version')) is not int or metadata.get('format_version') != 2
             or type(metadata.get('metrics_version')) is not int or metadata.get('metrics_version') != 1):
         raise ValueError('Unsupported scenario format or metrics version')
     if metadata.get('algorithm_version') is not None and not isinstance(metadata['algorithm_version'], str):
         raise ValueError('Invalid algorithm version')
-    value = metadata.get('calendar')
-    legacy = scenario_metadata()['calendar']
-    if json.dumps(value, sort_keys=True) == json.dumps(legacy, sort_keys=True):
-        parsed = ProjectCalendar()
-    else:
-        parsed = ProjectCalendar.from_dict(value)
+    parsed = ProjectCalendar.from_dict(metadata.get('calendar'))
     if calendar is not None and parsed != calendar:
         raise ValueError('Scenario calendar does not match persisted project rules; original preserved')

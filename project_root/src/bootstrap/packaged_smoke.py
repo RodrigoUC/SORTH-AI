@@ -45,7 +45,7 @@ def configure_smoke_profile(output_dir, *, create):
         os.environ[key] = str(profile / folder)
     settings = smoke_settings(output_dir)
     from ..gui.theme_preferences import default_theme_path
-    from .mcp_preferences import default_path
+    from ..infrastructure.mcp_preferences import default_path
     paths = (Path(settings.fileName()), default_path(), default_theme_path())
     if not all(path.resolve().is_relative_to(profile) for path in paths):
         raise RuntimeError('Smoke preferences escaped the isolated profile.')
@@ -72,9 +72,9 @@ def create_smoke_window(output_dir, *, restore_session=True):
     every reopened window and fresh-process probe uses the same explicit stores.
     """
     from ..gui import i18n, main_window
-    from ..gui.features import FeaturePreferences
+    from ..infrastructure.feature_preferences import FeaturePreferences
     from ..gui.motion import MotionController
-    from .mcp_preferences import default_path
+    from ..infrastructure.mcp_preferences import default_path
     configure_smoke_profile(output_dir, create=False)
     settings = smoke_settings(output_dir)
     if i18n._manager is None:
@@ -88,7 +88,7 @@ def create_smoke_window(output_dir, *, restore_session=True):
     def features(unused=None):
         if unused is not None:
             raise RuntimeError('Unexpected smoke feature settings override.')
-        return FeaturePreferences(settings=settings, path=default_path())
+        return FeaturePreferences(path=default_path())
 
     original_motion, original_features = main_window.MotionController, main_window.FeaturePreferences
     try:
@@ -105,8 +105,8 @@ def smoke_preference_paths(window, output_dir):
     from ..gui.theme import theme_manager
     profile = Path(output_dir).resolve() / 'smoke-profile'
     stores = {'language': language_manager().settings,
-              'motion': window._motion.settings,
-              'feature_legacy': window._features.settings}
+              'motion': window._motion.settings}
+
     paths = {name: Path(store.fileName()).resolve() for name, store in stores.items()}
     paths.update(features=window._features.path.resolve(),
                  appearance=theme_manager().preferences.path.resolve())
@@ -123,7 +123,7 @@ def run_theme_probe(app, output_dir, phase):
     from ..gui import theme
     from ..gui.theme_preferences import default_theme_path
     from .packaged_workflow import smoke_preserved_files
-    from .edit_history import fingerprint
+    from ..application.edit_history import fingerprint
     from ..gui.smoke_rendering import require_readable_text
     from PyQt6.QtWidgets import QApplication, QDialog
     report = {'ok': False, 'phase': phase, 'pid': os.getpid(),

@@ -11,7 +11,7 @@ from zipfile import ZipFile, ZipInfo
 
 import pytest
 
-from src.application import mcp_component as component
+from src.infrastructure import mcp_component as component
 
 REAL_PROBE = component._probe
 
@@ -150,7 +150,7 @@ def test_extra_installed_file_and_mismatched_marker_fail_closed(bundle):
     extra.write_bytes(b'unknown')
     assert component.component_status(context=bundle) == 'integrity_error'
     extra.unlink()
-    (directory / component.MARKER).write_text('{}')
+    (directory / component.MARKER).write_text('{}', encoding='utf-8')
     assert component.component_status(context=bundle) == 'incompatible_component'
 
 
@@ -295,7 +295,7 @@ def test_probe_output_lifetime_and_cancellation_are_bounded(bundle, monkeypatch,
             program += 'time.sleep(0.02)\n'
         program += 'print(' + repr(json.dumps(report)) + ')\n'
     executable = directory / 'SORTH-MCP.exe'
-    executable.write_text('#!' + sys.executable + '\n' + program)
+    executable.write_text('#!' + sys.executable + '\n' + program, encoding='utf-8')
     executable.chmod(0o700)
     monkeypatch.setattr(component, 'PROBE_TIMEOUT', 2 if behavior in ('valid', 'mismatch', 'exit_race') else 0.15)
     if behavior == 'exit_race':

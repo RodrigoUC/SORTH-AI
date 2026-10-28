@@ -130,9 +130,9 @@ jobs:
           $tokens = $null; $parseErrors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'tools/collect_windows_acceptance.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
           if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
-          $source = Join-Path $PWD 'build/reports/schema1-session.db'
-          .\.venv-build\Scripts\python.exe -c "import sqlite3; from pathlib import Path; db=sqlite3.connect('build/reports/schema1-session.db'); db.executescript(Path('tests/fixtures/session-schema1.sql').read_text(encoding='utf-8')); db.close()"
-          if ($LASTEXITCODE -ne 0) { throw 'Synthetic schema1 fixture preparation failed.' }
+          $source = Join-Path $PWD 'build/reports/current-session.db'
+          .\.venv-build\Scripts\python.exe -c "from src.infrastructure.session_repository import SessionRepository; SessionRepository('build/reports/current-session.db').save_session(None, 42, {}, [], {}, {})"
+          if ($LASTEXITCODE -ne 0) { throw 'Current session preparation failed.' }
           $candidate = Join-Path $PWD 'build/reports/recovered-session.db'
           $report = Join-Path $PWD 'build/reports/recovery-command.json'
           $sourceHash = (Get-FileHash -LiteralPath $source).Hash

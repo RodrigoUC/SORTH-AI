@@ -1,4 +1,5 @@
 """Minimum-height layout with all advanced tool families visible."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtTest import QTest
@@ -107,11 +108,11 @@ def test_reopened_schedule_layout_budget_across_themes(window, language, style_n
             ResourceCatalog(kind, optional_enabled) for kind in RESOURCE_KINDS))
         window.calendar = ProjectCalendar(('Lunes', 'Domingo'), 0, 1440, ())
         window._features.save({key: optional_enabled for key in window._features.values()})
-        assert window._save_session()
+        assert window.session.save()
         window.close()
         reopened = MainWindow(window._repo, restore_session=False,
-                              feature_settings=window._features.settings)
-        reopened._restore_session_if_exists(confirm=False)
+                              feature_preferences=FeaturePreferences(path=window._features.path))
+        reopened.session.restore(confirm=False)
         assert not reopened._restore_failed
         assert all(value is optional_enabled for value in reopened._features.values().values())
         viewer = reopened.schedule_viewer

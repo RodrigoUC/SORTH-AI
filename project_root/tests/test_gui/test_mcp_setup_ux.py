@@ -1,4 +1,6 @@
 """Native MCP setup keeps progress, permission and client steps distinct."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import sys
 import re
 import time
@@ -81,7 +83,7 @@ def settle_settings_layout(dialog, timeout=2):
 @pytest.fixture
 def window(tmp_path):
     q = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
-    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_settings=q)
+    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((q).fileName()) + '.features.json')))
     yield w
     w.close()
 
@@ -237,7 +239,7 @@ def test_enter_on_check_runs_check_without_saving_or_closing(window, monkeypatch
 
 
 def test_external_revocation_before_guide_preserves_save_conflict_and_other_edits(window, monkeypatch, english):
-    from src.application.mcp_preferences import enabled, set_enabled
+    from src.infrastructure.mcp_preferences import enabled, set_enabled
     from src.gui import settings_dialog
     from PyQt6.QtWidgets import QMessageBox
     values = window._features.values()
@@ -271,7 +273,7 @@ def test_external_revocation_before_guide_preserves_save_conflict_and_other_edit
 
 
 def test_enable_save_waits_for_check_but_disabling_never_requires_success(window, monkeypatch, english):
-    from src.application.mcp_preferences import enabled
+    from src.infrastructure.mcp_preferences import enabled
     from PyQt6.QtWidgets import QMessageBox
     dialog = SettingsDialog(window)
     original = dialog.mcp_probe.process.start
@@ -294,7 +296,7 @@ def test_enable_save_waits_for_check_but_disabling_never_requires_success(window
 
 
 def test_read_only_status_observes_external_permission_without_changing_baseline(window, english):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     values = window._features.values()
     values['mcp_server'] = True
     window._features.save(values)
@@ -308,7 +310,7 @@ def test_read_only_status_observes_external_permission_without_changing_baseline
 
 
 def test_saved_permission_can_be_revoked_while_health_check_is_running(window, monkeypatch):
-    from src.application.mcp_preferences import enabled
+    from src.infrastructure.mcp_preferences import enabled
     values = window._features.values()
     values['mcp_server'] = True
     window._features.save(values)

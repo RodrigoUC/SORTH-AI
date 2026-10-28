@@ -14,9 +14,8 @@ from ..scheduling.validation import validate_schedule
 class SchedulingService:
     """Generate from supplied domain data or an explicitly selected input reader.
 
-    ``reader_factory`` receives ``excel_path`` only when input is missing. The
-    optional historical fallback preserves ``SchedulingService(path).run()``;
-    new GUI/CLI compositions provide the factory themselves.
+    ``reader_factory`` receives ``excel_path`` only when input is missing.
+    Composition roots must explicitly supply their input adapter.
     """
 
     def __init__(self, excel_path: str | None, seed: int | None = 42, *,
@@ -28,11 +27,7 @@ class SchedulingService:
     def _input_reader(self) -> SchedulingInputReader:
         factory = self._reader_factory
         if factory is None:
-            # Named compatibility bridge for SchedulingService(path).run().
-            # New entrypoints inject their adapter from the composition root;
-            # supplied-data callers never import or invoke this fallback.
-            from ..bootstrap.scheduling import create_excel_reader
-            factory = create_excel_reader
+            raise ValueError("Missing scheduling input: supply domain data or an explicit reader_factory")
         return factory(self.excel_path)
 
     def run(self, courses: list[Course] | None = None,

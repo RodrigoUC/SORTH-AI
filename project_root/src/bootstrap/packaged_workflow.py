@@ -11,7 +11,7 @@ from ..infrastructure.excel_reader import ExcelReader, ExcelImportError
 from ..infrastructure.excel_template import write_import_template
 from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..scheduling.time_model import TimeModel
-from .scheduling_service import SchedulingService
+from ..application.scheduling_service import SchedulingService
 
 
 def verify_workflow(window, output, result):
@@ -49,7 +49,7 @@ def verify_workflow(window, output, result):
     deadline.stop()
     if not (not window._busy and window.current_schedule):
         raise RuntimeError('Regeneration failed')
-    if not (window._save_session()):
+    if not (window.session.save()):
         raise RuntimeError('Edited session failed to save')
     result['stages'].append('course_dialog_edit_save')
     def accept_restore():
@@ -135,7 +135,7 @@ def verify_workflow(window, output, result):
 def smoke_preserved_files(output):
     """Fingerprint schedule and unrelated preferences, including MCP permission."""
     from .packaged_smoke import smoke_settings
-    from .mcp_preferences import default_path
+    from ..infrastructure.mcp_preferences import default_path
     paths = (output / 'smoke-session.db', default_path(),
              Path(smoke_settings(output).fileName()))
     return {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -183,7 +183,7 @@ def verify_theme_workflow(window, output, result):
     from ..gui.appearance_dialog import AppearanceDialog
     from PyQt6.QtGui import QPalette
     from ..gui.theme_contract import MAX_THEME_BYTES
-    from .edit_history import fingerprint
+    from ..application.edit_history import fingerprint
     manager = theme.theme_manager()
     appearance = manager.preferences.path
     preserved = smoke_preserved_files(output)
@@ -307,7 +307,7 @@ def verify_update_workflow(window, output, result):
     This verifies packaging, parsing, localization and safe download ownership;
     it does not claim live GitHub connectivity, publisher trust or installation.
     """
-    from . import app_updates
+    from ..infrastructure import app_updates
     from ..gui.update_dialog import UpdateDialog
     from ..gui.i18n import language_manager
     from PyQt6.QtWidgets import QApplication
@@ -315,7 +315,7 @@ def verify_update_workflow(window, output, result):
     import hashlib
     import json
 
-    from .scenario_comparison import session_fingerprint
+    from ..application.scenario_comparison import session_fingerprint
     before = session_fingerprint(window._repo.load_session())
     preferences = window._features.values()
     original_stream = app_updates._stream

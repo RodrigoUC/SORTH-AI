@@ -7,7 +7,7 @@ import sys
 import time
 from types import SimpleNamespace
 import pytest
-from src.application import mcp_preferences as prefs
+from src.infrastructure import mcp_preferences as prefs
 from src.mcp_adapter import availability
 
 
@@ -141,7 +141,7 @@ def test_default_off_and_atomic_change_preserves_foreign_fields(tmp_path, monkey
     path = tmp_path / 'settings.json'
     assert not prefs.enabled(path)
     original = {'version': 1, 'features': {'future': {'x': 1}, 'pinned_sessions': True}, 'foreign': [1]}
-    path.write_text(json.dumps(original))
+    path.write_text(json.dumps(original), encoding='utf-8')
     prefs.set_enabled(path, True)
     assert prefs.enabled(path)
     assert prefs.read_record(path)['features']['future'] == {'x': 1}
@@ -159,17 +159,17 @@ def test_default_off_and_atomic_change_preserves_foreign_fields(tmp_path, monkey
     ids=['invalid-json', 'nonboolean-permission', 'nonboolean-feature', 'duplicate-permission', 'oversized'])
 def test_damaged_preferences_fail_closed_and_cannot_silently_repair(tmp_path, raw):
     path = tmp_path / 'settings.json'
-    path.write_text(raw)
+    path.write_text(raw, encoding='utf-8')
     assert not prefs.enabled(path)
     with pytest.raises(ValueError):
         prefs.set_enabled(path, True)
-    assert path.read_text() == raw
+    assert path.read_text(encoding='utf-8') == raw
 
 
 def test_headless_cli_and_disabled_server_work_without_site_packages(tmp_path):
     root = Path(__file__).resolve().parents[2]
     path = tmp_path / 'settings.json'
-    cmd = [sys.executable, '-B', '-S', '-m', 'src.application.mcp_preferences', '--preferences', str(path)]
+    cmd = [sys.executable, '-B', '-S', '-m', 'src.infrastructure.mcp_preferences', '--preferences', str(path)]
     for action, expected in [('--enable', 'enabled'), ('--disable', 'disabled')]:
         result = subprocess.run(cmd + [action], cwd=root, capture_output=True, text=True, timeout=5)
         assert result.returncode == 0 and result.stdout.strip() == expected
@@ -210,7 +210,7 @@ def test_broken_metadata_reports_runtime_error(monkeypatch):
 @pytest.mark.parametrize('generation', [None, True, 1, '', 'legacy', 'A' * 32, 'g' * 32, '0' * 31, []])
 def test_invalid_generation_fails_closed_without_repair(tmp_path, generation):
     path = tmp_path / 'preferences.json'
-    path.write_text(json.dumps({'version': 1, 'features': {'mcp_server': True}, 'mcp_generation': generation}))
+    path.write_text(json.dumps({'version': 1, 'features': {'mcp_server': True}, 'mcp_generation': generation}), encoding='utf-8')
     before = path.read_bytes()
     assert prefs.permission_generation(path) is None
     with pytest.raises(ValueError):
@@ -218,15 +218,15 @@ def test_invalid_generation_fails_closed_without_repair(tmp_path, generation):
     assert path.read_bytes() == before
 
 
-def test_permission_generation_preserved_rotated_and_legacy_migrated(tmp_path):
+def test_permission_generation_is_required_and_rotates_on_changes(tmp_path):
     path = tmp_path / 'preferences.json'
-    path.write_text('{"version":1,"features":{"mcp_server":true},"future":[1]}')
+    path.write_text('{"version":1,"features":{"mcp_server":false},"future":[1]}', encoding='utf-8')
     before = path.read_bytes()
-    assert prefs.permission_generation(path) == 'legacy'
+    assert prefs.permission_generation(path) is None
     assert path.read_bytes() == before  # Reads cannot silently migrate permission.
     prefs.set_enabled(path, True)
     first = prefs.permission_generation(path)
-    assert first != 'legacy' and len(first) == 32
+    assert len(first) == 32
     prefs.set_enabled(path, True)
     assert prefs.permission_generation(path) == first
     prefs.set_enabled(path, False)
@@ -240,7 +240,7 @@ def test_permission_generation_preserved_rotated_and_legacy_migrated(tmp_path):
 @pytest.mark.parametrize('foreign', ['[' * 2000 + '0' + ']' * 2000, 'NaN', 'Infinity', '-Infinity', '1e999'])
 def test_adversarial_json_is_bounded_and_preserved(tmp_path, foreign):
     path = tmp_path / 'preferences.json'
-    path.write_text('{"version":1,"features":{"mcp_server":true},"foreign":' + foreign + '}')
+    path.write_text('{"version":1,"features":{"mcp_server":true},"foreign":' + foreign + '}', encoding='utf-8')
     before = path.read_bytes()
     assert not prefs.enabled(path)
     with pytest.raises(ValueError):
@@ -250,7 +250,7 @@ def test_adversarial_json_is_bounded_and_preserved(tmp_path, foreign):
 
 def test_parser_recursion_is_reported_as_corruption(tmp_path, monkeypatch):
     path = tmp_path / 'preferences.json'
-    path.write_text('{}')
+    path.write_text('{}', encoding='utf-8')
     monkeypatch.setattr(prefs.json, 'loads', lambda *args, **kwargs: (_ for _ in ()).throw(RecursionError()))
     assert not prefs.enabled(path)
     with pytest.raises(ValueError):
@@ -264,7 +264,7 @@ def test_cli_holds_lock_for_full_read_modify_write(tmp_path, monkeypatch):
     root = Path(__file__).resolve().parents[2]
     outcomes = []
     def read_while_competing_writer_runs(value):
-        result = subprocess.run([sys.executable, '-B', '-S', '-m', 'src.application.mcp_preferences',
+        result = subprocess.run([sys.executable, '-B', '-S', '-m', 'src.infrastructure.mcp_preferences',
                                  '--preferences', str(path), '--disable'], cwd=root,
                                 capture_output=True, text=True, timeout=5)
         outcomes.append(result.returncode)
@@ -284,7 +284,7 @@ def test_os_lock_is_nonblocking_stable_and_released_by_process_exit(tmp_path):
     before = path.read_bytes()
     root = Path(__file__).resolve().parents[2]
     script = '''import sys
-from src.application.mcp_preferences import preferences_lock
+from src.infrastructure.mcp_preferences import preferences_lock
 with preferences_lock(sys.argv[1]):
     print('locked', flush=True)
     sys.stdin.readline()

@@ -51,7 +51,7 @@ verifica la existente y no crea otra copia ni cambia el permiso.
 La ausencia de paquete se muestra como **no incluido en esta compilación**;
 no es éxito ni desencadena descargas. El complemento empaquetado actual es para
 Windows x64. La compilación base sin complemento sigue disponible; véase
-[Distribución Windows](WINDOWS_DISTRIBUTION.md). En desarrollo desde fuente se
+[Distribución Windows](../docs/release/WINDOWS_DISTRIBUTION.md). En desarrollo desde fuente se
 mantiene la ruta Python separada descrita abajo.
 
 Un complemento alterado o de identidad incompatible no se ejecuta ni se sobrescribe
@@ -121,12 +121,12 @@ python -m venv .venv-mcp
 # Linux/macOS:
 .venv-mcp/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-mcp.lock
 .venv-mcp/bin/python -B -m src.mcp_adapter.availability
-.venv-mcp/bin/python -B -m src.application.mcp_preferences --enable
+.venv-mcp/bin/python -B -m src.infrastructure.mcp_preferences --enable
 .venv-mcp/bin/python -B -m src.mcp_adapter.server
 # Windows: sustituye .venv-mcp/bin/python por .venv-mcp\Scripts\python.exe
 ```
 
-El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ctrl+C o cerrar el cliente lo termina. Para desactivar, desmarca la opción y guarda en Configuración, o ejecuta `.venv-mcp/bin/python -B -m src.application.mcp_preferences --disable`; después quita la entrada del cliente y cierra ese proceso. La GUI sigue funcionando igual. No hay servicio de sistema, inicio automático ni credenciales que revocar.
+El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ctrl+C o cerrar el cliente lo termina. Para desactivar, desmarca la opción y guarda en Configuración, o ejecuta `.venv-mcp/bin/python -B -m src.infrastructure.mcp_preferences --disable`; después quita la entrada del cliente y cierra ese proceso. La GUI sigue funcionando igual. No hay servicio de sistema, inicio automático ni credenciales que revocar.
 
 `requirements-mcp.txt` fija `mcp==1.30.0`, versión de la rama 1.x mantenida por el SDK oficial. Se elige explícitamente esa API; no se permite que una resolución sin límite la cambie a 2.x. `requirements-mcp-dev.txt` añade pytest. `requirements-mcp.lock` fija con hashes todas las dependencias del entorno opcional de ejecución y pruebas, resuelto de forma universal para Python 3.12; incluye pytest deliberadamente y las dependencias condicionales Windows `colorama` y `pywin32`. Se genera con `uv pip compile requirements-mcp-dev.txt --python-version 3.12 --universal --generate-hashes --no-build --output-file requirements-mcp.lock`; una resolución sólo Linux omitiría dependencias Windows. Las actualizaciones requieren regenerar el lock, auditar todos sus paquetes (también los condicionales) y repetir pruebas. El lock Windows base de la GUI no incorpora MCP. El compañero empaquetado usa su propio entorno y `requirements-mcp-windows.lock`; no mezcla sus dependencias con la GUI.
 

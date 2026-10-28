@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.application import app_updates as updates
+from src.infrastructure import app_updates as updates
 
 PAYLOAD = b'MZ\x00SORTH synthetic installer, never executed\x00'
 SHA256 = hashlib.sha256(PAYLOAD).hexdigest()
@@ -115,7 +115,7 @@ def network(monkeypatch, tmp_path):
 
 def test_source_identity_uses_version_file_without_network(network):
     value = updates.current_identity()
-    assert value.version == (Path(updates.__file__).resolve().parents[2] / 'VERSION').read_text().strip()
+    assert value.version == (Path(updates.__file__).resolve().parents[2] / 'VERSION').read_text(encoding='utf-8').strip()
     assert value.build_id is None and value.source_commit is None
     assert updates.current_app_version() == value.version
     assert not network[1]
@@ -123,7 +123,7 @@ def test_source_identity_uses_version_file_without_network(network):
 
 def test_frozen_identity_includes_exact_build(tmp_path, monkeypatch):
     info = {'version': '2.0.0', 'source_commit': 'a' * 40, 'build_id': '2.0.0-' + 'a' * 12}
-    (tmp_path / 'build-identity.json').write_text(json.dumps(info))
+    (tmp_path / 'build-identity.json').write_text(json.dumps(info), encoding='utf-8')
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     monkeypatch.setattr(sys, '_MEIPASS', str(tmp_path), raising=False)
     assert updates.current_identity() == updates.AppIdentity('2.0.0', info['build_id'], info['source_commit'])
@@ -670,7 +670,7 @@ def test_owned_cleanup_never_recursively_removes_unexpected_content(network):
 def test_no_network_or_writes_when_module_is_imported(network):
     # All network entry points are called by explicit functions, never imports.
     import ast
-    tree = ast.parse(Path(updates.__file__).read_text())
+    tree = ast.parse(Path(updates.__file__).read_text(encoding='utf-8'))
     assert not any(isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
                    for node in tree.body)
     assert not network[1]
@@ -681,7 +681,7 @@ def test_no_network_or_writes_when_module_is_imported(network):
 def test_source_identity_rejects_corrupt_or_truncated_version(tmp_path, monkeypatch, raw):
     package = tmp_path / 'src' / 'application' / 'app_updates.py'
     package.parent.mkdir(parents=True)
-    package.write_text('')
+    package.write_text('', encoding='utf-8')
     (tmp_path / 'VERSION').write_bytes(raw)
     monkeypatch.setattr(updates, '__file__', str(package))
     with pytest.raises(updates.UpdateError, match='invalid_identity'):

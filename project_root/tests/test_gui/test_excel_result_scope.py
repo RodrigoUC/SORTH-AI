@@ -1,4 +1,6 @@
 """The desktop Excel artifact distinguishes global results from filtered rows."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from copy import deepcopy
 
 from openpyxl import load_workbook
@@ -17,7 +19,7 @@ from src.scheduling.course import Course
 def window(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
     win = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                     restore_session=False, feature_settings=settings)
+                     restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     win._classrooms = {'A': Classroom('A', 30, 'REGULAR')}
     win.course_manager.load_courses_from_excel([Course('BIO', 3, 60, 'REGULAR', name='Biología')])
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
@@ -50,7 +52,7 @@ def test_desktop_excel_preserves_result_scope_and_global_pending(
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: (str(path), ''))
         before = deepcopy(window.current_schedule)
         before_disk = (tmp_path / 'session.db').read_bytes()
-        window._export_schedule(filtered=filtered)
+        window.export.save(filtered=filtered)
         book = load_workbook(path)
         exported = 1 if filtered else assigned_count
         assert book['Asignaciones'].max_row == exported + 1
@@ -88,7 +90,7 @@ def test_zero_result_or_zero_filtered_matches_keep_export_disabled(
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: pytest.fail('Opened empty export picker'))
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: None)
     monkeypatch.setattr(QMessageBox, 'information', lambda *a: None)
-    window._export_schedule(filtered=True)
+    window.export.save(filtered=True)
 
 
 @pytest.mark.parametrize('language', ['es', 'en'])
@@ -118,7 +120,7 @@ def test_filtered_export_keeps_other_courses_split_pending_and_fallback_reasons(
         before, disk = fingerprint(window._capture_edit_state()), (tmp_path / 'session.db').read_bytes()
         path = tmp_path / 'split-filtered.xlsx'
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: (str(path), ''))
-        window._export_schedule(filtered=True)
+        window.export.save(filtered=True)
         book = load_workbook(path)
         state = dict(list(book['Estado'].values)[1:])
         assert (state['Sesiones asignadas'], state['Sesiones pendientes'], state['Sesiones totales']) == (2, 3, 5)

@@ -1,4 +1,5 @@
 """Reversible schedule focus and geometry-only classroom zoom in real Qt."""
+from src.infrastructure.feature_preferences import FeaturePreferences
 from copy import deepcopy
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from tests.test_gui.test_grid_scope_details import populate_scope
 @pytest.fixture
 def window(tmp_path):
     result = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                        feature_settings=QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat))
+                        feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     populate_scope(result.schedule_viewer)
     result.tabs.setCurrentIndex(1)
     result.resize(960, 640)

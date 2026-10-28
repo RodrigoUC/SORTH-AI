@@ -1,70 +1,30 @@
-# Optional resource validation evidence
+# Validación de recursos
 
-Branch: `feat/optional-teaching-resources`, based on frozen product `644ca13`.
-This follow-on does not replace the already reviewed product batch.
+Los recursos opcionales comparten las reglas del dominio desde GUI, persistencia
+y generación. Los catálogos conservan identidades, alias, disponibilidad declarada
+y asociaciones explícitas por sesión. Desactivar controles no elimina los datos.
 
-## Verified
+## Contratos comprobados
 
-- Full suite, Qt offscreen: **675 passed, 12 skipped, 3 subtests passed**.
-  Command: `QT_QPA_PLATFORM=offscreen /workspace/shared/sorth_work/venv/bin/python -m pytest -q -rs --disable-warnings`.
-- All three optional kinds exercise shared-identity overlap, adjacent intervals,
-  empty/unknown/declared availability, contiguous-window union, holes, retries,
-  exact legacy behavior when absent, explicit split-session teachers, partial
-  schedules, duplicate IDs, unknown references, malformed/future imports,
-  resource-aware pins, and inactive structural validation.
-- SQLite schema2→3 backup/migration, active/inactive snapshot round trips,
-  scenario comparability, legacy save omission preservation, duplicate JSON field
-  rejection and failed-write transaction preservation are tested.
-- Independent-review hardening: saved schema3+ sessions require their resource
-  singleton. Missing rows/tables fail load/save/reopen without changing bytes;
-  only genuine legacy schema0/1/2 migration creates an explicit empty contract.
-  All saves verify the existing contract inside the write transaction.
-- Native Qt tests cover cancel/accept parameter-off transitions, retained records,
-  withdrawn results, no hidden active constraints, manual placement, editing,
-  alias/ID preservation, availability confirmation, course-orphan consent,
-  failed preference/database saves and recovery with active resource state.
-- Atomic JSON optional-preference implementation from the frozen product is
-  retained. Corrupt/read-only preferences cannot erase active constraints in a
-  valid restored session. Recovery preserves their effective flags.
-- Nine additional cross-feature tests passed using the actual undo/bulk worker
-  application modules (commit `37de40d`) with this branch's resource implementation:
-  all kinds/flags survive repeated undo/redo; orphan/split/conflict changes reject
-  before persistence. Final combined GUI undo/calendar verification belongs to
-  the follow-on integration branch, not this isolated branch.
-- Dedicated optional MCP environment: **49 passed** (`tests/test_mcp`).
-- Dedicated security environment: **12 passed, 3 subtests passed** (`tests/test_security_checks.py`).
-- `python -m compileall -q src`: passed. `git diff --check`: passed.
-- Repository static security review under its security environment: reviewed,
-  zero new findings. Running it initially under the Qt environment lacked Bandit;
-  rerunning with the installed security environment completed successfully.
+- Cruces de docentes, grupos y estudiantes explícitamente asociados.
+- Disponibilidad desconocida frente a disponibilidad explícitamente vacía.
+- Referencias desconocidas, identificadores duplicados y tipos inválidos.
+- Persistencia de sesiones fijadas, excepciones LAB y recursos desactivados.
+- Guardado atómico y rechazo de JSON duplicado o dañado sin reparar su contenido.
+- Comparación de escenarios, calendario propio y restauración de snapshots actuales.
 
-## Visual evidence
+La sesión admite únicamente el esquema 5 y el catálogo el esquema 2. Las bases
+anteriores se rechazan sin migración ni reemplazo. Las omisiones de calendario o
+recursos en una actualización parcial conservan el valor ya aceptado; no crean
+contratos faltantes dentro de una sesión guardada dañada.
 
-Synthetic-data Qt/Fusion screenshots cover main window at 1200×800 and 960×640,
-settings, group session editor and availability editor in Spanish and English.
-Representative settings, compact main window, group editor and availability
-frames were visually inspected. Controls retain the established native palette,
-readable labels and keyboard focus. Full resource IDs remain available in the
-editor/selection and table tooltips; identical aliases do not merge identities.
-All strings introduced by resource/settings dialogs are included in literal-key
-localization coverage. User aliases remain literal during language changes.
+## Límites
 
-Evidence is retained alongside the development checkout under
-`sorth-resource-evidence/`; these are local development artifacts, not a public
-upload or a native Windows acceptance report.
+Las asociaciones no se infieren de la matrícula ni de otros catálogos. Cada sesión
+admite un docente; no se infiere codocencia. Los estudiantes individuales deben
+asociarse explícitamente cuando se necesita esa protección. La importación Excel
+no añade un formato alternativo de matrícula.
 
-## Explicit limitations
-
-- Ten installer checks require native Windows PowerShell; offscreen Linux
-  screenshots do not establish Windows rendering or screen-reader support.
-- The main suite skips optional MCP stdio and live-analyzer contracts when those
-  dependency sets are absent from the Qt environment; both pass in their dedicated
-  environments as reported above. Native Windows checks remain unexecuted.
-- No new workbook/roster format or identity-bearing export is introduced. Import
-  coverage means strict session/scenario deserialization and unchanged legacy
-  Excel compatibility. MCP remains its existing explicit contract.
-- Student-group membership is not inferred from individual students. If a person
-  needs identity-level protection, assign that person explicitly to each session.
-- Simultaneous co-teaching is not inferred: each session has at most one teacher,
-  while a course may use different teachers in different explicit sessions.
-- No remote writes or issue closure were performed.
+Las pruebas de dominio, aplicación, infraestructura e interfaz cubren estos
+contratos. La aceptación nativa del instalador y las pruebas con usuarios son
+controles independientes; no se deducen de resultados sin pantalla.

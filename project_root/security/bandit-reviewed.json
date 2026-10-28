@@ -130,14 +130,6 @@
   {
     "file": "src/gui/main_window.py",
     "test_id": "B110",
-    "code_sha256": "3377b9ebf2ae08067a989f95416f590c08a86cf7903b945c017e07c516702693",
-    "count": 1,
-    "reviewed_on": "2026-10-02",
-    "reason": "Session restoration keeps persisted classrooms/restrictions if optional Excel mapping refresh fails. Reliability limitation to revisit; no authorization boundary or confirmed exploit is identified."
-  },
-  {
-    "file": "src/gui/main_window.py",
-    "test_id": "B110",
     "code_sha256": "54bf94d983939ac05167aaab0f970e1907c04881f9aa77e1be6fdd2b5ebb039c",
     "count": 1,
     "reviewed_on": "2026-10-02",
@@ -170,26 +162,10 @@
   {
     "file": "tools/security_review.py",
     "test_id": "B603",
-    "code_sha256": "0a076f2d06af5fb873a90d13a34b673abcbebce5bf722968abee123c6f35ea43",
+    "code_sha256": "6168e19821f2fb9844c72fcfee219275e1ccbee3e064be83e5c7224d1a32a83a",
     "count": 1,
-    "reviewed_on": "2026-10-02",
-    "reason": "Only this interpreter and fixed local tooling arguments are executed; no shell or user-supplied command. security_review.execute is internal and accepts only commands built by main."
-  },
-  {
-    "file": "tools/verify_cross_version_recovery.py",
-    "test_id": "B404",
-    "code_sha256": "c7485d26909de0225d52aa000b520b075d402cead3a69f341ade5fa50339fd4e",
-    "count": 1,
-    "reviewed_on": "2026-10-03",
-    "reason": "Bounded developer-only source compatibility test: runs this interpreter with -I, a fixed checked-in worker program and argument-array paths/actions; no shell or network. Caller must supply trusted reviewed source checkouts because their modules are intentionally executed. Generates synthetic databases only in a new output directory; 60-second subprocess timeout. This does not permit arbitrary external commands or user database inputs."
-  },
-  {
-    "file": "tools/verify_cross_version_recovery.py",
-    "test_id": "B603",
-    "code_sha256": "356dcd0982ad471cf313daa212c227952daff46ecf1afbfa79629e0d46f09f32",
-    "count": 1,
-    "reviewed_on": "2026-10-03",
-    "reason": "Bounded developer-only source compatibility test: runs this interpreter with -I, a fixed checked-in worker program and argument-array paths/actions; no shell or network. Caller must supply trusted reviewed source checkouts because their modules are intentionally executed. Generates synthetic databases only in a new output directory; 60-second subprocess timeout. This does not permit arbitrary external commands or user database inputs."
+    "reviewed_on": "2026-10-27",
+    "reason": "Fixed local analyzer commands remain unchanged, bounded to 600 seconds with no shell; the JSON result is now explicitly decoded as UTF-8 on Windows."
   },
   {
     "file": "src/scheduling/scheduler.py",
@@ -208,7 +184,7 @@
     "reason": "Reviewed seeded scheduling tie-breaking and per-run RNG reset: Random is used only to choose between equal-scored valid scheduling candidates. It never creates secrets, credentials, permission generations or security decisions. Reproducible fixed seeds are intentional; all scheduling constraints remain independently validated."
   },
   {
-    "file": "src/application/mcp_component.py",
+    "file": "src/infrastructure/mcp_component.py",
     "test_id": "B404",
     "code_sha256": "cad368b6a7848bad06e408e5273eae6e1f2ecce457c731888a87fbccb8e8c476",
     "count": 1,
@@ -216,7 +192,7 @@
     "reason": "Explicitly confirmed offline component health probe only: absolute fixed SORTH-MCP.exe from the versioned stage/installation, verified against the GUI compiled release hash inventory before execution; argument list contains only --probe, no shell, no user-supplied command. Bounded output, timeout and cancellation kill/reap the child. No listener, download, preference or client modification."
   },
   {
-    "file": "src/application/mcp_component.py",
+    "file": "src/infrastructure/mcp_component.py",
     "test_id": "B603",
     "code_sha256": "c2f3d74411371f8c079dd712299c745333c6af6ff93d2c3dd796a9aa763a49c5",
     "count": 1,

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from src.infrastructure.gui_session_lock import acquire_gui_session_lock, SessionInUseError
+from src.gui.session_lock import acquire_gui_session_lock, SessionInUseError
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKER = r'''
@@ -21,7 +21,6 @@ root, control = map(Path, sys.argv[1:])
 # Patch only destinations and the blocking error dialog; use the real launcher,
 # MainWindow, default repository constructor and event loop.
 SessionRepository.default_path = staticmethod(lambda: root / 'session.db')
-SessionRepository.legacy_path = staticmethod(lambda: root / 'absent-legacy.db')
 QSettings.setDefaultFormat(QSettings.Format.IniFormat)
 QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(root / 'settings'))
 gui_app.QMessageBox.warning = lambda *a: (control.with_suffix('.refused').write_text(str(a[2]), encoding='utf-8'), 0)[1]
@@ -167,7 +166,7 @@ def test_canonical_directory_alias_uses_same_lock(tmp_path):
 
 def test_lock_errors_do_not_construct_repository(tmp_path, monkeypatch):
     import gui_app
-    from src.infrastructure import gui_session_lock
+    from src.gui import session_lock as gui_session_lock
     from src.infrastructure.session_repository import SessionRepository
     from PyQt6.QtWidgets import QApplication
     monkeypatch.setattr(sys, 'argv', ['gui_app.py'])
@@ -200,8 +199,8 @@ def test_startup_exception_releases_lock(tmp_path, monkeypatch):
 
 def test_recovery_entry_point_does_not_take_default_session_lock(monkeypatch):
     import gui_app
-    from src.application import recovery_command
-    from src.infrastructure import gui_session_lock
+    from src.bootstrap import recovery_command
+    from src.gui import session_lock as gui_session_lock
     monkeypatch.setattr(sys, 'argv', ['gui_app.py', '--recover-session'])
     monkeypatch.setattr(gui_session_lock, 'acquire_gui_session_lock', lambda p: pytest.fail('Recovery must not lock default session'))
     monkeypatch.setattr(recovery_command, 'run', lambda argv: 0)
@@ -213,7 +212,7 @@ def test_recovery_entry_point_does_not_take_default_session_lock(monkeypatch):
 def test_refusal_is_localized_and_plain_text(tmp_path, monkeypatch):
     import gui_app
     from src.gui.i18n import language_manager
-    from src.infrastructure import gui_session_lock
+    from src.gui import session_lock as gui_session_lock
     from PyQt6.QtWidgets import QApplication
     monkeypatch.setattr(sys, 'argv', ['gui_app.py'])
     monkeypatch.setattr(gui_app, 'QApplication', lambda argv: QApplication.instance())

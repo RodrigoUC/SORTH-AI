@@ -24,7 +24,7 @@ def test_live_font_and_raster_evidence(window, tmp_path):
     assert all(not font['missing_characters'] and font['distinct_probe_rasters'] == 3
                and all(font['probe_ink_pixels']) for font in report['fonts'])
     assert not QImage(str(tmp_path / report['raster_image'])).isNull()
-    assert json.loads((tmp_path / 'text-rendering-test.json').read_text()) == report
+    assert json.loads((tmp_path / 'text-rendering-test.json').read_text(encoding='utf-8')) == report
 
 
 @pytest.mark.parametrize('failure', ['empty_database', 'missing_glyph', 'tofu', 'blank', 'save'])
@@ -47,7 +47,7 @@ def test_visual_guard_fails_closed_with_diagnostics(window, tmp_path, monkeypatc
         monkeypatch.setattr(smoke_rendering.QImage, 'save', lambda *args: False)
     with pytest.raises(RuntimeError):
         smoke_rendering.require_readable_text(window, tmp_path, 'failure')
-    report = json.loads((tmp_path / 'text-rendering-failure.json').read_text())
+    report = json.loads((tmp_path / 'text-rendering-failure.json').read_text(encoding='utf-8'))
     assert report['ok'] is False and report['error']
     assert not (tmp_path / 'text-rendering-failure.png').exists()
     if failure == 'missing_glyph':
@@ -56,8 +56,8 @@ def test_visual_guard_fails_closed_with_diagnostics(window, tmp_path, monkeypatc
 
 def test_windows_ci_discovers_fonts_without_packaging_them():
     root = Path(__file__).resolve().parents[3]
-    workflow = (root / '.github/workflows/windows-review.yml').read_text()
-    script = (root / 'project_root/tools/configure_windows_qt_fonts.ps1').read_text()
+    workflow = (root / '.github/workflows/windows-review.yml').read_text(encoding='utf-8')
+    script = (root / 'project_root/tools/configure_windows_qt_fonts.ps1').read_text(encoding='utf-8')
     assert workflow.index('configure_windows_qt_fonts.ps1') < workflow.index('Collect full regression inventory')
     assert '[Environment+SpecialFolder]::Fonts' in script
     assert 'QT_QPA_FONTDIR=$fontDir' in script
@@ -65,7 +65,7 @@ def test_windows_ci_discovers_fonts_without_packaging_them():
     assert '$fonts.Count -eq 0' in script and 'GITHUB_ENV' in script
     assert 'Copy-Item' not in script and 'Invoke-WebRequest' not in script
     assert 'text_rendering.$phase.ok' in workflow
-    installer = (root / 'project_root/tools/test_installer.ps1').read_text()
+    installer = (root / 'project_root/tools/test_installer.ps1').read_text(encoding='utf-8')
     assert 'text_rendering.$phase.ok' in installer
     assert "$env:PYTHONPATH = $null" in workflow and "$env:PYTHONPATH = $null" in installer
 
@@ -88,10 +88,10 @@ gui_app.main()
                            env=dict(os.environ, QT_QPA_PLATFORM='offscreen'),
                            capture_output=True, text=True, timeout=30)
     assert child.returncode != 0
-    report = json.loads((output / 'smoke-result.json').read_text())
+    report = json.loads((output / 'smoke-result.json').read_text(encoding='utf-8'))
     assert report['ok'] is False and report['stages'] == []
     assert 'font database is empty' in report['error']
-    diagnostic = json.loads((output / 'text-rendering-startup.json').read_text())
+    diagnostic = json.loads((output / 'text-rendering-startup.json').read_text(encoding='utf-8'))
     assert diagnostic['ok'] is False and diagnostic['family_count'] == 0
     assert not (output / 'schedule.png').exists()
 
@@ -173,7 +173,7 @@ def test_capture_rejects_a_genuinely_clipped_action(window, tmp_path):
     button.show()
     with pytest.raises(RuntimeError, match='action caption does not fit'):
         smoke_rendering.require_readable_text(window, tmp_path, 'clipped')
-    report = json.loads((tmp_path / 'text-rendering-clipped.json').read_text())
+    report = json.loads((tmp_path / 'text-rendering-clipped.json').read_text(encoding='utf-8'))
     assert report['ok'] is False and report['actions'][0]['fits'] is False
     assert not (tmp_path / 'text-rendering-clipped.png').exists()
 

@@ -21,7 +21,7 @@ def test_close_invalidates_finished_workers_queued_delivery(window, tmp_path, mo
                 worker.result_ready.emit(None, None)
         monkeypatch.setattr(SchedulerWorker, 'run', finished_without_result)
     window.pinned_group_ids.clear()
-    window._save_session()
+    window.session.save()
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     window.show()
     window._generate_schedule()

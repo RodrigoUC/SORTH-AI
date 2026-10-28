@@ -1,4 +1,6 @@
 """Grid edit/history restoration must follow blocks, never row coordinates."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import pytest
 from PyQt6.QtCore import QSettings, Qt
 from PyQt6.QtWidgets import QApplication, QMessageBox
@@ -16,7 +18,7 @@ def window(tmp_path, monkeypatch):
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: QMessageBox.StandardButton.Cancel)
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
     w = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                   restore_session=False, feature_settings=settings)
+                   restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     flags = w._features.values()
     flags['undo_redo'] = True
     w._features.save(flags)
