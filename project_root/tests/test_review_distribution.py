@@ -19,7 +19,7 @@ def inputs(tmp_path, monkeypatch):
     (app / 'SORTH.exe').write_bytes(b'MZ-test-only')
     (app / '_internal').mkdir()
     (app / '_internal' / 'library.dll').write_bytes(b'test')
-    (app / '_internal' / 'build-identity.json').write_text(json.dumps(identity('a' * 40)))
+    (app / '_internal' / 'build-identity.json').write_text(json.dumps(identity('a' * 40)), encoding='utf-8')
     manual = tmp_path / 'manual.pdf'
     manual.write_bytes(b'%PDF-test-only')
     monkeypatch.setattr(subprocess, 'check_output', lambda *a, **k: 'pytest==9.1.1\n')
@@ -43,15 +43,16 @@ def test_archive_has_current_manual_commit_and_hash(inputs):
                      'docs/user/SCHEDULING_VALIDATION.md', 'docs/user/PDF_EXPORT_NOTES.md',
                      'docs/user/MANUAL_USUARIO.md', 'docs/user/QUALITY_METRICS.md',
                      'docs/release/WINDOWS_DISTRIBUTION.md', 'project_root/MCP_OPTIONAL.md',
-                     'project_root/MANUAL_USUARIO.md', 'project_root/WINDOWS_DISTRIBUTION.md']:
+                     'project_root/README.md']:
             assert ('SORTH/' + name) in zf.namelist()
-        assert b'La gu' in zf.read('SORTH/project_root/MANUAL_USUARIO.md')
+        assert 'SORTH/project_root/MANUAL_USUARIO.md' not in zf.namelist()
+        assert 'SORTH/project_root/WINDOWS_DISTRIBUTION.md' not in zf.namelist()
         assert b'## ' in zf.read('SORTH/docs/user/MANUAL_USUARIO.md')
         assert zf.read('SORTH/MANUAL_USUARIO.pdf') == manual.read_bytes()
         info = json.loads(zf.read('SORTH/build-info.json'))
         assert info['source_commit'] == 'a' * 40
         assert info['signed'] is False
-    assert (out / 'SHA256SUMS.txt').read_text().split()[0] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert (out / 'SHA256SUMS.txt').read_text(encoding='utf-8').split()[0] == hashlib.sha256(archive.read_bytes()).hexdigest()
     assert (out / 'SHA256SUMS.txt').read_bytes().endswith(b'\n')
     with pytest.raises(ValueError, match='already exists'):
         package(app, manual, out, 'a' * 40)

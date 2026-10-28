@@ -93,7 +93,7 @@ def test_deleted_group_is_persisted(window):
     window.current_schedule = {'BIO-G1': ('A1', 1, 480, 540)}
     window._on_group_removed('BIO-G1')
     assert not window.btn_export.isEnabled()
-    assert window._repo.load_session()['assignments'] is None
+    assert window._repo.load_session()['assignments'] == {}
 
 
 def test_sorted_course_selection_keeps_identity(window):
@@ -158,7 +158,7 @@ def test_import_cancel_and_validation_preserve_complete_session(window, tmp_path
     window._classroom_course_map = {'A1': ['BIO']}
     window.current_schedule = {'BIO-G1': ('A1', 1, 480, 540)}
     window.btn_export.setEnabled(True)
-    window._save_session()
+    window.session.save()
     from pathlib import Path
     before = Path(window._repo._db_path).read_bytes()
     path = tmp_path / 'import.xlsx'

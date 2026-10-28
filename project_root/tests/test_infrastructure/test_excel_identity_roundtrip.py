@@ -20,7 +20,7 @@ def test_excel_identifiers_and_split_relationships_survive_reopen(tmp_path):
     for room in room_ids:
         rooms.append([f'\u00a0{room}\u00a0', 30, f'Description {room}', 'SYNTHETIC'])
     sheet = book.create_sheet('Cursos')
-    sheet.append([' CURSO ', 'Nombre de Curso', ' Horas sugeridas ', 'AULA SUGERIDA', ' DIÁS '])
+    sheet.append([' CURSO ', 'Nombre de Curso', ' Horas ', 'AULA', ' DIÁS '])
     rows = [
         (' BIO ', 'R', '0800-1300', 'L'), ('BIO', 'r', '0900-1400', 'I'),
         ('bio', 'LΩ', '0800-0900', 'm'), ('BIÓ', '楼A', '0900-1000', 'J'),

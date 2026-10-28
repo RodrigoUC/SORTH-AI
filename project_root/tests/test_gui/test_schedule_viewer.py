@@ -229,7 +229,7 @@ def test_gui_filters_never_truncate_csv_export(app, tmp_path, monkeypatch):
     path = tmp_path / 'all-sessions.csv'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule()
+    window.export.save()
     with path.open(encoding='utf-8-sig', newline='') as handle:
         rows = list(csv.DictReader(handle))
     assert len(rows) == len(assignments)
@@ -284,7 +284,7 @@ def test_filtered_export_matches_shared_filters_without_affecting_complete(app, 
     assignments = populated(window.schedule_viewer)
     window.current_schedule = assignments.copy()
     attach_validation_inputs(window)
-    window._update_export_actions()
+    window.export.refresh_actions()
     viewer = window.schedule_viewer
     viewer._list_search.setText('biologia A2')
     viewer._day_filter.setCurrentIndex(viewer._day_filter.findData(2))
@@ -303,7 +303,7 @@ def test_filtered_export_matches_shared_filters_without_affecting_complete(app, 
         return str(saved), ''
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', choose)
     monkeypatch.setattr(_InfoDialog, 'exec', lambda self: 0)
-    window._export_schedule(filtered=True)
+    window.export.save(filtered=True)
     assert 'filtrado' in dialogs[-1] and '1 sesiones' in dialogs[-1]
     if extension == 'csv':
         with saved.open(encoding='utf-8-sig', newline='') as handle:
@@ -319,7 +319,7 @@ def test_filtered_export_matches_shared_filters_without_affecting_complete(app, 
         assert [row[2] for row in list(book['Pendientes'].values)[1:]] == ['BOT-G1']
         assert book['Asignaciones'].max_row == 2
         assert book['Asignaciones']['C2'].value == 'BIO-G2'
-    window._export_schedule()
+    window.export.save()
     assert 'todas las asignaciones' in dialogs[-1] and '4 sesiones' in dialogs[-1]
     if extension == 'xlsx':
         assert load_workbook(saved)['Asignaciones'].max_row == 5
@@ -336,7 +336,7 @@ def test_filtered_export_zero_stale_and_busy_guards(app, tmp_path, monkeypatch):
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False)
     window.current_schedule = populated(window.schedule_viewer)
     attach_validation_inputs(window)
-    window._update_export_actions()
+    window.export.refresh_actions()
     opened = []
     notices = []
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: opened.append(args))
@@ -345,13 +345,13 @@ def test_filtered_export_zero_stale_and_busy_guards(app, tmp_path, monkeypatch):
     window.schedule_viewer._status_filter.setCurrentIndex(2)
     assert not window.btn_export_filtered.isEnabled()
     assert window.btn_export.isEnabled()
-    window._export_schedule(filtered=True)
+    window.export.save(filtered=True)
     assert len(notices) == 1 and not opened
     window.schedule_viewer._reset_filters()
     window._set_busy(True)
     assert not window.btn_export.isEnabled() and not window.btn_export_filtered.isEnabled()
-    window._export_schedule(filtered=True)
-    window._export_schedule()
+    window.export.save(filtered=True)
+    window.export.save()
     assert not opened
     window._set_busy(False)
     assert window.btn_export.isEnabled() and window.btn_export_filtered.isEnabled()
@@ -359,7 +359,7 @@ def test_filtered_export_zero_stale_and_busy_guards(app, tmp_path, monkeypatch):
     assert not window.btn_export.isEnabled() and not window.btn_export_filtered.isEnabled()
     assert window.current_schedule is None
     assert window.schedule_viewer.filtered_assignments() == {}
-    window._export_schedule(filtered=True)
+    window.export.save(filtered=True)
     assert not opened
     window.close()
 
@@ -373,7 +373,7 @@ def test_export_cancel_preserves_schedule_and_filters(app, tmp_path, monkeypatch
     attach_validation_inputs(window)
     window.schedule_viewer._list_search.setText('ZOO')
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: ('', ''))
-    window._export_schedule(filtered=True)
+    window.export.save(filtered=True)
     assert window.current_schedule == original
     assert window.schedule_viewer._list_search.text() == 'ZOO'
     assert not list(tmp_path.glob('*.xlsx'))

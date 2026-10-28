@@ -164,7 +164,7 @@ def test_control_characters_normalize_identically_in_both_formats(tmp_path):
 
 
 def test_grid_color_matches_shared_function_and_survives_filtering(tmp_path):
-    from src.scheduling.schedule_grid import course_color
+    from src.scheduling.course_style import course_color
     assignments = {'BIO-G1': ('R', 1, 420, 450), 'AAA-G1': ('R', 1, 450, 480),
                    'BIO-G2': ('S', 1, 420, 450)}
     _, full = export_pair(tmp_path / 'full', assignments)

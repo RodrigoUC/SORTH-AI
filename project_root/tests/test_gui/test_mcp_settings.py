@@ -1,11 +1,12 @@
+from pathlib import Path
 import json
 import sys
 import time
 import pytest
 from PyQt6.QtCore import QSettings, QStandardPaths, QProcess
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from src.application.mcp_preferences import enabled, default_path
-from src.gui.features import FeaturePreferences
+from src.infrastructure.mcp_preferences import enabled, default_path
+from src.infrastructure.feature_preferences import FeaturePreferences
 from src.gui.main_window import MainWindow
 from src.gui.settings_dialog import SettingsDialog
 from src.gui.mcp_availability import McpAvailabilityProbe
@@ -16,7 +17,7 @@ from src.infrastructure.session_repository import SessionRepository
 @pytest.fixture
 def window(tmp_path):
     q = QSettings(str(tmp_path / 'preferences.ini'), QSettings.Format.IniFormat)
-    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_settings=q)
+    w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((q).fileName()) + '.features.json')))
     yield w
     w.close()
 
@@ -80,7 +81,7 @@ def test_failed_save_cannot_enable(window, monkeypatch):
 
 def test_frozen_does_not_spawn_second_gui(window, monkeypatch):
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
-    from src.application import mcp_component
+    from src.infrastructure import mcp_component
     monkeypatch.setattr(mcp_component, 'bundle_info', lambda: (_ for _ in ()).throw(mcp_component.ComponentError('missing_bundle')))
     monkeypatch.setattr(QProcess, 'start', lambda *args: pytest.fail('EXE must not launch itself'))
     dialog = SettingsDialog(window)
@@ -126,7 +127,7 @@ def test_real_probe_no_sdk_and_localized_status(window):
 
 def test_corrupt_non_mcp_preference_is_also_fail_closed(window):
     path = window._features.path
-    path.write_text(json.dumps({'version': 1, 'features': {'mcp_server': True, 'pinned_sessions': 'bad'}}))
+    path.write_text(json.dumps({'version': 1, 'features': {'mcp_server': True, 'pinned_sessions': 'bad'}}), encoding='utf-8')
     assert not enabled(path)
     prefs = FeaturePreferences(path=path)
     assert prefs.load_error and not prefs.enabled('mcp_server')
@@ -159,7 +160,7 @@ def test_probe_process_errors_are_safe_and_retryable(window, monkeypatch, script
 
 
 def test_external_cli_disable_cannot_be_overwritten_by_unrelated_save(window, monkeypatch):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: None)
     window._features.save({**window._features.values(), 'mcp_server': True})
     dialog = SettingsDialog(window)
@@ -175,7 +176,7 @@ def test_external_cli_disable_cannot_be_overwritten_by_unrelated_save(window, mo
 
 
 def test_opening_and_checking_refresh_external_permission(window, monkeypatch):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     monkeypatch.setattr(McpAvailabilityProbe, 'start', lambda self: self.finished.emit('available'))
     set_enabled(window._features.path, True)
     dialog = SettingsDialog(window)
@@ -206,13 +207,13 @@ def test_mcp_transition_and_resource_change_are_separate_transactions(window, mo
 def test_gui_lock_covers_read_and_commit_against_cli(window, monkeypatch):
     import subprocess
     from pathlib import Path
-    from src.application.mcp_preferences import permission_generation, set_enabled
+    from src.infrastructure.mcp_preferences import permission_generation, set_enabled
     window._features.save({**window._features.values(), 'mcp_server': True})
     generation = permission_generation(window._features.path)
     root = Path(__file__).resolve().parents[2]
     outcomes = []
     def compete():
-        result = subprocess.run([sys.executable, '-B', '-S', '-m', 'src.application.mcp_preferences',
+        result = subprocess.run([sys.executable, '-B', '-S', '-m', 'src.infrastructure.mcp_preferences',
                                  '--preferences', str(window._features.path), '--disable'], cwd=root,
                                 capture_output=True, text=True, timeout=5)
         outcomes.append(result.returncode)
@@ -231,7 +232,7 @@ def test_gui_lock_covers_read_and_commit_against_cli(window, monkeypatch):
     monkeypatch.setattr(window._features, '_read', original_read)
     monkeypatch.setattr(window._features, '_write_atomic', original_write)
     set_enabled(window._features.path, False)
-    from src.gui.features import McpPreferenceConflict
+    from src.infrastructure.feature_preferences import McpPreferenceConflict
     with pytest.raises(McpPreferenceConflict):
         window._features.save(window._features.values())
     assert not enabled(window._features.path)
@@ -246,13 +247,13 @@ def test_cli_lock_blocks_gui_save_and_recovery_without_changing_files(window):
     root = Path(__file__).resolve().parents[2]
     # Pause a real CLI writer inside its atomic replace while the OS lock is held.
     script = '''import sys
-from src.application import mcp_preferences as prefs
-original = prefs._write_atomic
+from src.infrastructure import mcp_preferences as prefs
+original = prefs.write_record
 def pause(path, record):
     print('locked', flush=True)
     sys.stdin.readline()
     original(path, record)
-prefs._write_atomic = pause
+prefs.write_record = pause
 prefs.set_enabled(sys.argv[1], False)
 '''
     process = subprocess.Popen([sys.executable, '-B', '-S', '-c', script, str(window._features.path)],
@@ -277,8 +278,8 @@ prefs.set_enabled(sys.argv[1], False)
 
 
 def test_off_on_cli_sequence_conflicts_with_stale_gui_snapshot(window):
-    from src.application.mcp_preferences import set_enabled
-    from src.gui.features import McpPreferenceConflict
+    from src.infrastructure.mcp_preferences import set_enabled
+    from src.infrastructure.feature_preferences import McpPreferenceConflict
     window._features.save({**window._features.values(), 'mcp_server': True})
     set_enabled(window._features.path, False)
     set_enabled(window._features.path, True)

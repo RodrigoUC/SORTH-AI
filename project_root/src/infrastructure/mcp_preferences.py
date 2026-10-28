@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 import tempfile
 import uuid
-from .optional_features import FEATURES
+from ..application.optional_features import FEATURES
 
 MAX_BYTES = 65536
 MAX_DEPTH = 32
@@ -56,7 +56,7 @@ def preferences_lock(path):
 
 
 def update_permission(record, value):
-    """Rotate revocation identity on transitions or the first explicit legacy write."""
+    """Create or rotate the revocation identity on explicit permission changes."""
     if type(value) is not bool:
         raise ValueError('Expected a boolean permission')
     if ('mcp_generation' not in record or
@@ -119,6 +119,8 @@ def read_record(path):
             or record['version'] != 1 or not isinstance(record.get('features'), dict)
             or any(type(record['features'].get(feature.key, False)) is not bool for feature in FEATURES)):
         raise ValueError('Unsupported or damaged preferences')
+    if record['features'].get('mcp_server') is True and 'mcp_generation' not in record:
+        raise ValueError('MCP permission requires a revocation identity')
     if 'mcp_generation' in record:
         generation = record['mcp_generation']
         if (not isinstance(generation, str) or len(generation) != 32
@@ -128,11 +130,11 @@ def read_record(path):
 
 
 def permission_generation(path=None):
-    """None means denied; old records migrate only on an explicit locked write."""
+    """Return the validated revocation identity, or None when permission is denied."""
     try:
         record = read_record(default_path() if path is None else path)
         if record['features'].get('mcp_server') is True:
-            return record.get('mcp_generation', 'legacy')
+            return record['mcp_generation']
     except (OSError, ValueError, TypeError):
         return None
     return None
@@ -149,10 +151,11 @@ def set_enabled(path, value):
     with preferences_lock(path):
         record = read_record(path)
         update_permission(record, value)
-        _write_atomic(path, record)
+        write_record(path, record)
 
 
-def _write_atomic(path, record):
+def write_record(path, record):
+    """Atomically persist the one preference record for both GUI and CLI."""
     data = (json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False) + '\n').encode('utf-8')
     if len(data) > MAX_BYTES:
         raise ValueError('Preferences exceed the supported size')

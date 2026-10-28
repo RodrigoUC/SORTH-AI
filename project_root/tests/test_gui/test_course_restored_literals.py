@@ -1,4 +1,6 @@
 """Untouched restored literals survive an editor; real edits still normalize."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from copy import deepcopy
 
 import pytest
@@ -18,7 +20,7 @@ from src.scheduling.course import Course
 def restored_window(tmp_path):
     repo = SessionRepository(str(tmp_path / 'session.db'))
     window = MainWindow(repo, restore_session=False,
-        feature_settings=QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat))
+        feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     yield window
     window._unsaved = False
     window.close()
@@ -29,7 +31,7 @@ def restore_course(window, course):
     assignments = {groups[0].group_id: ('R', 1, 480, 540)}
     window._repo.save_session(None, 42, {'R': Classroom('R', 30, 'REGULAR')},
                              [course], {}, assignments)
-    window._restore_session_if_exists(confirm=False, show_status=False)
+    window.session.restore(confirm=False, show_status=False)
     assert not window._restore_failed
     assert window.current_schedule == assignments
 

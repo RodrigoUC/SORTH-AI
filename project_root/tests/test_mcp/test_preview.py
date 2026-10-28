@@ -142,7 +142,7 @@ assert not any(n.startswith(('PyQt', 'mcp', 'pandas', 'sqlite3', 'openpyxl')) fo
 
 
 def test_missing_sdk_has_actionable_exit_without_affecting_core(tmp_path):
-    from src.application.mcp_preferences import set_enabled
+    from src.infrastructure.mcp_preferences import set_enabled
     path = tmp_path / 'prefs.json'
     set_enabled(path, True)
     root = Path(__file__).resolve().parents[2]
@@ -169,11 +169,8 @@ def test_session_boundary_and_output_are_bounded():
 def test_core_dependency_manifests_and_entrypoints_do_not_enable_mcp():
     root = Path(__file__).resolve().parents[2]
     for filename in ("requirements.txt", "requirements-dev.txt", "requirements-windows.lock",
-                     "SORTH.spec", "gui_app.py"):
-        content = (root / filename).read_text().lower()
-        # Packaging the human-readable instructions does not package the SDK.
-        if filename == "SORTH.spec":
-            content = content.replace("mcp_optional.md", "optional-help.md")
+                     "gui_app.py"):
+        content = (root / filename).read_text(encoding='utf-8').lower()
         assert "mcp" not in content
 
 

@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import pytest
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import QSettings
@@ -14,10 +16,10 @@ from src.scheduling.classroom import Classroom
 @pytest.fixture
 def window(tmp_path):
     settings = QSettings(str(tmp_path/'features.ini'), QSettings.Format.IniFormat)
-    window = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_settings=settings)
+    window = MainWindow(SessionRepository(str(tmp_path/'session.db')), restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     window._classrooms = {'A': Classroom('A', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
-    window._save_session()
+    window.session.save()
     yield window
     window._unsaved = False
     window.close()
@@ -27,7 +29,7 @@ def test_cancel_creation_does_not_save_or_create(window, monkeypatch):
     dialog = ProjectDialog(window)
     before = dialog.catalog.list_scenarios()
     monkeypatch.setattr(project_dialog, 'ask_name', lambda *a: None)
-    monkeypatch.setattr(window, '_save_session', lambda: pytest.fail('Cancelled operation saved'))
+    monkeypatch.setattr(window.session, 'save', lambda: pytest.fail('Cancelled operation saved'))
     dialog.create()
     assert dialog.catalog.list_scenarios() == before
     dialog.close()
@@ -59,6 +61,8 @@ def test_create_open_duplicate_and_failure_preserves_current(window, monkeypatch
 
 def test_comparison_and_catalog_localize(window):
     dialog = ProjectDialog(window)
+    dialog.catalog.create_project('Project', 'Initial', window._repo, scenario_metadata())
+    dialog.refresh()
     first = dialog.rows[0]
     second = dialog.catalog.duplicate(first['id'], 'Alternative')
     data = compare_scenarios(dialog.catalog.read(first['id']), dialog.catalog.read(second))
@@ -120,11 +124,11 @@ def test_unchanged_save_keeps_named_snapshot_clean(window, monkeypatch):
     dialog = ProjectDialog(window)
     monkeypatch.setattr(project_dialog, 'ask_name', lambda *a: 'Project')
     dialog.create()
-    assert window._save_session()
+    assert window.session.save()
     assert not window._scenario_dirty
     window.seed_input.setValue(91)
     window.chk_random_seed.setChecked(False)
-    window._save_session()
+    window.session.save()
     assert window._scenario_dirty
     dialog.close()
 
@@ -139,7 +143,7 @@ def test_unsupported_snapshot_never_writes_working_session(window, monkeypatch, 
     index = next(i for i, row in enumerate(dialog.rows) if row['id'] == scenario)
     dialog.table.selectRow(index)
     before = __import__('pathlib').Path(window._repo._db_path).read_bytes()
-    monkeypatch.setattr(window, '_save_session', lambda: pytest.fail('Unsupported snapshot wrote session'))
+    monkeypatch.setattr(window.session, 'save', lambda: pytest.fail('Unsupported snapshot wrote session'))
     monkeypatch.setattr(QMessageBox, 'question', lambda *a: pytest.fail('Unsupported snapshot prompted opening'))
     with pytest.raises(ValueError):
         dialog.open_selected()
@@ -152,7 +156,7 @@ def test_unrenderable_seed_preserves_disk_and_gui(window, monkeypatch):
     with window._repo._connect() as con:
         con.execute('UPDATE session SET seed=?', (2**40,))
     _, scenario = dialog.catalog.create_project('Bad seed', 'Bad', window._repo, scenario_metadata())
-    window._save_session()
+    window.session.save()
     before = __import__('pathlib').Path(window._repo._db_path).read_bytes()
     courses = window.course_manager.get_courses()
     dialog.refresh()

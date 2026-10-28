@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = (ROOT / 'tools/test_installer.ps1').read_text()
+SCRIPT = (ROOT / 'tools/test_installer.ps1').read_text(encoding='utf-8')
 
 
 def test_identity_is_read_from_installed_native_surfaces():

@@ -296,7 +296,7 @@ def test_complete_and_filtered_export_contracts_in_both_languages(manager, windo
     for filtered in (False, True):
         path = tmp_path / f'{language}-{filtered}.{extension}'
         monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args, path=path: (str(path), ''))
-        window._export_schedule(filtered)
+        window.export.save(filtered)
         if extension == 'csv':
             assert path.read_bytes().startswith(b'\xef\xbb\xbf')
             with path.open(encoding='utf-8-sig', newline='') as handle:
@@ -320,16 +320,16 @@ def test_cancel_zero_results_stale_and_validation_are_localized(manager, window,
     schedule = dict(window.current_schedule)
     notices = []
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a: ('', ''))
-    window._export_schedule(True)
+    window.export.save(True)
     assert window.current_schedule == schedule
     monkeypatch.setattr(QMessageBox, 'information', lambda *args: notices.append(args))
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: notices.append(args))
     window.schedule_viewer._list_search.setText('no matches')
-    window._export_schedule(True)
+    window.export.save(True)
     assert not window.btn_export_filtered.isEnabled()
     assert str(notices[-1][1]) == ('No matches' if language == 'en' else 'Sin coincidencias')
     window._invalidate_schedule()
-    window._export_schedule()
+    window.export.save()
     assert str(notices[-1][2]) == ('There is no schedule to export.' if language == 'en' else 'No hay horario para exportar.')
     room = AddClassroomDialog(window)
     room._on_accept()
@@ -473,7 +473,7 @@ def test_structured_lab_validation_retains_identity_and_updates_language(manager
 
 
 def test_recovery_status_and_standard_retry_discard_follow_locale(manager, window, app):
-    window._record_save_error('test technical detail')
+    window.session.record_error('test technical detail')
     window._unsaved = True
     manager.set_language('en', persist=False)
     assert window._save_state_label.text() == 'Unsaved changes'
@@ -488,7 +488,7 @@ def test_recovery_status_and_standard_retry_discard_follow_locale(manager, windo
     assert 'Descartar' in native.button(native.StandardButton.Discard).text()
     window._save_error = None
     window._unsaved = False
-    window._update_save_state()
+    window.session.refresh_status()
 
 
 def test_manual_assignment_signal_fires_once(manager, window, monkeypatch):

@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 import json
 from pathlib import Path
 import pytest
-from benchmark import run_once
+from tools.benchmark_scheduler import run_once
 from src.scheduling.classroom import Classroom
 from src.scheduling.course import Course
 from src.scheduling.group import Group
@@ -14,7 +14,7 @@ from src.scheduling.time_model import TimeModel
 
 @pytest.fixture
 def example():
-    data = json.loads((Path(__file__).parents[1] / 'fixtures/quality/partial_schedule.json').read_text())
+    data = json.loads((Path(__file__).parents[1] / 'fixtures/quality/partial_schedule.json').read_text(encoding='utf-8'))
     courses = [Course(**row) for row in data['courses']]
     groups = [g for c in courses for g in c.generate_groups()]
     for g in groups:
@@ -184,7 +184,7 @@ def test_restored_result_identical_quality(example, tmp_path):
 
 
 def test_benchmark_json_exposes_quality_without_replacing_validity():
-    from benchmark import benchmark_excel
+    from tools.benchmark_scheduler import benchmark_excel
     report = benchmark_excel(repeats=2, seed=42)
     assert report['deterministic'] is True
     assert report['hard_constraints_verified'] is True

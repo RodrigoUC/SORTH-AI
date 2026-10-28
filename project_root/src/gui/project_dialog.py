@@ -1,4 +1,5 @@
 """Named snapshot workflows. Existing single-session autosave stays unchanged."""
+from ..infrastructure.feature_preferences import FeaturePreferences
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -131,8 +132,6 @@ class ProjectDialog(_ScrollableProjectDialog):
         self.setWindowTitle(msg('Proyectos y escenarios'))
         self.resize(850, 540)
         self.catalog = ProjectRepository(Path(window._repo._db_path).with_name('sorth_projects.db'))
-        persisted = window._repo.load_session()
-        self.catalog.preserve_legacy(window._repo, scenario_metadata(calendar=(persisted or {}).get('calendar', ProjectCalendar())))
         outer, layout = self.outer, self.body
         hint = _readable_label(msg('Cada escenario es una copia independiente. Guardar como nunca sobrescribe. Selecciona dos filas para comparar.'))
         layout.addWidget(hint)
@@ -264,7 +263,7 @@ class ProjectDialog(_ScrollableProjectDialog):
         self._selection_changed()
 
     def _save_working(self):
-        if not self.window._save_session():
+        if not self.window.session.save():
             raise OSError(self.window._save_error or 'Working session could not be saved')
 
     def _saved(self, scenario_id):
@@ -272,7 +271,7 @@ class ProjectDialog(_ScrollableProjectDialog):
         row = next(row for row in self.rows if row['id'] == scenario_id)
         baseline = session_fingerprint(self.catalog.read(scenario_id)[0])
         self._activate_scenario(row, baseline)
-        self.window._update_save_state()
+        self.window.session.refresh_status()
         self._show_feedback(msg('Escenario guardado. Las ediciones posteriores no cambian esta copia.'))
 
     def _activate_scenario(self, row, baseline):
@@ -318,7 +317,7 @@ class ProjectDialog(_ScrollableProjectDialog):
             if self.window._scenario_id == scenario_id:
                 row = next(row for row in self.rows if row['id'] == scenario_id)
                 self.window._scenario_name = row['project_name'] + ' / ' + row['name']
-                self.window._update_save_state()
+                self.window.session.refresh_status()
 
     def _preflight_restore(self, data):
         seed = data['seed']
@@ -334,9 +333,9 @@ class ProjectDialog(_ScrollableProjectDialog):
             repository.save_session(**data)
             from PyQt6.QtCore import QSettings
             candidate = MainWindow(repository, restore_session=False,
-                feature_settings=QSettings(str(Path(directory) / "preferences.ini"), QSettings.Format.IniFormat))
+                feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(Path(directory) / "preferences.ini"), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
             try:
-                candidate._restore_session_if_exists(confirm=False, show_status=False)
+                candidate.session.restore(confirm=False, show_status=False)
                 if candidate._restore_failed:
                     raise ValueError(candidate._save_error)
             finally:
@@ -374,7 +373,7 @@ class ProjectDialog(_ScrollableProjectDialog):
         # needed to decide which data and algorithm were opened.
         self._activate_scenario(row, baseline)
         self.window._algorithm_version = metadata.get('algorithm_version')
-        self.window._restore_session_if_exists(confirm=False)
+        self.window.session.restore(confirm=False)
         if self.window._restore_failed:
             raise ValueError(self.window._save_error)
         self.accept()

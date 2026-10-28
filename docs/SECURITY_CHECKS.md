@@ -15,7 +15,7 @@ credenciales persistentes, ningún secreto ni permisos de escritura. No usa
   aplicación. Esto no prueba por sí solo la ausencia de un paquete en el binario.
 - `requirements-windows.lock`: inventario completo con hashes de ejecución,
   pruebas, documentación, PyInstaller y transitivas para CPython 3.12/Windows x64.
-- `requeriments.txt`: alias histórico de `requirements-dev.txt`.
+- `requirements-dev.txt`: entrada única del entorno de desarrollo.
 - Si está habilitada la integración opcional, `requirements-mcp.txt` y
   `requirements-mcp-dev.txt` tienen su inventario transitivo separado
   `requirements-mcp.lock` (resolución universal/Python 3.12, incluye pruebas). Se audita en un
@@ -174,3 +174,20 @@ fixed checked-in worker, argument-array paths and a 60-second timeout; no shell
 or network. Supply only trusted reviewed source checkouts, whose modules are
 intentionally executed. It creates synthetic databases in a new directory and
 has no user-database argument. Its checks raise explicit errors even with `-O`.
+
+## Consolidación 3.0.0, 27 de octubre de 2026
+
+Se actualizaron los pins afectados por la auditoría: Pillow 13.0.0, pypdf 6.21.2,
+setuptools 84.1.0 y certifi 2026.10.19. Los wheels Windows se descargaron con
+verificación de hashes y el generador validó el cierre de dependencias de los
+29 paquetes base y los 40 del compañero. Se regeneraron ambos inventarios y sus
+avisos originales. El lock universal MCP conserva hashes de las distribuciones
+publicadas de certifi y fue instalado con `--require-hashes` en su entorno aislado.
+
+La comparación de hallazgos normaliza separadores de ruta Windows/POSIX antes de
+calcular su identidad. Se retiraron las excepciones de la recuperación entre
+versiones eliminada y de la relectura del Excel durante restauración. No se añadieron
+supresiones generales ni se alteraron avisos originales de terceros para formatearlos.
+
+Los resultados corresponden a esta revisión; una auditoría futura puede encontrar
+avisos nuevos. Los informes locales se conservan en `project_root/build/security/consolidation`.

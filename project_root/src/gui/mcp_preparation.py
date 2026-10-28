@@ -8,7 +8,7 @@ from threading import Event
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from ..application import mcp_component
+from ..infrastructure import mcp_component
 
 
 class _PreparationThread(QThread):

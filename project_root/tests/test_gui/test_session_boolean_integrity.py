@@ -1,4 +1,6 @@
 """Restoration cannot turn corrupt flags into accepted autosave state."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import sqlite3
 
 import pytest
@@ -20,16 +22,16 @@ def test_corrupt_flag_locks_restore_and_prevents_unrelated_autosave(tmp_path, fi
     repo.save_session(None, 42, {'R': Classroom('R', 40, 'REGULAR')},
         [Course('LAB', 1, 60, 'LAB', force_split=False),
          Course('LONG', 1, 300, 'REGULAR', force_split=False)], {},
-        {'LAB-G1': ('R', 1, 480, 540)})
+        {'LAB-G1': ('R', 1, 480, 540)}, lab_overrides={'LAB-G1'}, pinned_group_ids={'LAB-G1'})
     with sqlite3.connect(path) as con:
         con.execute('PRAGMA ignore_check_constraints=ON')
         table = 'courses' if field == 'force_split' else 'assignments'
         con.execute(f'UPDATE {table} SET {field}=?', (value,))
     original = path.read_bytes()
     win = MainWindow(repo, restore_session=False,
-        feature_settings=QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat))
+        feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     try:
-        win._restore_session_if_exists(confirm=False, show_status=False)
+        win.session.restore(confirm=False, show_status=False)
         assert win._restore_failed and win._busy
         assert field in str(win._save_error)
         assert not win.btn_load.isEnabled()
@@ -37,8 +39,8 @@ def test_corrupt_flag_locks_restore_and_prevents_unrelated_autosave(tmp_path, fi
         assert win.current_groups is None
         assert not win.course_manager.get_courses()
         win.seed_input.setValue(43)
-        assert not win._save_session()
-        assert not win._retry_session()
+        assert not win.session.save()
+        assert not win.session.retry()
         assert path.read_bytes() == original
         assert not list(tmp_path.glob('*session-*.db'))
     finally:

@@ -14,8 +14,6 @@ from PyQt6.QtGui import (
 
 from .course_manager_widget import CourseManagerWidget
 from .schedule_viewer_widget import ScheduleViewerWidget
-from ..infrastructure.excel_reader import ExcelReader, ExcelImportError
-from ..infrastructure.schedule_exporter import ScheduleExporter
 from ..infrastructure.session_repository import SessionRepository
 from ..scheduling.time_model import TimeModel
 from ..scheduling.classroom import Classroom
@@ -23,10 +21,12 @@ from ..scheduling.classroom import Classroom
 from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
 from .import_controller import ImportController
+from .export_controller import ExportController
+from .session_controller import SessionController
 from .excel_template import TemplateSaveButton, save_import_template
 from .theme import apply_theme, theme_manager
 from .motion import MotionController, update_busy_indicator
-from .features import FeaturePreferences
+from ..infrastructure.feature_preferences import FeaturePreferences
 from .edit_view_state import EditViewState
 from .manual_assignment_dialog import ManualAssignmentDialog
 from dataclasses import replace
@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
     # compact/spacious feedback or resize oscillation.
     _DENSE_HEIGHT = 920
 
-    def __init__(self, repo=None, restore_session=True, feature_settings=None):
+    def __init__(self, repo=None, restore_session=True, feature_preferences=None):
         super().__init__()
         self._history = EditHistory()
         self._busy = False
@@ -90,6 +90,8 @@ class MainWindow(QMainWindow):
         self._restore_failed = False
         self._preserve_previous = False
         self._repo = repo
+        self.session = SessionController(self)
+        self.export = ExportController(self)
         if self._repo is None:
             try:
                 self._repo = SessionRepository()
@@ -97,21 +99,21 @@ class MainWindow(QMainWindow):
                 self._save_error = str(error)
                 self._restore_failed = True
 
-        self._features = FeaturePreferences(feature_settings)
+        self._features = feature_preferences if feature_preferences is not None else FeaturePreferences()
         # Resource activation belongs exclusively to the accepted SQLite
         # session. Cached UI preference flags never activate a fresh project.
         self._motion = MotionController(self)
         self._init_ui()
         self._import = ImportController(self)
-        self._update_save_state()
+        self.session.refresh_status()
         if self._restore_failed:
-            self._record_save_error(self._save_error)
-            self._block_for_recovery()
+            self.session.record_error(self._save_error)
+            self.session.block_for_recovery()
         if restore_session and self._repo is not None:
-            self._restore_session_if_exists()
+            self.session.restore()
         self._apply_feature_preferences()
-        self.chk_random_seed.toggled.connect(self._save_session)
-        self.seed_input.valueChanged.connect(self._save_session)
+        self.chk_random_seed.toggled.connect(self.session.save)
+        self.seed_input.valueChanged.connect(self.session.save)
 
     def _refresh_theme_recovery_notice(self, _theme=None):
         notice = self._theme_recovery_notice
@@ -256,7 +258,7 @@ class MainWindow(QMainWindow):
         self._save_state_label.setMaximumWidth(360)
         self._save_state_label.setAccessibleName(msg('Estado de guardado'))
         self._retry_save_button = QPushButton(msg('Reintentar'))
-        self._retry_save_button.clicked.connect(self._retry_session)
+        self._retry_save_button.clicked.connect(self.session.retry)
         self.status_bar.addPermanentWidget(self._save_state_label)
         self.status_bar.addPermanentWidget(self._retry_save_button)
         self.btn_projects = QPushButton(msg('Proyectos y escenarios'))
@@ -481,12 +483,12 @@ class MainWindow(QMainWindow):
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
         )
-        self.btn_export.clicked.connect(lambda: self._export_schedule())
+        self.btn_export.clicked.connect(lambda: self.export.save())
         self.btn_export.setEnabled(False)
         self.btn_export_filtered = QPushButton(msg('Exportar filtrado (0)'))
         self.btn_export_filtered.setEnabled(False)
-        self.btn_export_filtered.clicked.connect(lambda: self._export_schedule(filtered=True))
-        self.schedule_viewer.filters_changed.connect(self._update_export_actions)
+        self.btn_export_filtered.clicked.connect(lambda: self.export.save(filtered=True))
+        self.schedule_viewer.filters_changed.connect(self.export.refresh_actions)
         self.schedule_viewer.manual_assignment_requested.connect(self._manual_assignment)
         self.schedule_viewer.placement_options_requested.connect(self._placement_options)
 
@@ -530,7 +532,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.setText(msg('Generar horario'))
         self._progress.setAccessibleName(msg('Progreso de importación') if busy else msg('Progreso de generación'))
         if self._restore_failed:
-            self._block_for_recovery()
+            self.session.block_for_recovery()
 
     def _commit_import(self, candidate, retained_pins, resources=None):
         """Present and persist one accepted import, rolling both back on failure."""
@@ -595,7 +597,7 @@ class MainWindow(QMainWindow):
             self._unsaved = False
             self._save_error = None
             self._scenario_dirty = bool(self._scenario_name)
-            self._update_save_state()
+            self.session.refresh_status()
             self._update_feature_notice()
             self._reset_edit_history('import')
             self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
@@ -628,7 +630,7 @@ class MainWindow(QMainWindow):
                         {c.code: c.name for c in previous_courses if c.name}, classrooms=self._classrooms)
                 previous_view.restore(self)
                 self._refresh_overview()
-                self._update_save_state()
+                self.session.refresh_status()
                 self._update_history_actions()
             except Exception as recovery_error:
                 # SQL and domain data remain original; a damaged view is explicitly
@@ -655,7 +657,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(
             msg("✅ Aula '{p1}' agregada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
         )
-        self._save_session()
+        self.session.save()
 
     def _configure_restrictions(self):
         if not self._classroom_course_map:
@@ -687,7 +689,7 @@ class MainWindow(QMainWindow):
             else:
                 self.btn_restrictions.setText(msg('🔒 Aulas con Restricciones'))
                 self.status_bar.showMessage(msg('Restricciones de aulas eliminadas.'))
-            self._save_session()
+            self.session.save()
 
     def _cancel_generation(self):
         if self._busy and self._worker is not None:
@@ -849,111 +851,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(msg('❌ Error al generar horario'))
         _InfoDialog(self, msg('Error'), msg('Error al generar el horario:\n{p1}', p1=message), warning=True).exec()
 
-    def _update_export_actions(self):
-        if not hasattr(self, "btn_export_filtered"):
-            return
-        count = len(self.schedule_viewer.filtered_assignments())
-        ready = not self._busy and bool(self.current_schedule)
-        self.btn_export.setEnabled(ready)
-        self.btn_export_filtered.setText(msg('Exportar filtrado ({p1})', p1=count))
-        self.btn_export_filtered.setEnabled(ready and count > 0)
-        self.btn_export_filtered.setToolTip(
-            msg('Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.', p1=count)
-            + msg('\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.')
-        )
 
-    def _export_schedule(self, filtered=False):
-        if self._busy:
-            return
-        if not self.current_schedule:
-            QMessageBox.warning(self, msg('Advertencia'), msg('No hay horario para exportar.'))
-            return
-        errors = validate_schedule(self.current_schedule or {}, self.current_groups or [],
-                                   self._validation_classrooms(), TimeModel.from_calendar(self.calendar),
-                                   {g.group_id for g in (self.current_groups or []) if g.lab_override}, resources=self.resources)
-        if errors:
-            QMessageBox.warning(self, msg('Horario no válido'), join_messages('\n', (error.render(msg) for error in errors)))
-            return
-        assignments = (self.schedule_viewer.filtered_assignments() if filtered
-                       else dict(self.current_schedule))
-        if not assignments:
-            QMessageBox.information(self, msg('Sin coincidencias'),
-                                    msg('No hay sesiones asignadas con estos filtros. Cambie o restablezca los filtros.'))
-            return
-        scope = msg('filtrado') if filtered else msg('todas las asignaciones')
-        count = len(assignments)
-        pending = len(self.current_groups or []) - len(self.current_schedule)
-        if pending:
-            scope = msg('{scope} · horario parcial, {pending} pendientes', scope=scope, pending=pending)
-        file_path, selected_format = QFileDialog.getSaveFileName(
-            self, msg('Guardar horario {p1} · {p3} sesiones', p1=scope, p3=count),
-            "horario_filtrado.xlsx" if filtered else "horario.xlsx",
-            msg('Archivos Excel (*.xlsx);;Archivos CSV (*.csv);;Documentos PDF (*.pdf)')
-        )
-        if not file_path:
-            return
-        try:
-            if Path(file_path).suffix.lower() not in {".xlsx", ".csv", ".pdf"}:
-                file_path += (".pdf" if "*.pdf" in selected_format else
-                              ".csv" if "*.csv" in selected_format else ".xlsx")
-                # The native picker approved its returned path, not this newly
-                # resolved destination. Confirm only this extra collision; a
-                # supported explicit suffix was already handled by the picker.
-                destination = Path(file_path)
-                if destination.exists() or destination.is_symlink():
-                    confirmation = QMessageBox(self)
-                    confirmation.setWindowTitle(msg('Confirmar reemplazo'))
-                    confirmation.setIcon(QMessageBox.Icon.Question)
-                    confirmation.setTextFormat(Qt.TextFormat.PlainText)
-                    confirmation.setText(msg('El archivo ya existe:\n{path}\n\n¿Desea reemplazarlo?', path=file_path))
-                    confirmation.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                    confirmation.setDefaultButton(QMessageBox.StandardButton.No)
-                    try:
-                        if confirmation.exec() != QMessageBox.StandardButton.Yes:
-                            return
-                    finally:
-                        confirmation.deleteLater()
-
-            time_model = TimeModel.from_calendar(self.calendar)
-            exporter = ScheduleExporter(time_model)
-            courses = self.course_manager.get_courses()
-            course_name_map = {c.code: c.name for c in courses if c.name}
-            if file_path.lower().endswith(".pdf"):
-                exporter.to_pdf(assignments, file_path, groups=self.current_groups,
-                                course_name_by_code=course_name_map, filtered=filtered,
-                                total_assigned=len(self.current_schedule), pending_count=pending,
-                                filters=self.schedule_viewer.export_filter_description(),
-                                labels=LANGUAGES[language_manager().language].messages)
-            elif file_path.lower().endswith(".csv"):
-                exporter.to_csv(assignments, file_path, groups=self.current_groups,
-                                course_name_by_code=course_name_map)
-            else:
-                metadata = {}
-                if pending or filtered:
-                    rooms = self._validation_classrooms()
-                    metadata = dict(
-                        pending=[dict(group_id=group.group_id,
-                                      reason=str(msg(group.unassigned_reason or
-                                          unassigned_reason(group, rooms, time_model))))
-                                 for group in self.current_groups or []
-                                 if group.group_id not in self.current_schedule],
-                        status="partial" if pending else "complete",
-                        total_assigned=len(self.current_schedule), filtered=filtered,
-                        filters=self.schedule_viewer.export_filter_description() if filtered else None)
-                exporter.to_excel(assignments, file_path, groups=self.current_groups,
-                                  course_name_by_code=course_name_map, include_grid=True,
-                                  **metadata)
-        except Exception as e:
-            # Keep the latest attempt readable after its modal is dismissed.
-            # Only expose the basename here; technical error details stay in
-            # the existing error dialog rather than leaking into F6/status.
-            self.status_bar.showMessage(msg(
-                'No se pudo exportar a {filename}. El horario se conserva. Revise el destino y vuelva a intentarlo.',
-                filename=Path(file_path).name))
-            _InfoDialog(self, msg('Error'), msg('Error al exportar:\n{p1}', p1=e.render(msg) if isinstance(e, ExcelImportError) else str(e)), warning=True).exec()
-        else:
-            self.status_bar.showMessage(msg('Horario {p1}: {p3} sesiones exportadas a {p5}', p1=scope, p3=count, p5=Path(file_path).name))
-            _InfoDialog(self, msg('Éxito'), msg('Horario {p1}: {p3} sesiones exportadas a:\n{p5}', p1=scope, p3=count, p5=file_path)).exec()
 
     # ------------------------------------------------------------------
     # Session persistence
@@ -1094,7 +992,7 @@ class MainWindow(QMainWindow):
                     self._view_recovery_failure(recovery_error, committed=False)
                 else:
                     restore_references()
-                    self._update_save_state()
+                    self.session.refresh_status()
                     self._update_history_actions()
             raise
 
@@ -1186,8 +1084,8 @@ class MainWindow(QMainWindow):
                 self._scenario_comparison_error = None
             self.btn_generate.setEnabled(bool(self._classrooms and state['courses']) and not self._busy)
             self._refresh_overview()
-            self._update_export_actions()
-            self._update_save_state()
+            self.export.refresh_actions()
+            self.session.refresh_status()
             self._update_history_actions()
             self._update_feature_notice()
         finally:
@@ -1217,7 +1115,7 @@ class MainWindow(QMainWindow):
             # Record the feedback materialization will display, so derived
             # pending reasons cannot look like a later out-of-band edit.
             candidate = {**candidate, 'group_feedback': normalized_group_feedback(candidate)}
-            accepted = self._history.execute(before, candidate, self._persist_edit_state,
+            self._history.execute(before, candidate, self._persist_edit_state,
                 label, enabled=self._features.enabled('undo_redo'))
         except Exception as error:
             self._edit_failed(error)
@@ -1273,7 +1171,7 @@ class MainWindow(QMainWindow):
             return False
         try:
             method = self._history.undo if undo else self._history.redo
-            accepted = method(self._capture_edit_state(), self._persist_edit_state)
+            method(self._capture_edit_state(), self._persist_edit_state)
         except Exception as error:
             self._edit_failed(error)
             return False
@@ -1394,268 +1292,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, msg('Proyectos y escenarios'),
                                 msg('No se pudo abrir el catálogo. La sesión actual se conserva. {detail}', detail=str(error)))
 
-    def _update_save_state(self):
-        if self._save_error:
-            text = msg('Sesión no disponible') if self._restore_failed else msg('Cambios sin guardar')
-        else:
-            text = msg('Cambios sin guardar') if self._unsaved else msg('Sin cambios pendientes')
-        if self._scenario_name:
-            state = (msg('Comparación pendiente') if self._scenario_comparison_error else
-                     msg('Cambios posteriores a la copia') if self._scenario_dirty else msg('Copia guardada'))
-            text = msg('{name} · {state} · {save}', name=self._scenario_name, state=state, save=text)
-        self._save_state_label.setText(text)
-        self._save_state_label.setToolTip(self._save_error or self._scenario_comparison_error or self._scenario_name or "")
-        self._retry_save_button.setVisible(bool(self._save_error or self._scenario_comparison_error))
-        self._update_feature_notice()
 
-    def _record_save_error(self, error):
-        self._save_error = str(error)
-        self._update_save_state()
-        self.status_bar.showMessage(msg('No se pudo guardar o recuperar la sesión: {p1}', p1=error))
 
-    def _block_for_recovery(self):
-        self._set_busy(True)
-        self._progress.setVisible(False)
-        self.btn_generate.setText(msg('Recuperación pendiente'))
 
-    def _retry_session(self):
-        if self._restore_failed:
-            # Do not write an empty/new working session over unreadable data.
-            # Keep editing disabled until the original session is readable.
-            try:
-                if self._repo is None:
-                    self._repo = SessionRepository()
-                    self.course_manager._repo = self._repo
-                # Retry is an explicit restore request. Never unlock merely
-                # because SQLite is readable: widget materialization can fail,
-                # and declining a second prompt would leave a partial session.
-                self._restore_session_if_exists(confirm=False)
-                self._update_save_state()
-            except Exception as error:
-                self._record_save_error(error)
-            return not self._restore_failed
-        if self._scenario_comparison_error and not self._unsaved:
-            # The working session is already durable; retry only its comparison.
-            result = self._refresh_scenario_comparison()
-            self._update_save_state()
-            if result:
-                self.status_bar.showMessage(msg('Comparación actualizada. La sesión sigue guardada.'))
-            return result
-        return self._save_session()
 
-    def _refresh_scenario_comparison(self):
-        try:
-            if self._scenario_baseline is not None:
-                from ..application.scenario_comparison import session_fingerprint
-                self._scenario_dirty = session_fingerprint(self._repo.load_session()) != self._scenario_baseline
-        except Exception as error:
-            # Comparison is optional post-commit metadata, not a failed save.
-            self._scenario_comparison_error = msg(
-                'Sesión guardada. No se pudo comparar con la copia del escenario. Reintenta la comparación. {detail}',
-                detail=str(error))
-            self.status_bar.showMessage(self._scenario_comparison_error)
-            return False
-        self._scenario_comparison_error = None
-        return True
 
-    def _save_session(self, *_):
-        if self._loading:
-            return True
-        had_history = self._history.can_undo or self._history.can_redo
-        if self._history.observe(self._capture_edit_state()) and had_history:
-            self.status_bar.showMessage(join_messages(' ', (self.status_bar.currentMessage(),
-                msg('El historial se reinició por cambios fuera del historial.'))))
-        self._update_history_actions()
-        self._unsaved = True
-        self._scenario_dirty = bool(self._scenario_name)
-        if self._restore_failed:
-            self._update_save_state()
-            return False
-        try:
-            if self._preserve_previous:
-                self._repo.backup_session()
-                self._preserve_previous = False
-            seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
-            self._repo.save_session(
-                excel_path=self.excel_path,
-                seed=seed,
-                classrooms=self._classrooms,
-                courses=self.course_manager.get_courses(),
-                restrictions=self.classroom_restrictions,
-                assignments=self.current_schedule,
-                calendar=self.calendar,
-                resources=self.resources,
-                pinned_group_ids=self.pinned_group_ids,
-                lab_overrides={g.group_id for g in (self.current_groups or []) if g.lab_override},
-            )
-        except Exception as error:
-            self._record_save_error(error)
-            return False
-        self._unsaved = False
-        self._save_error = None
-        self._refresh_scenario_comparison()
-        self._update_save_state()
-        return True
 
-    def _restore_session_if_exists(self, confirm=True, show_status=True):
-        try:
-            if not self._repo.has_session():
-                return
-            # Validate and deserialize before offering a restore or permitting
-            # writes. Malformed sessions must remain recoverable on disk.
-            data = self._repo.load_session()
-            if data is not None:
-                seed = data['seed']
-                # QSpinBox silently clamps representable out-of-range integers.
-                # Reject them before restoration can authorize a later autosave.
-                if seed is not None and (type(seed) is not int or
-                        not self.seed_input.minimum() <= seed <= self.seed_input.maximum()):
-                    raise ValueError(msg('La semilla guardada está fuera del intervalo permitido.'))
-        except Exception as error:
-            self._restore_failed = True
-            self._record_save_error(error)
-            self._block_for_recovery()
-            return
-
-        if confirm:
-            dlg = QDialog(self)
-            dlg.setWindowTitle(msg('Sesión anterior'))
-            dlg.setModal(True)
-            dlg.setMinimumWidth(500)
-            outer = QVBoxLayout()
-            outer.setContentsMargins(0, 0, 0, 0)
-            outer.setSpacing(0)
-            hdr = QLabel(msg('  💾  Sesión anterior encontrada'))
-            hdr.setObjectName('dialogInfoHeader')
-            outer.addWidget(hdr)
-            body = QWidget()
-            bl = QVBoxLayout(body)
-            bl.setContentsMargins(28, 20, 28, 20)
-            bl.setSpacing(20)
-            lbl = QLabel(msg('Se encontró una sesión guardada.\n¿Deseas restaurarla?'))
-            lbl.setStyleSheet("font-size: 11pt;")
-            lbl.setMinimumWidth(440)
-            bl.addWidget(lbl)
-            btns = QDialogButtonBox(
-                QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
-            )
-            btns.accepted.connect(dlg.accept)
-            btns.rejected.connect(dlg.reject)
-            bl.addWidget(btns)
-            outer.addWidget(body)
-            dlg.setLayout(outer)
-
-            if dlg.exec() != QDialog.DialogCode.Accepted:
-                self._preserve_previous = True
-                return  # Keep the previous session until actual edits, then back it up.
-        try:
-            if not data:
-                return
-
-            self.calendar = data.get("calendar", ProjectCalendar())
-            self.resources = data.get('resources', SchedulingResources())
-            preferences = self._features.values()
-            for catalog in self.resources.catalogs:
-                preferences[catalog.kind] = catalog.enabled
-            self.pinned_group_ids = set(data.get("pinned_group_ids", ()))
-            self.excel_path = None
-            self._classroom_course_map = {}
-            self.current_schedule = None
-            self.current_groups = None
-            self.excel_path_label.setText(msg('Ningún archivo seleccionado'))
-            self.schedule_viewer.display_schedule({}, TimeModel.from_calendar(self.calendar), [], {}, classrooms={})
-            self._classrooms = data["classrooms"]
-            self.classroom_restrictions = data["restrictions"]
-
-            if data["excel_path"] and Path(data["excel_path"]).exists():
-                self.excel_path = data["excel_path"]
-                self.excel_path_label.setText(Path(data["excel_path"]).name)
-                self.excel_path_label.setObjectName("successText")
-                # Reload classroom-course map from Excel for restrictions dialog
-                try:
-                    from ..infrastructure.excel_reader import ExcelReader as _ER
-                    r = _ER(data["excel_path"])
-                    self._classroom_course_map = r.load_course_classroom_map(
-                        known_classrooms=set(self._classrooms.keys())
-                    )
-                except Exception:
-                    pass
-
-            self._loading = True
-            self.course_manager.load_courses_from_excel(data["courses"])
-
-            self.chk_random_seed.setChecked(data["seed"] is None)
-            if data["seed"] is not None:
-                self.seed_input.setValue(data["seed"])
-
-            count = len(self.classroom_restrictions)
-            if count:
-                self.btn_restrictions.setText(msg('🔒 Restricciones ({p1})', p1=count))
-            self.btn_restrictions.setEnabled(bool(self._classroom_course_map))
-            self.btn_generate.setEnabled(bool(data["courses"]))
-
-            if data["courses"] or data["assignments"]:
-                self.current_schedule = data["assignments"] or {}
-                time_model = TimeModel.from_calendar(self.calendar)
-                course_name_map = {c.code: c.name for c in data["courses"] if c.name}
-                # Regenerate groups so the viewer has full group info
-                groups = []
-                for c in data["courses"]:
-                    groups.extend(c.generate_groups())
-                # Re-attach assignments to groups
-                for g in groups:
-                    g.pinned = g.group_id in self.pinned_group_ids
-                    g.lab_override = g.group_id in data.get("lab_overrides", set())
-                    if g.group_id in self.current_schedule:
-                        g.assignment = self.current_schedule[g.group_id]
-                        room = self._classrooms.get(g.assignment[0])
-                        if g.required_room_type == "LAB" and room and room.room_type != "LAB" and not g.lab_override:
-                            if g.pinned:
-                                raise ValueError(msg("La sesión fijada {gid} requiere confirmar una excepción LAB.", gid=g.group_id))
-                            del self.current_schedule[g.group_id]
-                            g.assignment = None
-                            g.unassigned_reason = "Asignación antigua en aula regular retirada: requiere confirmar una excepción manual."
-                    else:
-                        g.unassigned_reason = unassigned_reason(g, self._validation_classrooms(), time_model)
-                errors = validate_schedule(self.current_schedule, groups,
-                                           self._validation_classrooms(), time_model,
-                                           data.get("lab_overrides", set()), resources=self.resources)
-                if errors:
-                    self.current_schedule = None
-                    self.current_groups = None
-                    raise ValueError("\n".join(error.render(msg) for error in errors))
-                self.current_groups = groups
-                self.schedule_viewer.display_schedule(
-                    self.current_schedule, time_model, groups, course_name_map, classrooms=self._classrooms
-                )
-                self._update_export_actions()
-
-            if not self._features.load_error and preferences != self._features.values():
-                try:
-                    self._features.save(preferences)
-                except (OSError, ValueError) as error:
-                    # Effective resource flags belong to this valid session;
-                    # damaged/read-only optional UI preferences cannot erase them
-                    # or prevent recovery of the user's schedule.
-                    self._features.load_error = str(error)
-            self._apply_feature_preferences()
-            self._refresh_overview()
-            self._loading = False
-            self._unsaved = False
-            self._save_error = None
-            self._update_save_state()
-            self.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
-            self._reset_edit_history('restore')
-            if self._restore_failed:
-                self._restore_failed = False
-                self._set_busy(False)
-            if show_status and self.current_groups and len(self.current_schedule or {}) < len(self.current_groups):
-                self._show_schedule_status()
-        except Exception as e:
-            self._loading = False
-            self._restore_failed = True
-            self._record_save_error(e)
-            self._block_for_recovery()
 
     def _validation_classrooms(self):
         rooms = deepcopy(self._classrooms)
@@ -1832,12 +1474,12 @@ class MainWindow(QMainWindow):
             self.current_schedule = pins
             self.current_groups = groups
             self.schedule_viewer.display_schedule(pins, TimeModel.from_calendar(self.calendar), groups, classrooms=self._classrooms)
-            self._update_export_actions()
+            self.export.refresh_actions()
             return
         self.current_schedule = None
         self.current_groups = None
         self.schedule_viewer._clear()
-        self._update_export_actions()
+        self.export.refresh_actions()
 
     def _on_inputs_changed(self):
         if self._loading:
@@ -1846,7 +1488,7 @@ class MainWindow(QMainWindow):
         self._refresh_overview()
         self.btn_generate.setEnabled(bool(self._classrooms and self.course_manager.get_courses()))
         self.status_bar.showMessage(msg('Datos actualizados. Genere un nuevo horario para exportar.'))
-        self._save_session()
+        self.session.save()
 
     def _set_reduced_motion(self, reduced):
         self._motion.set_reduced(reduced)
@@ -1866,7 +1508,7 @@ class MainWindow(QMainWindow):
         self._cancel_button.setText(msg('Cancelando…') if self._generation_cancelled else msg('Cancelar generación'))
         self._cancel_button.setVisible(busy and self._worker is not None)
         self._cancel_button.setEnabled(busy and not self._generation_cancelled)
-        self._update_export_actions()
+        self.export.refresh_actions()
         update_busy_indicator(self._progress, busy, self._motion.reduced)
 
     def _set_schedule_expanded(self, expanded):
@@ -1953,13 +1595,13 @@ class MainWindow(QMainWindow):
         download, self._pending_update_installer = self._pending_update_installer, None
         self._update_close_accepted = False
         if download is not None:
-            from ..application.app_updates import discard_download
+            from ..infrastructure.app_updates import discard_download
             # The backend forgets ownership and performs best-effort cleanup;
             # ordinary filesystem failures cannot reinstate launch permission.
             discard_download(download)
 
     def _close_for_update(self, event):
-        from ..application.update_launch import installer_launch_supported
+        from ..infrastructure.update_launch import installer_launch_supported
         if not installer_launch_supported():
             self._cancel_pending_update()
             QMessageBox.warning(self, msg('Actualizaciones'), msg(
@@ -1967,7 +1609,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         try:
-            if not self._save_session():
+            if not self.session.save():
                 raise RuntimeError('Session could not be saved')
             backup = self._repo.backup_session()
             # Reopen and validate the actual consistent backup, including its
@@ -2027,7 +1669,7 @@ class MainWindow(QMainWindow):
         if not self._unsaved:
             event.accept()
             return
-        while not self._save_session():
+        while not self.session.save():
             choice = QMessageBox.warning(
                 self, msg('Cambios sin guardar'),
                 msg('No se pudo guardar la sesión. Si sales, perderás los cambios sin guardar.\nEl último guardado y las copias existentes se conservarán.\n\n{p1}', p1=self._save_error or ''),

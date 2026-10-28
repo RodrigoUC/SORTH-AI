@@ -1,4 +1,6 @@
 """Accepting unchanged room restrictions preserves the accepted result."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from tests.feature_preferences import enable_features
 from copy import deepcopy
 from pathlib import Path
 
@@ -20,9 +22,9 @@ from src.scheduling.teaching_resources import Resource, ResourceCatalog, Schedul
 def window(tmp_path):
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
     for key in ('undo_redo', 'pinned_sessions'):
-        settings.setValue('features/' + key, True)
+        enable_features(settings, key)
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')),
-                        restore_session=False, feature_settings=settings)
+                        restore_session=False, feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     window._classrooms = {'R': Classroom('R', 30, 'REGULAR'),
                           'L': Classroom('L', 30, 'LAB')}
     window._classroom_course_map = {'R': ['A', 'B'], 'L': ['B']}
@@ -56,7 +58,7 @@ def test_unchanged_restrictions_preserve_result_disk_and_redo(
         window, monkeypatch, restricted, pinned, history_enabled):
     # Deliberately use the reverse of the dialog's sorted classroom order.
     window.classroom_restrictions = {'R': {'B', 'A'}, 'L': {'B'}} if restricted else {}
-    assert window._save_session()
+    assert window.session.save()
     if pinned:
         window._toggle_pin('A-G1')
     if history_enabled:
@@ -99,7 +101,7 @@ def test_unchanged_restrictions_preserve_result_disk_and_redo(
 def test_actual_restriction_change_still_invalidates_nonpinned_placements(
         window, monkeypatch, clear_restrictions):
     window.classroom_restrictions = {'R': {'A', 'B'}} if clear_restrictions else {}
-    assert window._save_session()
+    assert window.session.save()
     window._toggle_pin('A-G1')
     proposed = {} if clear_restrictions else {'R': {'A', 'B'}}
     monkeypatch.setattr(ClassroomRestrictionsDialog, 'exec', lambda _: QDialog.DialogCode.Accepted)
@@ -115,7 +117,7 @@ def test_actual_restriction_change_still_invalidates_nonpinned_placements(
 
 def test_unchecking_all_courses_is_a_real_change_not_an_empty_noop(window, monkeypatch):
     window.classroom_restrictions = {'R': {'A', 'B'}}
-    assert window._save_session()
+    assert window.session.save()
     def accept_without_courses(dialog):
         dialog.cls_list.setCurrentRow(next(row for row in range(dialog.cls_list.count())
                                           if dialog.cls_list.item(row).text() == 'R'))

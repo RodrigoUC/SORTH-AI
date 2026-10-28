@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pytest
-from src.application.recovery_command import run
+from src.bootstrap.recovery_command import run
 from src.infrastructure.session_repository import SessionRepository
 
 
@@ -14,7 +14,7 @@ def test_missing_source_reports_error_without_default_session(tmp_path, monkeypa
     monkeypatch.setattr(SessionRepository, 'default_path', lambda: pytest.fail('default session accessed'))
     assert run(arguments(tmp_path, tmp_path / 'missing.db')) == 1
     assert not (tmp_path / 'candidate.db').exists()
-    assert not json.loads((tmp_path / 'report.json').read_text())['ok']
+    assert not json.loads((tmp_path / 'report.json').read_text(encoding='utf-8'))['ok']
 
 
 def test_report_must_not_overwrite_source(tmp_path):
@@ -38,7 +38,7 @@ def test_successful_recovery_is_independent_and_not_activated(tmp_path):
     repo.save_session('Café.xlsx', 17, {}, [], {}, {})
     original = source.read_bytes()
     assert run(arguments(tmp_path, source)) == 0
-    result = json.loads((tmp_path / 'report.json').read_text())
+    result = json.loads((tmp_path / 'report.json').read_text(encoding='utf-8'))
     assert result['ok'] and result['activated'] is False
     assert source.read_bytes() == original
     recovered = SessionRepository(str(tmp_path / 'candidate.db')).load_session()
@@ -56,22 +56,13 @@ def test_future_schema_is_preserved_and_not_published(tmp_path):
     assert not (tmp_path / 'candidate.db').exists()
 
 
-def test_real_schema1_fixture_recovers_with_schedule_and_lab_exception(tmp_path):
+def test_unsupported_schema_is_preserved_and_not_published(tmp_path):
     import sqlite3
-    from src.scheduling.validation import validate_schedule
-    from src.scheduling.time_model import TimeModel
-    source = tmp_path / 'schema1.db'
-    sql = Path(__file__).parent / 'fixtures/session-schema1.sql'
+    source = tmp_path / 'unsupported.db'
+    SessionRepository(str(source)).save_session(None, 42, {}, [], {}, None)
     with sqlite3.connect(source) as db:
-        db.executescript(sql.read_text(encoding='utf-8'))
+        db.execute('PRAGMA user_version=1')
     original = source.read_bytes()
-    assert run(arguments(tmp_path, source)) == 0
+    assert run(arguments(tmp_path, source)) == 1
     assert source.read_bytes() == original
-    data = SessionRepository(str(tmp_path / 'candidate.db')).load_session()
-    assert data['assignments'] == {'MAT-G1': ('Aula Á', 1, 420, 480)}
-    assert data['lab_overrides'] == {'MAT-G1'}
-    course = data['courses'][0]
-    assert course.preferred_day == 'Lunes' and course.preferred_start_min == 420
-    assert course.group_suggestions == [{'aula': 'Aula Á', 'preferred_day': 'Lunes', 'preferred_start_min': 420}]
-    assert validate_schedule(data['assignments'], course.generate_groups(), data['classrooms'],
-                             TimeModel.default(), data['lab_overrides']) == []
+    assert not (tmp_path / 'candidate.db').exists()

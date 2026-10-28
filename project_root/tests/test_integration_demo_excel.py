@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.application.scheduling_service import SchedulingService
+from src.bootstrap.scheduling import create_excel_reader
 from src.infrastructure.excel_reader import ExcelReader
 from src.scheduling.time_model import TimeModel
 
@@ -34,7 +35,7 @@ def test_shipped_demo_workbook_produces_valid_schedule():
     reader = ExcelReader(str(excel_path))
     classrooms = reader.load_classrooms()
     courses = reader.load_courses()
-    assignments, groups = SchedulingService(str(excel_path), seed=42).run()
+    assignments, groups = SchedulingService(str(excel_path), seed=42, reader_factory=create_excel_reader).run()
     assert classrooms
     assert courses
     assert len(assignments) == len(groups) == 42
@@ -56,7 +57,7 @@ def test_self_contained_workbook_schedules_every_group(tmp_path):
         pd.DataFrame({
             "# DE AULA": ["601", "LBIO"], "CAPACIDAD": [60, 25],
         }).to_excel(writer, sheet_name="Aulas", index=False)
-    assignments, groups = SchedulingService(str(excel_path), seed=7).run()
+    assignments, groups = SchedulingService(str(excel_path), seed=7, reader_factory=create_excel_reader).run()
     assert assignments is not None
     assert set(assignments) == {"BIO101-G1", "BIO101-G2", "BIO101L-G1"}
     assert_valid_assignments(assignments, groups, ExcelReader(str(excel_path)).load_classrooms())

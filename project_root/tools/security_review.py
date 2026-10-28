@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def fingerprint(finding):
     # Ignore line numbers, but bind each exception to its exact source context.
     code = '\n'.join(re.sub(r'^\d+ ', '', line) for line in finding['code'].splitlines())
-    return (finding['filename'].removeprefix('./'), finding['test_id'],
+    return (finding['filename'].replace('\\', '/').removeprefix('./'), finding['test_id'],
             hashlib.sha256(code.encode()).hexdigest())
 
 
@@ -58,7 +58,7 @@ def review_audit(report, returncode):
 
 
 def read_lock(lock_name):
-    text = (ROOT / lock_name).read_text()
+    text = (ROOT / lock_name).read_text(encoding='utf-8')
     # pip-compile writes continuation lines and explanatory comments.
     lines = text.replace('\\\n', ' ').splitlines()
     pins, audit_lines = {}, []
@@ -90,7 +90,7 @@ def read_lock(lock_name):
 def write_audit_inventory(lock_name, output):
     pins, lines = read_lock(lock_name)
     output.write_text('# AUDIT ONLY: union of platforms; never install this file.\n' +
-                      '\n'.join(lines) + '\n')
+                      '\n'.join(lines) + '\n', encoding='utf-8')
     return pins
 
 
@@ -98,7 +98,7 @@ def validate_lock(lock_name='requirements-windows.lock', manifests=None):
     manifests = manifests or ('requirements.txt', 'requirements-dev.txt', 'requirements-docs.txt')
     pins, _ = read_lock(lock_name)
     for manifest in manifests:
-        for line in (ROOT / manifest).read_text().splitlines():
+        for line in (ROOT / manifest).read_text(encoding='utf-8').splitlines():
             if not line.strip() or line.startswith('#'):
                 continue
             if line.startswith('-r '):
@@ -114,7 +114,7 @@ def validate_lock(lock_name='requirements-windows.lock', manifests=None):
 def execute(command, output):
     output.unlink(missing_ok=True)  # Never accept a stale report after a failed tool.
     result = subprocess.run(command, cwd=ROOT, check=False, timeout=600)
-    return json.loads(output.read_text()), result.returncode
+    return json.loads(output.read_text(encoding='utf-8')), result.returncode
 
 
 def main():
@@ -129,7 +129,7 @@ def main():
             report, code = execute([sys.executable, '-m', 'bandit', '--ignore-nosec', '-r',
                                     'src', 'tools', *sorted(p.name for p in ROOT.glob('*.py')),
                                     '-f', 'json', '-o', str(directory / 'bandit.json')], directory / 'bandit.json')
-            baseline = json.loads((ROOT / 'security/bandit-reviewed.json').read_text())
+            baseline = json.loads((ROOT / 'security/bandit-reviewed.json').read_text(encoding='utf-8'))
             findings = review_bandit(report, baseline, code)
         else:
             optional = args.check == 'optional-dependencies'
@@ -157,7 +157,7 @@ def main():
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         result = {'check': args.check, 'status': 'incomplete', 'error': str(error)}
         exit_code = 2
-    (directory / f'{args.check}-status.json').write_text(json.dumps(result, indent=2) + '\n')
+    (directory / f'{args.check}-status.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result, indent=2))
     return exit_code
 

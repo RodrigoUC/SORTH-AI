@@ -5,7 +5,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from src.gui.theme import COLORS, STYLESHEET, builtin_themes, stylesheet_for, trusted_assets
 from src.gui.theme_contract import COLOR_ROLES, COURSE_GUTTER, ThemeSpec, contrast_ratio, contrast_checks
-from src.scheduling.schedule_grid import COURSE_COLORS, GRID_TEXT_COLOR
+from src.scheduling.course_style import COURSE_COLORS, GRID_TEXT_COLOR
 from src.scheduling.course_style import COURSE_STYLES
 
 

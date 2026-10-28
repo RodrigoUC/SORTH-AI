@@ -1,4 +1,6 @@
 """Saving an unchanged course must not discard its accepted schedule."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from copy import deepcopy
 
 import pytest
@@ -16,7 +18,7 @@ from src.scheduling.teaching_resources import Resource, ResourceCatalog, Schedul
 def window(tmp_path, request):
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
     w = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                   feature_settings=settings)
+                   feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     w._classrooms = {'R': Classroom('R', 30, 'REGULAR'), 'L': Classroom('L', 30, 'LAB')}
     split = request.param == 'split'
     course = Course('BIO', 1, 300 if split else 60, 'LAB' if split else 'REGULAR',

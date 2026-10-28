@@ -1,4 +1,6 @@
 """Unrelated edits must round-trip all accepted imported numeric values."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import pytest
 from PyQt6.QtCore import QSettings
 from src.gui.course_manager_widget import CourseDialog
@@ -16,7 +18,7 @@ def test_name_only_edit_preserves_imported_groups_and_duration(tmp_path, hours, 
     assert (original.number_of_groups, original.duration_min) == (51, duration)
     settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                        feature_settings=settings)
+                        feature_preferences=FeaturePreferences(path=Path(str((settings).fileName()) + '.features.json')))
     try:
         window._classrooms = imported.classrooms
         window.course_manager.load_courses_from_excel(imported.courses)

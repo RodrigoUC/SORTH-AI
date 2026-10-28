@@ -4,7 +4,7 @@ Esta guía prepara una release; no autoriza publicarla, firmarla, modificar perm
 
 ## Convención propuesta
 
-Usar `MAJOR.MINOR.PATCH` y etiquetas `vMAJOR.MINOR.PATCH`; una candidata puede usar `-rc.1`. Un cambio incompatible en formato de entrada, persistencia o comportamiento público requiere explicar la migración y considerar incremento mayor; funciones compatibles incrementan menor y correcciones compatibles incrementan parche. El mantenedor decide el primer número después de revisar las etiquetas existentes. Los encabezados históricos v1.0/v2.0 del README no demuestran que haya releases publicadas.
+Usar `MAJOR.MINOR.PATCH` y etiquetas `vMAJOR.MINOR.PATCH`; una candidata puede usar `-rc.1`. Un cambio incompatible en formato de entrada, persistencia o comportamiento público requiere explicar la migración y considerar incremento mayor; funciones compatibles incrementan menor y correcciones compatibles incrementan parche. El mantenedor decide el primer número después de revisar las etiquetas existentes.
 
 Cada versión debe identificar un único commit, fecha, plataforma validada, cambios, limitaciones y procedimiento de actualización/retroceso. No se ofrece aún una API estable para importar módulos internos de Python.
 

@@ -1,4 +1,6 @@
 """Catalog refreshes retain scenario identity, including native multi-selection."""
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 from PyQt6.QtCore import QItemSelectionModel, QSettings
 import pytest
 
@@ -14,10 +16,10 @@ from src.scheduling.course import Course
 @pytest.fixture
 def dialog(tmp_path):
     window = MainWindow(SessionRepository(str(tmp_path / 'session.db')), restore_session=False,
-                        feature_settings=QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat))
+                        feature_preferences=FeaturePreferences(path=Path(str((QSettings(str(tmp_path / 'features.ini'), QSettings.Format.IniFormat)).fileName()) + '.features.json')))
     window._classrooms = {'A': Classroom('A', 30, 'REGULAR')}
     window.course_manager.load_courses_from_excel([Course('BIO', 1, 60, 'REGULAR')])
-    assert window._save_session()
+    assert window.session.save()
     dialog = ProjectDialog(window)
     yield dialog
     dialog.close()
@@ -72,6 +74,8 @@ def test_refresh_preserves_two_scenarios_and_current_keyboard_anchor(dialog):
 
 
 def test_failed_refresh_leaves_selection_and_rows_unchanged(dialog, monkeypatch):
+    dialog.catalog.create_project('P', 'Initial', dialog.window._repo, scenario_metadata())
+    dialog.refresh()
     select_ids(dialog, dialog.rows[0]['id'])
     before = list(dialog.rows)
     def fail():

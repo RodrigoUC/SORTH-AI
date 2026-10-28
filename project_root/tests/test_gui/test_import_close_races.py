@@ -64,7 +64,7 @@ def test_close_cancels_generation_even_with_retiring_reader(window, tmp_path, mo
     monkeypatch.setattr(import_worker, 'read_candidate', blocked_read)
     monkeypatch.setattr(SchedulerWorker, 'run', blocked_run)
     window.pinned_group_ids.clear()
-    window._save_session()
+    window.session.save()
     window.show()
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     try:
@@ -115,7 +115,7 @@ def test_cancel_failed_save_close_restores_controls_after_reader_retires(window,
         return original(path, cancelled, previous)
 
     monkeypatch.setattr(import_worker, 'read_candidate', blocked)
-    monkeypatch.setattr(window, '_save_session', lambda: False)
+    monkeypatch.setattr(window.session, 'save', lambda: False)
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Cancel)
     window._unsaved = True
     window.show()

@@ -13,7 +13,7 @@ from .artifacts import ArtifactStore, EXPORT_OUTPUT_SCHEMA, XLSX_MIME
 
 
 def build_server(preferences_path=None, *, packaged=False):
-    from ..application.mcp_preferences import permission_generation
+    from ..infrastructure.mcp_preferences import permission_generation
     # Delayed optional imports keep all normal app/import paths SDK independent.
     import mcp.types as types
     from mcp.server.lowlevel import Server
@@ -117,12 +117,12 @@ async def run(preferences_path=None, *, packaged=False):
 
 
 def main(argv=None, *, packaged=False):
-    from ..application.mcp_preferences import default_path, enabled
+    from ..infrastructure.mcp_preferences import default_path, enabled
     parser = argparse.ArgumentParser(description="SORTH optional local stdio server")
     parser.add_argument("--preferences", default=str(default_path()))
     args = parser.parse_args(argv)
     if not enabled(args.preferences):
-        print("SORTH MCP disabled or preferences unreadable. Enable explicitly in Settings or src.application.mcp_preferences.", file=sys.stderr)
+        print("SORTH MCP disabled or preferences unreadable. Enable explicitly in Settings or src.infrastructure.mcp_preferences.", file=sys.stderr)
         return 3
     # Keep optional import diagnostics away from the protocol.
     logging.disable(logging.CRITICAL)

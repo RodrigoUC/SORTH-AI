@@ -7,9 +7,6 @@ to the usual half-hour ticks so even short, adjacent sessions remain visible.
 from dataclasses import dataclass
 from typing import Iterable
 
-# Compatibility exports; every presentation surface uses the same owner.
-from .course_style import COURSE_COLORS, GRID_TEXT_COLOR, course_color
-
 
 GridEntry = tuple[str, int, int, int]
 

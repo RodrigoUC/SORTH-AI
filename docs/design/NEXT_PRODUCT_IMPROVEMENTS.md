@@ -88,7 +88,7 @@ y después; informe repetible con medianas y p95, hardware/versiones y muestras;
 sin regresión de tiempos en tamaños pequeños. Acordar presupuesto tras baseline.
 
 Evidencia: `src/gui/schedule_viewer_widget.py:434–472`; el benchmark actual declara
-que excluye GUI/importación/exportación (`project_root/benchmark.py:1–8`). No hay
+que excluye GUI/importación/exportación (`project_root/tools/benchmark_scheduler.py`). No hay
 medición nueva en esta revisión. [Model/View de Qt](https://doc.qt.io/qt-6/model-view-programming.html)
 respalda una evolución localizada si se necesita.
 

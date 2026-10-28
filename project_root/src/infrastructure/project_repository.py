@@ -2,7 +2,7 @@
 
 IDs, never display names, identify records. SQLite transactions commit the project,
 metadata and full SQLite snapshot together. A failed insert cannot replace a
-scenario. SessionRepository remains the only owner of session migrations.
+scenario. SessionRepository validates the single supported session schema.
 """
 from contextlib import contextmanager
 from pathlib import Path
@@ -16,7 +16,7 @@ from .session_repository import SessionRepository
 
 
 class ProjectRepository:
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, path):
         self.path = Path(path)
@@ -28,6 +28,16 @@ class ProjectRepository:
                 raise sqlite3.DatabaseError('Unsupported project catalog; original preserved')
             if con.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
                 raise sqlite3.DatabaseError('Project catalog integrity check failed')
+            if tables:
+                # Existing catalogs are read-only during opening. Missing tables
+                # or columns are corruption, never an instruction to repair data.
+                con.execute('SELECT id,name,name_key FROM projects LIMIT 0')
+                con.execute('SELECT id,project_id,name,name_key,snapshot,metadata,created_at FROM scenarios LIMIT 0')
+                if con.execute('PRAGMA foreign_key_check').fetchone():
+                    raise sqlite3.DatabaseError('Project catalog contains orphaned scenarios')
+                return
+            if version != 0:
+                raise sqlite3.DatabaseError('Project catalog schema has no tables; original preserved')
             con.executescript('''BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, name_key TEXT UNIQUE NOT NULL);
@@ -36,8 +46,7 @@ class ProjectRepository:
                     name TEXT NOT NULL, name_key TEXT NOT NULL, snapshot BLOB NOT NULL,
                     metadata TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     UNIQUE(project_id, name_key));
-                CREATE TABLE IF NOT EXISTS imports (source TEXT PRIMARY KEY, scenario_id TEXT NOT NULL);
-                PRAGMA user_version = 1; COMMIT;''')
+                PRAGMA user_version = 2; COMMIT;''')
 
     @contextmanager
     def _connect(self):
@@ -115,7 +124,7 @@ class ProjectRepository:
             row = con.execute('SELECT snapshot,metadata FROM scenarios WHERE id=?', (scenario_id,)).fetchone()
             if row is None:
                 raise KeyError(scenario_id)
-        # Opening/migration happens only on an expendable copy. The catalog blob
+        # Validation happens only on an expendable copy. The catalog blob
         # is immutable even if a newer session schema cannot be loaded.
         with tempfile.TemporaryDirectory(prefix='sorth-scenario-') as directory:
             path = Path(directory) / 'session.db'
@@ -124,22 +133,3 @@ class ProjectRepository:
             if data is None:
                 raise ValueError('Empty scenario snapshot')
         return data, json.loads(row['metadata'])
-
-    def preserve_legacy(self, repo, metadata):
-        """Idempotently retain the original single session before any scenario use."""
-        source = str(Path(repo._db_path).resolve())
-        with self._connect() as con:
-            con.execute('BEGIN IMMEDIATE')
-            old = con.execute('SELECT scenario_id FROM imports WHERE source=?', (source,)).fetchone()
-            if old:
-                return old[0]
-            if not repo.has_session():
-                return None
-            blob = self._capture(repo)
-            project_id = uuid.uuid4().hex
-            # A deterministic display prefix and unique ID avoid stealing names.
-            name = 'Recovered ' + project_id[:12]
-            con.execute('INSERT INTO projects VALUES (?,?,?)', (project_id, name, name.casefold()))
-            scenario_id = self._insert(con, project_id, 'Original', blob, metadata)
-            con.execute('INSERT INTO imports VALUES (?,?)', (source, scenario_id))
-            return scenario_id

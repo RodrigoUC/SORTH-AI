@@ -17,7 +17,7 @@ from mcp.client.stdio import stdio_client
 from mcp.shared.exceptions import McpError
 from openpyxl import load_workbook
 
-from src.application.mcp_preferences import set_enabled
+from src.infrastructure.mcp_preferences import set_enabled
 from src.application.preview_clarification import CLARIFICATION_OUTPUT_SCHEMA
 from src.application.preview_contract import ContractError
 from src.mcp_adapter.artifacts import (ARTIFACT_TTL_SECONDS, MAX_ARTIFACTS, MAX_XLSX_BYTES,

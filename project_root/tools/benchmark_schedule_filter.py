@@ -85,7 +85,7 @@ def main():
               'style': app.style().objectName()}, 'results': []}
     for size in args.sizes:
         report['results'].append(run(size, args.repeats, app))
-        args.output.write_text(json.dumps(report, indent=2) + '\n')
+        args.output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report, indent=2))
 
 

@@ -1,6 +1,6 @@
 # Datos de demostración
 
-`Cursos_Ejemplo.xlsx`, `courses_config.json` y `demo_source.json` contienen datos
+`Cursos_Ejemplo.xlsx` y `demo_source.json` contienen datos
 creados desde cero para probar SORTH. Todos los códigos, aulas, campus y cursos
 son ficticios. No representan una institución, oferta académica ni plan de estudios.
 No se han copiado filas ni nombres de personas del material anterior.
@@ -13,8 +13,7 @@ acentos y seis días. Con semilla 42 se asignan las 42 sesiones.
 ## Regeneración
 
 Desde `project_root`, ejecutar `python tools/generate_demo_assets.py` regenera
-exactamente las fuentes JSON y los tres formatos del icono original.
-`python generate_courses_json.py` es un alias compatible para este comando.
+la fuente JSON y los iconos SVG e ICO originales.
 
 Para volver a crear el Excel desde `demo_source.json`, usar Node.js con
 `@oai/artifact-tool` 2.8.58 o posterior disponible y ejecutar:

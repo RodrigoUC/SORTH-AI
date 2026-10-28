@@ -1,3 +1,5 @@
+from src.infrastructure.feature_preferences import FeaturePreferences
+from pathlib import Path
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from PyQt6.QtCore import QSettings
@@ -14,7 +16,7 @@ def test_disable_tools_preserves_active_pin_scenario_and_enforcement(tmp_path,mo
     app=QApplication.instance() or QApplication([])
     repo=SessionRepository(str(tmp_path/'session.db'))
     q=QSettings(str(tmp_path/'preferences.ini'),QSettings.Format.IniFormat)
-    w=MainWindow(repo,restore_session=False,feature_settings=q)
+    w=MainWindow(repo,restore_session=False,feature_preferences=FeaturePreferences(path=Path(str((q).fileName()) + '.features.json')))
     w._features.save({**w._features.values(), 'pinned_sessions':True,'project_scenarios':True});w._apply_feature_preferences()
     w._classrooms={'R':Classroom('R',30,'REGULAR')}
     w.course_manager.load_courses_from_excel([Course('A',1,60,'REGULAR')])

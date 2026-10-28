@@ -132,7 +132,7 @@ def create_payload(app_dir, archive, output, commit):
     # Only standard-library application code is imported, never the SDK or GUI.
     import sys
     sys.path.insert(0, str(ROOT))
-    from src.application.mcp_component import ComponentContext, bundle_info
+    from src.infrastructure.mcp_component import ComponentContext, bundle_info
     bundle_info(context=ComponentContext(manifest, archive.parent, output))
     output.mkdir(parents=True, exist_ok=True)
     (output / 'mcp-component.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

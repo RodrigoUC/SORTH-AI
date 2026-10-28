@@ -149,6 +149,8 @@ def test_project_keyboard_reveals_controls_and_keeps_footer(window, presentation
 
 def test_project_reflow_preserves_selection_and_native_catalog_scroll(window, presentation):
     dialog = ProjectDialog(window)
+    dialog.catalog.create_project('Project', 'Initial', window._repo, scenario_metadata())
+    dialog.refresh()
     first = dialog.rows[0]
     for number in range(30):
         dialog.catalog.duplicate(first['id'], f'Literal {number:02} ' + 'X' * 90)

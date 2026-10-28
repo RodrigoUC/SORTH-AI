@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.application import app_updates, update_launch
+from src.infrastructure import app_updates, update_launch
 
 
 @pytest.mark.parametrize('platform,frozen', [('linux', False), ('linux', True), ('win32', False),
@@ -261,7 +261,7 @@ def test_windows_native_attachment_save_marks_harmless_text_without_execution(tm
     script = r'''
 from pathlib import Path
 import sys
-from src.application import app_updates, update_launch
+from src.infrastructure import app_updates, update_launch
 
 path = Path(sys.argv[1])
 before = path.read_bytes()
