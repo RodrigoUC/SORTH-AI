@@ -40,6 +40,9 @@ su ayuda. No se añade un gestor de tareas ni una dependencia nueva.
 - `build_installer.ps1`, `test_installer.ps1`, `installer_test_helpers.ps1`:
   creación y comprobación del instalador.
 - `collect_windows_acceptance.ps1`: evidencia de aceptación Windows.
+- `verify_pdf_export_identity.py`: comprueba todas las páginas de los PDF ES/EN
+  del smoke congelado contra la versión del ejecutable; un resultado anterior
+  no puede quedar como evidencia limpia tras un fallo.
 - `lock_windows.py`, `collect_license_notices.py`: locks e inventarios/avisos.
 - `prune_unused_qt_pdf.py`: comprobación del conjunto nativo distribuido.
 - `prepare_release_sources.py`: fuente de terceros y evidencia del proveedor, con

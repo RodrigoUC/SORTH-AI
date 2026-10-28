@@ -6,6 +6,7 @@ El PDF contiene texto seleccionable, versión de SORTH, aulas, días, horas exac
 
 ## Alcance y validación
 
+- Cada página identifica la versión real de la aplicación que generó el archivo. Si la identidad de la instalación no es válida, se interrumpe la exportación y se conserva el destino anterior.
 - La aplicación valida el horario global antes de abrir Guardar, también para una vista filtrada. Un filtro no puede ocultar una asignación inválida.
 - Todas las páginas muestran cuántas asignaciones se exportaron, el total global asignado y cuántas sesiones permanecen pendientes. Un resultado parcial se rotula **PARCIAL**. Sin contexto global, la API informa que los pendientes son desconocidos; la API filtrada exige el total global.
 - La primera sección detalla Buscar, Aula, Día y Estado. La pestaña activa y el selector local del aula de la cuadrícula no se aplican. En una exportación total se indica que no se aplicaron filtros.

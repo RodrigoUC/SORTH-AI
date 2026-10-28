@@ -6,6 +6,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_python_setup_pin_is_consistent_across_review_and_release_workflows():
+    """New release jobs must receive the same reviewed action update as CI."""
+    references = {}
+    for path in (ROOT / '.github/workflows').glob('*.yml'):
+        pins = re.findall(r'uses:\s+actions/setup-python@([^\s#]+)', path.read_text(encoding='utf-8'))
+        if pins:
+            references[path.name] = pins
+    assert references
+    assert len({pin for pins in references.values() for pin in pins}) == 1, references
+
+
 @pytest.mark.parametrize('name', ['windows-review.yml', 'security-review.yml', 'mcp-optional.yml'])
 def test_main_and_review_stacks_have_read_only_review_gates(name):
     text = (ROOT / '.github' / 'workflows' / name).read_text(encoding='utf-8')

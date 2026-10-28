@@ -71,8 +71,11 @@ checker and explicitly confirmed download/launch workflow are described in
 - Native Windows 10/11 standard-user clean-PC test with no Python installed;
   OS dialogs, scaling, sleep/relaunch, Excel/printing, and representative large
   user workbooks. Record device, Windows version, build hash and results.
-- Real previous-version → current-version → compatible recovery test using
-  supported schema versions. Same-build CI reinstall is insufficient evidence.
+- Distinct-build installation and recovery with formats supported by both
+  selected builds. Current sessions use schema 5, catalogs schema 2 and scenario
+  metadata format 2. Unsupported formats must be rejected without changing the
+  original files; there is no automatic conversion or downgrade migration.
+  Same-build CI reinstall is insufficient evidence for this manual check.
 - Maintainer choice of signing identity/account and any paid certificate/service.
   Signing cannot promise SmartScreen reputation or absence of warnings. Do not
   disable protection or instruct users to bypass an unverified warning.
@@ -89,8 +92,9 @@ EXE/DLL/PYD. Unexpected locations, QtPdf Python bindings, unreadable PE files or
 retained dependencies fail the build. QtNetwork, Mesa and all other plugins stay.
 The report is `build/reports/qt-pdf-pruning.json`; use fresh build/evidence output
 when rebuilding. `package_windows.py` rejects a candidate still containing either
-PDF DLL. Legacy direct-spec and optional onefile builds are not this reviewed
-release path and do not receive this onedir pruning.
+PDF DLL. The reviewed release path is the onedir output of `build_exe.ps1`.
+Development options such as `-OneFile` and `-WithoutMcp` do not inherit this
+package/installer acceptance evidence.
 
 This removes Qt PDF/PDFium from a newly validated package, not retroactively from
 older artifacts. The final source/notice review remains required for retained
@@ -98,10 +102,12 @@ Qt modules and other native dependencies. PE import inspection cannot establish
 absence of dynamic loading, so packaged/installed smoke also decodes ICO/SVG/PNG
 and exports PDF in Spanish and English, as well as the existing user workflow.
 
-The reusable `tools/verify_cross_version_recovery.py` exercises two distinct
-source implementations and a genuine schema increase in isolated subprocesses:
-old creates → new migrates/saves → old rejects newer data unchanged → old opens
-pre-update copy, with current data retained separately. Its report identifies
-source file hashes and does not claim a Windows binary or installer rollback.
-Rerun against the final candidate source and retain a separate real two-build
-Windows acceptance record from [the template](WINDOWS_ACCEPTANCE_RECORD.md).
+The [current persistence contracts](../project_root/tests/test_infrastructure/test_current_session_contract.py)
+check current-format restoration and immutable rejection of unsupported formats.
+They do not demonstrate a two-build Windows installation or rollback. Use the
+[acceptance template](WINDOWS_ACCEPTANCE_RECORD.md) to record that manual check
+with separate data locations and verified snapshots matching each binary.
+
+The [release-readiness evidence](evidence/release-readiness-3.0/REPORT.md) records
+technical checks against an exact candidate. It does not approve another build
+or replace the manual rows above.

@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import http.client
-import json
 import os
 from pathlib import Path
 import queue
@@ -18,12 +17,14 @@ import re
 import socket
 import ssl
 import stat
-import sys
 import tempfile
 import threading
 import time
 import unicodedata
 from urllib.parse import quote, urlsplit
+
+from .application_identity import AppIdentity, IdentityError, read_identity
+from .json_records import decode_record
 
 REPOSITORY = 'RodrigoUC/SORTH-AI'
 RELEASES_URL = f'https://github.com/{REPOSITORY}/releases'
@@ -50,13 +51,6 @@ class UpdateError(Exception):
     def __init__(self, code):
         self.code = code
         super().__init__(code)
-
-
-@dataclass(frozen=True)
-class AppIdentity:
-    version: str
-    build_id: str | None = None
-    source_commit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -100,51 +94,18 @@ def _version(value, code='invalid_version'):
     return tuple(int(part) for part in match.group(1, 2, 3))
 
 
-def _unique_object(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError('duplicate key')
-        result[key] = value
-    return result
-
-
 def _json(raw, code):
-    def reject_constant(_):
-        raise ValueError('non-finite JSON value')
-
     try:
-        return json.loads(raw, object_pairs_hook=_unique_object,
-                          parse_constant=reject_constant)
+        return decode_record(raw)
     except (ValueError, TypeError, UnicodeError, RecursionError):
         raise UpdateError(code) from None
 
 
-def current_identity():
-    """Read the packaged identity, or VERSION in source; never guess a fallback."""
+def current_identity() -> AppIdentity:
+    """Adapt identity failures to the update UI's fixed, localizable error code."""
     try:
-        if getattr(sys, 'frozen', False):
-            root = Path(sys._MEIPASS)
-            with (root / 'build-identity.json').open('rb') as source:
-                raw = source.read(8193)
-            if len(raw) > 8192:
-                raise UpdateError('invalid_identity')
-            data = _json(raw, 'invalid_identity')
-            version = data['version']
-            _version(version, 'invalid_identity')
-            commit = data['source_commit']
-            if (not isinstance(commit, str) or not re.fullmatch('[0-9a-f]{40}', commit)
-                    or data['build_id'] != f'{version}-{commit[:12]}'):
-                raise UpdateError('invalid_identity')
-            return AppIdentity(version, data['build_id'], commit)
-        with (Path(__file__).resolve().parents[2] / 'VERSION').open('rb') as source:
-            raw = source.read(129)
-        if len(raw) > 128:
-            raise UpdateError('invalid_identity')
-        version = raw.decode('ascii').strip()
-        _version(version, 'invalid_identity')
-        return AppIdentity(version)
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return read_identity(source_root=Path(__file__).resolve().parents[2])
+    except IdentityError:
         raise UpdateError('invalid_identity') from None
 
 

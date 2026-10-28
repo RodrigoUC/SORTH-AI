@@ -21,10 +21,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from ..scheduling.course_style import GRID_TEXT_COLOR, course_style
 from ..scheduling.schedule_grid import build_schedule_grid
 from ..scheduling.time_model import TimeModel
+from .application_identity import read_identity
 
 
 _FONT = 'SORTH-DejaVu'
-_VERSION = '2.0.0'
 
 
 def _font():
@@ -66,6 +66,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
         pending_count = len({g.group_id for g in groups}) - total_assigned
     if pending_count is not None and pending_count < 0:
         raise ValueError(tr('El número de sesiones pendientes no puede ser negativo.'))
+    version = read_identity().version
     font = _font()
     style = ParagraphStyle('body', fontName=_FONT, fontSize=9, leading=12,
                            textColor=colors.HexColor('#' + GRID_TEXT_COLOR), splitLongWords=True)
@@ -99,7 +100,7 @@ def write_schedule_pdf(exporter, assignments, output_path, name_map, *,
         canvas.saveState()
         canvas.setFont(_FONT, 13)
         canvas.setFillColor(colors.HexColor('#183153'))
-        canvas.drawString(30, document.pagesize[1] - 28, tr('SORTH {version} | Horario por aula', version=_VERSION))
+        canvas.drawString(30, document.pagesize[1] - 28, tr('SORTH {version} | Horario por aula', version=version))
         _, height = header.wrap(document.width, 60)
         header.drawOn(canvas, 30, document.pagesize[1] - 40 - height)
         canvas.setFont(_FONT, 8)

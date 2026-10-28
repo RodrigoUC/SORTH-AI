@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import sys
 
 import pytest
 from pypdf import PdfReader
@@ -10,6 +12,40 @@ from src.scheduling.time_model import TimeModel
 
 def text(path):
     return '\n'.join(page.extract_text() for page in PdfReader(path).pages)
+
+
+def test_pdf_header_uses_the_current_source_version(tmp_path):
+    version = (Path(__file__).resolve().parents[2] / 'VERSION').read_text(encoding='utf-8').strip()
+    path = tmp_path / 'source-version.pdf'
+    ScheduleExporter(TimeModel.default()).to_pdf({}, path)
+    assert f'SORTH {version} |' in text(path)
+
+
+def test_pdf_header_uses_the_verified_frozen_identity(tmp_path, monkeypatch):
+    """A frozen binary must never fall back to the checkout version or a literal."""
+    version = '7.8.9'
+    commit = 'a' * 40
+    identity = {'version': version, 'source_commit': commit, 'build_id': f'{version}-{commit[:12]}'}
+    (tmp_path / 'build-identity.json').write_text(json.dumps(identity), encoding='utf-8')
+    monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(sys, '_MEIPASS', str(tmp_path), raising=False)
+    path = tmp_path / 'frozen-version.pdf'
+    ScheduleExporter(TimeModel.default()).to_pdf({}, path)
+    assert f'SORTH {version} |' in text(path)
+
+
+@pytest.mark.parametrize('raw', [None, b'{}', b'{"version":"3.0.0","source_commit":"bad","build_id":"3.0.0-bad"}'])
+def test_pdf_invalid_frozen_identity_preserves_existing_output(tmp_path, monkeypatch, raw):
+    """Corrupt build metadata must not generate a guessed or mislabelled PDF."""
+    if raw is not None:
+        (tmp_path / 'build-identity.json').write_bytes(raw)
+    monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(sys, '_MEIPASS', str(tmp_path), raising=False)
+    path = tmp_path / 'existing.pdf'
+    path.write_bytes(b'previous approved export')
+    with pytest.raises(ValueError, match='invalid_identity'):
+        ScheduleExporter(TimeModel.default()).to_pdf({}, path)
+    assert path.read_bytes() == b'previous approved export'
 
 
 def test_pdf_exact_times_names_literals_conflicts_and_late_hours(tmp_path):
@@ -51,9 +87,10 @@ def test_pdf_long_names_repeat_context_without_truncation(tmp_path):
         course_name_by_code={'BIO': name}, pending_count=4)
     reader = PdfReader(path)
     assert len(reader.pages) > 3
+    version = (Path(__file__).resolve().parents[2] / 'VERSION').read_text(encoding='utf-8').strip()
     for page in reader.pages:
         content = page.extract_text()
-        assert 'SORTH 2.0.0' in content and 'Página ' in content
+        assert f'SORTH {version}' in content and 'Página ' in content
         assert '30 exportadas de 30 asignadas' in content and '4 pendientes' in content
         assert 'Sala principal' in content
         assert 'Inicio - Fin' in content

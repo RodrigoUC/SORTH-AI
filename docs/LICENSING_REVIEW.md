@@ -34,6 +34,12 @@ Las pruebas comparan cada celda del libro con su fuente sintética y verifican l
 
 ## Alcance de la revisión de distribución
 
+La [revisión técnica de la candidata 3.0](evidence/release-readiness-3.0/REPORT.md)
+registra el inventario extraído, la correspondencia Qt/PyQt y el paquete de
+fuentes preservado. Estas comprobaciones corresponden a un commit y a hashes
+concretos. No aprueban los permisos de redistribución ni sustituyen la revisión
+de componentes fuera de ese perímetro, incluidos los runtimes Microsoft.
+
 El paquete incluye el icono original y los datos sintéticos mediante `assets` y `data/input`. Los avisos de dependencias siguen teniendo sus licencias propias. La compilación Windows debe verificar los módulos nativos y plugins efectivamente empaquetados antes de una release; esta preparación de código y avisos no constituye certificación legal ni firma del ejecutable.
 
 Para nuevos recursos externos, registrar ruta, autor/titular, URL, versión, licencia exacta, evidencia y obligaciones antes de incluirlos. No añadir documentos institucionales o sesiones reales como muestras.

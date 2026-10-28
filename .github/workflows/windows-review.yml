@@ -124,6 +124,8 @@ jobs:
             if (-not $result.text_rendering.$phase.ok) { throw "Missing readable text evidence: $phase." }
           }
           $env:PATH = $oldPath
+          .\.venv-build\Scripts\python.exe tools/verify_pdf_export_identity.py --directory $smokeDir --version $result.build_identity.version --output build/reports/pdf-export-identity.json
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen PDF export identity failed.' }
           Write-Host "Packaged app: $($result.assigned)/$($result.groups) sessions assigned."
       - name: Validate no-Python recovery command on synthetic smoke data
         run: |
@@ -181,6 +183,7 @@ jobs:
             project_root/build/reports/packaged-smoke/*.json
             project_root/build/reports/packaged-smoke/*.png
             project_root/build/reports/packaged-smoke/*.xlsx
+            project_root/build/reports/packaged-smoke/*.pdf
             project_root/build/reports/packaged-smoke/*.csv
           if-no-files-found: ignore
           retention-days: 7
@@ -203,7 +206,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Install fixed Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.12.10'
       - name: Fetch exact same-run Windows review files
