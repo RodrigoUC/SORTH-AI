@@ -39,6 +39,11 @@ propone actualizaciones semanales de **GitHub Actions**, hasta tres PRs abiertos
 Todo cambio exige revisión humana; esta configuración no cambia protección de
 ramas ni obliga a GitHub a bloquear un merge.
 
+La revisión del 28 de octubre de 2026 unifica todos los usos de `setup-python`,
+incluidos los jobs de candidata y publicación retenida, en el SHA
+`6d4fd22b20465ccc0f7354476588e8df7c9ca0e0`, comprobado contra el tag oficial
+`v7.1.0`. Un contrato de workflows detecta actualizaciones parciales entre jobs.
+
 ## Herramientas y límites
 
 Bandit analiza `src`, `tools` y todos los `.py` de primer nivel, incluyendo
@@ -167,13 +172,11 @@ privados. El control se limita al código público y metadatos públicos de paqu
 - [Dependabot: opciones](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
 - [GitHub: endurecimiento de Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions)
 
-`tools/verify_cross_version_recovery.py` is a developer-only compatibility test.
-Its two subprocess findings (B404/B603) are reviewed individually by exact code
-fingerprint. It executes the current Python interpreter with isolated mode, a
-fixed checked-in worker, argument-array paths and a 60-second timeout; no shell
-or network. Supply only trusted reviewed source checkouts, whose modules are
-intentionally executed. It creates synthetic databases in a new directory and
-has no user-database argument. Its checks raise explicit errors even with `-O`.
+Los contratos actuales de persistencia verifican los formatos vigentes y el
+rechazo sin mutación de formatos incompatibles. No hay una herramienta de
+migración entre versiones ni excepciones de Bandit vigentes para esa ruta.
+La comprobación manual con binarios distintos se registra en
+[la plantilla Windows](WINDOWS_ACCEPTANCE_RECORD.md).
 
 ## Consolidación 3.0.0, 27 de octubre de 2026
 

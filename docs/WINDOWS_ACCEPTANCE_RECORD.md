@@ -1,8 +1,9 @@
 # Windows acceptance record (unexecuted template)
 
-Status: **NOT EXECUTED**. A completed build or this template does not close issues
-#4/#5. Use synthetic data, a standard account, active protections, and a fresh
-Windows 10/11 test image. Keep the previous approved binary and source snapshot.
+Status: **NOT EXECUTED**. A completed build or this template is not manual
+acceptance. Use synthetic data, a standard account, active protections, and a
+fresh Windows 10/11 test image. Keep any prior approved binary and its matching
+data snapshot separately.
 No Python is required to run the application or its recovery command.
 
 ## Identity and environment
@@ -34,14 +35,15 @@ installer separately. Preserve the exact artifact whose checksum was recorded.
 | Failure safety | Cancel import, invalid workbook, repeated generation, partial schedule, denied save and retry, relaunch recovery. Compare saved database and schedule before/after. Use only disposable data. | NOT RUN |
 | Display/input | Paths with spaces/accents, keyboard-only workflow, 100/150/200% scaling, both languages, reduced motion and sleep/relaunch. | NOT RUN |
 | Load envelope | Synthetic 10/100/500 courses with 5/20/50 compatible rooms, each one 60-minute session, fixed seed. Record actual workbook bytes, assigned/pending counts, generation/export seconds, peak RAM and UI responsiveness. These are test points, not advertised limits. | NOT RUN |
-| Distinct-build upgrade | Install previous and new builds side by side; create/save synthetic session in old, close, preserve full data folder, open/save in new. Record both EXE hashes and schema versions. | NOT RUN |
+| Distinct-build isolation | Install two reviewed builds side by side and record both EXE hashes and formats. Share a synthetic snapshot only if both support its format. Unsupported formats must be rejected without mutating the original; do not expect migration. | NOT RUN |
 | Real rollback | Close new; preserve its full data folder separately. Activate verified pre-update copy and launch previous shortcut. Check exact old schedule/data. New-version edits must remain in retained newer folder, never be silently merged/lost. | NOT RUN |
 | Uninstall/reinstall | Uninstall each build separately; verify other build, data and backups remain; reinstall and restore. | NOT RUN |
 
-For rollback, never point an old binary at a newer schema. The new recovery
-command prepares a candidate for **the version running it**; using the newest
-binary can migrate the candidate and therefore cannot make it compatible with
-an old binary. Use the pre-update snapshot with its matching prior binary.
+For rollback, never point an old binary at an unsupported schema. The recovery
+command validates a candidate for **the version running it** and does not
+convert formats. Current formats are session schema 5, catalog schema 2 and
+scenario metadata format 2. Use a verified snapshot supported by the selected
+binary, in its separate data location.
 Record which post-backup edits are absent and explicitly accept that boundary.
 
 ## Publication decision (all required)
@@ -52,7 +54,9 @@ Record which post-backup edits are absent and explicitly accept that boundary.
   candidate requires valid Authenticode and timestamp checks on final files;
   new signatures do not guarantee SmartScreen reputation.
 - Maintainer approved publication, final hashes, notes and limitations. This
-  repository has no automatic signing or release-publishing step.
+  repository has a retained release publisher, described in
+  [the first-release procedure](release/FIRST_RELEASE_PIPELINE.md). It remains
+  blocked by `publish=false` and unapproved gates. No automatic signing is provided.
 
 A failed/unrun row remains open. Do not convert CI or a filled checklist into a
 manual test result. CI artifacts expire and are not a stable distribution channel.

@@ -43,9 +43,8 @@ verificados y crea un entorno aislado para el compañero. No instala MCP en el
 entorno base de la GUI. Esa descarga ocurre en el equipo de compilación, no al
 preparar el complemento desde la aplicación del usuario. `-McpPrepared` permite
 reutilizar el paquete previamente generado y verificado, como hace CI.
-`-WithoutMcp` es una alternativa explícita para desarrollo, no el artefacto de
-revisión completo. Invocar directamente `SORTH.spec` conserva la GUI base sin el
-paquete y tampoco demuestra aceptación del complemento.
+`-WithoutMcp` es una alternativa explícita para desarrollo; la revisión completa
+usa `build_exe.ps1` con el paquete MCP preparado y verificado.
 
 El script detiene errores de compilación y deshabilita UPX. Usa metadatos de `windows_version_info.txt`; actualizar la versión con cada publicación. Estos metadatos no sustituyen una firma digital. La salida local del script no está firmada automáticamente.
 

@@ -43,6 +43,9 @@ sintéticos al añadir evidencia nueva.
 
 - [Distribución Windows](release/WINDOWS_DISTRIBUTION.md)
 - [Checklist de release](RELEASING.md)
+- [Primera publicación retenida](release/FIRST_RELEASE_PIPELINE.md),
+  [notas 3.0.0 en revisión](release/NOTES_3.0.0.md) y
+  [evidencia técnica de preparación](evidence/release-readiness-3.0/REPORT.md)
 - [Aceptación nativa Windows](WINDOWS_RELEASE_ACCEPTANCE.md) y [registro](WINDOWS_ACCEPTANCE_RECORD.md)
 - [Licencias](LICENSING_REVIEW.md) y [disponibilidad del código fuente](SOURCE_AVAILABILITY.md)
 

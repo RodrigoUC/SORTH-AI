@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "purpose": "technical evidence; no approval or publication",
+  "review_date": "2026-10-28",
+  "source_commit": "772b1e6bef48be23ccf278bd4e0bb6503f7ad4c5",
+  "artifact": {
+    "id": 12799149690,
+    "name": "SORTH-release-candidate-40649425365-1",
+    "sha256": "f2bd7c90316204f3fd523904967ca2259674692b6863a847b0d69eead2ee5656",
+    "size": 244128451,
+    "expires_at": "2026-11-11T07:39:33Z"
+  },
+  "receipt_sha256": "bbc2ee0c38ec2d22ec957e680717febcddb9c0c1e18160a5bb33a723a14e1918",
+  "receipt": {
+    "assets": {
+      "MANUAL_USUARIO.pdf": {
+        "sha256": "e7efda597fb4c2c822c8615999b163c401aa59366a32925785cf071bd7a73d70",
+        "size": 88273
+      },
+      "SHA256SUMS.txt": {
+        "sha256": "cf3804b6f87787ce31faf17c17f92d27282730daddfdfb6a020cca932298a557",
+        "size": 637
+      },
+      "SORTH-3.0.0-772b1e6bef48-windows-x64-unsigned-setup.exe": {
+        "sha256": "e48e0913b2f929ba518d5d27c80b5e9a927bfee288e554e72eb191aaa8955aa9",
+        "size": 69767224
+      },
+      "SORTH-3.0.0-772b1e6bef48be23ccf278bd4e0bb6503f7ad4c5-source.tar.gz": {
+        "sha256": "560161fff74fb0cbe95670efca6447370d5116877815f448de9ca661632c0dca",
+        "size": 3290078
+      },
+      "SORTH-windows-x64-3.0.0-772b1e6bef48-unsigned.zip": {
+        "sha256": "8c23dabf7b6423daa3be9d902883f7d78cf49b2681a3fdbf245e24cc30afd839",
+        "size": 90338990
+      },
+      "THIRD-PARTY-SOURCES.tar.gz": {
+        "sha256": "d5ad900abb41cef58791dc05ca5e4c2d8fe0df624d01f1d6aaa725024bb49c2d",
+        "size": 81561731
+      },
+      "build-info.json": {
+        "sha256": "bbeaadf33ebc9e4574b8bc613c61bf91648a7bb7dd43642e73770ec96b184967",
+        "size": 222433
+      }
+    },
+    "repository": "RodrigoUC/SORTH-AI",
+    "schema_version": 1,
+    "source_commit": "772b1e6bef48be23ccf278bd4e0bb6503f7ad4c5",
+    "source_run_attempt": 1,
+    "source_run_id": 40649425365,
+    "tag": "v3.0.0",
+    "version": "3.0.0"
+  },
+  "checks": {
+    "application_inventory_files": 1173,
+    "legal_documents_present": 21,
+    "wheel_notices_equal_to_source_commit": 69,
+    "native_correspondence": {
+      "verified_scoped_files": 120,
+      "required_files": 24
+    },
+    "third_party_members": 619,
+    "third_party_checksums_verified": 618,
+    "post_scan_and_smoke_application_hashes": "unchanged"
+  },
+  "local_smoke": {
+    "ok": true,
+    "frozen": true,
+    "assigned": 42,
+    "groups": 42,
+    "large_fixture": {
+      "courses": 500,
+      "rooms": 50,
+      "assigned": 500,
+      "elapsed_seconds": 10.078
+    },
+    "stages": [
+      "icon_svg_png_decode",
+      "bundled_excel_import",
+      "background_schedule",
+      "excel_csv_export",
+      "pdf_export",
+      "sqlite_roundtrip",
+      "language_switch_es_en",
+      "qt_render",
+      "import_template_roundtrip",
+      "course_dialog_edit_save",
+      "new_window_restore",
+      "reopened_export_content",
+      "invalid_input_preserves_session",
+      "large_workbook_schedule_export",
+      "theme_builtin_preview_cancel",
+      "theme_builtin_apply",
+      "theme_unsafe_json_rejected",
+      "theme_custom_import_apply",
+      "theme_custom_fresh_process_restart",
+      "theme_corrupt_fresh_process_fallback",
+      "theme_preserves_session_and_preferences",
+      "updates_empty_feed_truthful",
+      "updates_worker_release_es_en",
+      "updates_synthetic_download_cancel",
+      "updates_preserve_data_no_execution"
+    ],
+    "platform": "offscreen",
+    "clean_pc_without_python": false
+  },
+  "defender": {
+    "installer_scan_completed": true,
+    "extracted_application_scan_completed": true,
+    "correlated_event_ids": [
+      1000,
+      1001
+    ],
+    "related_detection_events": 0,
+    "product_version": "4.18.26090.9",
+    "signature_version": "1.463.1.0",
+    "real_time_protection_enabled": true,
+    "distribution_approval": false
+  },
+  "private_vulnerability_reporting": {
+    "enabled": false,
+    "source": "https://api.github.com/repos/RodrigoUC/SORTH-AI/private-vulnerability-reporting"
+  },
+  "manual_acceptance": "pending",
+  "publication_authorized": false,
+  "known_defects": [
+    {
+      "code": "pdf_stale_version",
+      "expected_version": "3.0.0",
+      "observed_version": "2.0.0",
+      "candidate_release_hold": true
+    }
+  ]
+}
