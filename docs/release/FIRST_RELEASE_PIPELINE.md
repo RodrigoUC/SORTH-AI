@@ -73,7 +73,15 @@ El generador debe usar fuentes oficiales públicas con tamaños/hashes fijados,
 incluir procedencia, recetas/configuración y avisos correspondientes, y fallar
 ante descarga o hash incorrecto. No se permite una URL privada del workspace.
 El workflow registra la herramienta `7z` instalada y exige que funcione, sin
-instalar software nuevo. El inventario oficial de `windows-2025` consultado el
+instalar software nuevo. El parser adapta los separadores del listado de 7-Zip
+en Windows a nombres canónicos para compararlos con el manifiesto y conserva el
+nombre listado para leer el archivo exacto. Se mantienen los controles de rutas,
+duplicados, enlaces, tamaño y SHA-256; los lectores ZIP no normalizan encabezados
+no válidos. Un rechazo de nombre en el listado identifica el archivo proveedor y
+el miembro original escapado. La regresión nativa ejecuta el `7z` instalado sobre
+un archivo sintético con rutas anidadas durante la suite Windows.
+
+El inventario oficial de `windows-2025` consultado el
 2026-10-05 incluye 7zip 26.03; la imagen cambia, por lo que el log real sigue
 siendo evidencia necesaria. Si falta el generador, el trabajo informa
 explícitamente la retención y **no** sube un candidato publicable; el éxito de

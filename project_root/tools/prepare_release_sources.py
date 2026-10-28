@@ -7,6 +7,7 @@ This asset is intentionally not a statement of final binary correspondence.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import gzip
 import hashlib
 import io
@@ -206,8 +207,31 @@ def bounded_command(args: list[str], maximum: int) -> bytes:
                 timer.cancel()
 
 
-def seven_zip_inventory(data: bytes) -> dict[str, dict]:
-    """Parse 7z l -slt -ba output, rejecting links and ambiguous entries."""
+@dataclass(frozen=True)
+class SevenZipMember:
+    """Keep validated identity separate from the system CLI's display spelling."""
+
+    name: str
+    listed_name: str
+    size: int
+    is_directory: bool
+
+
+def seven_zip_member_name(value: str, is_directory: bool) -> str:
+    """Adapt only 7-Zip display separators; validate every resulting component."""
+    # Windows 7-Zip lists native separators even for canonical archive paths.
+    # Do not apply this adaptation to ZIP headers, manifests or output names.
+    name = value.replace("\\", "/")
+    if is_directory:
+        name = name.removesuffix("/")
+    try:
+        return safe_name(name)
+    except SourceError as error:
+        raise SourceError(f"{error}: 7-Zip member {value!r}") from error
+
+
+def seven_zip_inventory(data: bytes) -> dict[str, SevenZipMember]:
+    """Parse native 7-Zip listings, rejecting links and canonical collisions."""
     text = data.decode("utf-8-sig").replace("\r\n", "\n")
     result = {}
     total = 0
@@ -222,8 +246,8 @@ def seven_zip_inventory(data: bytes) -> dict[str, dict]:
             fields[key] = value
         attrs = fields.get("Attributes", "")
         is_directory = fields.get("Folder") == "+" or attrs.startswith("D")
-        name = fields.get("Path", "")
-        name = safe_name(name.rstrip("/") if is_directory else name)
+        listed_name = fields.get("Path", "")
+        name = seven_zip_member_name(listed_name, is_directory)
         if name.casefold() in result:
             raise SourceError("Duplicate supplier member")
         if (any(fields.get(k) for k in ("Symbolic Link", "Hard Link"))
@@ -235,22 +259,26 @@ def seven_zip_inventory(data: bytes) -> dict[str, dict]:
         if size < 0:
             raise SourceError("Supplier member has invalid size")
         total += size
-        result[name.casefold()] = fields
+        result[name.casefold()] = SevenZipMember(name, listed_name, size, is_directory)
         if len(result) > MAX_ENTRIES or total > MAX_EXPANDED:
             raise SourceError("Supplier archive exceeds inspection budget")
     return result
 
 
 def selected_7z(path: Path, row: dict, executable: str) -> dict[str, bytes]:
+    """Stream exact listed files only after canonical identity and pin checks."""
     listing = bounded_command([executable, "l", "-slt", "-ba", "-sccUTF-8", "--", str(path)], MAX_LISTING)
-    inventory = seven_zip_inventory(listing)
+    try:
+        inventory = seven_zip_inventory(listing)
+    except SourceError as error:
+        raise SourceError(f"{path.name}: {error}") from error
     result = {}
     for item in row["files"]:
         entry = inventory.get(item["path"].casefold())
-        if (entry is None or entry["Path"] != item["path"]
-                or int(entry["Size"]) != item["size"] or entry.get("Folder") == "+"):
+        if (entry is None or entry.name != item["path"]
+                or entry.size != item["size"] or entry.is_directory):
             raise SourceError("Missing or changed supplier member: " + item["path"])
-        data = bounded_command([executable, "x", "-so", "-bd", "-y", "-spd", "--", str(path), item["path"]], item["size"])
+        data = bounded_command([executable, "x", "-so", "-bd", "-y", "-spd", "--", str(path), entry.listed_name], item["size"])
         check_pin(data, item)
         result[item["destination"]] = data
     return result

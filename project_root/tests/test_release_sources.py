@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import shutil
 import stat
 import tarfile
 from unittest.mock import patch
@@ -233,6 +234,113 @@ def test_7z_streaming_selection_fake_cli(tmp_path, monkeypatch):
     item["path"] = "missing"
     with pytest.raises(sources.SourceError, match="Missing"):
         sources.selected_7z(path, {"files": [item]}, "trusted-system-7z")
+
+
+@pytest.mark.parametrize("reported", ["include/QtCore/config.opt", r"include\QtCore\config.opt",
+                                     r"include\QtCore/config.opt"])
+def test_7z_nested_selection_matches_canonical_pin_and_streams_listed_name(tmp_path, monkeypatch, reported):
+    """The platform-specific listing must not change the pinned output bytes."""
+    item = pin(b"abc", path="include/QtCore/config.opt", destination="supplier/config.opt")
+    calls = []
+
+    def run(args, maximum):
+        calls.append(args)
+        if args[1] == "l":
+            return listing(reported)
+        assert args[-1] == reported
+        assert "-so" in args and "-spd" in args and "--" in args
+        assert maximum == item["size"]
+        return b"abc"
+
+    monkeypatch.setattr(sources, "bounded_command", run)
+    assert sources.selected_7z(tmp_path / "supplier.7z", {"files": [item]}, "system-7z") == {
+        item["destination"]: b"abc",
+    }
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("reported", ["include/QtCore/", "include\\QtCore\\"])
+@pytest.mark.parametrize("folder_field", ["Folder = +\n", ""])
+def test_7z_directory_metadata_is_retained_without_reading_it(tmp_path, monkeypatch, reported, folder_field):
+    """Attributes alone can identify a directory in a native 7-Zip listing."""
+    data = f"Path = {reported}\nSize = 3\nAttributes = D\n{folder_field}\n".encode()
+    calls = []
+
+    def run(args, maximum):
+        calls.append(args)
+        assert args[1] == "l", "A directory must never be streamed as a selected file"
+        return data
+
+    monkeypatch.setattr(sources, "bounded_command", run)
+    item = pin(b"abc", path="include/QtCore", destination="supplier/config.opt")
+    with pytest.raises(sources.SourceError, match="Missing or changed"):
+        sources.selected_7z(tmp_path / "supplier.7z", {"files": [item]}, "system-7z")
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("reported", [r"..\escape", r"include\..\escape", r"C:\escape",
+                                     r"C:escape", r"\\server\share", r"\absolute",
+                                     r"include\\config.opt", r"include\.\config.opt",
+                                     "include\\config.opt\\", r"include\AUX.txt",
+                                     "include\\config.opt ", "include\\config.opt.",
+                                     "include/config.opt\x00hidden"])
+def test_7z_unsafe_names_report_archive_and_raw_member_without_extraction(tmp_path, monkeypatch, reported):
+    """Separator adaptation preserves rejection and actionable error context."""
+    calls = []
+
+    def run(args, maximum):
+        calls.append(args)
+        assert args[1] == "l", "Invalid inventories must fail before extraction"
+        return listing(reported)
+
+    monkeypatch.setattr(sources, "bounded_command", run)
+    with pytest.raises(sources.SourceError) as error:
+        sources.selected_7z(tmp_path / "supplier.7z", {"files": []}, "system-7z")
+    assert "supplier.7z" in str(error.value)
+    assert repr(reported) in str(error.value)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("second", [r"include\QtCore\config.opt", "INCLUDE/qtcore/CONFIG.OPT"])
+def test_7z_separator_and_case_aliases_cannot_hide_duplicate_members(second):
+    with pytest.raises(sources.SourceError, match="Duplicate"):
+        sources.seven_zip_inventory(listing("include/QtCore/config.opt") + listing(second))
+
+
+@pytest.mark.parametrize("changed", ["size", "case", "bytes"])
+def test_7z_windows_names_do_not_bypass_identity_size_or_content_pins(tmp_path, monkeypatch, changed):
+    item = pin(b"abc", path="include/QtCore/config.opt", destination="supplier/config.opt")
+    reported = r"include\QtCore\config.opt"
+    if changed == "case":
+        reported = reported.upper()
+    calls = []
+
+    def run(args, maximum):
+        calls.append(args)
+        if args[1] == "l":
+            return listing(reported, size=4 if changed == "size" else 3)
+        assert changed == "bytes", "Identity mismatches must fail before extraction"
+        return b"bad"
+
+    monkeypatch.setattr(sources, "bounded_command", run)
+    with pytest.raises(sources.SourceError, match="SHA-256" if changed == "bytes" else "Missing or changed"):
+        sources.selected_7z(tmp_path / "supplier.7z", {"files": [item]}, "system-7z")
+    assert len(calls) == (2 if changed == "bytes" else 1)
+
+
+def test_7z_native_nested_listing_and_streaming(tmp_path):
+    """Exercise the system CLI on Windows CI instead of only a fake listing."""
+    executable = shutil.which("7z") or shutil.which("7zz")
+    if not executable:
+        pytest.skip("System 7-Zip is required for the native listing regression")
+    path = tmp_path / "supplier.zip"
+    content = b"original supplier text\r\n"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("include/QtCore/", b"")
+        archive.writestr("include/QtCore/config.opt", content)
+        archive.writestr("include/QtCore/unselected.txt", b"not selected")
+    item = pin(content, path="include/QtCore/config.opt", destination="supplier/config.opt")
+    assert sources.selected_7z(path, {"files": [item]}, executable) == {item["destination"]: content}
 
 
 @pytest.mark.parametrize("data", [listing("../escape"), listing() + listing(), listing(extra="Symbolic Link = ../escape"), listing(extra="Hard Link = x"), listing(extra="Anti = +"), listing(extra="Encrypted = +"), listing(size=-1), b"invalid listing"])
