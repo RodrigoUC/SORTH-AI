@@ -2,10 +2,10 @@
 /project_root/assets/sorth.svg text eol=lf
 /project_root/data/input/demo_source.json text eol=lf
 /project_root/data/input/courses_config.json text eol=lf
-# Preserve exact upstream notice bytes, including their original line endings.
-/third_party/licenses/*.txt -text
+# Preserve exact upstream notice bytes, including line endings and whitespace.
+/third_party/licenses/*.txt -text -whitespace
 /third_party/native-notices/** -text -whitespace
-/third_party/mcp/licenses/*.txt -text
+/third_party/mcp/licenses/*.txt -text -whitespace
 
 # Preserve the official Windows CPython license, including mixed upstream CRLF.
 /third_party/licenses/cpython-3.12.10-embed-amd64-LICENSE.txt -text -whitespace
