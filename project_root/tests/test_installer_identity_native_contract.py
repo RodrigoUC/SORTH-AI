@@ -34,7 +34,7 @@ def test_native_evidence_precedes_assertions_and_covers_reinstall():
 
 
 def test_desktop_is_opt_in_and_build_owned_shortcuts_are_guarded():
-    assert '$shortcutName = "SORTH-AI $($info.build_id).lnk"' in SCRIPT
+    assert '$shortcutName = "SORTH-AI.lnk"' in SCRIPT
     assert "GetFolderPath('Programs')" in SCRIPT
     assert "GetFolderPath('DesktopDirectory')" in SCRIPT
     assert "throw 'Refusing to replace an existing shortcut.'" in SCRIPT
