@@ -656,9 +656,9 @@
     },
     {
       "name": "pypdf",
-      "version": "6.21.2",
-      "wheel": "pypdf-6.21.2-py3-none-any.whl",
-      "sha256": "1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084",
+      "version": "6.21.4",
+      "wheel": "pypdf-6.21.4-py3-none-any.whl",
+      "sha256": "33e4fb41ca352810eb4e9838aa0d82d6888a5f8bf682f43e99cce5faa666255c",
       "license_expression": "BSD-3-Clause",
       "license_metadata": null,
       "license_classifiers": [],
@@ -671,7 +671,7 @@
       "notice_file": "licenses/pypdf.txt",
       "upstream_notice_files": [
         {
-          "path": "pypdf-6.21.2.dist-info/licenses/LICENSE",
+          "path": "pypdf-6.21.4.dist-info/licenses/LICENSE",
           "sha256": "a97ac230e5f33ef10a5367a850eb01f91f1a0b064e34742c7794d2294557f524"
         }
       ]
