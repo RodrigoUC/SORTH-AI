@@ -53,6 +53,6 @@ english.WelcomeLabel2=This wizard installs [name/ver] for your user account.%n%n
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 [Icons]
-Name: "{userprograms}\SORTH-AI {#BuildId}"; Filename: "{app}\SORTH.exe"; WorkingDir: "{app}"; IconFilename: "{app}\SORTH.exe"; AppUserModelID: "SORTH.App"; Comment: "SORTH-AI ({#BuildId})"
-Name: "{userdesktop}\SORTH-AI {#BuildId}"; Filename: "{app}\SORTH.exe"; WorkingDir: "{app}"; IconFilename: "{app}\SORTH.exe"; AppUserModelID: "SORTH.App"; Comment: "SORTH-AI ({#BuildId})"; Tasks: desktopicon
+Name: "{userprograms}\SORTH-AI"; Filename: "{app}\SORTH.exe"; WorkingDir: "{app}"; IconFilename: "{app}\SORTH.exe"; AppUserModelID: "SORTH.App"; Comment: "SORTH-AI ({#BuildId})"
+Name: "{userdesktop}\SORTH-AI"; Filename: "{app}\SORTH.exe"; WorkingDir: "{app}"; IconFilename: "{app}\SORTH.exe"; AppUserModelID: "SORTH.App"; Comment: "SORTH-AI ({#BuildId})"; Tasks: desktopicon
 ; No Registry, Run, InstallDelete or UninstallDelete sections; no data cleanup.

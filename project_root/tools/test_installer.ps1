@@ -9,7 +9,7 @@ $info = Get-Content build/artifacts/build-info.json -Raw | ConvertFrom-Json
 if ($info.build_id -notmatch '^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{12}$') { throw 'Unexpected build identity.' }
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SORTH-$($info.build_id)_is1"
 if (Test-Path -LiteralPath $uninstallKey) { throw 'Refusing to replace an existing uninstall record.' }
-$shortcutName = "SORTH-AI $($info.build_id).lnk"
+$shortcutName = "SORTH-AI.lnk"
 $startShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) $shortcutName
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) $shortcutName
 foreach ($shortcutPath in @($startShortcut, $desktopShortcut)) {
