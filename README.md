@@ -2,27 +2,15 @@
 
 ## Descargar e instalar en Windows
 
-El instalador se genera en **GitHub Actions**, no se guarda como `.exe` en la
-raíz del código. Actualmente son compilaciones de revisión **sin firma digital**;
-no hay una release pública estable anunciada aquí.
+Puedes descargar el instalador oficial directamente desde las versiones publicadas:
 
-1. Abre [Windows review build](https://github.com/RodrigoUC/SORTH-AI/actions/workflows/windows-review.yml)
-   y elige una ejecución **correcta de `main`**, comprobando su commit.
-2. En **Artifacts**, descarga `SORTH-windows-review-…` (GitHub puede pedir iniciar
-   sesión). Los artefactos caducan a los siete días; una ejecución antigua puede
-   no ofrecer descarga.
-3. Extrae el ZIP del artefacto. El instalador es
-   `SORTH-<versión>-<commit>-windows-x64-unsigned-setup.exe`; `SHA256SUMS.txt` permite
-   comprobar que la descarga coincide con esa compilación. El hash no identifica
-   por sí solo al editor ni garantiza seguridad.
-4. El asistente instala sólo para tu usuario, añade **SORTH-AI** al menú Inicio y
-   permite elegir un acceso directo al escritorio. Cada compilación conserva su
-   identificador para distinguirla de otras versiones de revisión.
+1. Ve a [Releases de SORTH-AI](https://github.com/RodrigoUC/SORTH-AI/releases/latest).
+2. En la sección **Assets**, descarga el instalador: `SORTH-3.0.0-<commit>-windows-x64-unsigned-setup.exe` (o el archivo `.zip` si prefieres la versión portable sin instalador).
+3. Ejecuta el archivo descargado. El asistente instalará la aplicación en tu cuenta de usuario y añadirá el acceso directo **SORTH-AI** al menú Inicio y opcionalmente al Escritorio.
 
-Si Windows bloquea el archivo, conserva el mensaje y consulta la
-[guía de distribución y firma](docs/release/WINDOWS_DISTRIBUTION.md).
-Cambiar los iconos o el nombre no elimina SmartScreen. Si sólo quieres el código,
-consulta [instalación para desarrollo](project_root/README.md).
+> [!NOTE]
+> Al tratarse de una compilación comunitaria sin firma digital comercial, Windows SmartScreen puede mostrar una advertencia preventiva ('Windows protegió su PC'). Haz clic en **Más información** y luego en **Ejecutar de todas formas**.
+> Consulta la [guía de distribución y firma](docs/release/WINDOWS_DISTRIBUTION.md) para más detalles. Si deseas ejecutar el proyecto desde el código fuente con Python, consulta la [instalación para desarrollo](project_root/README.md).
 
 ## Comunidad y estado del proyecto
 
