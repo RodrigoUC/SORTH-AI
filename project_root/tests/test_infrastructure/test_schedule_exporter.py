@@ -178,12 +178,12 @@ def test_grid_color_matches_shared_function_and_survives_filtering(tmp_path):
     assert colors == [course_color('BIO')] * 3
 
 
-def test_grid_print_range_omits_leading_and_trailing_blank_hours(tmp_path):
+def test_grid_print_range_covers_full_operating_day(tmp_path):
     _, workbook = export_pair(tmp_path, {'BIO-G1': ('Aula 2', 1, 1260, 1320)})
     sheet = next(sheet for sheet in workbook if sheet.title not in ('Asignaciones', 'Por Aula'))
     assert sheet['A1'].value == 'Horario · Aula 2'
-    assert sheet['A3'].value == '21:00'
-    assert sheet.max_row == 4
+    assert sheet['A3'].value == '07:00'
+    assert sheet.max_row == 33  # 07:00 to 22:00 in 30-min steps (30 slots) + title + header
 
 
 def test_detail_natural_group_order_and_chronological_parts(tmp_path):
