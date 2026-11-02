@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "scope": "all wheels in Windows build lock; not a frozen binary SBOM",
-  "lock_sha256": "0cf419f59c81130f893dd4812d154182530b7465f60cba4a323ca62acc2e15d9",
+  "lock_sha256": "54f09724e7822c30354da0b3478529ddeb4a607d6f0fa1bb4bea790a677881a5",
   "packages": [
     {
       "name": "altgraph",
