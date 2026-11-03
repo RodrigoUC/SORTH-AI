@@ -265,6 +265,7 @@ class SessionController:
                     window._features.load_error = str(error)
             window._apply_feature_preferences()
             window._refresh_overview()
+            window._update_schedule_tab_visibility()
             window._loading = False
             window._unsaved = False
             window._save_error = None
