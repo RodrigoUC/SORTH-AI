@@ -12,6 +12,7 @@ from PyQt6.QtGui import (
     QIcon
 )
 
+from .app_icons import app_icon
 from .course_manager_widget import CourseManagerWidget
 from .schedule_viewer_widget import ScheduleViewerWidget
 from ..infrastructure.session_repository import SessionRepository
@@ -201,13 +202,13 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
-        self.tabs.addTab(self.course_manager, msg('📚 Gestión de Cursos'))
+        self.tabs.addTab(self.course_manager, app_icon('courses'), msg('Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
         self.course_manager.commit_handler = self._commit_course_edit
         self.course_manager.change_guard = self._confirm_course_inputs
         self.schedule_viewer = ScheduleViewerWidget()
-        self.tabs.addTab(self.schedule_viewer, msg('📅 Horario Generado'))
+        self.tabs.addTab(self.schedule_viewer, app_icon('schedule'), msg('Horario Generado'))
         self.tabs.setTabToolTip(1, msg('Visualizar el horario generado en lista, cuadrícula o por aula'))
         self.schedule_viewer.edit_course_requested.connect(self._edit_course_from_viewer)
         self.schedule_viewer.group_removed.connect(self._on_group_removed)
@@ -409,6 +410,7 @@ class MainWindow(QMainWindow):
         self.btn_add_classroom.clicked.connect(self._add_classroom)
 
         self.btn_restrictions = QPushButton(msg('Restricciones de aulas'))
+        self.btn_restrictions.setIcon(app_icon('lock'))
         self.btn_restrictions.setToolTip(
             msg('Configurar qué aulas están reservadas exclusivamente para ciertos cursos.\nLos cursos restringidos SOLO pueden asignarse a su aula designada.')
         )
@@ -600,7 +602,7 @@ class MainWindow(QMainWindow):
             self.session.refresh_status()
             self._update_feature_notice()
             self._reset_edit_history('import')
-            self.status_bar.showMessage(msg('✅ Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
+            self.status_bar.showMessage(msg('Excel cargado: {p1}  ({p3} aulas, {p5} cursos)',
                                       p1=Path(candidate.path).name, p3=len(imported.classrooms), p5=len(imported.courses)))
 
         self._loading = True
@@ -655,7 +657,7 @@ class MainWindow(QMainWindow):
         self._refresh_overview()
         self.btn_generate.setEnabled(bool(self.course_manager.get_courses()))
         self.status_bar.showMessage(
-            msg("✅ Aula '{p1}' agregada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
+            msg("Aula '{p1}' agregada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
         )
         self.session.save()
 
@@ -682,12 +684,14 @@ class MainWindow(QMainWindow):
             self._invalidate_schedule()
             count = len(self.classroom_restrictions)
             if count:
-                self.btn_restrictions.setText(msg('🔒 Restricciones ({p1})', p1=count))
+                self.btn_restrictions.setIcon(app_icon('lock'))
+                self.btn_restrictions.setText(msg('Restricciones ({p1})', p1=count))
                 self.status_bar.showMessage(
-                    msg('✅ {p1} aula(s) con restricciones configuradas.', p1=count)
+                    msg('{p1} aula(s) con restricciones configuradas.', p1=count)
                 )
             else:
-                self.btn_restrictions.setText(msg('🔒 Aulas con Restricciones'))
+                self.btn_restrictions.setIcon(app_icon('lock'))
+                self.btn_restrictions.setText(msg('Aulas con Restricciones'))
                 self.status_bar.showMessage(msg('Restricciones de aulas eliminadas.'))
             self.session.save()
 
@@ -738,7 +742,7 @@ class MainWindow(QMainWindow):
                                  if self._worker is worker else None)
 
         self._set_busy(True)
-        self.status_bar.showMessage(msg('⏳ Generando horario...'))
+        self.status_bar.showMessage(msg('Generando horario...'))
         self._worker.start()
 
     def _generation_finished(self, worker):
@@ -828,7 +832,7 @@ class MainWindow(QMainWindow):
                 self._committed_view_failure(error)
 
         else:
-            self.status_bar.showMessage(msg('❌ No se pudo generar el horario'))
+            self.status_bar.showMessage(msg('No se pudo generar el horario'))
             dlg = _InfoDialog(
                 self, msg('Sin resultado'),
                 msg('No se obtuvo un resultado. Revise los datos y vuelva a generar el horario.'),
@@ -841,14 +845,14 @@ class MainWindow(QMainWindow):
         assigned = len(self.current_schedule or {})
         pending = total - assigned
         self.status_bar.showMessage(msg(
-            '⚠️ Horario parcial: {p1}/{p3} grupos; {pending} pendientes' if pending
-            else '✅ Horario generado: {p1}/{p3} grupos',
+            'Horario parcial: {p1}/{p3} grupos; {pending} pendientes' if pending
+            else 'Horario generado: {p1}/{p3} grupos',
             p1=assigned, p3=total, pending=pending))
 
     def _on_schedule_error(self, message):
         if self._generation_cancelled:
             return
-        self.status_bar.showMessage(msg('❌ Error al generar horario'))
+        self.status_bar.showMessage(msg('Error al generar horario'))
         _InfoDialog(self, msg('Error'), msg('Error al generar el horario:\n{p1}', p1=message), warning=True).exec()
 
 
