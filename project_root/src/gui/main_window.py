@@ -190,9 +190,6 @@ class MainWindow(QMainWindow):
         self._compact_clear_action = QAction(msg('Limpiar horario'), self)
         self._compact_clear_action.triggered.connect(lambda: self.schedule_viewer._clear_schedule())
         compact_menu.addAction(self._compact_clear_action)
-        detail_action = QAction(msg('Leer estado (F6)'), self)
-        detail_action.triggered.connect(self._show_accessible_status)
-        compact_menu.addAction(detail_action)
         compact_menu.aboutToShow.connect(self._update_compact_overview)
         shortcut = QAction(self)
         shortcut.setShortcut('F7')
@@ -386,7 +383,9 @@ class MainWindow(QMainWindow):
         self.overview_label.setWordWrap(True)
         layout.addWidget(self.overview_label)
 
-        file_row = QHBoxLayout()
+        self._course_management_toolbar = QWidget()
+        file_row = QHBoxLayout(self._course_management_toolbar)
+        file_row.setContentsMargins(0, 0, 0, 0)
         lbl = QLabel(msg('Archivo Excel:'))
         lbl.setStyleSheet("font-weight: bold;")
         self.excel_path_label = QLabel(msg('Sin archivo seleccionado'))
@@ -425,7 +424,7 @@ class MainWindow(QMainWindow):
         file_row.addWidget(self.btn_template)
         file_row.addWidget(self.btn_add_classroom)
         file_row.addWidget(self.btn_restrictions)
-        layout.addLayout(file_row)
+        layout.addWidget(self._course_management_toolbar)
 
         # The accepted filename above belongs to the current session. Keep the
         # uncommitted candidate separate and inspectable without a hover target.
@@ -723,6 +722,20 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, msg('Advertencia'),
                                 msg('Por favor agregue al menos un curso.'))
             return
+
+        if self.current_schedule:
+            confirm = QMessageBox(self)
+            confirm.setWindowTitle(msg('Generar nuevo horario'))
+            confirm.setIcon(QMessageBox.Icon.Question)
+            confirm.setTextFormat(Qt.TextFormat.PlainText)
+            confirm.setText(msg('El horario generado anteriormente será reemplazado. ¿Deseas continuar?'))
+            confirm.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            confirm.setDefaultButton(QMessageBox.StandardButton.No)
+            try:
+                if confirm.exec() != QMessageBox.StandardButton.Yes:
+                    return
+            finally:
+                confirm.deleteLater()
 
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
 
@@ -1608,6 +1621,8 @@ class MainWindow(QMainWindow):
         compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
         compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
+        if hasattr(self, '_course_management_toolbar'):
+            self._course_management_toolbar.setVisible(self.tabs.currentIndex() == 0)
         # Retained-data warnings are reading content, not optional toolbar
         # chrome. Restore them with detail captions, including the default 800px
         # window, while secondary actions can still live in the F7 menu.
