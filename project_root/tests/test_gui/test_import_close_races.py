@@ -71,6 +71,7 @@ def test_close_cancels_generation_even_with_retiring_reader(window, tmp_path, mo
         window._import.start(workbook(tmp_path / 'input.xlsx'))
         assert reader_entered.wait(1)
         window._import.cancel()
+        monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
         window._generate_schedule()
         assert scheduler_entered.wait(1)
         worker = window._worker

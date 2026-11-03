@@ -1,6 +1,8 @@
 """es presentation catalogs. Each key has one authoritative translation."""
 
 MESSAGES = {
+    'El horario generado anteriormente será reemplazado. ¿Deseas continuar?': 'El horario generado anteriormente será reemplazado. ¿Deseas continuar?',
+    'Generar nuevo horario': 'Generar nuevo horario',
     'Ayuda interactiva': 'Ayuda interactiva',
     'Suelte el archivo Excel para cargarlo': 'Suelte el archivo Excel para cargarlo',
     'Configurar parámetros opcionales y conexión MCP (Ctrl+,)': 'Configurar parámetros opcionales y conexión MCP (Ctrl+,)',
@@ -1053,6 +1055,8 @@ MESSAGES = {
 }
 
 QT_MESSAGES = {
+    'El horario generado anteriormente será reemplazado. ¿Deseas continuar?': 'El horario generado anteriormente será reemplazado. ¿Deseas continuar?',
+    'Generar nuevo horario': 'Generar nuevo horario',
     'Ayuda interactiva': 'Ayuda interactiva',
     'Suelte el archivo Excel para cargarlo': 'Suelte el archivo Excel para cargarlo',
     'Configurar parámetros opcionales y conexión MCP (Ctrl+,)': 'Configurar parámetros opcionales y conexión MCP (Ctrl+,)',

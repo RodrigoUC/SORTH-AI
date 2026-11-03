@@ -262,3 +262,17 @@ def test_overview_and_f6_distinguish_no_result_from_zero_assignments(
             assert ready not in status[0]
     finally:
         manager.set_language(previous, persist=False)
+
+
+def test_regeneration_warning_confirmation(window, monkeypatch):
+    load_inputs(window)
+    window.current_schedule = {'BIO-G1': ('A1', 1, 480, 540)}
+    # When user cancels confirmation:
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: False)
+    window._generate_schedule()
+    assert window._worker is None
+
+    # When user accepts confirmation:
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
+    window._generate_schedule()
+    assert window._worker is not None

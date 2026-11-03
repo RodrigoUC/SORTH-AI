@@ -176,7 +176,7 @@ def test_worker_snapshots_pins_and_overrides():
     assert worker._lab_overrides == {'BIO-G1'}
 
 
-def test_real_worker_regenerates_with_confirmed_pinned_lab_exception(window):
+def test_real_worker_regenerates_with_confirmed_pinned_lab_exception(window, monkeypatch):
     import time
     course = Course('BIO', 2, 60, 'LAB')
     window.course_manager.load_courses_from_excel([course])
@@ -185,6 +185,7 @@ def test_real_worker_regenerates_with_confirmed_pinned_lab_exception(window):
     groups[0].lab_override = True
     window._on_schedule_done({'BIO-G1':groups[0].assignment},groups)
     window._toggle_pin('BIO-G1')
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     app = QApplication.instance()
     deadline = time.monotonic() + 5

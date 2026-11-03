@@ -24,6 +24,7 @@ from src.scheduling.teaching_resources import Resource, ResourceCatalog, Schedul
 
 
 def wait_for_generation(window):
+    window._confirm_schedule_replacement = lambda: True
     window._generate_schedule()
     worker = window._worker
     assert worker is not None and worker.wait(3000)

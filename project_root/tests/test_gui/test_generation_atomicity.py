@@ -135,6 +135,7 @@ def test_actual_worker_renderer_failure_does_not_escape_qt_slot(window, monkeypa
         if len(calls) == 1: raise RuntimeError('worker result rendering failure')
         return original(*args, **kwargs)
     monkeypatch.setattr(window.schedule_viewer, 'display_schedule', fail_once)
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     assert window._worker.wait(3000)
     deadline = time.monotonic() + 3
@@ -256,6 +257,7 @@ def test_actual_worker_persistent_result_and_finish_failure_never_escape(window,
     before = fingerprint(window._capture_edit_state())
     monkeypatch.setattr(SchedulingService, 'run', lambda *a, **k:
         ({'BIO-G1': ('R', 1, 600, 660)}, window.course_manager.courses[0].generate_groups()))
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     assert window._worker.wait(3000)
     monkeypatch.setattr(window, '_update_history_actions', lambda:
