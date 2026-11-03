@@ -1,12 +1,12 @@
 """Help and user guidance dialog with categorized sections."""
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout
+    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout, QScrollArea, QWidget
 )
 
 from .i18n import msg
 from .i18n_widgets import (
-    QDialog, QDialogButtonBox, QLabel, QPushButton, QComboBox, QScrollArea, QWidget
+    QDialog, QDialogButtonBox, QLabel, QPushButton, QComboBox
 )
 from .excel_template import TemplateSaveButton, save_import_template
 from .app_icons import app_icon
