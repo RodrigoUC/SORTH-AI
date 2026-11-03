@@ -7,6 +7,7 @@ from ..scheduling.classroom_preferences import classroom_course_map
 from ..scheduling.teaching_resources import SchedulingResources
 from ..scheduling.time_model import TimeModel
 from ..scheduling.validation import validate_schedule, unassigned_reason
+from .app_icons import app_icon
 from .i18n import msg, join_messages
 from .i18n_widgets import QDialog, QDialogButtonBox, QLabel, QWidget
 
@@ -161,7 +162,7 @@ class SessionController:
             outer = QVBoxLayout()
             outer.setContentsMargins(0, 0, 0, 0)
             outer.setSpacing(0)
-            hdr = QLabel(msg('  💾  Sesión anterior encontrada'))
+            hdr = QLabel(msg('Sesión anterior encontrada'))
             hdr.setObjectName('dialogInfoHeader')
             outer.addWidget(hdr)
             body = QWidget()
@@ -220,7 +221,8 @@ class SessionController:
 
             count = len(window.classroom_restrictions)
             if count:
-                window.btn_restrictions.setText(msg('🔒 Restricciones ({p1})', p1=count))
+                window.btn_restrictions.setIcon(app_icon('lock'))
+                window.btn_restrictions.setText(msg('Restricciones ({p1})', p1=count))
             window.btn_restrictions.setEnabled(bool(window._classroom_course_map))
             window.btn_generate.setEnabled(bool(data["courses"]))
 
@@ -267,7 +269,7 @@ class SessionController:
             window._unsaved = False
             window._save_error = None
             window.session.refresh_status()
-            window.status_bar.showMessage(msg('✅ Sesión restaurada correctamente.'))
+            window.status_bar.showMessage(msg('Sesión restaurada correctamente.'))
             window._reset_edit_history('restore')
             if window._restore_failed:
                 window._restore_failed = False

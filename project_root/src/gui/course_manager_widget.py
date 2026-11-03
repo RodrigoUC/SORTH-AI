@@ -1,3 +1,4 @@
+from .app_icons import app_icon
 # src/gui/course_manager_widget.py
 
 from PyQt6.QtWidgets import (
@@ -33,7 +34,7 @@ def _confirm(parent, title: str, message: str) -> bool:
     outer.setContentsMargins(0, 0, 0, 0)
     outer.setSpacing(0)
 
-    header = QLabel(msg('  ⚠️  {p1}', p1=title))
+    header = QLabel(msg('{p1}', p1=title))
     header.setObjectName("dialogWarningHeader")
     outer.addWidget(header)
 
@@ -288,9 +289,9 @@ class CourseDialog(QDialog):
             # Show the value this editor will preserve, not a fresh prediction.
             self.room_type_label.setText(msg('{room_type} (guardado en el curso)', room_type=room_type))
         elif room_type == 'LAB':
-            self.room_type_label.setText(msg('🔬 LAB (detectado automáticamente)'))
+            self.room_type_label.setText(msg('LAB (detectado automáticamente)'))
         else:
-            self.room_type_label.setText(msg('🏫 REGULAR (detectado automáticamente)'))
+            self.room_type_label.setText(msg('REGULAR (detectado automáticamente)'))
         self.room_type_label.setObjectName('headingText' if room_type == 'LAB' else 'successText')
         # Qt does not automatically repolish a changed object-name selector.
         # This changes only presentation; draft fields remain untouched.
@@ -446,16 +447,16 @@ class CourseManagerWidget(QWidget):
 
         # Buttons
         btn_layout = self.edit_actions = QHBoxLayout()
-        btn_add = QPushButton(msg('➕ Agregar Curso'))
+        btn_add = QPushButton(app_icon('plus'), msg('Agregar Curso'))
         btn_add.setToolTip(msg('Agregar un nuevo curso manualmente a la lista'))
         btn_add.clicked.connect(self._add_course)
-        btn_edit = QPushButton(msg('✏️ Editar'))
+        btn_edit = QPushButton(app_icon('edit'), msg('Editar'))
         btn_edit.setToolTip(msg('Editar el curso seleccionado en la tabla'))
         btn_edit.clicked.connect(self._edit_course)
-        btn_delete = QPushButton(msg('🗑️ Eliminar'))
+        btn_delete = QPushButton(app_icon('trash'), msg('Eliminar'))
         btn_delete.setToolTip(msg('Eliminar el curso seleccionado de la lista'))
         btn_delete.clicked.connect(self._delete_course)
-        btn_clear = QPushButton(msg('🧹 Limpiar Todo'))
+        btn_clear = QPushButton(app_icon('clear'), msg('Limpiar Todo'))
         btn_clear.setToolTip(msg('Eliminar todos los cursos de la lista'))
         btn_clear.clicked.connect(self._clear_all)
 
