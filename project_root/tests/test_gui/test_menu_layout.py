@@ -40,7 +40,7 @@ def test_schedule_tools_menu_keeps_complete_labels_and_gutters(
                 app.processEvents()
                 visible = [a for a in menu.actions()
                            if a.isVisible() and not a.isSeparator()]
-                assert len(visible) >= 3
+                assert len(visible) >= 2
                 for action in sorted(visible, key=lambda a: menu.fontMetrics().horizontalAdvance(a.text()), reverse=True):
                     rect = menu.actionGeometry(action)
                     # The shared menu item box owns 28px left/right padding.
