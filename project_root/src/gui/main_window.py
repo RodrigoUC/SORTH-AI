@@ -1605,7 +1605,7 @@ class MainWindow(QMainWindow):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
         # window size. All secondary actions remain in the native F7 menu; F6
         # retains complete feature status and the full schedule summary.
-        compact = bool(self.current_schedule) and self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
+        compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
         compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
         # Retained-data warnings are reading content, not optional toolbar
