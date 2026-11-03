@@ -205,6 +205,7 @@ class HelpDialog(QDialog):
         grid_layout.setVerticalSpacing(10)
 
         shortcuts = [
+            ('F1', msg('Ayuda interactiva')),
             ('Ctrl + O', msg('Cargar archivo Excel')),
             ('Ctrl + Return', msg('Generar horario')),
             ('Ctrl + S', msg('Exportar todas las asignaciones')),

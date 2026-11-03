@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         # Resource activation belongs exclusively to the accepted SQLite
         # session. Cached UI preference flags never activate a fresh project.
         self._motion = MotionController(self)
+        self.setAcceptDrops(True)
         self._init_ui()
         self._import = ImportController(self)
         self.session.refresh_status()
@@ -367,10 +368,16 @@ class MainWindow(QMainWindow):
         heading.addWidget(self.language_selector)
         self.btn_settings = QPushButton(msg('Configuración'))
         self.btn_settings.setObjectName("headerAction")
+        self.btn_settings.setIcon(app_icon('settings'))
+        self.btn_settings.setToolTip(msg('Configurar parámetros opcionales y conexión MCP (Ctrl+,)'))
+        self._bind_command_shortcut(self.btn_settings, "Ctrl+,")
         self.btn_settings.clicked.connect(self._show_settings)
         heading.addWidget(self.btn_settings)
         self.btn_help = QPushButton(msg('Ayuda'))
         self.btn_help.setObjectName("headerAction")
+        self.btn_help.setIcon(app_icon('help'))
+        self.btn_help.setToolTip(msg('Centro de Ayuda y guía interactiva (F1)'))
+        self._bind_command_shortcut(self.btn_help, "F1")
         self.btn_help.clicked.connect(self._show_help)
         heading.addWidget(self.btn_help)
         layout.addWidget(header)
@@ -387,6 +394,7 @@ class MainWindow(QMainWindow):
         self.excel_path_label.setTextFormat(Qt.TextFormat.PlainText)
 
         btn_load = self.btn_load = QPushButton(msg('Cargar Excel'))
+        btn_load.setIcon(app_icon('upload'))
         self._bind_command_shortcut(btn_load, "Ctrl+O")
         btn_load.setToolTip(
             msg('Abrir un archivo Excel (.xlsx) con las hojas:\n  • Aulas: # DE AULA y CAPACIDAD (entero ≥ 0)\n  • Cursos: Curso; cada fila es un grupo sugerido\nOpcionales: Nombre de Curso, Horas (0800-1055), Aula y Días (L,I,M,J,V,S).\nLos encabezados van en la fila 1; el orden de columnas no importa.')
@@ -397,6 +405,7 @@ class MainWindow(QMainWindow):
         self.btn_template.clicked.connect(lambda: save_import_template(self))
 
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
+        self.btn_add_classroom.setIcon(app_icon('plus'))
         self.btn_add_classroom.setToolTip(
             msg('Agregar un aula nueva a la sesión actual.\nÚtil para aulas que no están en el Excel pero deben estar disponibles.')
         )
@@ -466,6 +475,7 @@ class MainWindow(QMainWindow):
 
         self.btn_generate = QPushButton(msg('Generar horario'))
         self.btn_generate.setObjectName("primaryAction")
+        self.btn_generate.setIcon(app_icon('sparkles'))
         self._bind_command_shortcut(self.btn_generate, "Ctrl+Return")
         self.btn_generate.setToolTip(
             msg('Ejecutar el algoritmo de programación con los cursos y aulas cargados.\nEl resultado se muestra en la pestaña Horario Generado.')
@@ -474,6 +484,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.setEnabled(False)
 
         self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
+        self.btn_export.setIcon(app_icon('export'))
         self._bind_command_shortcut(self.btn_export, "Ctrl+S")
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
@@ -481,6 +492,7 @@ class MainWindow(QMainWindow):
         self.btn_export.clicked.connect(lambda: self.export.save())
         self.btn_export.setEnabled(False)
         self.btn_export_filtered = QPushButton(msg('Exportar filtrado (0)'))
+        self.btn_export_filtered.setIcon(app_icon('export'))
         self.btn_export_filtered.setEnabled(False)
         self.btn_export_filtered.clicked.connect(lambda: self.export.save(filtered=True))
         self.schedule_viewer.filters_changed.connect(self.export.refresh_actions)
@@ -854,6 +866,43 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Session persistence
     # ------------------------------------------------------------------
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.xlsx'):
+                    event.acceptProposedAction()
+                    self.status_bar.showMessage(msg('Suelte el archivo Excel para cargarlo'))
+                    return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.xlsx'):
+                    event.acceptProposedAction()
+                    return
+        super().dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+        self.status_bar.clearMessage()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        self.status_bar.clearMessage()
+        if (self._busy and not self._import.active) or self._import.closing:
+            event.ignore()
+            return
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if path.lower().endswith('.xlsx') and Path(path).exists():
+                    event.acceptProposedAction()
+                    if self._import.active:
+                        self._import.cancel()
+                    self._import.start(path)
+                    return
+        super().dropEvent(event)
 
     def _show_help(self):
         if self._busy:
