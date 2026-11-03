@@ -11,6 +11,7 @@ from .i18n_widgets import (QComboBox, QDialog, QDialogButtonBox, QLabel, QPushBu
 
 
 CLIENT_SOURCES = {
+    'antigravity': 'https://antigravity.google/docs/mcp',
     'opencode': 'https://opencode.ai/v2/docs/mcp-servers',
     'claude': 'https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop',
     'chatgpt': 'https://developers.openai.com/plugins/deploy/connect-chatgpt',
@@ -28,7 +29,11 @@ def client_configuration(client, command):
         raise ValueError('A verified companion command is required')
     if client == 'chatgpt_desktop':
         return str(msg('Nombre: sorth-preview\nTipo: STDIO\nComando para iniciar: {command}\nArgumentos: --serve\nVariables del entorno: ninguna requerida', command=command[0]))
-    if client == 'opencode':
+    if client == 'antigravity':
+        value = {'mcpServers': {'sorth-preview': {
+            'command': command[0], 'args': command[1:],
+        }}}
+    elif client == 'opencode':
         value = {'mcp': {'servers': {'sorth-preview': {
             'type': 'local', 'command': list(command), 'disabled': True,
             'protocol': 'legacy',
@@ -63,7 +68,7 @@ class McpClientHelp(QDialog):
         self.client = QComboBox()
         self.client.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.client.setAccessibleName(msg('Cliente MCP'))
-        for title, key in [('OpenCode V2', 'opencode'), ('Claude Desktop', 'claude'), (msg('ChatGPT web (conexión remota)'), 'chatgpt'), (msg('ChatGPT de escritorio (STDIO)'), 'chatgpt_desktop')]:
+        for title, key in [('OpenCode V2', 'opencode'), ('Antigravity', 'antigravity'), ('Claude Desktop', 'claude'), (msg('ChatGPT web (conexión remota)'), 'chatgpt'), (msg('ChatGPT de escritorio (STDIO)'), 'chatgpt_desktop')]:
             self.client.addItem(title, key)
         client_label = QLabel(msg('Cliente MCP'))
         client_label.setBuddy(self.client)
@@ -180,6 +185,7 @@ class McpClientHelp(QDialog):
     def _update(self):
         client = self.client.currentData()
         instructions = {
+            'antigravity': '1. Copia esta configuración y agrégala a mcpServers en mcp_config.json de Antigravity.\n2. Guarda el permiso MCP en SORTH antes de conectar.\n3. Inicia la sesión en Antigravity para que reconozca automáticamente las herramientas de sorth-preview.',
             'opencode': '1. Copia esta configuración y combina sorth-preview en mcp.servers de opencode.jsonc. Conserva las otras entradas.\n2. Empieza desconectada (disabled: true) y usa protocol: legacy.\n3. Tras guardar el permiso en SORTH, revisa las herramientas y conecta con /mcps.',
             'claude': '1. Copia esta configuración y combina sorth-preview en mcpServers de la configuración local de Claude Desktop. Conserva los otros servidores.\n2. Guarda primero el permiso MCP en SORTH. Reiniciar Claude puede iniciar el servidor.\n3. Revisa y autoriza las herramientas en Claude. Este flujo no genera extensiones MCPB.',
             'chatgpt': 'ChatGPT web usa una conexión remota; no puede ejecutar esta ruta local como URL. Requiere HTTPS o Secure MCP Tunnel con autorización independiente.\n\n1. Si tu cliente muestra un formulario STDIO, elige ChatGPT de escritorio en esta guía.\n2. Para la conexión web, consulta las instrucciones oficiales y autoriza sus permisos y credenciales por separado.\n\nSORTH no crea túneles ni claves, no abre puertos y no configura ChatGPT.',

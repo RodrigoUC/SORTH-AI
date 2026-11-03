@@ -132,10 +132,32 @@ El proceso espera mensajes MCP por stdin. No es una consola de conversación. Ct
 
 ## Conectar un cliente elegido por ti
 
-La guía nativa ofrece OpenCode V2, Claude Desktop y ChatGPT. Sólo muestra texto y
+La guía nativa ofrece Antigravity, OpenCode V2, Claude Desktop y ChatGPT. Sólo muestra texto y
 copia al portapapeles al pulsar **Copiar configuración**. No escribe archivos de
 clientes, abre conexiones, solicita claves ni activa un proveedor. Preparar o
 verificar SORTH no prueba la conexión a un host comercial.
+
+### Google Antigravity
+
+Para conectar con Antigravity (o entornos de agentes basados en el estándar MCP),
+agrega la entrada en el archivo de configuración `mcp_config.json` o en la sección
+`mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "sorth-preview": {
+      "command": "C:\\RUTA_EXACTA_COPIADA\\SORTH-MCP.exe",
+      "args": [
+        "--serve"
+      ]
+    }
+  }
+}
+```
+
+Al iniciar la sesión, Antigravity detecta automáticamente el servidor `sorth-preview`
+y habilita las herramientas para generar propuestas en memoria sin requerir Python ni dependencias en el host.
 
 ### OpenCode V2
 
