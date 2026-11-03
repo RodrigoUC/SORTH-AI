@@ -93,7 +93,7 @@ QLabel#settingsNotice { color: $muted; background: $surface_alt; padding: 10px; 
 QLabel#settingsSaveState { color: $muted; }
 QLabel#settingsSaveState[pending="true"] { color: $warning; }
 
-QPushButton { background: $surface; border: 1px solid $border; border-radius: 5px; padding: 8px 14px; }
+QPushButton { background: $surface; border: 1px solid $border; border-radius: 8px; padding: 8px 14px; }
 QPushButton:hover { background: $primary_soft; border-color: $primary; }
 QPushButton:pressed, QPushButton:checked { background: $accent_soft; border-color: $accent; }
 QPushButton:disabled { background: $disabled; color: $disabled_text; border-color: $divider; }
@@ -107,7 +107,7 @@ QPushButton#primaryAction:disabled { background: $disabled; border-color: $divid
 QPushButton#dangerAction { color: $danger; border-color: $danger; }
 QPushButton#dangerAction:hover { background: $danger_soft; }
 QPushButton#dangerAction:disabled { color: $disabled_text; border-color: $divider; background: $disabled; }
-QLineEdit, QSpinBox, QDoubleSpinBox, QTimeEdit, QDateEdit, QDateTimeEdit, QComboBox { background: $surface; border: 1px solid $border; border-radius: 4px; padding: 6px; selection-background-color: $accent; selection-color: $on_accent; }
+QLineEdit, QSpinBox, QDoubleSpinBox, QTimeEdit, QDateEdit, QDateTimeEdit, QComboBox { background: $surface; border: 1px solid $border; border-radius: 8px; padding: 6px; selection-background-color: $accent; selection-color: $on_accent; }
 QWidget#resourceContent QLineEdit, QWidget#resourceContent QComboBox,
 QWidget#courseContent QLineEdit, QWidget#courseContent QSpinBox,
 QWidget#courseContent QTimeEdit, QWidget#courseContent QComboBox { padding: 7px; }
