@@ -1,7 +1,7 @@
 """Help and user guidance dialog with categorized sections."""
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout, QStackedWidget
+    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout
 )
 
 from .i18n import msg
@@ -55,27 +55,39 @@ class HelpDialog(QDialog):
         self.section_selector.addItem(msg('Atajos de teclado'), 'shortcuts')
         outer.addWidget(self.section_selector)
 
-        # Scroll area containing the stacked sections
+        # Scroll area containing the sections directly in a content widget
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        self.stack = QStackedWidget()
+        content = QWidget()
+        content.setObjectName('helpContent')
+        self.content_layout = QVBoxLayout(content)
+        self.content_layout.setContentsMargins(16, 14, 16, 14)
+        self.content_layout.setSpacing(12)
+
+        self.sections = {}
         self._build_sections()
-        scroll.setWidget(self.stack)
+        scroll.setWidget(content)
         outer.addWidget(scroll, 1)
 
-        self.section_selector.currentIndexChanged.connect(self.stack.setCurrentIndex)
+        self.section_selector.currentIndexChanged.connect(self._on_section_changed)
+        self._on_section_changed(self.section_selector.currentIndex())
 
         # Footer close button
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.accept)
         outer.addWidget(buttons)
 
+    def _on_section_changed(self, index: int):
+        current_key = self.section_selector.itemData(index)
+        for key, section_widget in self.sections.items():
+            section_widget.setVisible(key == current_key)
+
     def _create_section_container(self) -> tuple[QWidget, QVBoxLayout]:
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
         return container, layout
 
@@ -123,7 +135,8 @@ class HelpDialog(QDialog):
         self._add_step(l1, 5, msg('Inspeccionar y exportar'),
                        msg('Se activará la pestaña "Horario Generado" para examinar el horario en lista o cuadrícula y exportarlo en Excel, PDF o CSV.'))
         l1.addStretch()
-        self.stack.addWidget(s1)
+        self.sections['workflow'] = s1
+        self.content_layout.addWidget(s1)
 
         # 2. Excel format
         s2, l2 = self._create_section_container()
@@ -142,7 +155,8 @@ class HelpDialog(QDialog):
         btn_template.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         l2.addWidget(btn_template)
         l2.addStretch()
-        self.stack.addWidget(s2)
+        self.sections['excel'] = s2
+        self.content_layout.addWidget(s2)
 
         # 3. Classrooms and restrictions
         s3, l3 = self._create_section_container()
@@ -153,7 +167,8 @@ class HelpDialog(QDialog):
         self._add_step(l3, 2, msg('Restricciones de exclusividad'),
                        msg('Permite reservar ciertas aulas únicamente para cursos seleccionados. Los cursos restringidos solo podrán asignarse a su aula designada.'))
         l3.addStretch()
-        self.stack.addWidget(s3)
+        self.sections['classrooms'] = s3
+        self.content_layout.addWidget(s3)
 
         # 4. Generation parameters
         s4, l4 = self._create_section_container()
@@ -164,7 +179,8 @@ class HelpDialog(QDialog):
         self._add_step(l4, 2, msg('Semilla aleatoria'),
                        msg('Explora variantes alternativas válidas sin alterar las restricciones ni los requisitos pedagógicos.'))
         l4.addStretch()
-        self.stack.addWidget(s4)
+        self.sections['generation'] = s4
+        self.content_layout.addWidget(s4)
 
         # 5. Viewer and edits
         s5, l5 = self._create_section_container()
@@ -177,7 +193,8 @@ class HelpDialog(QDialog):
         self._add_step(l5, 3, msg('Asignación manual'),
                        msg('Permite colocar manualmente una sesión en un aula y franja horaria específicas garantizando ausencia de conflictos.'))
         l5.addStretch()
-        self.stack.addWidget(s5)
+        self.sections['viewer'] = s5
+        self.content_layout.addWidget(s5)
 
         # 6. Export
         s6, l6 = self._create_section_container()
@@ -190,7 +207,8 @@ class HelpDialog(QDialog):
         self._add_step(l6, 3, msg('Archivo CSV'),
                        msg('Exporta datos planos separados por comas para su importación directa en sistemas de gestión académica.'))
         l6.addStretch()
-        self.stack.addWidget(s6)
+        self.sections['export'] = s6
+        self.content_layout.addWidget(s6)
 
         # 7. Keyboard shortcuts
         s7, l7 = self._create_section_container()
@@ -222,4 +240,5 @@ class HelpDialog(QDialog):
 
         l7.addWidget(shortcuts_grid)
         l7.addStretch()
-        self.stack.addWidget(s7)
+        self.sections['shortcuts'] = s7
+        self.content_layout.addWidget(s7)

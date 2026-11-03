@@ -52,6 +52,11 @@ filled-action state; use `on_primary_soft` for hover-tab text.
 The legacy sort-arrow file paths are not color roles. The renderer owns trusted
 icons and must color them consistently with header foregrounds without accepting
 file paths from a theme. Updating a palette must not remove trusted resources.
+Modern application SVGs leverage `currentColor` to dynamically bind to widget
+foreground colors (`on_header`, `on_primary`, `text`, `muted`), ensuring high
+contrast and crisp legibility across light, dark, and high-contrast themes without
+asset duplication. Status icons similarly inherit or align with verified semantic
+status colors (`success`, `warning`, `danger`).
 
 ## Contrast requirements
 
