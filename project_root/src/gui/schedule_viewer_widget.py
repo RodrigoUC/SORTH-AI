@@ -477,6 +477,7 @@ class ScheduleViewerWidget(QWidget):
         table.horizontalHeader().setMinimumSectionSize(65)
         table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         table.customContextMenuRequested.connect(lambda pos: self._show_context_menu(table, pos, {}))
+        table.itemDoubleClicked.connect(lambda _item: self._action_edit(table, {}))
         layout.addWidget(table, 1)
         actions = QHBoxLayout()
         edit = QPushButton(msg('Editar curso'))

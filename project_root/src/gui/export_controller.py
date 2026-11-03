@@ -25,8 +25,10 @@ class ExportController:
         count = len(window.schedule_viewer.filtered_assignments())
         ready = not window._busy and bool(window.current_schedule)
         window.btn_export.setEnabled(ready)
+        window.btn_export.setVisible(bool(window.current_schedule))
         window.btn_export_filtered.setText(msg('Exportar filtrado ({p1})', p1=count))
         window.btn_export_filtered.setEnabled(ready and count > 0)
+        window.btn_export_filtered.setVisible(bool(window.current_schedule))
         window.btn_export_filtered.setToolTip(
             msg('Exportar {p1} sesiones asignadas que coinciden con Buscar, Aula, Día y Estado.\nLa pestaña activa y el selector del aula de la cuadrícula no cambian este conjunto.', p1=count)
             + msg('\nEn Excel también se incluyen todas las sesiones pendientes del horario, aunque no coincidan con los filtros.')

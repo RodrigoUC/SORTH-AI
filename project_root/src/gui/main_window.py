@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         # Resource activation belongs exclusively to the accepted SQLite
         # session. Cached UI preference flags never activate a fresh project.
         self._motion = MotionController(self)
+        self.setAcceptDrops(True)
         self._init_ui()
         self._import = ImportController(self)
         self.session.refresh_status()
@@ -295,6 +296,7 @@ class MainWindow(QMainWindow):
         self._status_button = QPushButton(msg('Leer estado (F6)'))
         self._status_button.clicked.connect(self._show_accessible_status)
         self.status_bar.addPermanentWidget(self._status_button)
+        self._update_schedule_tab_visibility()
 
     # ------------------------------------------------------------------
     # UI builders
@@ -366,21 +368,19 @@ class MainWindow(QMainWindow):
         heading.addWidget(self.language_selector)
         self.btn_settings = QPushButton(msg('Configuración'))
         self.btn_settings.setObjectName("headerAction")
+        self.btn_settings.setIcon(app_icon('settings'))
+        self.btn_settings.setToolTip(msg('Configurar parámetros opcionales y conexión MCP (Ctrl+,)'))
+        self._bind_command_shortcut(self.btn_settings, "Ctrl+,")
         self.btn_settings.clicked.connect(self._show_settings)
         heading.addWidget(self.btn_settings)
-        help_button = QPushButton(msg('Guía rápida'))
-        help_button.setObjectName("headerAction")
-        help_button.setCheckable(True)
-        heading.addWidget(help_button)
+        self.btn_help = QPushButton(msg('Ayuda'))
+        self.btn_help.setObjectName("headerAction")
+        self.btn_help.setIcon(app_icon('help'))
+        self.btn_help.setToolTip(msg('Centro de Ayuda y guía interactiva (F1)'))
+        self._bind_command_shortcut(self.btn_help, "F1")
+        self.btn_help.clicked.connect(self._show_help)
+        heading.addWidget(self.btn_help)
         layout.addWidget(header)
-        info = QLabel(
-            msg('1. Cargue un Excel con las hojas Aulas y Cursos (nombres exactos).\n2. Revise los cursos y configure aulas o restricciones.\n3. Genere el horario, revise los grupos pendientes y exporte.')
-        )
-        info.setWordWrap(True)
-        info.setObjectName("helpText")
-        info.setVisible(False)
-        help_button.toggled.connect(info.setVisible)
-        layout.addWidget(info)
         self.overview_label = QLabel(msg('Cargue un Excel o agregue cursos y aulas para comenzar.'))
         self.overview_label.setObjectName("overview")
         self.overview_label.setWordWrap(True)
@@ -394,6 +394,7 @@ class MainWindow(QMainWindow):
         self.excel_path_label.setTextFormat(Qt.TextFormat.PlainText)
 
         btn_load = self.btn_load = QPushButton(msg('Cargar Excel'))
+        btn_load.setIcon(app_icon('upload'))
         self._bind_command_shortcut(btn_load, "Ctrl+O")
         btn_load.setToolTip(
             msg('Abrir un archivo Excel (.xlsx) con las hojas:\n  • Aulas: # DE AULA y CAPACIDAD (entero ≥ 0)\n  • Cursos: Curso; cada fila es un grupo sugerido\nOpcionales: Nombre de Curso, Horas (0800-1055), Aula y Días (L,I,M,J,V,S).\nLos encabezados van en la fila 1; el orden de columnas no importa.')
@@ -404,6 +405,7 @@ class MainWindow(QMainWindow):
         self.btn_template.clicked.connect(lambda: save_import_template(self))
 
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
+        self.btn_add_classroom.setIcon(app_icon('plus'))
         self.btn_add_classroom.setToolTip(
             msg('Agregar un aula nueva a la sesión actual.\nÚtil para aulas que no están en el Excel pero deben estar disponibles.')
         )
@@ -473,6 +475,7 @@ class MainWindow(QMainWindow):
 
         self.btn_generate = QPushButton(msg('Generar horario'))
         self.btn_generate.setObjectName("primaryAction")
+        self.btn_generate.setIcon(app_icon('sparkles'))
         self._bind_command_shortcut(self.btn_generate, "Ctrl+Return")
         self.btn_generate.setToolTip(
             msg('Ejecutar el algoritmo de programación con los cursos y aulas cargados.\nEl resultado se muestra en la pestaña Horario Generado.')
@@ -481,6 +484,7 @@ class MainWindow(QMainWindow):
         self.btn_generate.setEnabled(False)
 
         self.btn_export = QPushButton(msg('Exportar todas las asignaciones'))
+        self.btn_export.setIcon(app_icon('export'))
         self._bind_command_shortcut(self.btn_export, "Ctrl+S")
         self.btn_export.setToolTip(
             msg('Guardar el horario generado en Excel (.xlsx), CSV o PDF.\nEl Excel incluye una grilla visual; el PDF, tablas por aula para imprimir.')
@@ -488,6 +492,7 @@ class MainWindow(QMainWindow):
         self.btn_export.clicked.connect(lambda: self.export.save())
         self.btn_export.setEnabled(False)
         self.btn_export_filtered = QPushButton(msg('Exportar filtrado (0)'))
+        self.btn_export_filtered.setIcon(app_icon('export'))
         self.btn_export_filtered.setEnabled(False)
         self.btn_export_filtered.clicked.connect(lambda: self.export.save(filtered=True))
         self.schedule_viewer.filters_changed.connect(self.export.refresh_actions)
@@ -822,6 +827,7 @@ class MainWindow(QMainWindow):
                 # even a failed snapshot must not leave earlier commands usable.
                 self._history.reset(reason='generation')
                 self._history.observe(self._capture_edit_state())
+                self._update_schedule_tab_visibility()
                 already_showing_results = self.tabs.currentIndex() == 1
                 self.tabs.setCurrentIndex(1)
                 if already_showing_results:
@@ -860,6 +866,67 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Session persistence
     # ------------------------------------------------------------------
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.xlsx'):
+                    event.acceptProposedAction()
+                    self.status_bar.showMessage(msg('Suelte el archivo Excel para cargarlo'))
+                    return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.xlsx'):
+                    event.acceptProposedAction()
+                    return
+        super().dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+        self.status_bar.clearMessage()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        self.status_bar.clearMessage()
+        if (self._busy and not self._import.active) or self._import.closing:
+            event.ignore()
+            return
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if path.lower().endswith('.xlsx') and Path(path).exists():
+                    event.acceptProposedAction()
+                    if self._import.active:
+                        self._import.cancel()
+                    self._import.start(path)
+                    return
+        super().dropEvent(event)
+
+    def _show_help(self):
+        if self._busy:
+            return
+        from .help_dialog import HelpDialog
+        dialog = HelpDialog(self)
+        try:
+            dialog.exec()
+        finally:
+            if not sip.isdeleted(dialog):
+                dialog.deleteLater()
+
+    def _update_schedule_tab_visibility(self):
+        has_schedule = bool(self.current_schedule)
+        if hasattr(self, 'tabs') and self.tabs.count() >= 2:
+            self.tabs.setTabVisible(1, has_schedule)
+            if not has_schedule and self.tabs.currentIndex() == 1:
+                self.tabs.setCurrentIndex(0)
+        if hasattr(self, 'btn_export'):
+            self.btn_export.setVisible(has_schedule)
+        if hasattr(self, 'btn_export_filtered'):
+            self.btn_export_filtered.setVisible(has_schedule)
+        if hasattr(self, '_compact_tools') and not has_schedule:
+            self._compact_tools.hide()
 
     def _show_settings(self):
         if self._busy or self._restore_failed:
@@ -1385,6 +1452,7 @@ class MainWindow(QMainWindow):
         candidate = self._capture_edit_state()
         candidate.update(assignments=None, lab_overrides=set(), schedule_present=False, group_feedback={})
         self._commit_edit(candidate, 'Eliminar horario')
+        self._update_schedule_tab_visibility()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1483,6 +1551,7 @@ class MainWindow(QMainWindow):
         self.current_schedule = None
         self.current_groups = None
         self.schedule_viewer._clear()
+        self._update_schedule_tab_visibility()
         self.export.refresh_actions()
 
     def _on_inputs_changed(self):
@@ -1536,7 +1605,7 @@ class MainWindow(QMainWindow):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
         # window size. All secondary actions remain in the native F7 menu; F6
         # retains complete feature status and the full schedule summary.
-        compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
+        compact = bool(self.current_schedule) and self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
         compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
         # Retained-data warnings are reading content, not optional toolbar
