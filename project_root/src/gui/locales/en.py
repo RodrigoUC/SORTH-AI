@@ -1,6 +1,10 @@
 """en presentation catalogs. Each key has one authoritative translation."""
 
 MESSAGES = {
+    'Ayuda interactiva': 'Interactive help',
+    'Suelte el archivo Excel para cargarlo': 'Drop the Excel file to load it',
+    'Configurar parámetros opcionales y conexión MCP (Ctrl+,)': 'Configure optional parameters and MCP connection (Ctrl+,)',
+    'Centro de Ayuda y guía interactiva (F1)': 'Help Center and interactive guide (F1)',
     'Herramientas del horario': 'Schedule tools',
     'Leer resumen y estado accesible': 'Read summary and accessible status',
     'Optimiza tu flujo de trabajo con los siguientes atajos:': 'Optimize your workflow with the following shortcuts:',
@@ -1048,6 +1052,10 @@ MESSAGES = {
 }
 
 QT_MESSAGES = {
+    'Ayuda interactiva': 'Interactive help',
+    'Suelte el archivo Excel para cargarlo': 'Drop the Excel file to load it',
+    'Configurar parámetros opcionales y conexión MCP (Ctrl+,)': 'Configure optional parameters and MCP connection (Ctrl+,)',
+    'Centro de Ayuda y guía interactiva (F1)': 'Help Center and interactive guide (F1)',
     'Herramientas del horario': 'Schedule tools',
     'Leer resumen y estado accesible': 'Read summary and accessible status',
     'Optimiza tu flujo de trabajo con los siguientes atajos:': 'Optimize your workflow with the following shortcuts:',
