@@ -28,6 +28,11 @@ SORTH version supporting the same contract. Keep automatic skill discovery enabl
   white-paper palette; do not change course identity or export styling.
   Preserve locale, density, fonts and reduced-motion preferences; v1 does not
   contain those settings. AI generation needs no provider keys or billing in SORTH.
+- Application iconography uses dynamic vector coloring (`currentColor`), inheriting
+  the foreground of its hosting control. Buttons, tabs, and headers ensure icon
+  contrast automatically through semantic foreground roles (`on_header`, `on_primary`,
+  `text`, `muted`). Theme palettes must preserve sufficient contrast for these roles
+  against their corresponding backgrounds.
 
 ## Validate and deliver
 
