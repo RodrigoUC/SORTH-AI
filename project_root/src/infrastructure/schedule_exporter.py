@@ -385,7 +385,7 @@ class ScheduleExporter:
         # Print only the occupied time range; exact sessions use the same
         # projection as the viewer without pages of leading/trailing blanks.
         grid = build_schedule_grid(
-            entries, min(entry[2] for entry in entries), max(entry[3] for entry in entries),
+            entries, self.time_model.day_start, self.time_model.day_end,
         )
         ws = book.create_sheet(sheet_name)
         n_cols = len(days) + 1

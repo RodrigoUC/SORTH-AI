@@ -178,12 +178,12 @@ def test_grid_color_matches_shared_function_and_survives_filtering(tmp_path):
     assert colors == [course_color('BIO')] * 3
 
 
-def test_grid_print_range_omits_leading_and_trailing_blank_hours(tmp_path):
+def test_grid_print_range_covers_full_operating_day(tmp_path):
     _, workbook = export_pair(tmp_path, {'BIO-G1': ('Aula 2', 1, 1260, 1320)})
     sheet = next(sheet for sheet in workbook if sheet.title not in ('Asignaciones', 'Por Aula'))
     assert sheet['A1'].value == 'Horario · Aula 2'
-    assert sheet['A3'].value == '21:00'
-    assert sheet.max_row == 4
+    assert sheet['A3'].value == '07:00'
+    assert sheet.max_row == 32  # 07:00 to 22:00 in 30-min steps (30 slots) + title + header
 
 
 def test_detail_natural_group_order_and_chronological_parts(tmp_path):
@@ -237,9 +237,10 @@ def test_grid_has_compact_title_and_headers_without_instruction_legend(tmp_path)
     sheet = workbook['Aula 2']
     assert sheet['A1'].value == 'Horario · Aula 2'
     assert [cell.value for cell in sheet[2]] == ['Hora'] + TimeModel.default().days
-    assert sheet['A3'].value == '08:02'
-    assert sheet['B3'].value == 'BIO-G1\nBiología celular\n08:02–08:07'
-    assert sheet.max_row == 3
+    assert sheet['A3'].value == '07:00'
+    cell = next(c for row in sheet.iter_rows() for c in row if c.value and 'BIO-G1' in str(c.value))
+    assert 'BIO-G1\nBiología celular\n08:02–08:07' in cell.value
+    assert sheet.max_row == 34
     assert not any('Un color por curso' in str(cell.value or '') or
                    'CONFLICTO indica sesiones simultáneas' in str(cell.value or '')
                    for row in sheet for cell in row)

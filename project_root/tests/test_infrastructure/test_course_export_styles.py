@@ -107,7 +107,8 @@ def test_excel_adjacent_courses_with_repeated_fill_still_have_outlines_and_disti
         f'{code}-G1': ('R', 1, 482 + index * 5, 487 + index * 5)
         for index, code in enumerate(codes)
     })
-    first, second = book['Aula R']['B3'], book['Aula R']['B4']
+    cells = [c for row in book['Aula R'].iter_rows() for c in row if c.value and any(code in str(c.value) for code in codes)]
+    first, second = cells[0], cells[1]
     assert first.fill.fgColor.rgb == second.fill.fgColor.rgb
     assert first.border.left.style != second.border.left.style
     assert first.border.bottom.style == second.border.top.style == 'thin'
@@ -118,7 +119,7 @@ def test_excel_grid_conflicts_keep_reserved_warning_style(tmp_path):
     book = excel(ScheduleExporter(TimeModel.default()), tmp_path, 'conflict', {
         'BIO-G1': ('R', 1, 482, 487), 'CHEM-G1': ('R', 1, 482, 487),
     })
-    cell = book['Aula R']['B3']
+    cell = next(c for row in book['Aula R'].iter_rows() for c in row if c.value and str(c.value).startswith('CONFLICTO'))
     assert cell.value.startswith('CONFLICTO: 2 sesiones')
     assert cell.fill.fgColor.rgb[-6:] == 'FCE4D6'
     assert cell.border.left.color.rgb[-6:] == '9C2F21'
