@@ -68,7 +68,7 @@ class McpClientHelp(QDialog):
         self.client = QComboBox()
         self.client.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.client.setAccessibleName(msg('Cliente MCP'))
-        for title, key in [('OpenCode V2', 'opencode'), ('Antigravity', 'antigravity'), ('Claude Desktop', 'claude'), (msg('ChatGPT web (conexión remota)'), 'chatgpt'), (msg('ChatGPT de escritorio (STDIO)'), 'chatgpt_desktop')]:
+        for title, key in [('OpenCode V2', 'opencode'), ('Claude Desktop', 'claude'), (msg('ChatGPT web (conexión remota)'), 'chatgpt'), (msg('ChatGPT de escritorio (STDIO)'), 'chatgpt_desktop'), ('Antigravity', 'antigravity')]:
             self.client.addItem(title, key)
         client_label = QLabel(msg('Cliente MCP'))
         client_label.setBuddy(self.client)
