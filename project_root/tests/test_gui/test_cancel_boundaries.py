@@ -32,6 +32,7 @@ def test_actual_worker_cancel_close_and_inputs(tmp_path, monkeypatch):
         entered.set(); release.wait(5)
         return {'A-G1':('R',2,480,540)}, groups
     monkeypatch.setattr(SchedulingService,'run',delayed)
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     assert entered.wait(2)
     assert not window.course_manager.isEnabled()

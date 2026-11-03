@@ -170,6 +170,7 @@ def test_stale_worker_result_is_ignored_without_population_error(window, monkeyp
     monkeypatch.setattr(main_window, 'SchedulerWorker', Worker)
     monkeypatch.setattr(window, '_on_schedule_error', lambda *a: pytest.fail('Stale result'))
     before = fingerprint(window._capture_edit_state())
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     stale = window._worker
     window._worker = None

@@ -707,7 +707,22 @@ class MainWindow(QMainWindow):
             self._cancel_button.setText(msg('Cancelando…'))
             self.status_bar.showMessage(msg('Cancelando generación; se conservarán el horario y las sesiones fijadas.'))
 
-    def _generate_schedule(self):
+    def _confirm_schedule_replacement(self) -> bool:
+        if not self.current_schedule:
+            return True
+        confirm = QMessageBox(self)
+        confirm.setWindowTitle(msg('Generar nuevo horario'))
+        confirm.setIcon(QMessageBox.Icon.Question)
+        confirm.setTextFormat(Qt.TextFormat.PlainText)
+        confirm.setText(msg('El horario generado anteriormente será reemplazado. ¿Deseas continuar?'))
+        confirm.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        confirm.setDefaultButton(QMessageBox.StandardButton.No)
+        try:
+            return confirm.exec() == QMessageBox.StandardButton.Yes
+        finally:
+            confirm.deleteLater()
+
+    def _generate_schedule(self, *, force: bool = False):
         if self._busy:
             return
         self._generation_cancelled = False
@@ -723,19 +738,8 @@ class MainWindow(QMainWindow):
                                 msg('Por favor agregue al menos un curso.'))
             return
 
-        if self.current_schedule:
-            confirm = QMessageBox(self)
-            confirm.setWindowTitle(msg('Generar nuevo horario'))
-            confirm.setIcon(QMessageBox.Icon.Question)
-            confirm.setTextFormat(Qt.TextFormat.PlainText)
-            confirm.setText(msg('El horario generado anteriormente será reemplazado. ¿Deseas continuar?'))
-            confirm.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            confirm.setDefaultButton(QMessageBox.StandardButton.No)
-            try:
-                if confirm.exec() != QMessageBox.StandardButton.Yes:
-                    return
-            finally:
-                confirm.deleteLater()
+        if not force and not self._confirm_schedule_replacement():
+            return
 
         seed = None if self.chk_random_seed.isChecked() else self.seed_input.value()
 

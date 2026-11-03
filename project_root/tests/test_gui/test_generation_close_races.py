@@ -24,6 +24,7 @@ def test_close_invalidates_finished_workers_queued_delivery(window, tmp_path, mo
     window.session.save()
     before, disk = session(window), (tmp_path / 'session.db').read_bytes()
     window.show()
+    monkeypatch.setattr(window, '_confirm_schedule_replacement', lambda: True)
     window._generate_schedule()
     worker = window._worker
     # Wait without pumping Qt: the real worker has completed but its result and
