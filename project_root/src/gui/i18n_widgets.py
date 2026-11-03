@@ -529,10 +529,25 @@ class CompactComboBox(QComboBox):
 
 
 class QTabWidget(_Localized, QtW.QTabWidget):
-    def addTab(self, widget, text):
-        index = super().addTab(widget, str(_render(text)))
+    def addTab(self, widget, *args):
+        if len(args) == 2:
+            icon, text = args
+            index = super().addTab(widget, icon, str(_render(text)))
+        else:
+            text = args[0]
+            index = super().addTab(widget, str(_render(text)))
         self.setTabText(index, text)
         return index
+
+    def insertTab(self, index, widget, *args):
+        if len(args) == 2:
+            icon, text = args
+            res_idx = super().insertTab(index, widget, icon, str(_render(text)))
+        else:
+            text = args[0]
+            res_idx = super().insertTab(index, widget, str(_render(text)))
+        self.setTabText(res_idx, text)
+        return res_idx
 
     def setTabText(self, index, text):
         self._remember('setTabText', (index, text), ('tab', index))
