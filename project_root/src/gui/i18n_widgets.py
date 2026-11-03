@@ -555,6 +555,11 @@ class QTabWidget(_Localized, QtW.QTabWidget):
     def setTabToolTip(self, index, text):
         self._remember('setTabToolTip', (index, text), ('tooltip', index))
 
+    def setCurrentIndex(self, index):
+        if hasattr(self, 'isTabVisible') and not self.isTabVisible(index):
+            self.setTabVisible(index, True)
+        super().setCurrentIndex(index)
+
 
 class QFormLayout(QtW.QFormLayout):
     def addRow(self, *args):

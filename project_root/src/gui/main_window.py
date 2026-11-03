@@ -295,6 +295,7 @@ class MainWindow(QMainWindow):
         self._status_button = QPushButton(msg('Leer estado (F6)'))
         self._status_button.clicked.connect(self._show_accessible_status)
         self.status_bar.addPermanentWidget(self._status_button)
+        self._update_schedule_tab_visibility()
 
     # ------------------------------------------------------------------
     # UI builders
@@ -368,19 +369,11 @@ class MainWindow(QMainWindow):
         self.btn_settings.setObjectName("headerAction")
         self.btn_settings.clicked.connect(self._show_settings)
         heading.addWidget(self.btn_settings)
-        help_button = QPushButton(msg('Guía rápida'))
-        help_button.setObjectName("headerAction")
-        help_button.setCheckable(True)
-        heading.addWidget(help_button)
+        self.btn_help = QPushButton(msg('Ayuda'))
+        self.btn_help.setObjectName("headerAction")
+        self.btn_help.clicked.connect(self._show_help)
+        heading.addWidget(self.btn_help)
         layout.addWidget(header)
-        info = QLabel(
-            msg('1. Cargue un Excel con las hojas Aulas y Cursos (nombres exactos).\n2. Revise los cursos y configure aulas o restricciones.\n3. Genere el horario, revise los grupos pendientes y exporte.')
-        )
-        info.setWordWrap(True)
-        info.setObjectName("helpText")
-        info.setVisible(False)
-        help_button.toggled.connect(info.setVisible)
-        layout.addWidget(info)
         self.overview_label = QLabel(msg('Cargue un Excel o agregue cursos y aulas para comenzar.'))
         self.overview_label.setObjectName("overview")
         self.overview_label.setWordWrap(True)
@@ -822,6 +815,7 @@ class MainWindow(QMainWindow):
                 # even a failed snapshot must not leave earlier commands usable.
                 self._history.reset(reason='generation')
                 self._history.observe(self._capture_edit_state())
+                self._update_schedule_tab_visibility()
                 already_showing_results = self.tabs.currentIndex() == 1
                 self.tabs.setCurrentIndex(1)
                 if already_showing_results:
@@ -860,6 +854,30 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Session persistence
     # ------------------------------------------------------------------
+
+    def _show_help(self):
+        if self._busy:
+            return
+        from .help_dialog import HelpDialog
+        dialog = HelpDialog(self)
+        try:
+            dialog.exec()
+        finally:
+            if not sip.isdeleted(dialog):
+                dialog.deleteLater()
+
+    def _update_schedule_tab_visibility(self):
+        has_schedule = bool(self.current_schedule)
+        if hasattr(self, 'tabs') and self.tabs.count() >= 2:
+            self.tabs.setTabVisible(1, has_schedule)
+            if not has_schedule and self.tabs.currentIndex() == 1:
+                self.tabs.setCurrentIndex(0)
+        if hasattr(self, 'btn_export'):
+            self.btn_export.setVisible(has_schedule)
+        if hasattr(self, 'btn_export_filtered'):
+            self.btn_export_filtered.setVisible(has_schedule)
+        if hasattr(self, '_compact_tools') and not has_schedule:
+            self._compact_tools.hide()
 
     def _show_settings(self):
         if self._busy or self._restore_failed:
@@ -1385,6 +1403,7 @@ class MainWindow(QMainWindow):
         candidate = self._capture_edit_state()
         candidate.update(assignments=None, lab_overrides=set(), schedule_present=False, group_feedback={})
         self._commit_edit(candidate, 'Eliminar horario')
+        self._update_schedule_tab_visibility()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1483,6 +1502,7 @@ class MainWindow(QMainWindow):
         self.current_schedule = None
         self.current_groups = None
         self.schedule_viewer._clear()
+        self._update_schedule_tab_visibility()
         self.export.refresh_actions()
 
     def _on_inputs_changed(self):
@@ -1536,7 +1556,7 @@ class MainWindow(QMainWindow):
         # Reclaim duplicate summaries and secondary toolbars, not table fonts or
         # window size. All secondary actions remain in the native F7 menu; F6
         # retains complete feature status and the full schedule summary.
-        compact = self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
+        compact = bool(self.current_schedule) and self.height() <= self._COMPACT_HEIGHT and self.tabs.currentIndex() == 1
         compact_details = compact and self.height() <= self._COMPACT_HINT_HEIGHT
         self.overview_label.setVisible(not compact)
         # Retained-data warnings are reading content, not optional toolbar
