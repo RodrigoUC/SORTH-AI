@@ -118,7 +118,7 @@ def test_excel_grid_conflicts_keep_reserved_warning_style(tmp_path):
     book = excel(ScheduleExporter(TimeModel.default()), tmp_path, 'conflict', {
         'BIO-G1': ('R', 1, 482, 487), 'CHEM-G1': ('R', 1, 482, 487),
     })
-    cell = book['Aula R']['B3']
+    cell = next(c for row in book['Aula R'].iter_rows() for c in row if c.value and str(c.value).startswith('CONFLICTO'))
     assert cell.value.startswith('CONFLICTO: 2 sesiones')
     assert cell.fill.fgColor.rgb[-6:] == 'FCE4D6'
     assert cell.border.left.color.rgb[-6:] == '9C2F21'

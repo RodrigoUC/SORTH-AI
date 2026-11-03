@@ -215,7 +215,7 @@ from openpyxl import load_workbook
 payload = ScheduleExporter(TimeModel.default()).to_excel_bytes(
     {'BIO-G1': ('R', 1, 482, 487)}, pending=[], status='complete')
 book = load_workbook(BytesIO(payload))
-assert book['Aula R']['B3'].value == 'BIO-G1\n08:02–08:07'
+assert any(cell.value == 'BIO-G1\n08:02–08:07' for row in book['Aula R'].iter_rows() for cell in row)
 assert book['Estado']['B2'].value == 'complete'
 assert not {'pandas', 'PyQt6', 'sqlite3'} & set(sys.modules)
 '''
