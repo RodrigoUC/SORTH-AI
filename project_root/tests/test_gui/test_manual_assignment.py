@@ -1,7 +1,7 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog
+from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog, QLabel
 from src.gui.manual_assignment_dialog import ManualAssignmentDialog
 from src.gui.main_window import MainWindow
 from src.infrastructure.session_repository import SessionRepository
