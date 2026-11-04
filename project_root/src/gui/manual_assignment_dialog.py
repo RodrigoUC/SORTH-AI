@@ -17,7 +17,15 @@ class ManualAssignmentDialog(QDialog):
         self.result_assignment = None
         self.lab_override = False
         layout = QFormLayout(self)
-        summary = QLabel(msg('{p0} · {p2} min · {p4} estudiantes', p0=group.group_id, p2=group.duration_min, p4=group.size))
+        has_students = any(
+            getattr(getattr(resources, 'catalog', lambda k: None)(k), 'enabled', False)
+            for k in ('student_group', 'student')
+        ) if resources is not None else False
+        if has_students or getattr(group, 'size', 0) > 0:
+            summary_text = msg('{p0} · {p2} min · {p4} estudiantes', p0=group.group_id, p2=group.duration_min, p4=group.size)
+        else:
+            summary_text = msg('{p0} · {p2} min', p0=group.group_id, p2=group.duration_min)
+        summary = QLabel(summary_text)
         summary.setWordWrap(True)
         layout.addRow(summary)
         reason = QLabel(msg(group.unassigned_reason) if group.unassigned_reason else msg('Seleccione el aula, día y hora. Se comprobarán todas las restricciones.'))
