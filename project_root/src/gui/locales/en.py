@@ -1,6 +1,13 @@
 """en presentation catalogs. Each key has one authoritative translation."""
 
 MESSAGES = {
+    'Eliminar aula': 'Delete Classroom',
+    'Eliminar un aula de la sesión actual.': 'Delete a classroom from the current session.',
+    'No hay aulas para eliminar.': 'No classrooms to delete.',
+    'Seleccione el aula que desea eliminar de la sesión:': 'Select the classroom you want to delete from the session:',
+    'Aula a eliminar': 'Classroom to delete',
+    "¿Seguro que deseas eliminar el aula '{p1}' de la sesión?": "Are you sure you want to delete classroom '{p1}' from the session?",
+    "Aula '{p1}' eliminada.": "Classroom '{p1}' deleted.",
     'El horario generado anteriormente será reemplazado. ¿Deseas continuar?': 'The previously generated schedule will be replaced. Do you want to continue?',
     'Generar nuevo horario': 'Generate New Schedule',
     'Ayuda interactiva': 'Interactive help',
@@ -1056,6 +1063,13 @@ MESSAGES = {
 }
 
 QT_MESSAGES = {
+    'Eliminar aula': 'Delete Classroom',
+    'Eliminar un aula de la sesión actual.': 'Delete a classroom from the current session.',
+    'No hay aulas para eliminar.': 'No classrooms to delete.',
+    'Seleccione el aula que desea eliminar de la sesión:': 'Select the classroom you want to delete from the session:',
+    'Aula a eliminar': 'Classroom to delete',
+    "¿Seguro que deseas eliminar el aula '{p1}' de la sesión?": "Are you sure you want to delete classroom '{p1}' from the session?",
+    "Aula '{p1}' eliminada.": "Classroom '{p1}' deleted.",
     'El horario generado anteriormente será reemplazado. ¿Deseas continuar?': 'The previously generated schedule will be replaced. Do you want to continue?',
     'Generar nuevo horario': 'Generate New Schedule',
     'Ayuda interactiva': 'Interactive help',

@@ -244,6 +244,47 @@ class AddClassroomDialog(QDialog):
         )
 
 
+
+
+class DeleteClassroomDialog(QDialog):
+    """Dialog to select and confirm deletion of a classroom from current session."""
+
+    def __init__(self, parent, classrooms: dict):
+        super().__init__(parent)
+        self.setWindowTitle(msg('Eliminar aula'))
+        self.setMinimumWidth(360)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        prompt = QLabel(msg('Seleccione el aula que desea eliminar de la sesión:'))
+        prompt.setWordWrap(True)
+        layout.addWidget(prompt)
+
+        self.selector = QComboBox()
+        self.selector.setAccessibleName(msg('Aula a eliminar'))
+        for name, room in sorted(classrooms.items()):
+            label = f"{name} ({room.room_type}, cap={room.capacity})"
+            self.selector.addItem(label, name)
+        layout.addWidget(self.selector)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(msg('Eliminar'))
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setObjectName('dangerAction')
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self):
+        if not self.selector.currentData():
+            return
+        self.accept()
+
+    def get_selected_classroom(self) -> str | None:
+        return self.selector.currentData()
+
 class _InfoDialog(QDialog):
     """Styled info/warning dialog with colored header."""
 
