@@ -28,7 +28,7 @@ def window(tmp_path):
 
 
 def test_help_dialog_sections_and_lifecycle(window):
-    """HelpDialog initializes cleanly, toggles sections safely, and closes without crash."""
+    """HelpDialog initializes cleanly, toggles sections safely via list or combo, and closes without crash."""
     dialog = HelpDialog(window)
     dialog.show()
     QApplication.processEvents()
@@ -41,13 +41,27 @@ def test_help_dialog_sections_and_lifecycle(window):
     assert dialog.sections['workflow'].isVisible()
     assert not dialog.sections['excel'].isVisible()
 
-    # Switch to each section via combo box
+    # Verify sidebar nav_list item count and selection
+    assert dialog.nav_list.count() == len(expected_sections)
+    assert dialog.nav_list.currentRow() == 0
+
+    # Switch to each section via sidebar nav_list
+    for row in range(dialog.nav_list.count()):
+        dialog.nav_list.setCurrentRow(row)
+        QApplication.processEvents()
+        active_key = dialog.nav_list.item(row).data(Qt.ItemDataRole.UserRole)
+        for key, widget in dialog.sections.items():
+            assert widget.isVisible() == (key == active_key)
+        assert dialog.section_selector.currentIndex() == row
+
+    # Switch to each section via combo box (synchronized)
     for i in range(dialog.section_selector.count()):
         dialog.section_selector.setCurrentIndex(i)
         QApplication.processEvents()
         active_key = dialog.section_selector.itemData(i)
         for key, widget in dialog.sections.items():
             assert widget.isVisible() == (key == active_key)
+        assert dialog.nav_list.currentRow() == i
 
     # Close dialog via close button
     btn_box = dialog.findChild(QDialogButtonBox)
@@ -58,4 +72,3 @@ def test_help_dialog_sections_and_lifecycle(window):
     close_btn.click()
     QApplication.processEvents()
     dialog.deleteLater()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)

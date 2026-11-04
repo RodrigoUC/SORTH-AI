@@ -1,26 +1,43 @@
-"""Help and user guidance dialog with categorized sections."""
-from PyQt6.QtCore import Qt
+"""Help and user guidance dialog with categorized sections and sidebar navigation."""
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
-    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout, QScrollArea, QWidget
+    QFrame, QGridLayout, QSizePolicy, QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, QListWidgetItem
 )
 
 from .i18n import msg
 from .i18n_widgets import (
-    QDialog, QDialogButtonBox, QLabel, QPushButton, QComboBox
+    QDialog, QDialogButtonBox, QLabel, QPushButton, QComboBox, QListWidget
 )
 from .excel_template import TemplateSaveButton, save_import_template
 from .app_icons import app_icon
 
 
 class HelpDialog(QDialog):
-    """Categorized help and documentation dialog for SORTH-AI."""
+    """Categorized help and documentation dialog with sidebar navigation."""
+
+    SECTIONS_METADATA = [
+        ('workflow', msg('Flujo de trabajo e inicio rápido'), 'courses',
+         msg('Aprende la secuencia recomendada para cargar datos, generar y obtener resultados.')),
+        ('excel', msg('Estructura del archivo Excel'), 'upload',
+         msg('Requisitos obligatorios y columnas opcionales de las hojas Aulas y Cursos.')),
+        ('classrooms', msg('Aulas y restricciones'), 'lock',
+         msg('Cómo registrar aulas adicionales y configurar exclusividades por laboratorio o taller.')),
+        ('generation', msg('Generación y semillas'), 'sparkles',
+         msg('Detalles sobre la reproducibilidad, el azar controlado y la resolución de conflictos.')),
+        ('viewer', msg('Visualización y edición'), 'schedule',
+         msg('Filtros, inspección en lista o cuadrícula, fijación y colocación manual de sesiones.')),
+        ('export', msg('Exportación e informes'), 'export',
+         msg('Características de los reportes en formatos Excel (.xlsx), PDF y CSV.')),
+        ('shortcuts', msg('Atajos de teclado'), 'settings',
+         msg('Accesos rápidos de teclado para operar SORTH con mayor agilidad.')),
+    ]
 
     def __init__(self, window):
         super().__init__(window)
         self.window = window
         self.setWindowTitle(msg('Ayuda - SORTH-AI'))
-        self.setMinimumSize(660, 560)
-        self.resize(720, 620)
+        self.setMinimumSize(780, 580)
+        self.resize(840, 640)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
@@ -37,25 +54,40 @@ class HelpDialog(QDialog):
         title.setObjectName('settingsTitle')
         header_layout.addWidget(title)
 
-        subtitle = QLabel(msg('Guía y documentación para la organización y optimización de horarios'))
+        subtitle = QLabel(msg('Guía interactiva paso a paso para la organización y optimización de horarios académicos'))
         subtitle.setObjectName('settingsSubtitle')
         subtitle.setWordWrap(True)
         header_layout.addWidget(subtitle)
         outer.addWidget(header)
 
-        # Section Selector
+        # Main split: Sidebar list navigation on the left, Scroll content on the right
+        body_layout = QHBoxLayout()
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(14)
+
+        # Sidebar List Widget
+        self.nav_list = QListWidget()
+        self.nav_list.setObjectName('helpNavList')
+        self.nav_list.setAccessibleName(msg('Lista de secciones de ayuda'))
+        self.nav_list.setFixedWidth(240)
+        self.nav_list.setIconSize(QSize(18, 18))
+        self.nav_list.setSpacing(2)
+
+        # Hidden or synchronized combo box for backwards compatibility with tests and accessibility
         self.section_selector = QComboBox()
         self.section_selector.setAccessibleName(msg('Sección de ayuda'))
-        self.section_selector.addItem(msg('Flujo de trabajo e inicio rápido'), 'workflow')
-        self.section_selector.addItem(msg('Estructura del archivo Excel'), 'excel')
-        self.section_selector.addItem(msg('Aulas y restricciones'), 'classrooms')
-        self.section_selector.addItem(msg('Generación y semillas'), 'generation')
-        self.section_selector.addItem(msg('Visualización y edición'), 'viewer')
-        self.section_selector.addItem(msg('Exportación e informes'), 'export')
-        self.section_selector.addItem(msg('Atajos de teclado'), 'shortcuts')
-        outer.addWidget(self.section_selector)
+        self.section_selector.setVisible(False)
 
-        # Scroll area containing the sections directly in a content widget
+        for key, title_text, icon_name, desc_text in self.SECTIONS_METADATA:
+            item = QListWidgetItem(app_icon(icon_name), title_text)
+            item.setData(Qt.ItemDataRole.UserRole, key)
+            item.setToolTip(desc_text)
+            self.nav_list.addItem(item)
+            self.section_selector.addItem(title_text, key)
+
+        body_layout.addWidget(self.nav_list)
+
+        # Content area with scroll
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -69,20 +101,45 @@ class HelpDialog(QDialog):
         self.sections = {}
         self._build_sections()
         scroll.setWidget(content)
-        outer.addWidget(scroll, 1)
+        body_layout.addWidget(scroll, 1)
 
-        self.section_selector.currentIndexChanged.connect(self._on_section_changed)
-        self._on_section_changed(self.section_selector.currentIndex())
+        outer.addLayout(body_layout, 1)
+
+        # Sync signals between list and combo
+        self.nav_list.currentRowChanged.connect(self._on_list_row_changed)
+        self.section_selector.currentIndexChanged.connect(self._on_combo_index_changed)
+
+        # Initialize selection to first section
+        self.nav_list.setCurrentRow(0)
 
         # Footer close button
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.accept)
         outer.addWidget(buttons)
 
-    def _on_section_changed(self, index: int):
-        current_key = self.section_selector.itemData(index)
+    def _on_list_row_changed(self, row: int):
+        if row < 0 or row >= len(self.SECTIONS_METADATA):
+            return
+        key = self.SECTIONS_METADATA[row][0]
+        if self.section_selector.currentIndex() != row:
+            self.section_selector.blockSignals(True)
+            self.section_selector.setCurrentIndex(row)
+            self.section_selector.blockSignals(False)
+        self._show_section(key)
+
+    def _on_combo_index_changed(self, index: int):
+        if index < 0 or index >= len(self.SECTIONS_METADATA):
+            return
+        if self.nav_list.currentRow() != index:
+            self.nav_list.blockSignals(True)
+            self.nav_list.setCurrentRow(index)
+            self.nav_list.blockSignals(False)
+        key = self.section_selector.itemData(index)
+        self._show_section(key)
+
+    def _show_section(self, active_key: str):
         for key, section_widget in self.sections.items():
-            section_widget.setVisible(key == current_key)
+            section_widget.setVisible(key == active_key)
 
     def _create_section_container(self) -> tuple[QWidget, QVBoxLayout]:
         container = QWidget()
@@ -91,22 +148,30 @@ class HelpDialog(QDialog):
         layout.setSpacing(12)
         return container, layout
 
-    def _add_heading(self, layout: QVBoxLayout, text: str):
+    def _add_heading(self, layout: QVBoxLayout, text: str, subtitle: str = None):
+        header_box = QVBoxLayout()
+        header_box.setSpacing(3)
         lbl = QLabel(text)
-        lbl.setStyleSheet('font-size: 13pt; font-weight: bold; margin-bottom: 4px;')
-        layout.addWidget(lbl)
+        lbl.setStyleSheet('font-size: 13pt; font-weight: bold; margin-bottom: 2px;')
+        header_box.addWidget(lbl)
+        if subtitle:
+            sub = QLabel(subtitle)
+            sub.setObjectName('mutedText')
+            sub.setWordWrap(True)
+            header_box.addWidget(sub)
+        layout.addLayout(header_box)
 
     def _add_paragraph(self, layout: QVBoxLayout, text: str):
         lbl = QLabel(text)
         lbl.setWordWrap(True)
         layout.addWidget(lbl)
 
-    def _add_step(self, layout: QVBoxLayout, step_num: int, title: str, description: str):
+    def _add_step(self, layout: QVBoxLayout, step_num: int, title: str, description: str, hint: str = None):
         box = QFrame()
         box.setObjectName('settingsSection')
         box_layout = QVBoxLayout(box)
-        box_layout.setContentsMargins(12, 10, 12, 10)
-        box_layout.setSpacing(4)
+        box_layout.setContentsMargins(14, 12, 14, 12)
+        box_layout.setSpacing(5)
 
         header = QLabel(f'{step_num}. {title}')
         header.setStyleSheet('font-weight: bold; font-size: 10.5pt;')
@@ -114,40 +179,80 @@ class HelpDialog(QDialog):
 
         desc = QLabel(description)
         desc.setWordWrap(True)
-        desc.setObjectName('mutedText')
         box_layout.addWidget(desc)
+
+        if hint:
+            hint_lbl = QLabel(f'💡 {hint}')
+            hint_lbl.setObjectName('mutedText')
+            hint_lbl.setWordWrap(True)
+            box_layout.addWidget(hint_lbl)
 
         layout.addWidget(box)
 
     def _build_sections(self):
         # 1. Workflow
         s1, l1 = self._create_section_container()
-        self._add_heading(l1, msg('Flujo de trabajo paso a paso'))
-        self._add_paragraph(l1, msg('Sigue estos pasos para generar un horario académico óptimo:'))
-        self._add_step(l1, 1, msg('Cargar archivo Excel'),
-                       msg('Presiona "Cargar Excel" para importar tu archivo con las hojas "Aulas" y "Cursos".'))
-        self._add_step(l1, 2, msg('Revisar cursos y aulas'),
-                       msg('En la pestaña "Gestión de Cursos" puedes revisar los cursos importados, editar requisitos o agregar nuevas aulas.'))
-        self._add_step(l1, 3, msg('Configurar restricciones de aulas'),
-                       msg('Si tienes laboratorios o talleres reservados para cursos específicos, configúralos en "Restricciones de aulas".'))
-        self._add_step(l1, 4, msg('Generar el horario'),
-                       msg('Presiona "Generar horario". El motor calculará la mejor distribución respetando capacidades y evitando solapamientos.'))
-        self._add_step(l1, 5, msg('Inspeccionar y exportar'),
-                       msg('Se activará la pestaña "Horario Generado" para examinar el horario en lista o cuadrícula y exportarlo en Excel, PDF o CSV.'))
+        self._add_heading(
+            l1,
+            msg('Flujo de trabajo paso a paso'),
+            msg('Comprende el recorrido completo desde la importación inicial hasta la publicación de resultados.')
+        )
+        self._add_paragraph(l1, msg('Sigue esta secuencia para obtener los mejores resultados de planificación:'))
+        self._add_step(
+            l1, 1, msg('Cargar archivo Excel'),
+            msg('Haz clic en el botón "Cargar Excel" (Ctrl + O) para importar el libro con los datos del período lectivo.'),
+            msg('El archivo debe tener las hojas obligatorias "Aulas" y "Cursos".')
+        )
+        self._add_step(
+            l1, 2, msg('Revisar cursos y aulas importadas'),
+            msg('En la pestaña "Gestión de Cursos" puedes comprobar la lista completa, buscar asignaturas, editar requerimientos o añadir aulas faltantes.'),
+            msg('Usa el campo de búsqueda para filtrar rápidamente por código o nombre.')
+        )
+        self._add_step(
+            l1, 3, msg('Configurar restricciones de aulas exclusivas'),
+            msg('Si cuentas con laboratorios, talleres de cómputo o espacios que solo pueden usar asignaturas específicas, regístralas en "Restricciones de aulas".'),
+            msg('El motor nunca asignará cursos no autorizados en esas aulas reservadas.')
+        )
+        self._add_step(
+            l1, 4, msg('Generar el horario automático'),
+            msg('Presiona "Generar horario" (Ctrl + Return). Si ya tenías un horario previo en pantalla, se te solicitará confirmación para proteger tu trabajo.'),
+            msg('El motor optimiza capacidades, días preferidos y franjas horarias sin solapamientos.')
+        )
+        self._add_step(
+            l1, 5, msg('Inspeccionar, ajustar y exportar'),
+            msg('Al finalizar, pasarás automáticamente a la pestaña "Horario Generado". Podrás ver la lista detallada, la cuadrícula por aula o la vista resumida, y finalmente exportar en Excel, PDF o CSV.'),
+            msg('Presiona F6 en cualquier momento para oír o leer un resumen completo de la sesión.')
+        )
         l1.addStretch()
         self.sections['workflow'] = s1
         self.content_layout.addWidget(s1)
 
         # 2. Excel format
         s2, l2 = self._create_section_container()
-        self._add_heading(l2, msg('Estructura requerida del libro Excel'))
-        self._add_paragraph(l2, msg('El archivo Excel (.xlsx) debe incluir dos hojas con nombres exactos:'))
-        self._add_step(l2, 1, msg('Hoja "Aulas"'),
-                       msg('Columnas requeridas: "# DE AULA" (nombre único del aula) y "CAPACIDAD" (número entero mayor o igual a 0).'))
-        self._add_step(l2, 2, msg('Hoja "Cursos"'),
-                       msg('Columna requerida: "Curso" (código de asignatura). Cada fila representa una sesión o grupo.'))
-        self._add_step(l2, 3, msg('Columnas opcionales en "Cursos"'),
-                       msg('Puedes incluir "Nombre de Curso", "Horas" (ej: 0800-1055), "Aula" (aula sugerida) y "Días" (ej: L, M, I, J, V, S).'))
+        self._add_heading(
+            l2,
+            msg('Estructura del archivo Excel (.xlsx)'),
+            msg('Conoce en detalle qué formato espera el sistema para procesar tus horarios sin errores.')
+        )
+        self._add_paragraph(l2, msg('El libro de cálculo de Microsoft Excel debe contener exactamente dos hojas obligatorias:'))
+        self._add_step(
+            l2, 1, msg('Hoja "Aulas" (Espacios físicos)'),
+            msg('Debe incluir dos columnas principales: "# DE AULA" (nombre único identificador de cada aula) y "CAPACIDAD" (número entero de estudiantes admitidos).'),
+            msg('No dejes celdas vacías en la columna del identificador de aula.')
+        )
+        self._add_step(
+            l2, 2, msg('Hoja "Cursos" (Asignaturas y grupos)'),
+            msg('Cada fila representa una sesión de clase independiente a programar. La columna obligatoria es "Curso" (código de asignatura, ej: MAT101).'),
+            msg('Si una asignatura tiene varios grupos, coloca una fila por cada grupo o sesión.')
+        )
+        self._add_step(
+            l2, 3, msg('Columnas opcionales recomendadas en "Cursos"'),
+            msg('• "Nombre de Curso": Título descriptivo para visualización e informes.\n'
+                '• "Horas": Franja preferida (ej: 0800-1000).\n'
+                '• "Días": Días preferidos (ej: L, M, I, J, V, S o Lunes, Martes...).\n'
+                '• "Aula": Aula preferida o sugerida para la asignatura.'),
+            msg('Las preferencias ayudan al algoritmo a priorizar la mejor ubicación.')
+        )
 
         btn_template = TemplateSaveButton(msg('Descargar plantilla Excel de ejemplo…'))
         btn_template.setToolTip(msg('Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.'))
@@ -160,60 +265,110 @@ class HelpDialog(QDialog):
 
         # 3. Classrooms and restrictions
         s3, l3 = self._create_section_container()
-        self._add_heading(l3, msg('Gestión de aulas y restricciones'))
-        self._add_paragraph(l3, msg('Configura tus recursos para que el algoritmo respete la exclusividad requerida:'))
-        self._add_step(l3, 1, msg('Agregar aula'),
-                       msg('Permite añadir aulas adicionales a la sesión sin modificar el archivo Excel original. Útil si faltaba un espacio.'))
-        self._add_step(l3, 2, msg('Restricciones de exclusividad'),
-                       msg('Permite reservar ciertas aulas únicamente para cursos seleccionados. Los cursos restringidos solo podrán asignarse a su aula designada.'))
+        self._add_heading(
+            l3,
+            msg('Gestión de aulas y restricciones'),
+            msg('Control fino sobre los espacios físicos y la exclusividad académica.')
+        )
+        self._add_paragraph(l3, msg('Adapta los espacios a las particularidades pedagógicas de cada materia:'))
+        self._add_step(
+            l3, 1, msg('Agregar aula al vuelo'),
+            msg('Permite dar de alta un aula adicional directamente en la sesión activa sin tener que editar ni reimportar el archivo Excel original.'),
+            msg('El aula añadida se guardará en la sesión y estará disponible para el generador.')
+        )
+        self._add_step(
+            l3, 2, msg('Restricciones de exclusividad'),
+            msg('Configura qué cursos tienen acceso a determinadas aulas especiales (ej. Laboratorio de Química, Sala de Cómputo).'),
+            msg('Cuando un aula tiene restricción activa, ninguna otra materia podrá ocupar ese espacio físico, garantizando la reserva.')
+        )
         l3.addStretch()
         self.sections['classrooms'] = s3
         self.content_layout.addWidget(s3)
 
         # 4. Generation parameters
         s4, l4 = self._create_section_container()
-        self._add_heading(l4, msg('Parámetros de generación y reproducibilidad'))
-        self._add_paragraph(l4, msg('El generador ofrece control total sobre la reproducibilidad de los resultados:'))
-        self._add_step(l4, 1, msg('Semilla fija'),
-                       msg('Desempata opciones con la misma prioridad de forma determinista. Con los mismos datos y la misma semilla, el horario generado es idéntico.'))
-        self._add_step(l4, 2, msg('Semilla aleatoria'),
-                       msg('Explora variantes alternativas válidas sin alterar las restricciones ni los requisitos pedagógicos.'))
+        self._add_heading(
+            l4,
+            msg('Motor de optimización y reproducibilidad'),
+            msg('Cómo funciona el generador automático y cómo reproducir o variar los horarios.')
+        )
+        self._add_paragraph(l4, msg('El motor resuelve un problema de satisfacción de restricciones (CSP) con las siguientes garantías:'))
+        self._add_step(
+            l4, 1, msg('Semilla fija (Determinismo)'),
+            msg('Por defecto, el motor utiliza una semilla fija (ej: 42). Esto garantiza que con el mismo archivo Excel y las mismas restricciones, el horario generado sea exactamente idéntico cada vez.'),
+            msg('Ideal para auditorías, revisiones compartidas y estabilidad de resultados.')
+        )
+        self._add_step(
+            l4, 2, msg('Semilla aleatoria (Exploración de alternativas)'),
+            msg('Al activar la casilla "Aleatoria", el motor explora caminos alternativos de resolución que cumplan todas las restricciones obligatorias.'),
+            msg('Útil cuando deseas evaluar diferentes opciones de distribución sin alterar tus datos.')
+        )
+        self._add_step(
+            l4, 3, msg('Protección ante reemplazo accidental'),
+            msg('Si ya has generado un horario y tocas de nuevo el botón de generación, la aplicación te advertirá explícitamente antes de sobrescribir el horario activo.')
+        )
         l4.addStretch()
         self.sections['generation'] = s4
         self.content_layout.addWidget(s4)
 
         # 5. Viewer and edits
         s5, l5 = self._create_section_container()
-        self._add_heading(l5, msg('Visualización y edición de horarios'))
-        self._add_paragraph(l5, msg('Una vez generado el horario, dispones de múltiples herramientas para inspeccionar y ajustar:'))
-        self._add_step(l5, 1, msg('Vistas disponibles'),
-                       msg('Lista detallada con filtros por aula, día o estado; cuadrícula semanal por aula; y vista resumida por aula.'))
-        self._add_step(l5, 2, msg('Fijar sesiones'),
-                       msg('Puedes fijar una sesión asignada para conservarla intacta ante regeneraciones posteriores del horario.'))
-        self._add_step(l5, 3, msg('Asignación manual'),
-                       msg('Permite colocar manualmente una sesión en un aula y franja horaria específicas garantizando ausencia de conflictos.'))
+        self._add_heading(
+            l5,
+            msg('Visualización y ajustes interactivos'),
+            msg('Explora los resultados desde diferentes ángulos y realiza modificaciones manuales con validación de conflictos.')
+        )
+        self._add_paragraph(l5, msg('La pestaña "Horario Generado" incluye tres modalidades de vista y herramientas de edición:'))
+        self._add_step(
+            l5, 1, msg('Modalidades de vista'),
+            msg('• Lista detallada: Tabla con columnas ordenables y filtros combinados por aula, día y estado.\n'
+                '• Cuadrícula por aula: Cronograma semanal visual dividido en bloques horarios de lunes a sábado.\n'
+                '• Por aula: Resumen estructurado agrupado por cada espacio físico.')
+        )
+        self._add_step(
+            l5, 2, msg('Asignación manual controlada'),
+            msg('Si deseas reubicar una sesión en otro día, hora o aula, selecciónala y pulsa "Asignar manualmente". El sistema verifica instantáneamente que no haya solapamiento de horarios ni de espacio.')
+        )
+        self._add_step(
+            l5, 3, msg('Fijar sesiones asignadas'),
+            msg('Puedes marcar sesiones como fijas para que una futura regeneración no las altere, respetando decisiones manuales previas.')
+        )
         l5.addStretch()
         self.sections['viewer'] = s5
         self.content_layout.addWidget(s5)
 
         # 6. Export
         s6, l6 = self._create_section_container()
-        self._add_heading(l6, msg('Formatos de exportación'))
-        self._add_paragraph(l6, msg('Exporta el resultado final en el formato que mejor se adapte a tus necesidades:'))
-        self._add_step(l6, 1, msg('Libro Excel (.xlsx)'),
-                       msg('Genera una cuadrícula visual completa para cada aula cubriendo el horario operativo (07:00 a 22:00) y hojas de asignaciones.'))
-        self._add_step(l6, 2, msg('Documento PDF'),
-                       msg('Genera un archivo PDF con formato limpio listo para imprimir o publicar en tablones informativos.'))
-        self._add_step(l6, 3, msg('Archivo CSV'),
-                       msg('Exporta datos planos separados por comas para su importación directa en sistemas de gestión académica.'))
+        self._add_heading(
+            l6,
+            msg('Formatos de exportación y reportes'),
+            msg('Comparte los horarios generados con directores, docentes y estudiantes en formatos estándar.')
+        )
+        self._add_paragraph(l6, msg('Puedes exportar todas las asignaciones o únicamente las asignaciones que coincidan con tus filtros actuales:'))
+        self._add_step(
+            l6, 1, msg('Libro Excel profesional (.xlsx)'),
+            msg('Genera una cuadrícula visual completa para cada aula cubriendo el horario operativo de 07:00 a 22:00, con formato listo para compartir institucionalmente.')
+        )
+        self._add_step(
+            l6, 2, msg('Documento PDF (.pdf)'),
+            msg('Produce un documento formal de alta calidad tipográfica optimizado para impresión directa y carteleras.')
+        )
+        self._add_step(
+            l6, 3, msg('Archivo CSV (.csv)'),
+            msg('Exportación estructurada de datos planos para integrar con ERP universitarios o sistemas de gestión de matrícula.')
+        )
         l6.addStretch()
         self.sections['export'] = s6
         self.content_layout.addWidget(s6)
 
         # 7. Keyboard shortcuts
         s7, l7 = self._create_section_container()
-        self._add_heading(l7, msg('Atajos de teclado'))
-        self._add_paragraph(l7, msg('Optimiza tu flujo de trabajo con los siguientes atajos:'))
+        self._add_heading(
+            l7,
+            msg('Atajos rápidos de teclado'),
+            msg('Agiliza las operaciones más frecuentes sin necesidad de usar el ratón.')
+        )
+        self._add_paragraph(l7, msg('SORTH-AI incluye atajos globales para maximizar la accesibilidad y velocidad:'))
 
         shortcuts_grid = QFrame()
         shortcuts_grid.setObjectName('settingsSection')
@@ -223,17 +378,18 @@ class HelpDialog(QDialog):
         grid_layout.setVerticalSpacing(10)
 
         shortcuts = [
-            ('F1', msg('Ayuda interactiva')),
+            ('F1', msg('Abrir Centro de Ayuda')),
             ('Ctrl + O', msg('Cargar archivo Excel')),
-            ('Ctrl + Return', msg('Generar horario')),
+            ('Ctrl + Return', msg('Generar horario académico')),
             ('Ctrl + S', msg('Exportar todas las asignaciones')),
-            ('F6', msg('Leer resumen y estado accesible')),
-            ('F7', msg('Herramientas del horario')),
+            ('F6', msg('Lectura accesible de estado y resumen de sesión')),
+            ('F7', msg('Desplegar menú de herramientas del horario')),
+            ('Ctrl + ,', msg('Abrir diálogo de Configuración y temas')),
         ]
 
         for row, (key, desc) in enumerate(shortcuts):
             key_lbl = QLabel(key)
-            key_lbl.setStyleSheet('font-weight: bold; font-family: monospace; font-size: 10pt;')
+            key_lbl.setStyleSheet('font-weight: bold; font-family: monospace; font-size: 10pt; color: #2563eb;')
             desc_lbl = QLabel(desc)
             grid_layout.addWidget(key_lbl, row, 0)
             grid_layout.addWidget(desc_lbl, row, 1)
