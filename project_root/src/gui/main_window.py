@@ -19,7 +19,7 @@ from ..infrastructure.session_repository import SessionRepository
 from ..scheduling.time_model import TimeModel
 from ..scheduling.classroom import Classroom
 
-from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, _InfoDialog
+from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, DeleteClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
 from .import_controller import ImportController
 from .export_controller import ExportController
@@ -427,6 +427,12 @@ class MainWindow(QMainWindow):
         )
         self.btn_add_classroom.clicked.connect(self._add_classroom)
 
+        self.btn_delete_classroom = QPushButton(app_icon('trash'), msg('Eliminar aula'))
+        self.btn_delete_classroom.setToolTip(
+            msg('Eliminar un aula de la sesión actual.')
+        )
+        self.btn_delete_classroom.clicked.connect(self._delete_classroom)
+
         self.btn_restrictions = QPushButton(msg('Restricciones de aulas'))
         self.btn_restrictions.setIcon(app_icon('lock'))
         self.btn_restrictions.setToolTip(
@@ -440,6 +446,7 @@ class MainWindow(QMainWindow):
         file_row.addWidget(btn_load)
         file_row.addWidget(self.btn_template)
         file_row.addWidget(self.btn_add_classroom)
+        file_row.addWidget(self.btn_delete_classroom)
         file_row.addWidget(self.btn_restrictions)
         layout.addWidget(self._course_management_toolbar)
 
@@ -680,6 +687,35 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(
             msg("Aula '{p1}' agregada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
         )
+        self.session.save()
+
+    def _delete_classroom(self):
+        if not self._classrooms:
+            QMessageBox.information(self, msg('Info'), msg('No hay aulas para eliminar.'))
+            return
+        dialog = DeleteClassroomDialog(self, self._classrooms)
+        if not dialog.exec():
+            return
+        room_name = dialog.get_selected_classroom()
+        if not room_name or room_name not in self._classrooms:
+            return
+        if QMessageBox.question(
+            self, msg('Confirmar eliminación'),
+            msg("¿Seguro que deseas eliminar el aula '{p1}' de la sesión?", p1=room_name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        del self._classrooms[room_name]
+        if room_name in self.classroom_restrictions:
+            del self.classroom_restrictions[room_name]
+        if room_name in self._classroom_course_map:
+            del self._classroom_course_map[room_name]
+        self._invalidate_schedule()
+        self._refresh_overview()
+        self.btn_generate.setEnabled(bool(self._classrooms and self.course_manager.get_courses()))
+        self.btn_restrictions.setEnabled(bool(self._classroom_course_map))
+        self.status_bar.showMessage(msg("Aula '{p1}' eliminada.", p1=room_name))
         self.session.save()
 
     def _configure_restrictions(self):
@@ -1133,7 +1169,7 @@ class MainWindow(QMainWindow):
                    lambda: self._cancel_button.setVisible(False),
                    lambda: self.btn_generate.setText(msg('Recuperación pendiente'))]
         for control in (self.course_manager, self.schedule_viewer, self.btn_load,
-                        self.btn_add_classroom, self.btn_generate, self.btn_restrictions,
+                        self.btn_add_classroom, self.btn_delete_classroom, self.btn_generate, self.btn_restrictions,
                         self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):
             updates.append(lambda control=control: control.setEnabled(False))
         for update in updates:
@@ -1607,7 +1643,7 @@ class MainWindow(QMainWindow):
     def _set_busy(self, busy):
         self._busy = busy
         self._update_history_actions()
-        for control in (self.btn_load, self.btn_add_classroom, self.course_manager,
+        for control in (self.btn_load, self.btn_add_classroom, self.btn_delete_classroom, self.course_manager,
                         self.schedule_viewer, self.chk_random_seed, self.btn_settings,
                         *self.resource_buttons.values()):
             control.setEnabled(not busy)
