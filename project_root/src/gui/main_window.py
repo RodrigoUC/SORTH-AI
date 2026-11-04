@@ -1565,7 +1565,10 @@ class MainWindow(QMainWindow):
         return True
 
     def _invalidate_schedule(self):
-        if self.pinned_group_ids:
+        courses = self.course_manager.get_courses()
+        if not courses:
+            self.pinned_group_ids.clear()
+        if self.pinned_group_ids and courses:
             # Only validated pins survive input changes; remaining sessions become
             # explicitly pending, with no stale generated placements presented.
             pins = self._pinned_assignments()
