@@ -126,6 +126,23 @@ class MainWindow(QMainWindow):
             notice.setText(msg('No se pudo leer la apariencia guardada. Se muestra Original claro y el archivo original se conserva. Abra Configuración → Apariencia para revisarlo o recuperarlo.'))
         notice.setVisible(bool(manager.recovery_issue or manager.startup_issue))
 
+        self._refresh_themed_icons()
+
+    def _refresh_themed_icons(self):
+        try:
+            manager = theme_manager()
+            current = manager.current
+            colors = current.colors if hasattr(current, 'colors') else {}
+            on_header = colors.get('on_header', '#FFFFFF')
+            on_primary = colors.get('on_primary', '#FFFFFF')
+            if hasattr(self, 'btn_settings'):
+                self.btn_settings.setIcon(app_icon('settings', on_header))
+            if hasattr(self, 'btn_help'):
+                self.btn_help.setIcon(app_icon('help', on_header))
+            if hasattr(self, 'btn_generate'):
+                self.btn_generate.setIcon(app_icon('sparkles', on_primary))
+        except Exception:
+            pass
     def _init_ui(self):
         self.setWindowTitle(msg('SORTH-AI - Sistema de Organización de Horarios'))
         self._set_window_icon()
