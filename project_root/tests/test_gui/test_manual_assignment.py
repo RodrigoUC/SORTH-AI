@@ -1,7 +1,7 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog
+from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog, QLabel
 from src.gui.manual_assignment_dialog import ManualAssignmentDialog
 from src.gui.main_window import MainWindow
 from src.infrastructure.session_repository import SessionRepository
@@ -88,3 +88,32 @@ def test_lab_room_needs_no_exception_prompt(app, monkeypatch):
     dialog._submit()
     assert dialog.result() == QDialog.DialogCode.Accepted and not dialog.lab_override
     dialog.close()
+
+
+def test_manual_assignment_dialog_student_visibility(app):
+    from src.scheduling.teaching_resources import SchedulingResources, ResourceCatalog
+    # 1. When no student resources active and group size is 0: does not show students
+    g0 = Group('TEST-G1', 60, 'REGULAR', size=0)
+    d0 = ManualAssignmentDialog(g0, [g0], {}, {'A': Classroom('A', 30, 'REGULAR')}, TimeModel.default())
+    labels0 = [lbl.text() for lbl in d0.findChildren(QLabel)]
+    assert any('TEST-G1 · 60 min' in t for t in labels0)
+    assert not any('estudiantes' in t for t in labels0)
+    d0.close()
+
+    # 2. When student resource is active: shows students
+    resources_with_students = SchedulingResources((
+        ResourceCatalog('student', True, ()),
+        ResourceCatalog('student_group', False, ()),
+        ResourceCatalog('teacher', False, ())
+    ))
+    d1 = ManualAssignmentDialog(g0, [g0], {}, {'A': Classroom('A', 30, 'REGULAR')}, TimeModel.default(), resources=resources_with_students)
+    labels1 = [lbl.text() for lbl in d1.findChildren(QLabel)]
+    assert any('TEST-G1 · 60 min · 0 estudiantes' in t for t in labels1)
+    d1.close()
+
+    # 3. When group has explicit non-zero size: shows students
+    g_sized = Group('TEST-G2', 60, 'REGULAR', size=25)
+    d2 = ManualAssignmentDialog(g_sized, [g_sized], {}, {'A': Classroom('A', 30, 'REGULAR')}, TimeModel.default())
+    labels2 = [lbl.text() for lbl in d2.findChildren(QLabel)]
+    assert any('TEST-G2 · 60 min · 25 estudiantes' in t for t in labels2)
+    d2.close()

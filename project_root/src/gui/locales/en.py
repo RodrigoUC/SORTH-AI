@@ -672,6 +672,7 @@ MESSAGES = {
     '{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.': '{p0} requires a laboratory. Assign it to regular classroom {p2}?\nThis manual exception will be recorded in the session.',
     '{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas': '{p0} sessions assigned · {p2} unassigned · {p4} classrooms used',
     '{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.': 'Sessions: {p0}{p2}. Exact times in each block; hover for full details.',
+    '{p0} · {p2} min': '{p0} · {p2} min',
     '{p0} · {p2} min · {p4} estudiantes': '{p0} · {p2} min · Students: {p4}',
     '¿Eliminar el curso {p1}?': 'Delete course {p1}?',
     '¿Eliminar todas las asignaciones del horario actual?\nSe conservarán los cursos y las aulas para generar un horario nuevo.': 'Remove every assignment from the current schedule?\nCourses and classrooms will be kept to generate a new schedule.',

@@ -672,6 +672,7 @@ MESSAGES = {
     '{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.': '{p0} requiere laboratorio. ¿Asignarlo al aula regular {p2}?\nEsta excepción manual quedará registrada en la sesión.',
     '{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas': '{p0} sesiones asignadas · {p2} sin asignar · {p4} aulas utilizadas',
     '{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.': '{p0} sesiones{p2}. Horas exactas en cada bloque; detalle completo al señalarlo.',
+    '{p0} · {p2} min': '{p0} · {p2} min',
     '{p0} · {p2} min · {p4} estudiantes': '{p0} · {p2} min · {p4} estudiantes',
     '¿Eliminar el curso {p1}?': '¿Eliminar el curso {p1}?',
     '¿Eliminar todas las asignaciones del horario actual?\nSe conservarán los cursos y las aulas para generar un horario nuevo.': '¿Eliminar todas las asignaciones del horario actual?\nSe conservarán los cursos y las aulas para generar un horario nuevo.',
