@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: first-release-v3.1.2
+  group: first-release-v3.1.3
   cancel-in-progress: false
 
 jobs:
