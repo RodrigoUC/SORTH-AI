@@ -227,6 +227,7 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
+        self.btn_export_data = self.course_manager.btn_export
         self.tabs.addTab(self.course_manager, app_icon('courses'), msg('Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
@@ -429,8 +430,6 @@ class MainWindow(QMainWindow):
         self.btn_template = TemplateSaveButton(msg('Plantilla Excel…'))
         self.btn_template.setToolTip(msg('Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.'))
         self.btn_template.clicked.connect(lambda: save_import_template(self))
-
-        self.btn_export_data = self.course_manager.btn_export
 
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
         self.btn_add_classroom.setIcon(app_icon('plus'))
