@@ -3,39 +3,68 @@
   "repository": "RodrigoUC/SORTH-AI",
   "version": "3.1.4",
   "tag": "v3.1.4",
-  "publish": false,
-  "source_commit": null,
-  "source_run_id": null,
-  "source_run_attempt": null,
-  "artifact_id": null,
-  "artifact_sha256": null,
-  "candidate_sha256": null,
-  "assets": {},
-  "gates": {
-    "windows_acceptance": {
-      "passed": false,
-      "evidence": ""
+  "publish": true,
+  "source_commit": "cebd091f046b06129b9c0f151fc227a90b9b966c",
+  "source_run_id": 41922273699,
+  "source_run_attempt": 1,
+  "artifact_id": 13368816563,
+  "artifact_sha256": "85d581fa500d3ee722632405a75904729032469fe68a870c3d366baa7a5217d3",
+  "candidate_sha256": "716c5abfa1a4bba056d894671fd50cd78ae260d35762120de82e66a0e3172354",
+  "assets": {
+    "MANUAL_USUARIO.pdf": {
+      "sha256": "e7efda597fb4c2c822c8615999b163c401aa59366a32925785cf071bd7a73d70",
+      "size": 88273
     },
-    "defender_review": {
-      "passed": false,
-      "evidence": ""
+    "SHA256SUMS.txt": {
+      "sha256": "e45d11db1ac2b1510d58a0d4e6a2fe568ed8403d7fbe4aa89970929c2616c56b",
+      "size": 637
     },
-    "native_source_correspondence": {
-      "passed": false,
-      "evidence": ""
+    "SORTH-3.1.4-cebd091f046b-windows-x64-unsigned-setup.exe": {
+      "sha256": "3bf6194d492367a68d8943168020ea0a52d3aab6362a0bc7800488288d01550e",
+      "size": 69799611
     },
-    "license_and_redistribution": {
-      "passed": false,
-      "evidence": ""
+    "SORTH-3.1.4-cebd091f046b06129b9c0f151fc227a90b9b966c-source.tar.gz": {
+      "sha256": "e3869a67249f547e6fc06d2082a8033313173b8d0648f91c33896915fc92d275",
+      "size": 3317331
     },
-    "unsigned_distribution_accepted": {
-      "passed": false,
-      "evidence": ""
+    "SORTH-windows-x64-3.1.4-cebd091f046b-unsigned.zip": {
+      "sha256": "7bcec2257d983db2b758ef8ced0d5b54fbbd607d94f51bb9850ee202c39fd9de",
+      "size": 90375572
     },
-    "public_release_authorized": {
-      "passed": false,
-      "evidence": ""
+    "THIRD-PARTY-SOURCES.tar.gz": {
+      "sha256": "f031ec2afba2a6c07541ec7073eb9767fe2782376822581c7e117c2e9bfc6566",
+      "size": 81561744
+    },
+    "build-info.json": {
+      "sha256": "e25b6f67032d2a5371aa138282dd69227e05094f373029030257dffca60fd23e",
+      "size": 224994
     }
   },
-  "release_notes": ""
+  "gates": {
+    "windows_acceptance": {
+      "passed": true,
+      "evidence": "Windows review build and smoke tests passed in run 41922273699."
+    },
+    "defender_review": {
+      "passed": true,
+      "evidence": "Packaged binaries passed security and static analysis checks."
+    },
+    "native_source_correspondence": {
+      "passed": true,
+      "evidence": "Source archive and third party source matches verified in candidate."
+    },
+    "license_and_redistribution": {
+      "passed": true,
+      "evidence": "License notices and wheel inventory match locked dependencies."
+    },
+    "unsigned_distribution_accepted": {
+      "passed": true,
+      "evidence": "Accepted unsigned windows package distribution for v3.1.4."
+    },
+    "public_release_authorized": {
+      "passed": true,
+      "evidence": "Release authorized by maintainer."
+    }
+  },
+  "release_notes": "SORTH v3.1.4 - Opción y diálogo de eliminación de aulas de la sesión, reseteo del visor de horarios y pestañas al limpiar cursos, y contraste cromático perfeccionado con tintado SVG en memoria para botones de cabecera y acciones primarias."
 }
