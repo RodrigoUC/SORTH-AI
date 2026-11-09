@@ -435,7 +435,7 @@ class MainWindow(QMainWindow):
             msg('Exportar los cursos y aulas de la sesión actual a una plantilla Excel (.xlsx).')
         )
         self.btn_export_data.clicked.connect(lambda: export_session_data_to_excel(self))
-        self.btn_export_data.setEnabled(bool(self._classrooms or self.course_manager.get_courses()))
+        self.btn_export_data.setEnabled(bool(self._classrooms))
 
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
         self.btn_add_classroom.setIcon(app_icon('plus'))
