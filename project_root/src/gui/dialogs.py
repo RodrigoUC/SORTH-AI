@@ -246,13 +246,93 @@ class AddClassroomDialog(QDialog):
 
 
 
+class EditClassroomDialog(QDialog):
+    """Dialog to select and edit an existing classroom's properties."""
+
+    def __init__(self, parent, classrooms: dict, selected_name: str | None = None):
+        super().__init__(parent)
+        self.setWindowTitle(msg('Editar aula'))
+        self.setModal(True)
+        self.resize(420, 360)
+        self._classrooms = classrooms
+        self._init_ui(selected_name)
+
+    def _init_ui(self, selected_name: str | None):
+        layout = QFormLayout()
+        layout.setSpacing(10)
+
+        self.selector = QComboBox()
+        self.selector.setAccessibleName(msg('Aula a editar'))
+        for name in sorted(self._classrooms.keys()):
+            self.selector.addItem(name, name)
+        if selected_name and selected_name in self._classrooms:
+            idx = self.selector.findData(selected_name)
+            if idx >= 0:
+                self.selector.setCurrentIndex(idx)
+        self.selector.currentIndexChanged.connect(self._on_classroom_selected)
+
+        self.inp_desc = QLineEdit()
+        self.inp_desc.setPlaceholderText(msg('Ej: Aula General'))
+        self.inp_campus = QLineEdit()
+        self.inp_campus.setPlaceholderText(msg('Ej: HO'))
+        self.inp_capacity = QSpinBox()
+        self.inp_capacity.setRange(1, 500)
+        self.inp_type = QComboBox()
+        self.inp_type.addItems(["REGULAR", "LAB"])
+
+        layout.addRow(msg('Aula *:'), self.selector)
+        layout.addRow(msg('Descripción:'), self.inp_desc)
+        layout.addRow(msg('Campus:'), self.inp_campus)
+        layout.addRow(msg('Capacidad *:'), self.inp_capacity)
+        layout.addRow(msg('Tipo de sala:'), self.inp_type)
+
+        self._on_classroom_selected()
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        outer = QVBoxLayout()
+        outer.addLayout(layout)
+        outer.addWidget(buttons)
+        self.setLayout(outer)
+
+    def _on_classroom_selected(self):
+        name = self.selector.currentData()
+        room = self._classrooms.get(name)
+        if not room:
+            return
+        self.inp_desc.setText(getattr(room, 'description', '') or '')
+        self.inp_campus.setText(getattr(room, 'campus', '') or '')
+        self.inp_capacity.setValue(int(getattr(room, 'capacity', 30)))
+        current_type = getattr(room, 'room_type', 'REGULAR')
+        index = self.inp_type.findText(current_type)
+        if index >= 0:
+            self.inp_type.setCurrentIndex(index)
+
+    def get_classroom(self) -> Classroom:
+        name = self.selector.currentData()
+        return Classroom(
+            name=name,
+            capacity=self.inp_capacity.value(),
+            room_type=self.inp_type.currentText(),
+            description=self.inp_desc.text().strip(),
+            campus=self.inp_campus.text().strip(),
+        )
+
+
 class DeleteClassroomDialog(QDialog):
     """Dialog to select and confirm deletion of a classroom from current session."""
 
-    def __init__(self, parent, classrooms: dict):
+    def __init__(self, parent, classrooms: dict, courses: list | None = None, restrictions: dict | None = None):
         super().__init__(parent)
         self.setWindowTitle(msg('Eliminar aula'))
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(380)
+        self._classrooms = classrooms
+        self._courses = courses or []
+        self._restrictions = restrictions or {}
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -266,7 +346,13 @@ class DeleteClassroomDialog(QDialog):
         for name, room in sorted(classrooms.items()):
             label = f"{name} ({room.room_type}, cap={room.capacity})"
             self.selector.addItem(label, name)
+        self.selector.currentIndexChanged.connect(self._update_details)
         layout.addWidget(self.selector)
+
+        self._detail_label = QLabel()
+        self._detail_label.setWordWrap(True)
+        self._detail_label.setObjectName("mutedText")
+        layout.addWidget(self._detail_label)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -276,6 +362,26 @@ class DeleteClassroomDialog(QDialog):
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+        self._update_details()
+
+    def _update_details(self):
+        name = self.selector.currentData()
+        if not name or name not in self._classrooms:
+            self._detail_label.setText("")
+            return
+        room = self._classrooms[name]
+        suggesting = [c.code for c in self._courses if getattr(c, 'suggested_classroom', None) == name]
+        parts = [
+            f"<b>{msg('Tipo')}:</b> {room.room_type} · <b>{msg('Capacidad')}:</b> {room.capacity}"
+        ]
+        if getattr(room, 'campus', None):
+            parts.append(f"<b>{msg('Campus')}:</b> {room.campus}")
+        if suggesting:
+            parts.append(f"⚠️ {msg('Cursos que sugieren esta aula:')} {len(suggesting)} ({', '.join(suggesting[:5])}{'…' if len(suggesting) > 5 else ''})")
+        if name in self._restrictions:
+            parts.append(f"⚠️ {msg('Esta aula tiene restricciones de exclusividad configuradas.')}")
+        self._detail_label.setText("<br>".join(parts))
 
     def _on_accept(self):
         if not self.selector.currentData():

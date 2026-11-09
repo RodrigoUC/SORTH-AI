@@ -17,7 +17,7 @@ from ..scheduling.project_calendar import ProjectCalendar
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
-    QCheckBox, CompactComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
+    QCheckBox, CompactComboBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
     QMessageBox, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTimeEdit,
     QWidget, ResponsiveActionLabels, ResponsiveDialogButtonBox
 )
@@ -424,7 +424,18 @@ class CourseManagerWidget(QWidget):
         self._search.setClearButtonEnabled(True)
         self._search.setAccessibleName(msg('Buscar cursos'))
         self._search.textChanged.connect(self._filter_table)
-        search_row.addWidget(self._search)
+        search_row.addWidget(self._search, 1)
+
+        self._filter_combo = QComboBox()
+        self._filter_combo.setAccessibleName(msg('Filtrar cursos'))
+        self._filter_combo.addItem(msg('Todos los cursos'), 'ALL')
+        self._filter_combo.addItem(msg('Con aula sugerida'), 'SUGGESTED')
+        self._filter_combo.addItem(msg('Sin aula sugerida'), 'NO_SUGGESTED')
+        self._filter_combo.addItem(msg('Solo laboratorios'), 'LAB')
+        self._filter_combo.addItem(msg('Aulas regulares'), 'REGULAR')
+        self._filter_combo.currentIndexChanged.connect(lambda: self._filter_table(self._search.text()))
+        search_row.addWidget(self._filter_combo)
+
         layout.addLayout(search_row)
 
         self.table = QTableWidget()
@@ -667,16 +678,30 @@ class CourseManagerWidget(QWidget):
                     self.table.selectionModel().select(self.table.model().index(row, 0),
                         QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
 
-    def _filter_table(self, text: str):
-        text = text.strip().lower()
+    def _filter_table(self, text: str = ""):
+        text = (text or self._search.text()).strip().lower()
+        mode = self._filter_combo.currentData() if hasattr(self, '_filter_combo') else 'ALL'
+        courses_by_code = {c.code: c for c in self.courses}
         for row in range(self.table.rowCount()):
-            code = self.table.item(row, 0)
-            name = self.table.item(row, 1)
-            match = (
-                (code and text in code.text().lower()) or
-                (name and text in name.text().lower())
-            )
-            self.table.setRowHidden(row, not match if text else False)
+            code_item = self.table.item(row, 0)
+            name_item = self.table.item(row, 1)
+            code_str = code_item.text() if code_item else ""
+            name_str = name_item.text() if name_item else ""
+            course = courses_by_code.get(code_str)
+
+            text_match = (not text) or (text in code_str.lower()) or (text in name_str.lower())
+
+            mode_match = True
+            if mode == 'SUGGESTED':
+                mode_match = bool(course and course.suggested_classroom)
+            elif mode == 'NO_SUGGESTED':
+                mode_match = bool(course and not course.suggested_classroom)
+            elif mode == 'LAB':
+                mode_match = bool(course and (course.required_room_type == 'LAB' or (course.suggested_classroom and course.suggested_classroom.upper().startswith('L'))))
+            elif mode == 'REGULAR':
+                mode_match = bool(course and course.required_room_type != 'LAB' and not (course.suggested_classroom and course.suggested_classroom.upper().startswith('L')))
+
+            self.table.setRowHidden(row, not (text_match and mode_match))
         if self.table.currentRow() >= 0 and self.table.isRowHidden(self.table.currentRow()):
             self.table.clearSelection()
             self.table.setCurrentItem(None)
