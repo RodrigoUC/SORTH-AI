@@ -138,3 +138,105 @@ def write_import_template(output_path):
             book.save(temporary)
     finally:
         book.close()
+
+
+def build_session_export_workbook(classrooms: dict, courses: list):
+    """Generate an Excel workbook populated with the live session's classrooms and courses."""
+    book = build_import_template()
+
+    # Clear example rows from Aulas and Cursos
+    if 'Aulas' in book.sheetnames:
+        book.remove(book['Aulas'])
+    if 'Cursos' in book.sheetnames:
+        book.remove(book['Cursos'])
+
+    classroom_rows = [
+        (room.name, room.description or '', room.campus or '', room.capacity)
+        for room in sorted(classrooms.values(), key=lambda r: r.name)
+    ]
+
+    course_rows = []
+    for c in sorted(courses, key=lambda x: x.code):
+        num_groups = max(1, getattr(c, 'number_of_groups', 1))
+        duration = getattr(c, 'duration_min', 60)
+        for i in range(1, num_groups + 1):
+            suggestion = (c.group_suggestions[i - 1]
+                          if hasattr(c, 'group_suggestions') and c.group_suggestions and i - 1 < len(c.group_suggestions)
+                          else {})
+            aula = suggestion.get('aula') or getattr(c, 'suggested_classroom', '') or ''
+            pref_day = suggestion.get('preferred_day') or getattr(c, 'preferred_day', '') or ''
+            pref_start = suggestion.get('preferred_start_min')
+            if pref_start is None:
+                pref_start = getattr(c, 'preferred_start_min', None)
+
+            if pref_start is not None and duration:
+                start_min = pref_start
+                end_min = pref_start + duration
+                hours_str = f"{start_min // 60:02d}{start_min % 60:02d}-{end_min // 60:02d}{end_min % 60:02d}"
+            elif duration and duration != 60:
+                start_min = 480
+                end_min = start_min + duration
+                hours_str = f"{start_min // 60:02d}{start_min % 60:02d}-{end_min // 60:02d}{end_min % 60:02d}"
+            else:
+                hours_str = ''
+
+            course_rows.append((c.code, getattr(c, 'name', '') or '', hours_str, aula, pref_day))
+
+    data_sheets = (
+        ('Aulas', ROOM_HEADERS, (24, 46, 25, 18), classroom_rows),
+        ('Cursos', COURSE_HEADERS, (24, 48, 22, 24, 18), course_rows),
+    )
+
+    for name, headers, widths, rows in data_sheets:
+        sheet = book.create_sheet(name)
+        sheet.append(headers)
+        for row in rows:
+            sheet.append(row)
+        sheet.freeze_panes = 'B2'
+        sheet.sheet_view.showGridLines = False
+        sheet.row_dimensions[1].height = 32
+        max_row = max(len(rows) + 1, 201)
+        sheet.auto_filter.ref = f'A1:{sheet.cell(1, len(headers)).column_letter}{max_row}'
+        for column, width in enumerate(widths, 1):
+            letter = sheet.cell(1, column).column_letter
+            sheet.column_dimensions[letter].width = width
+            head = sheet.cell(1, column)
+            head.font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+            head.fill = PatternFill('solid', fgColor='087F83' if column == 1 else '183153')
+            head.alignment = Alignment(vertical='center', wrap_text=True)
+            for row_idx in range(2, max_row + 1):
+                cell = sheet.cell(row_idx, column)
+                cell.number_format = '0' if name == 'Aulas' and column == 4 else '@'
+                cell.font = Font(name='Calibri', size=11, color='1D2D44')
+                cell.alignment = Alignment(vertical='center', wrap_text=True)
+                cell.fill = PatternFill('solid', fgColor='EFF3F9' if row_idx % 2 == 0 else 'FFFFFF')
+                sheet.row_dimensions[row_idx].height = 32
+        sheet.print_title_rows = '1:1'
+        sheet.print_area = f'A1:{sheet.cell(1, len(headers)).column_letter}{len(rows) + 1}'
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        sheet.page_setup.orientation = 'landscape'
+        sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
+        sheet.page_setup.fitToWidth, sheet.page_setup.fitToHeight = 1, 0
+
+    capacity = DataValidation(type='whole', operator='greaterThanOrEqual', formula1=0, allow_blank=True)
+    capacity.promptTitle = 'CAPACIDAD'
+    capacity.prompt = 'Entero ≥ 0 / Whole number ≥ 0. Vacío / Blank: 0.'
+    capacity.errorTitle = 'CAPACIDAD'
+    capacity.error = 'Use un entero ≥ 0 / Use a whole number ≥ 0.'
+    capacity.showInputMessage = capacity.showErrorMessage = True
+    capacity.errorStyle = 'stop'
+    if 'Aulas' in book.sheetnames:
+        book['Aulas'].add_data_validation(capacity)
+        capacity.add('D2:D10001')
+
+    return book
+
+
+def write_session_data_excel(output_path, classrooms: dict, courses: list):
+    """Export current session classrooms and courses into a valid SORTH template file."""
+    book = build_session_export_workbook(classrooms, courses)
+    try:
+        with ScheduleExporter._atomic_output(output_path, '.xlsx') as temporary:
+            book.save(temporary)
+    finally:
+        book.close()

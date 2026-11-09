@@ -22,3 +22,6 @@ project_root/data/output/
 
 # Isolated security-analysis tools
 project_root/.venv-security/
+
+.codegraph/
+build/

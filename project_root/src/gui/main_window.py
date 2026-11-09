@@ -19,12 +19,13 @@ from ..infrastructure.session_repository import SessionRepository
 from ..scheduling.time_model import TimeModel
 from ..scheduling.classroom import Classroom
 
-from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, DeleteClassroomDialog, _InfoDialog
+from .dialogs import ClassroomRestrictionsDialog, AddClassroomDialog, DeleteClassroomDialog, EditClassroomDialog, _InfoDialog
 from .scheduler_worker import SchedulerWorker
 from .import_controller import ImportController
 from .export_controller import ExportController
 from .session_controller import SessionController
-from .excel_template import TemplateSaveButton, save_import_template
+from .excel_template import TemplateSaveButton, save_import_template, export_session_data_to_excel
+from ..scheduling.classroom_preferences import classroom_course_map
 from .theme import apply_theme, theme_manager
 from .motion import MotionController, update_busy_indicator
 from ..infrastructure.feature_preferences import FeaturePreferences
@@ -129,20 +130,29 @@ class MainWindow(QMainWindow):
         self._refresh_themed_icons()
 
     def _refresh_themed_icons(self):
-        try:
-            manager = theme_manager()
-            current = manager.current
-            colors = current.colors if hasattr(current, 'colors') else {}
-            on_header = colors.get('on_header', '#FFFFFF')
-            on_primary = colors.get('on_primary', '#FFFFFF')
-            if hasattr(self, 'btn_settings'):
-                self.btn_settings.setIcon(app_icon('settings', on_header))
-            if hasattr(self, 'btn_help'):
-                self.btn_help.setIcon(app_icon('help', on_header))
-            if hasattr(self, 'btn_generate'):
-                self.btn_generate.setIcon(app_icon('sparkles', on_primary))
-        except Exception:
-            pass
+        manager = theme_manager()
+        current = getattr(manager, 'current', None)
+        colors = getattr(current, 'colors', {}) if current else {}
+        if not isinstance(colors, dict):
+            colors = {}
+        on_header = colors.get('on_header', '#FFFFFF')
+        on_primary = colors.get('on_primary', '#FFFFFF')
+        if hasattr(self, 'btn_settings') and self.btn_settings is not None:
+            self.btn_settings.setIcon(app_icon('settings', on_header))
+        if hasattr(self, 'btn_help') and self.btn_help is not None:
+            self.btn_help.setIcon(app_icon('help', on_header))
+        if hasattr(self, 'btn_generate') and self.btn_generate is not None:
+            self.btn_generate.setIcon(app_icon('sparkles', on_primary))
+        if hasattr(self, 'btn_add_classroom') and self.btn_add_classroom is not None:
+            self.btn_add_classroom.setIcon(app_icon('plus'))
+        if hasattr(self, 'btn_edit_classroom') and self.btn_edit_classroom is not None:
+            self.btn_edit_classroom.setIcon(app_icon('edit'))
+        if hasattr(self, 'btn_delete_classroom') and self.btn_delete_classroom is not None:
+            self.btn_delete_classroom.setIcon(app_icon('trash'))
+        if hasattr(self, 'btn_restrictions') and self.btn_restrictions is not None:
+            self.btn_restrictions.setIcon(app_icon('lock'))
+        if hasattr(self, 'btn_export_data') and self.btn_export_data is not None:
+            self.btn_export_data.setIcon(app_icon('export'))
     def _init_ui(self):
         self.setWindowTitle(msg('SORTH-AI - Sistema de Organización de Horarios'))
         self._set_window_icon()
@@ -217,6 +227,7 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.course_manager = CourseManagerWidget(repo=self._repo, calendar_provider=lambda: self.calendar)
+        self.btn_export_data = self.course_manager.btn_export
         self.tabs.addTab(self.course_manager, app_icon('courses'), msg('Gestión de Cursos'))
         self.tabs.setTabToolTip(0, msg('Ver, agregar, editar y eliminar los cursos a programar'))
         self.course_manager.courses_changed.connect(self._on_inputs_changed)
@@ -427,11 +438,19 @@ class MainWindow(QMainWindow):
         )
         self.btn_add_classroom.clicked.connect(self._add_classroom)
 
+        self.btn_edit_classroom = QPushButton(app_icon('edit'), msg('Editar aula'))
+        self.btn_edit_classroom.setToolTip(
+            msg('Editar un aula existente (capacidad, tipo, campus).')
+        )
+        self.btn_edit_classroom.clicked.connect(self._edit_classroom)
+        self.btn_edit_classroom.setEnabled(bool(self._classrooms))
+
         self.btn_delete_classroom = QPushButton(app_icon('trash'), msg('Eliminar aula'))
         self.btn_delete_classroom.setToolTip(
             msg('Eliminar un aula de la sesión actual.')
         )
         self.btn_delete_classroom.clicked.connect(self._delete_classroom)
+        self.btn_delete_classroom.setEnabled(bool(self._classrooms))
 
         self.btn_restrictions = QPushButton(msg('Restricciones de aulas'))
         self.btn_restrictions.setIcon(app_icon('lock'))
@@ -446,6 +465,7 @@ class MainWindow(QMainWindow):
         file_row.addWidget(btn_load)
         file_row.addWidget(self.btn_template)
         file_row.addWidget(self.btn_add_classroom)
+        file_row.addWidget(self.btn_edit_classroom)
         file_row.addWidget(self.btn_delete_classroom)
         file_row.addWidget(self.btn_restrictions)
         layout.addWidget(self._course_management_toolbar)
@@ -680,20 +700,25 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, msg('Duplicado'),
                                 msg("El aula '{p1}' ya existe.", p1=classroom.name))
             return
-        self._classrooms[classroom.name] = classroom
-        self._invalidate_schedule()
-        self._refresh_overview()
-        self.btn_generate.setEnabled(bool(self.course_manager.get_courses()))
+        candidate = self._capture_edit_state()
+        candidate['classrooms'][classroom.name] = classroom
+        if not self._confirm_pin_inputs(classrooms=candidate['classrooms']):
+            return
+        if not self._commit_edit(candidate, msg("Agregar aula '{p1}'", p1=classroom.name)):
+            return
         self.status_bar.showMessage(
             msg("Aula '{p1}' agregada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
         )
-        self.session.save()
 
     def _delete_classroom(self):
         if not self._classrooms:
             QMessageBox.information(self, msg('Info'), msg('No hay aulas para eliminar.'))
             return
-        dialog = DeleteClassroomDialog(self, self._classrooms)
+        dialog = DeleteClassroomDialog(
+            self, self._classrooms,
+            courses=self.course_manager.get_courses(),
+            restrictions=self.classroom_restrictions
+        )
         if not dialog.exec():
             return
         room_name = dialog.get_selected_classroom()
@@ -706,17 +731,34 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.No
         ) != QMessageBox.StandardButton.Yes:
             return
-        del self._classrooms[room_name]
-        if room_name in self.classroom_restrictions:
-            del self.classroom_restrictions[room_name]
-        if room_name in self._classroom_course_map:
-            del self._classroom_course_map[room_name]
-        self._invalidate_schedule()
-        self._refresh_overview()
-        self.btn_generate.setEnabled(bool(self._classrooms and self.course_manager.get_courses()))
-        self.btn_restrictions.setEnabled(bool(self._classroom_course_map))
+        candidate = self._capture_edit_state()
+        candidate['classrooms'].pop(room_name, None)
+        candidate['restrictions'].pop(room_name, None)
+        if 'classroom_course_map' in candidate:
+            candidate['classroom_course_map'].pop(room_name, None)
+        if not self._confirm_pin_inputs(classrooms=candidate['classrooms'], restrictions=candidate['restrictions']):
+            return
+        if not self._commit_edit(candidate, msg("Eliminar aula '{p1}'", p1=room_name)):
+            return
         self.status_bar.showMessage(msg("Aula '{p1}' eliminada.", p1=room_name))
-        self.session.save()
+
+    def _edit_classroom(self):
+        if not self._classrooms:
+            QMessageBox.information(self, msg('Info'), msg('No hay aulas para editar.'))
+            return
+        dialog = EditClassroomDialog(self, self._classrooms)
+        if not dialog.exec():
+            return
+        classroom = dialog.get_classroom()
+        candidate = self._capture_edit_state()
+        candidate['classrooms'][classroom.name] = classroom
+        if not self._confirm_pin_inputs(classrooms=candidate['classrooms']):
+            return
+        if not self._commit_edit(candidate, msg("Editar aula '{p1}'", p1=classroom.name)):
+            return
+        self.status_bar.showMessage(
+            msg("Aula '{p1}' actualizada ({p3}, cap={p5})", p1=classroom.name, p3=classroom.room_type, p5=classroom.capacity)
+        )
 
     def _configure_restrictions(self):
         if not self._classroom_course_map:
@@ -1169,9 +1211,11 @@ class MainWindow(QMainWindow):
                    lambda: self._cancel_button.setVisible(False),
                    lambda: self.btn_generate.setText(msg('Recuperación pendiente'))]
         for control in (self.course_manager, self.schedule_viewer, self.btn_load,
-                        self.btn_add_classroom, self.btn_delete_classroom, self.btn_generate, self.btn_restrictions,
+                        self.btn_add_classroom, self.btn_delete_classroom, getattr(self, 'btn_edit_classroom', None),
+                        getattr(self, 'btn_export_data', None), self.btn_generate, self.btn_restrictions,
                         self.chk_random_seed, self.seed_input, self._undo_action, self._redo_action):
-            updates.append(lambda control=control: control.setEnabled(False))
+            if control is not None:
+                updates.append(lambda control=control: control.setEnabled(False))
         for update in updates:
             try:
                 update()
@@ -1186,6 +1230,12 @@ class MainWindow(QMainWindow):
         try:
             self.calendar = state['calendar']
             self.resources = state['resources']
+            self._classrooms = state.get('classrooms', self._classrooms)
+            self.classroom_restrictions = state.get('restrictions', self.classroom_restrictions)
+            if 'classroom_course_map' in state:
+                self._classroom_course_map = state['classroom_course_map']
+            else:
+                self._classroom_course_map = classroom_course_map(state['courses'], set(self._classrooms))
             self.course_manager.courses = state['courses']
             self.course_manager._refresh_table()
             self.current_schedule = state['assignments']
@@ -1224,6 +1274,12 @@ class MainWindow(QMainWindow):
                 self._scenario_dirty = session_fingerprint(state) != self._scenario_baseline
                 self._scenario_comparison_error = None
             self.btn_generate.setEnabled(bool(self._classrooms and state['courses']) and not self._busy)
+            self.btn_delete_classroom.setEnabled(bool(self._classrooms) and not self._busy)
+            if hasattr(self, 'btn_edit_classroom'):
+                self.btn_edit_classroom.setEnabled(bool(self._classrooms) and not self._busy)
+            if hasattr(self, 'btn_export_data'):
+                self.btn_export_data.setEnabled(bool(self._classrooms or state['courses']) and not self._busy)
+            self.btn_restrictions.setEnabled(bool(self._classroom_course_map) and not self._busy)
             self._refresh_overview()
             self.export.refresh_actions()
             self.session.refresh_status()
@@ -1541,6 +1597,12 @@ class MainWindow(QMainWindow):
         else:
             text += msg('  ·  Cargue un Excel para comenzar')
         self.overview_label.setText(text)
+        if hasattr(self, 'btn_delete_classroom'):
+            self.btn_delete_classroom.setEnabled(not self._busy and bool(self._classrooms))
+        if hasattr(self, 'btn_edit_classroom'):
+            self.btn_edit_classroom.setEnabled(not self._busy and bool(self._classrooms))
+        if hasattr(self, 'btn_export_data'):
+            self.btn_export_data.setEnabled(not self._busy and bool(self._classrooms or courses))
 
     def _pinned_assignments(self):
         return {gid: placement for gid, placement in (self.current_schedule or {}).items()
@@ -1643,10 +1705,15 @@ class MainWindow(QMainWindow):
     def _set_busy(self, busy):
         self._busy = busy
         self._update_history_actions()
-        for control in (self.btn_load, self.btn_add_classroom, self.btn_delete_classroom, self.course_manager,
+        for control in (self.btn_load, self.btn_add_classroom, self.course_manager,
                         self.schedule_viewer, self.chk_random_seed, self.btn_settings,
                         *self.resource_buttons.values()):
             control.setEnabled(not busy)
+        self.btn_delete_classroom.setEnabled(not busy and bool(self._classrooms))
+        if hasattr(self, 'btn_edit_classroom'):
+            self.btn_edit_classroom.setEnabled(not busy and bool(self._classrooms))
+        if hasattr(self, 'btn_export_data'):
+            self.btn_export_data.setEnabled(not busy and bool(self._classrooms or self.course_manager.get_courses()))
         self.seed_input.setEnabled(not busy and not self.chk_random_seed.isChecked())
         self.btn_restrictions.setEnabled(not busy and bool(self._classroom_course_map))
         self.btn_generate.setEnabled(not busy and bool(self._classrooms and self.course_manager.get_courses()))

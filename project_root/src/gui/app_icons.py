@@ -53,6 +53,17 @@ def app_icon(name: str, color: str | None = None) -> QIcon:
     if not path.exists():
         return QIcon()
     if not color:
+        # Resolve contrast dynamically from the active theme when no explicit color is passed.
+        try:
+            from .theme import theme_manager
+            manager = theme_manager()
+            current = getattr(manager, 'current', None)
+            colors = getattr(current, 'colors', {}) if current else {}
+            if isinstance(colors, dict) and 'text' in colors:
+                color = colors['text']
+        except Exception:
+            color = None
+    if not color:
         return QIcon(str(path))
 
     try:
