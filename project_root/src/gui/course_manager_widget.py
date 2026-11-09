@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 from ..scheduling.course import Course
 from ..scheduling.time_model import TimeModel
 from ..scheduling.project_calendar import ProjectCalendar
+from .excel_template import export_session_data_to_excel
 
 from .i18n import msg, language_manager
 from .i18n_widgets import (
@@ -468,6 +469,9 @@ class CourseManagerWidget(QWidget):
         btn_delete = QPushButton(app_icon('trash'), msg('Eliminar'))
         btn_delete.setToolTip(msg('Eliminar el curso seleccionado de la lista'))
         btn_delete.clicked.connect(self._delete_course)
+        self.btn_export = QPushButton(app_icon('export'), msg('Exportar datos'))
+        self.btn_export.setToolTip(msg('Exportar los cursos y aulas de la sesión actual a una plantilla Excel (.xlsx).'))
+        self.btn_export.clicked.connect(lambda: export_session_data_to_excel(self.window() if callable(getattr(self, 'window', None)) else self))
         btn_clear = QPushButton(app_icon('clear'), msg('Limpiar Todo'))
         btn_clear.setToolTip(msg('Eliminar todos los cursos de la lista'))
         btn_clear.clicked.connect(self._clear_all)
@@ -475,6 +479,7 @@ class CourseManagerWidget(QWidget):
         btn_layout.addWidget(btn_add)
         btn_layout.addWidget(btn_edit)
         btn_layout.addWidget(btn_delete)
+        btn_layout.addWidget(self.btn_export)
         btn_layout.addStretch()
         btn_layout.addWidget(btn_clear)
         layout.addLayout(btn_layout)

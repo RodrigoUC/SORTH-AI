@@ -430,13 +430,6 @@ class MainWindow(QMainWindow):
         self.btn_template.setToolTip(msg('Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.'))
         self.btn_template.clicked.connect(lambda: save_import_template(self))
 
-        self.btn_export_data = QPushButton(app_icon('export'), msg('Exportar datos'))
-        self.btn_export_data.setToolTip(
-            msg('Exportar los cursos y aulas de la sesión actual a una plantilla Excel (.xlsx).')
-        )
-        self.btn_export_data.clicked.connect(lambda: export_session_data_to_excel(self))
-        self.btn_export_data.setEnabled(bool(self._classrooms))
-
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
         self.btn_add_classroom.setIcon(app_icon('plus'))
         self.btn_add_classroom.setToolTip(
@@ -446,7 +439,7 @@ class MainWindow(QMainWindow):
 
         self.btn_edit_classroom = QPushButton(app_icon('edit'), msg('Editar aula'))
         self.btn_edit_classroom.setToolTip(
-            msg('Editar capacidad, tipo o descripción de un aula existente.')
+            msg('Editar un aula existente (capacidad, tipo, campus).')
         )
         self.btn_edit_classroom.clicked.connect(self._edit_classroom)
         self.btn_edit_classroom.setEnabled(bool(self._classrooms))
@@ -470,7 +463,6 @@ class MainWindow(QMainWindow):
         file_row.addWidget(self.excel_path_label, 1)
         file_row.addWidget(btn_load)
         file_row.addWidget(self.btn_template)
-        file_row.addWidget(self.btn_export_data)
         file_row.addWidget(self.btn_add_classroom)
         file_row.addWidget(self.btn_edit_classroom)
         file_row.addWidget(self.btn_delete_classroom)
