@@ -430,6 +430,8 @@ class MainWindow(QMainWindow):
         self.btn_template.setToolTip(msg('Guardar una plantilla .xlsx con instrucciones y ejemplos ficticios para completar e importar. No cambia la sesión actual.'))
         self.btn_template.clicked.connect(lambda: save_import_template(self))
 
+        self.btn_export_data = self.course_manager.btn_export
+
         self.btn_add_classroom = QPushButton(msg('Agregar aula'))
         self.btn_add_classroom.setIcon(app_icon('plus'))
         self.btn_add_classroom.setToolTip(
